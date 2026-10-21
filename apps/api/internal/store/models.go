@@ -57,8 +57,10 @@ type Division struct {
 	StandingsPublished bool                `gorm:"column:standings_published"`
 	EntryKind          domain.EntryKind    `gorm:"column:entry_kind"`
 	StatsKind          domain.StatsKind    `gorm:"column:stats_kind"`
-	CreatedAt          time.Time           `gorm:"column:created_at"`
-	UpdatedAt          time.Time           `gorm:"column:updated_at"`
+	// ShowSOTG はチームページに SOTG スコア一覧(値は空)を出すか(migrations/00010)
+	ShowSOTG  bool      `gorm:"column:show_sotg"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -69,6 +71,7 @@ type Group struct {
 	ID             int64            `gorm:"column:id;primaryKey"`
 	DivisionID     int64            `gorm:"column:division_id"`
 	Name           string           `gorm:"column:name"`
+	NameEn         string           `gorm:"column:name_en"`
 	Kind           domain.GroupKind `gorm:"column:kind"`
 	SortOrder      int              `gorm:"column:sort_order"`
 	Linked         bool             `gorm:"column:linked"`
@@ -158,8 +161,17 @@ type Match struct {
 	Status                  domain.MatchStatus `gorm:"column:status"`
 	HasDetail               bool               `gorm:"column:has_detail"`
 	WinnerSide              *domain.Side       `gorm:"column:winner_side"`
-	CreatedAt               time.Time          `gorm:"column:created_at"`
-	UpdatedAt               time.Time          `gorm:"column:updated_at"`
+	// LeftLabelEn / RightLabelEn は対戦相手の決まり方の英語表記("[A1-Win]" など)。英語版で
+	// チームの英語名が空のとき代わりに出す(migrations/00010)
+	LeftLabelEn  string `gorm:"column:left_label_en"`
+	RightLabelEn string `gorm:"column:right_label_en"`
+	// GroupLabel は試合ページのグループ欄の文字。nil ならグループの名前(migrations/00010)
+	GroupLabel *string   `gorm:"column:group_label"`
+	Note       string    `gorm:"column:note"`
+	HideBlocks bool      `gorm:"column:hide_blocks"`
+	HideStats  bool      `gorm:"column:hide_stats"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+	UpdatedAt  time.Time `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -199,6 +211,7 @@ type Gallery struct {
 	ID           int64  `gorm:"column:id;primaryKey"`
 	TournamentID int64  `gorm:"column:tournament_id"`
 	Name         string `gorm:"column:name"`
+	NameEn       string `gorm:"column:name_en"`
 	SortOrder    int    `gorm:"column:sort_order"`
 }
 
