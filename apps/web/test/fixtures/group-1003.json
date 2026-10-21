@@ -1,0 +1,23 @@
+{
+  "frame": "frame-1",
+  "group": {
+    "id": 1003,
+    "name": "Temporary ranking",
+    "kind": "image",
+    "division": {
+      "id": 101,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      }
+    }
+  },
+  "pool": null,
+  "bracket": null,
+  "image": {
+    "url": "/brand/photo-sample.svg",
+    "width": 500,
+    "height": 333
+  },
+  "matches": []
+}
