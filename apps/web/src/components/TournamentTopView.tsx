@@ -1,8 +1,10 @@
+import { Fragment } from 'react'
 import type { TournamentTopResponse } from '@/api/public.types'
 import { brand } from '@/brand/brand.config'
 import { divisionHref, divisionScheduleHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { msg } from '@/i18n/messages'
+import { isVenueMapBanner, venueMapLabel } from './banner.utils'
 import { assetSrc, referenceAssetMode, rewriteHtmlImages } from './referenceAsset.utils'
 import { SanitizedHtml } from './SanitizedHtml'
 import { Tbl, TblHeaderRow } from './Tbl'
@@ -19,6 +21,35 @@ function DivisionLink({ href, label }: { href: string | null; label: string }) {
     <a className="Select_Link" href={href}>
       {label}
     </a>
+  )
+}
+
+/**
+ * 本サイト独自の追記(docs/requirements.md「意図的な差分」): サイドバーの会場図のバナー(リンク先が PDF)
+ * への文字のリンク。スマートフォンではサイドバーが画面の外にあり、会場図に辿り着けないため。
+ * 該当するバナーが無ければ何も出さない。
+ */
+function VenueMapLinks({
+  banners,
+  lang,
+}: {
+  banners: TournamentTopResponse['frame']['banners']
+  lang: Lang
+}) {
+  const maps = banners.filter(isVenueMapBanner)
+  if (maps.length === 0) {
+    return null
+  }
+  return (
+    <p className="sv_venue_map" data-scoreview-addition="">
+      {maps.map((banner, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: 同じリンク先の会場図が並ぶことがある
+        <Fragment key={index}>
+          {index > 0 && ' '}
+          <a href={banner.linkUrl ?? undefined}>{venueMapLabel(lang)}</a>
+        </Fragment>
+      ))}
+    </p>
   )
 }
 
@@ -63,6 +94,7 @@ export function TournamentTopView({ data, lang }: { data: TournamentTopResponse;
           </tr>
         ))}
       </Tbl>
+      <VenueMapLinks banners={data.frame.banners} lang={lang} />
       <br />
       <hr />
       <br />

@@ -52,3 +52,9 @@
   color: #555;
   text-align: right;
 }
+
+/* 大会トップのディビジョン表の下の会場図へのリンク(表の左端 80px + 余白に揃える) */
+#main p.sv_venue_map {
+  margin: 6px 0 0 90px;
+  font-size: 12px;
+}
