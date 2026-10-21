@@ -126,6 +126,9 @@ func TestCycleUnresolvedAndDecision(t *testing.T) {
 			assert.Equal(t, []int64{2, 3, 1}, order(decided))
 			assert.Equal(t, map[int64]int{2: 1, 3: 2, 1: 3}, rankMap(decided))
 			assert.Contains(t, reasonText(t, decided, 2), "運営者の指定で")
+			in.Decisions = []format.Decision{{Order: []int64{2, 3, 1}, Basis: basis, Method: "ディスクフリップ"}}
+			assert.Contains(t, reasonText(t, format.RankPool(in), 2), "ディスクフリップで",
+				"決め方が分かれば、その決め方を根拠に書く")
 
 			in.Decisions = []format.Decision{{Order: []int64{2, 3}, Basis: basis}} // 一部だけの指定では決めない
 			assert.Len(t, format.RankPool(in).Unresolved, 1)

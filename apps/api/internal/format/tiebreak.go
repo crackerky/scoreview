@@ -154,6 +154,8 @@ type RankInput struct {
 type Decision struct {
 	Order []int64
 	Basis []TeamValues
+	// Method は決め方(「ブリックマーク投げ」など。group_rank_decisions.reason)。順位の根拠の文に出す
+	Method string
 }
 
 // TeamValues はチームの基準ごとの値(Rule.Criteria の順。分数を "分子/分母" で表す)。保存する
@@ -187,7 +189,9 @@ type Reason struct {
 	TiedOn   CriterionKind
 	TiedWith []int64
 	// DecidedBy は最後にこのチームを分けた基準。運営者の指定なら CritManual
-	DecidedBy  CriterionKind
+	DecidedBy CriterionKind
+	// Method は運営者の指定の決め方(「ブリックマーク投げ」)。分からなければ空
+	Method     string
 	Unresolved bool
 	// Above は 2 チームで並んで上位になったか(説明の「上位」「下位」に使う)
 	Above bool
@@ -208,6 +212,10 @@ func (r Reason) Text() string {
 		if r.Above {
 			tail = "で上位"
 		}
+	}
+	if r.DecidedBy == CritManual && r.Method != "" {
+		// 観戦者と選手が「どう決まったか」を読めるように、運営者の指定は決め方で書く
+		return head + "、" + r.Method + tail
 	}
 	return head + "、" + r.DecidedBy.Label() + tail
 }
@@ -272,11 +280,12 @@ func rankWith(
 	for _, tier := range tiers {
 		resolved := tier
 		manual := false
+		method := ""
 		var basis []TeamValues
 		if len(tier) > 1 {
 			basis = tieBasis(rule, value, tier)
-			if ordered, ok := applyDecision(tier, basis, decisions); ok {
-				resolved, manual = ordered, true
+			if ordered, how, ok := applyDecision(tier, basis, decisions); ok {
+				resolved, manual, method = ordered, true, how
 			}
 		}
 		if len(resolved) > 1 && !manual {
@@ -294,7 +303,7 @@ func rankWith(
 				reason.TiedOn = rule.Criteria[0].Kind
 			}
 			if manual {
-				reason.DecidedBy = CritManual
+				reason.DecidedBy, reason.Method = CritManual, method
 			}
 			out.Rows = append(out.Rows, RankRow{TeamID: team, Rank: rank, Stats: stats[team], Reason: reason})
 		}
@@ -328,9 +337,9 @@ func tieBasis(rule Rule, value func(CriterionKind, []int64) map[int64]ratio, tie
 	return out
 }
 
-// applyDecision は tier と同じチームで、指定した時点の値が basis と同じ指定のうち最後のものの並びを
-// 返す。無ければ ok=false(未決のまま)。
-func applyDecision(tier []int64, basis []TeamValues, decisions []Decision) ([]int64, bool) {
+// applyDecision は tier と同じチームで、指定した時点の値が basis と同じ指定のうち最後のものの並びと
+// 決め方を返す。無ければ ok=false(未決のまま)。
+func applyDecision(tier []int64, basis []TeamValues, decisions []Decision) ([]int64, string, bool) {
 	for i := len(decisions) - 1; i >= 0; i-- {
 		d := decisions[i]
 		if !sameTeams(tier, d.Order) || !sameBasis(basis, d.Basis) {
@@ -342,9 +351,9 @@ func applyDecision(tier []int64, basis []TeamValues, decisions []Decision) ([]in
 		}
 		ordered := slices.Clone(tier)
 		slices.SortFunc(ordered, func(a, b int64) int { return index[a] - index[b] })
-		return ordered, true
+		return ordered, d.Method, true
 	}
-	return nil, false
+	return nil, "", false
 }
 
 // sameTeams は a と b が重複なく同じチームの集まりかどうか。

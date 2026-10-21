@@ -331,6 +331,10 @@ func outlookText(look format.Outlook) string {
 		if c.AtLeast == 1 {
 			return fmt.Sprintf("次の %s %s 1 位確定", c.Match, verb)
 		}
+		if c.AtLeast == look.Best {
+			// これより上の順位にはなれないので「以上」ではなくその順位に決まる
+			return fmt.Sprintf("次の %s %s %d 位が確定", c.Match, verb, c.AtLeast)
+		}
 		return fmt.Sprintf("次の %s %s %d 位以上が確定", c.Match, verb, c.AtLeast)
 	}
 	return ""

@@ -152,7 +152,8 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, page.Pool)
 	require.NotEmpty(t, page.Pool.Notes.Reasons)
-	assert.Equal(t, "勝ち点同数、運営者の指定で決定", page.Pool.Notes.Reasons[0].Text)
+	assert.Equal(t, "勝ち点同数、ブリックマーク投げで決定", page.Pool.Notes.Reasons[0].Text,
+		"同点の決め方を閲覧ページの根拠に出す")
 	assert.Equal(t, 1, *page.Pool.Results[2].Rank, "閲覧ページの順位も運営者の指定(シード 12 が 1 位)")
 	var confirms, decisions int64
 	require.NoError(t, f.db.Model(&store.AuditLog{}).Where("action = ?", store.AuditGroupConfirm).

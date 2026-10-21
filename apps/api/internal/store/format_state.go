@@ -341,5 +341,6 @@ func decodeDecision(row GroupRankDecision) (format.Decision, bool) {
 	if json.Unmarshal(row.TeamIDs, &d.Order) != nil || json.Unmarshal(row.Basis, &d.Basis) != nil {
 		return d, false
 	}
+	d.Method = row.Reason
 	return d, true
 }
