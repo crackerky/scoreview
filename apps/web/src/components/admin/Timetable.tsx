@@ -1,11 +1,17 @@
-import { sideName } from '@/admin/labels.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
-import { buildTimetable, cellKey, type TimetableMatch } from '@/admin/timetable.utils'
+import {
+  buildTimetable,
+  cellKey,
+  type SideLabels,
+  sideText,
+  type TimetableMatch,
+} from '@/admin/timetable.utils'
 
 // 時間割(コート × 時刻の表。A4 横 1 日 1 枚)。会場に貼って、選手と記録係が次の試合のコートを探せる
 // ようにする(docs/operations/operator-experience.md「紙を上回ることが前提」1)。
 
-function MatchCell({ match }: { match: TimetableMatch }) {
+function MatchCell({ match, labels }: { match: TimetableMatch; labels: SideLabels }) {
+  const label = labels.get(match.id)
   const score =
     match.status === 'finished'
       ? match.resultType === 'normal' || match.resultType === 'abandoned'
@@ -17,16 +23,25 @@ function MatchCell({ match }: { match: TimetableMatch }) {
       <span className="pr-cell-code">{match.code}</span>
       <span className="pr-cell-div">{match.divisionName}</span>
       <span className="pr-cell-teams">
-        {sideName(match.left)}
+        {sideText(match.left, label?.left)}
         <br />
-        {sideName(match.right)}
+        {sideText(match.right, label?.right)}
       </span>
       {score ? <span className="pr-cell-score">{score}</span> : null}
     </div>
   )
 }
 
-export function Timetable({ title, matches }: { title: string; matches: TimetableMatch[] }) {
+export function Timetable({
+  title,
+  matches,
+  labels = new Map(),
+}: {
+  title: string
+  matches: TimetableMatch[]
+  /** 大会の形のある部門の試合の決まり方(無ければ参照サイトの表記 [A1-勝ち] を言い換える) */
+  labels?: SideLabels
+}) {
   const days = buildTimetable(matches)
   if (days.length === 0) {
     return <p>試合がありません。</p>
@@ -55,7 +70,7 @@ export function Timetable({ title, matches }: { title: string; matches: Timetabl
                     {day.fields.map((field) => (
                       <td key={field}>
                         {(day.cells.get(cellKey(time, field)) ?? []).map((match) => (
-                          <MatchCell key={match.id} match={match} />
+                          <MatchCell key={match.id} match={match} labels={labels} />
                         ))}
                       </td>
                     ))}
@@ -70,8 +85,9 @@ export function Timetable({ title, matches }: { title: string; matches: Timetabl
               <ul className="pr-unplaced">
                 {day.unplaced.map((match) => (
                   <li key={match.id}>
-                    {match.code} {match.divisionName} {sideName(match.left)} -{' '}
-                    {sideName(match.right)}
+                    {match.code} {match.divisionName}{' '}
+                    {sideText(match.left, labels.get(match.id)?.left)} -{' '}
+                    {sideText(match.right, labels.get(match.id)?.right)}
                     {match.time ? ` ${match.time}` : ''}
                     {match.field ? ` コート ${match.field}` : ''}
                   </li>

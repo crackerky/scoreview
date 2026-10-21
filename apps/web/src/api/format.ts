@@ -1,7 +1,7 @@
 import 'server-only'
 import type { z } from 'zod'
 import { noContentSchema } from './admin.types'
-import { apiFetch } from './client'
+import { ApiError, apiFetch } from './client'
 import {
   type FormatInput,
   formatPreviewSchema,
@@ -78,6 +78,22 @@ export const formats = {
     call(token, 'GET', `${admin}/divisions/${divisionId}/progress`, progressSchema),
   matches: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/format/matches`, progressMatchListSchema),
+  /** 形の無い部門(409)なら null。印刷物で未確定の対戦の決まり方を出すため(記録係も呼べる) */
+  matchesIfFormatted: async (token: string, divisionId: number) => {
+    try {
+      return await call(
+        token,
+        'GET',
+        `${admin}/divisions/${divisionId}/format/matches`,
+        progressMatchListSchema,
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        return null
+      }
+      throw error
+    }
+  },
   confirmGroup: (token: string, groupId: number, unplayed: boolean) =>
     call(token, 'POST', `${admin}/groups/${groupId}/confirm`, noContentSchema, { unplayed }),
   confirmStage: (token: string, stageId: number, unplayed: boolean) =>
