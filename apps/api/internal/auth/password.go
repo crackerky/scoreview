@@ -46,7 +46,8 @@ const dummyHash = "$argon2id$v=19$m=19456,t=2,p=1$" +
 // ErrMalformedHash は保存されたハッシュが argon2id の PHC 文字列として読めないことを表す。
 var ErrMalformedHash = errors.New("malformed password hash")
 
-// ValidatePassword はパスワードの長さを検査する。
+// ValidatePassword はパスワードの長さを検査し、同じ文字の繰り返しとよく使われるパスワードを拒否する
+// (checkPasswordStrength)。
 func ValidatePassword(password string) error {
 	length := utf8.RuneCountInString(password)
 	if length < MinPasswordLen || length > MaxPasswordLen {
@@ -55,7 +56,7 @@ func ValidatePassword(password string) error {
 			fmt.Sprintf("must be %d to %d characters", MinPasswordLen, MaxPasswordLen),
 		)
 	}
-	return nil
+	return checkPasswordStrength(password)
 }
 
 // HashPassword はパスワードを argon2id でハッシュし、PHC 文字列

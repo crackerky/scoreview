@@ -29,6 +29,7 @@ export function AdminShell({ user, title, notice, crumbs, children }: ShellProps
         <nav>
           <a href="/admin">大会一覧</a>
           {user.role === 'admin' ? <a href="/admin/users">ユーザー</a> : null}
+          <a href="/admin/password">パスワード変更</a>
         </nav>
         <span className="adm-user">
           {user.displayName || user.email}({user.role === 'admin' ? '管理者' : '記録係'})

@@ -19,6 +19,7 @@ const (
 	sqlLiveSession         = "token_hash = ? AND expires_at > ?"
 	sqlExpiredOfUser       = "user_id = ? AND expires_at <= ?"
 	sqlByUser              = "user_id = ?"
+	sqlOtherSessionsOfUser = "user_id = ? AND token_hash <> ?"
 	sqlFailuresSince       = "email = ? AND attempted_at > ?"
 	sqlFailuresFromIPSince = "ip = ? AND attempted_at > ?"
 	sqlFailuresOlderThan   = "attempted_at <= ?"
@@ -236,4 +237,29 @@ func ClearLoginFailures(ctx context.Context, db *gorm.DB, email string) error {
 		return fmt.Errorf("clear login failures: %w", err)
 	}
 	return nil
+}
+
+// SetOwnPassword は本人が変えたパスワードのハッシュを保存し、keepTokenHash(変更に使ったセッション)
+// 以外のそのユーザーのセッションを消す(古いパスワードで入った他の端末を締め出す)。
+func SetOwnPassword(
+	ctx context.Context,
+	db *gorm.DB,
+	userID int64,
+	passwordHash string,
+	keepTokenHash []byte,
+) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&User{}).Where(sqlByID, userID).Update("password_hash", passwordHash)
+		if result.Error != nil {
+			return fmt.Errorf("set password of user %d: %w", userID, result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("%w: user %d does not exist", domain.ErrUnauthorized, userID)
+		}
+		err := tx.Where(sqlOtherSessionsOfUser, userID, keepTokenHash).Delete(&Session{}).Error
+		if err != nil {
+			return fmt.Errorf("revoke other sessions of user %d: %w", userID, err)
+		}
+		return nil
+	})
 }

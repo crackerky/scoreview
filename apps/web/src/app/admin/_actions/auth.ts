@@ -2,12 +2,13 @@
 
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { runAction } from '@/admin/action'
 import { formToObject } from '@/admin/form.utils'
 import { loginErrorCode, loginErrorPath } from '@/admin/login.utils'
 import { clientIpFrom, LoginFailureLimiter } from '@/admin/loginLimit.utils'
 import { clearSession, readSessionToken, saveSession } from '@/admin/session'
-import { login, logout } from '@/api/admin'
-import { loginFormSchema } from '@/api/admin.types'
+import { changePassword, login, logout } from '@/api/admin'
+import { loginFormSchema, passwordChangeFormSchema } from '@/api/admin.types'
 
 // IP ごとのログインの失敗。サーバーのプロセス(Vercel では関数のインスタンス)の中で共有する
 const loginFailures = new LoginFailureLimiter()
@@ -45,4 +46,17 @@ export async function logoutAction(): Promise<never> {
   }
   await clearSession()
   redirect('/admin/login')
+}
+
+/** 本人のパスワードの変更。このセッションは残り、他の端末はログインし直しになる */
+export async function changePasswordAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      const ip = clientIpFrom(await headers())
+      await changePassword(token, passwordChangeFormSchema.parse(form), ip)
+      return undefined
+    },
+    'パスワードを変更しました。他の端末はログインし直しになります',
+  )
 }

@@ -398,6 +398,7 @@ type AdminUser = {
 | `POST /api/v1/auth/login` | `{ email, password }` | `{ token, expiresAt, user: AdminUser }`。`expiresAt` は RFC 3339(UTC)。失敗は 401 で、メールアドレスの有無を区別しない文面。試行の制限を超えたら 429 |
 | `POST /api/v1/auth/logout` | なし | 204 |
 | `GET /api/v1/auth/me` | なし | `{ user: AdminUser }` |
+| `POST /api/v1/auth/password` | `{ currentPassword, newPassword }` | 204。本人のパスワードを変える(管理者も記録係も)。このセッションは残し、同じユーザーの他のセッションを消す。今のパスワードが違えば 400(`currentPassword: is incorrect`)。照合はログインと同じ試行の制限に数える |
 
 - メールアドレスは前後の空白を除いた小文字で比べる。
 - セッションの有効期間はログインから 24 時間(延長しない)。トークンは 32 バイトの乱数の base64url で、api は SHA-256 だけを保存する。
@@ -848,10 +849,12 @@ type AdminGallery = {
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
 | `GET /admin/users` | なし | `{ users: AdminUser[] }`(役割、メールアドレス順) |
-| `POST /admin/users` | `{ email, displayName, role, password }`(role の既定 'staff'。password は 12〜256 文字で必須) | `AdminUser` |
+| `POST /admin/users` | `{ email, displayName, role, password }`(role の既定 'staff'。password は必須で、下の「パスワードの規則」を満たす) | `AdminUser` |
 | `GET` / `PATCH` / `DELETE /admin/users/{id}` | `PATCH` は `{ email, displayName, role, password }` の一部 | `AdminUser` / 204 |
 | `PUT /admin/users/{id}/tournaments` | `{ tournamentIds: number[] }`(担当大会を置き換える) | `AdminUser` |
 
 - パスワードは応答に含めない。`PATCH` で `password` を変えると、そのユーザーの全セッションを消す。
+- パスワードの規則(作成、`PATCH`、`POST /api/v1/auth/password` で共通。違反は 400): 12〜256 文字。同じ文字や 4 文字以下の並びの繰り返し(`aaaaaaaaaaaa`、`abcabcabcabc`)と、よく使われるパスワード(NCSC の上位 10 万件のうち 12 文字以上の 1,193 件。大文字小文字を区別しない。`internal/auth/common_passwords.txt`)は使えない。漏洩の照合に外部のサービスは使わない。
+- 多要素認証(MFA)は未対応。
 - 自分自身の役割の変更と削除は 409(管理者がいなくなるのを防ぐ)。
 - 最初の管理者は `go run ./cmd/createadmin -email ...` で作る(パスワードは環境変数 `SCOREVIEW_ADMIN_PASSWORD` か標準入力)。

@@ -717,6 +717,20 @@ export const userFormSchema = z.object({
   ),
 })
 
+/** 本人によるパスワードの変更。新しいパスワードは確認の欄と一致すること(打ち間違いで締め出されない) */
+export const passwordChangeFormSchema = z
+  .object({
+    currentPassword: z.string().min(1, '今のパスワードを入力してください'),
+    newPassword: z.string().min(12, 'パスワードは 12 文字以上にしてください').max(256),
+    newPasswordConfirm: z.string(),
+  })
+  .refine((form) => form.newPassword === form.newPasswordConfirm, {
+    path: ['newPasswordConfirm'],
+    message: '新しいパスワードと確認が一致しません',
+  })
+  .transform((form) => ({ currentPassword: form.currentPassword, newPassword: form.newPassword }))
+export type PasswordChangeInput = z.output<typeof passwordChangeFormSchema>
+
 /** ユーザーの作成(パスワードは必須) */
 export const userCreateFormSchema = userFormSchema.extend({
   password: z.string().min(12, 'パスワードは 12 文字以上にしてください').max(256),

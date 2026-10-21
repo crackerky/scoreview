@@ -26,6 +26,7 @@ import {
   matchDetailSchema,
   meResponseSchema,
   noContentSchema,
+  type PasswordChangeInput,
   userListSchema,
 } from './admin.types'
 import { apiFetch } from './client'
@@ -53,6 +54,16 @@ export function login(email: string, password: string, clientIp: string) {
   return apiFetch(`${base}/auth/login`, loginResponseSchema, {
     method: 'POST',
     body: { email, password },
+    clientIp,
+  })
+}
+
+/** 本人がパスワードを変える。このセッションは残り、他の端末のセッションは消える */
+export function changePassword(token: string, body: PasswordChangeInput, clientIp: string) {
+  return apiFetch(`${base}/auth/password`, noContentSchema, {
+    method: 'POST',
+    body,
+    sessionToken: token,
     clientIp,
   })
 }

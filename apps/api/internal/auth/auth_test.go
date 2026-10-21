@@ -63,9 +63,27 @@ func TestValidatePassword(t *testing.T) {
 		auth.ValidatePassword(strings.Repeat("a", auth.MaxPasswordLen+1)),
 		domain.ErrBadRequest,
 	)
-	assert.NoError(t, auth.ValidatePassword(strings.Repeat("a", auth.MinPasswordLen)))
+	assert.NoError(t, auth.ValidatePassword("correct horse battery staple"))
 	// 文字数で数える(日本語のパスフレーズをバイト数で弾かない)
-	assert.NoError(t, auth.ValidatePassword(strings.Repeat("あ", auth.MinPasswordLen)))
+	assert.NoError(t, auth.ValidatePassword("あいうえおかきくけこさし"))
+}
+
+// 同じ文字の繰り返しと、よく使われるパスワードを拒否する(セキュリティ点検 L-8)。
+func TestValidatePasswordRejectsWeakPasswords(t *testing.T) {
+	for _, weak := range []string{
+		strings.Repeat("a", auth.MinPasswordLen),
+		strings.Repeat("あ", auth.MinPasswordLen),
+		strings.Repeat("ab", 6),
+		strings.Repeat("abc", 5),
+		strings.Repeat("1234", 3) + "1",
+		// NCSC の上位 10 万件にある 12 文字以上のもの。大文字小文字は区別しない
+		"1qaz2wsx3edc", "Q1W2E3R4T5Y6", "123456789012", "qwertyuiopasdfghjkl",
+	} {
+		assert.ErrorIs(t, auth.ValidatePassword(weak), domain.ErrBadRequest, weak)
+	}
+	for _, ok := range []string{"abcdeabcdeab", "kumo no ue no ultimate", "a long admin password"} {
+		assert.NoError(t, auth.ValidatePassword(ok), ok)
+	}
 }
 
 func newUser(t *testing.T, db *gorm.DB, email string, role domain.Role) store.UserRecord {

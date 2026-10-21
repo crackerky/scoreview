@@ -238,6 +238,7 @@ func (s *Server) authRoutes() {
 	s.handle("POST /api/v1/auth/login", s.login)
 	s.admin("POST /api/v1/auth/logout", anyUser(), http.StatusNoContent, s.logout)
 	s.admin("GET /api/v1/auth/me", anyUser(), http.StatusOK, s.me)
+	s.admin("POST /api/v1/auth/password", anyUser(), http.StatusNoContent, s.changePassword)
 }
 
 func (s *Server) login(r *http.Request) (any, error) {
@@ -296,6 +297,25 @@ func clientIP(r *http.Request) string {
 		return "" // Is4 でない有効なアドレスは IPv6 なので /64 は必ず取れる
 	}
 	return prefix.String()
+}
+
+// changePassword は本人がパスワードを変える。このセッションは残し、他の端末のセッションを消す。
+func (s *Server) changePassword(r *http.Request, user domain.User) (any, error) {
+	var body passwordChangeBodyDTO
+	if err := decodeBody(r, &body); err != nil {
+		return nil, err
+	}
+	// 今のパスワードの長さの上限だけは照合の前に確かめる(巨大な入力で argon2 を回させない)
+	if len(body.CurrentPassword) > 4*auth.MaxPasswordLen {
+		return nil, domain.Invalid("currentPassword", "is incorrect")
+	}
+	change := auth.PasswordChange{
+		Current:  body.CurrentPassword,
+		New:      body.NewPassword,
+		Token:    bearerToken(r),
+		ClientIP: clientIP(r),
+	}
+	return nil, auth.ChangePassword(r.Context(), s.db, s.passwords, user, change, s.now())
 }
 
 func (s *Server) logout(r *http.Request, _ domain.User) (any, error) {
