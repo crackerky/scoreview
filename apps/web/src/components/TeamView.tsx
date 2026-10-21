@@ -258,9 +258,14 @@ export function TeamView({ data, lang }: { data: TeamResponse; lang: Lang }) {
         </>
       )}
       {data.showSotg && <SotgTables data={data} lang={lang} />}
-      <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
-      <PlayersTable players={data.players} lang={lang} />
-      <hr />
+      {/* 選手が 1 人もいないチーム(539 のエントリー直後)は選手一覧を見出しごと出さない */}
+      {data.players.length > 0 && (
+        <>
+          <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
+          <PlayersTable players={data.players} lang={lang} />
+          <hr />
+        </>
+      )}
       {data.staff.length > 0 && (
         <>
           <ScvMidaM>{angleHeading(lang, msg(lang, 'staffList'))}</ScvMidaM>

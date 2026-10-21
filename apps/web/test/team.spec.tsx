@@ -86,6 +86,14 @@ describe('チームページ(clone-spec D 1.1)', () => {
     assert.doesNotMatch(renderHtml(<TeamView data={team} lang="jp" />), /SOTG/)
   })
 
+  test('選手のいないチームは選手一覧を見出しごと出さない', () => {
+    const out = renderHtml(
+      <TeamView data={{ ...team, matches: [], players: [], staff: [] }} lang="jp" />,
+    )
+    assert.doesNotMatch(out, /選手一覧/)
+    assert.match(out, /<\/table><\/div><hr\/><br\/><br\/><br\/>$/)
+  })
+
   test('試合のないチームは対戦一覧を見出しごと出さない', () => {
     const out = renderHtml(<TeamView data={{ ...team, matches: [] }} lang="jp" />)
     assert.doesNotMatch(out, /チーム対戦一覧/)
