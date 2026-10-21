@@ -147,7 +147,8 @@ URL: `https://score.clubjr.com/pscore/{scv_team|scv_match|scv_player}/open/{ID}?
 ### 2.5 統計 `<hr/>` + `div.TBL > table style='width: 80%'`
 - ヘッダ: `td.MD1.CM(40%)`=`統計情報`(en `Game Statistics`) / `(30%)`=左チーム短縮名 / `(30%)`=右チーム短縮名。
 - 行(td.LM、左→右): `得点数`(Goals) → [`オフェンス時間累計`…`失点までの平均時間` の4行は **HTMLコメント `<!-- ... -->` で非表示**(jp/en とも同じ。en 文言は `Time on offence` `Time on defence` `Time on offence/goal` `Time on deffence/goal`)] → `オフェンスからの得点数`(en `Goals from starting on offence`) `5&nbsp;&nbsp;&nbsp;[71.43%]` / `ディフェンスからの得点数`(`Goals from starting on deffence`、綴りミスのまま) `2&nbsp;&nbsp;&nbsp;[28.57%]` / `ターンオーバーからの得点数`(`Goals from turnovers`) `2`(%なし) / `タイムアウト数`(`Time outs`) `0`。
-- %の分母が 0 のときは `0&nbsp;&nbsp;&nbsp;[--%]`(45051)。%は小数2桁までで末尾0省略(`50%`, `83.33%`, `100%`, `8.33%`, `66.67%`)。
+- %の分母が 0 のときは `0&nbsp;&nbsp;&nbsp;[--%]`(45051)。
+- 得点数は試合開始ｽﾛｰｵﾌより前に記録された得点を数えない(41572: スコア 18-1、00:00 の得点が 00:00 のプルの下の行にあり、統計の得点数は 17 で割合も 17 が分母)。プルのない試合(8 試合)ではすべて数える。%は小数2桁までで末尾0省略(`50%`, `83.33%`, `100%`, `8.33%`, `66.67%`)。
 
 ### 2.6 状態別の差 (実HTMLで確認できた範囲)
 | 状態 | 確認 | 内容 |

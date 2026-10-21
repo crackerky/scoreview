@@ -81,6 +81,16 @@ func TestComputeMatchStats(t *testing.T) {
 			},
 			want: domain.MatchStats{Left: domain.SideStats{Goals: 2, FromDefense: 1, FromTurnover: 1}},
 		},
+		{
+			// 参照サイトの 41572: プルより前に記録された得点は得点数にも数えない
+			name: "goals recorded before the pull of a match with a pull are not counted",
+			events: []domain.Event{
+				ev(domain.EventGoal, leftSide),
+				ev(domain.EventPull, rightSide),
+				ev(domain.EventGoal, leftSide), // 左 O
+			},
+			want: domain.MatchStats{Left: domain.SideStats{Goals: 1, FromOffense: 1}},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
