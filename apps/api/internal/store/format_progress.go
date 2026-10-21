@@ -340,8 +340,8 @@ func confirmGroupIn(
 			return fmt.Errorf("%w: %s に結果待ちの試合があります", domain.ErrConflict, group.Name)
 		}
 		if status.Ranking != nil && len(status.Ranking.Unresolved) > 0 {
-			return fmt.Errorf("%w: %s に未決の同順位があります。先に順位を指定してください",
-				domain.ErrConflict, group.Name)
+			return fmt.Errorf("%w: %s で並んだチームがあります。残りの試合を未消化にしてから順位を指定して"+
+				"ください", domain.ErrConflict, group.Name)
 		}
 	}
 	err := tx.WithContext(ctx).Model(&formatGroupRow{}).Where(sqlByID, fs.groups[index].ID).
@@ -397,8 +397,9 @@ type RankDecisionInput struct {
 	Reason string
 }
 
-// DecideRank はプールの未決の同順位を運営者の指定で決める。Teams が未決の組 1 つとちょうど同じ
-// チームでなければ検証エラー。
+// DecideRank はプールの未決の同順位を運営者の指定で決める。指定はプールの全試合が終わった後だけ
+// 受け付け(試合の途中の同点は未決ではない)、指定した時点の成績に結び付けて保存する(後で結果が
+// 変われば使わない)。Teams が未決の組 1 つとちょうど同じチームでなければ検証エラー。
 func DecideRank(
 	ctx context.Context,
 	db *gorm.DB,
@@ -414,11 +415,18 @@ func DecideRank(
 		return err
 	}
 	return runFormatOp(ctx, db, row.DivisionID, func(tx *gorm.DB, fs *formatState) error {
-		ranking := fs.res.Groups[*row.FormatIndex].Ranking
-		if ranking == nil || !matchesTie(ranking.Unresolved, input.Teams) {
+		status := fs.res.Groups[*row.FormatIndex]
+		if !status.Done || status.Ranking == nil {
+			return fmt.Errorf("%w: %s の全試合が終わるまで順位は指定できません(残りの試合は結果を入れるか"+
+				"未消化にしてください)", domain.ErrConflict, row.Name)
+		}
+		tie := tieIndex(status.Ranking.Unresolved, input.Teams)
+		if tie < 0 {
 			return domain.Invalid("teams", "must list exactly the teams of one unresolved tie")
 		}
-		if err := saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input); err != nil {
+		err := saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input,
+			status.Ranking.UnresolvedBasis[tie])
+		if err != nil {
 			return err
 		}
 		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditGroupRankDecision, nil,
@@ -446,11 +454,18 @@ func DecideBandRank(
 		return err
 	}
 	return runFormatOp(ctx, db, stage.DivisionID, func(tx *gorm.DB, fs *formatState) error {
-		tie := fs.bandTie(stage.StageIndex, rank)
-		if !matchesTie([][]int64{tie}, input.Teams) {
+		for _, g := range fs.plan.StageGroups(stage.StageIndex) {
+			if fs.plan.Groups[g].Kind == domain.GroupPool && !fs.res.Groups[g].Done {
+				return fmt.Errorf("%w: %s の全プールの試合が終わるまで全体順位は指定できません",
+					domain.ErrConflict, stage.Name)
+			}
+		}
+		tie, basis := fs.bandTie(stage.StageIndex, rank)
+		if tieIndex([][]int64{tie}, input.Teams) < 0 {
 			return domain.Invalid("teams", "must list exactly the tied teams of the stage rank")
 		}
-		err := saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input)
+		err := saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input,
+			basis)
 		if err != nil {
 			return err
 		}
@@ -465,10 +480,14 @@ func saveDecision(
 	row GroupRankDecision,
 	actor domain.Actor,
 	input RankDecisionInput,
+	basis []format.TeamValues,
 ) error {
 	data, err := json.Marshal(input.Teams)
 	if err != nil {
 		return fmt.Errorf("encode decision: %w", err)
+	}
+	if row.Basis, err = json.Marshal(basis); err != nil {
+		return fmt.Errorf("encode decision basis: %w", err)
 	}
 	user := actor.UserID
 	row.TeamIDs, row.Reason, row.DecidedBy = data, strings.TrimSpace(input.Reason), &user
@@ -478,26 +497,29 @@ func saveDecision(
 	return nil
 }
 
-func matchesTie(ties [][]int64, teams []int64) bool {
-	for _, tie := range ties {
+// tieIndex は teams と重複なく同じチームの未決の組の添字。無ければ -1。
+func tieIndex(ties [][]int64, teams []int64) int {
+	for i, tie := range ties {
 		if len(tie) != len(teams) {
 			continue
 		}
+		seen := map[int64]bool{}
 		all := true
 		for _, team := range teams {
-			if !slices.Contains(tie, team) {
+			if seen[team] || !slices.Contains(tie, team) {
 				all = false
 			}
+			seen[team] = true
 		}
 		if all {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
-// bandTie は段の全体順位で rank 位どうしを並べたときに未決のまま残るチーム。
-func (fs *formatState) bandTie(stage, rank int) []int64 {
+// bandTie は段の全体順位で rank 位どうしを並べたときに未決のまま残るチームと、その成績(指定の保存用)。
+func (fs *formatState) bandTie(stage, rank int) ([]int64, []format.TeamValues) {
 	var entries []format.BandEntry
 	for _, g := range fs.plan.StageGroups(stage) {
 		ranking := fs.res.Groups[g].Ranking
@@ -512,9 +534,9 @@ func (fs *formatState) bandTie(stage, rank int) []int64 {
 	key := format.BandKey{Stage: stage, Rank: rank}
 	ranking := format.RankBand(entries, fs.cfg.Band, fs.state.BandDecisions[key])
 	if len(ranking.Unresolved) == 0 {
-		return nil
+		return nil, nil
 	}
-	return ranking.Unresolved[0]
+	return ranking.Unresolved[0], ranking.UnresolvedBasis[0]
 }
 
 // AlignMatchTeams は既に始まった試合の左右を、計算上のチームに合わせる(訂正で順位が変わり、

@@ -780,7 +780,7 @@ type Progress = {
     confirmedUnplayed: boolean; remaining: number   // remaining は終わっていない試合の数
     slots: ProgressSide[]
     rows: Array<Tally & { team: TeamRef; rank: number; points: number; reason: string; unresolved: boolean }>  // プールの順位(枠が埋まっていれば)
-    ties: TeamRef[][]                               // 未決の同順位の組
+    ties: TeamRef[][]                               // 未決の同順位の組(プールの全試合が終わった後だけ)
     conditions: Array<{ team: TeamRef; text: string }>  // 進行中のプールの勝ち上がり条件「次の A3 に勝てば 1 位確定」
   }>
   live: ProgressMatch[]                             // 試合中
@@ -805,8 +805,8 @@ type Impact = {
 | `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |
 | `POST /admin/groups/{id}/confirm` | `{ unplayed: boolean }` | 204。プールの順位を確定し、次の段の枠を埋める。結果待ちがあれば `unplayed: true`(未消化のまま確定)のときだけ。未決の同順位があれば 409 |
 | `POST /admin/stages/{id}/confirm` | `{ unplayed: boolean }` | 204。段の全プールを確定し、段の全体順位を使えるようにする |
-| `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須) |
-| `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決 |
+| `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須)。プールの全試合が終わる前は 409。指定はその時点の成績に結び付き、訂正で成績が変われば未決に戻る |
+| `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決。段の全プールの試合が終わる前は 409 |
 | `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
 | `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は 400 |
 | `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |

@@ -269,8 +269,8 @@ func (fs *formatState) buildState() format.State {
 		ConfirmedGroups: map[int]bool{},
 		ConfirmedStages: map[int]bool{},
 		Manual:          map[format.SlotKey]int64{},
-		RankDecisions:   map[int][]int64{},
-		BandDecisions:   map[format.BandKey][]int64{},
+		RankDecisions:   map[int][]format.Decision{},
+		BandDecisions:   map[format.BandKey][]format.Decision{},
 	}
 	for key, slot := range fs.slots {
 		src := fs.plan.SlotSource(key)
@@ -304,36 +304,32 @@ func (fs *formatState) buildState() format.State {
 		}
 	}
 	for _, d := range fs.decisions {
-		var teams []int64
-		if err := json.Unmarshal(d.TeamIDs, &teams); err != nil {
-			continue // 書き込みは DecideRank だけで、配列以外は入らない
+		decision, ok := decodeDecision(d)
+		if !ok {
+			continue
 		}
 		switch {
 		case d.GroupID != nil:
 			index := fs.groupIndex[*d.GroupID]
-			st.RankDecisions[index] = mergeDecision(st.RankDecisions[index], teams)
+			st.RankDecisions[index] = append(st.RankDecisions[index], decision)
 		case d.StageID != nil && d.BandRank != nil:
 			key := format.BandKey{Stage: stageIndex[*d.StageID], Rank: *d.BandRank}
-			st.BandDecisions[key] = mergeDecision(st.BandDecisions[key], teams)
+			st.BandDecisions[key] = append(st.BandDecisions[key], decision)
 		}
 	}
 	return st
 }
 
-// mergeDecision は後の指定を前の指定に重ねる。同じチームは後の指定の位置になる
-// (format.State.RankDecisions は 1 つの並びで、未決の組ごとに相対順だけを使う)。
-func mergeDecision(prev, next []int64) []int64 {
-	out := make([]int64, 0, len(prev)+len(next))
-	for _, team := range prev {
-		keep := true
-		for _, n := range next {
-			if n == team {
-				keep = false
-			}
-		}
-		if keep {
-			out = append(out, team)
-		}
+// decodeDecision は順位の指定の行を format.Decision にする。basis の無い行(00015 より前の指定)は、
+// どの成績に対する指定か分からないので使わない(ok=false。運営者が決め直す)。
+func decodeDecision(row GroupRankDecision) (format.Decision, bool) {
+	var d format.Decision
+	if row.Basis == nil {
+		return d, false
 	}
-	return append(out, next...)
+	// 書き込みは saveDecision だけで、JSON の形は決まっている
+	if json.Unmarshal(row.TeamIDs, &d.Order) != nil || json.Unmarshal(row.Basis, &d.Basis) != nil {
+		return d, false
+	}
+	return d, true
 }

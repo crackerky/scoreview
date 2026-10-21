@@ -240,9 +240,16 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 		return gp
 	}
 	for _, r := range status.Ranking.Rows {
-		gp.Rows = append(gp.Rows, ProgressRankRow{Team: v.ref(r.TeamID), Rank: r.Rank,
-			Tally: tallyOf(r.Stats), Points: r.Stats.Points(), Reason: r.Reason.Text(),
-			Unresolved: r.Reason.Unresolved})
+		row := ProgressRankRow{Team: v.ref(r.TeamID), Rank: r.Rank, Tally: tallyOf(r.Stats),
+			Points: r.Stats.Points(), Reason: r.Reason.Text(), Unresolved: r.Reason.Unresolved}
+		if !status.Done && row.Unresolved {
+			// 試合の途中で並んでいるだけで、未決(運営者が決める同順位)ではない
+			row.Reason, row.Unresolved = "", false
+		}
+		gp.Rows = append(gp.Rows, row)
+	}
+	if !status.Done {
+		return v.withConditions(gp, g.Index, status)
 	}
 	for _, tie := range status.Ranking.Unresolved {
 		refs := make([]domain.TeamRef, len(tie))
@@ -251,8 +258,12 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 		}
 		gp.Ties = append(gp.Ties, refs)
 	}
+	return v.withConditions(gp, g.Index, status)
+}
+
+func (v progressBuilder) withConditions(gp GroupProgress, index int, status format.GroupStatus) GroupProgress {
 	if status.State == format.GroupPlaying {
-		gp.Conditions = v.conditions(g.Index)
+		gp.Conditions = v.conditions(index)
 	}
 	return gp
 }

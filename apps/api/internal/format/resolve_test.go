@@ -142,11 +142,17 @@ func TestResolveTieNeedsDecision(t *testing.T) {
 	assert.Equal(t, format.TeamStatus{Pending: format.PendingTie, Waiting: "A"},
 		res.Slots[format.SlotKey{Group: 4, Position: 1}])
 
-	st.RankDecisions = map[int][]int64{0: {9, 1, 8}}
+	basis := res.Groups[0].Ranking.UnresolvedBasis[0]
+	st.RankDecisions = map[int][]format.Decision{0: {{Order: []int64{9, 1, 8}, Basis: basis}}}
 	res = resolve(t, plan, st)
 	assert.Equal(t, int64(9), res.Slots[format.SlotKey{Group: 4, Position: 1}].TeamID)
 	assert.Equal(t, int64(1), res.Slots[format.SlotKey{Group: 5, Position: 1}].TeamID)
 	assert.Equal(t, int64(8), res.Slots[format.SlotKey{Group: 6, Position: 1}].TeamID)
+
+	// 訂正で値が変わる(並んだままでも)と、指定は使わずに未決へ戻る
+	st.Results["A1"], st.Results["A3"], st.Results["A2"] = score(6, 5), score(6, 5), score(5, 6)
+	res = resolve(t, plan, st)
+	assert.Equal(t, format.PendingTie, res.Slots[format.SlotKey{Group: 4, Position: 1}].Pending)
 }
 
 // TestResolve525FinalRanks はブロックから順位決定まで全試合を進め、最終順位が参照サイトの 949 の
@@ -204,7 +210,17 @@ func TestResolveBandRank(t *testing.T) {
 	// 1 位は全勝: 3 チームのプール(A、B)は 2 試合で勝ち点 6、4 チームのプール(C、D)は 3 試合で 9。
 	// 1 試合あたりは同じ 3 で、得失点差も 1 試合あたり 2 で同じなので、全体順位の 1 番目は未決
 	assert.Equal(t, format.PendingTie, res.Slots[format.SlotKey{Group: 4, Position: 1}].Pending)
-	st.BandDecisions = map[format.BandKey][]int64{{Stage: 0, Rank: 1}: {4, 3, 2, 1}}
+	var entries []format.BandEntry
+	for g := range 4 {
+		team, ok := res.Groups[g].Ranking.TeamAt(1)
+		require.True(t, ok)
+		row, _ := res.Groups[g].Ranking.RankOf(team)
+		entries = append(entries, format.BandEntry{TeamID: team, Group: g, Stats: row.Stats})
+	}
+	band := format.RankBand(entries, format.BandRule(), nil)
+	require.Len(t, band.UnresolvedBasis, 1)
+	st.BandDecisions = map[format.BandKey][]format.Decision{{Stage: 0, Rank: 1}: {
+		{Order: []int64{4, 3, 2, 1}, Basis: band.UnresolvedBasis[0]}}}
 	res = resolve(t, plan, st)
 	assert.Equal(t, int64(4), res.Slots[format.SlotKey{Group: 4, Position: 1}].TeamID)
 }

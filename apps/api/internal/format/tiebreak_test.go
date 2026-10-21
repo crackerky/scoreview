@@ -118,15 +118,26 @@ func TestCycleUnresolvedAndDecision(t *testing.T) {
 			assert.False(t, ok)
 			assert.Contains(t, reasonText(t, got, 1), "全基準で並び未決")
 
-			in.Decision = []int64{2, 3, 1}
+			require.Len(t, got.UnresolvedBasis, 1)
+			basis := got.UnresolvedBasis[0]
+			in.Decisions = []format.Decision{{Order: []int64{2, 3, 1}, Basis: basis}}
 			decided := format.RankPool(in)
 			assert.Empty(t, decided.Unresolved)
 			assert.Equal(t, []int64{2, 3, 1}, order(decided))
 			assert.Equal(t, map[int64]int{2: 1, 3: 2, 1: 3}, rankMap(decided))
 			assert.Contains(t, reasonText(t, decided, 2), "運営者の指定で")
 
-			in.Decision = []int64{2, 3} // 一部だけの指定では決めない
+			in.Decisions = []format.Decision{{Order: []int64{2, 3}, Basis: basis}} // 一部だけの指定では決めない
 			assert.Len(t, format.RankPool(in).Unresolved, 1)
+			in.Decisions = []format.Decision{{Order: []int64{2, 2, 3}, Basis: basis}} // 重複も決めない
+			assert.Len(t, format.RankPool(in).Unresolved, 1)
+
+			// 結果が変わって値が変われば(並びは同じでも)指定は使わず未決に戻る
+			changed := []format.Game{game("A1", 1, 2, 6, 5), game("A2", 2, 3, 6, 5), game("A3", 3, 1, 6, 5)}
+			in.Games = changed
+			in.Decisions = []format.Decision{{Order: []int64{2, 3, 1}, Basis: basis}}
+			assert.Len(t, format.RankPool(in).Unresolved, 1, "指定した時点の成績と違う")
+			in.Games = games
 		})
 	}
 }
@@ -243,6 +254,7 @@ func TestRankBand(t *testing.T) {
 	// 1 試合あたりの勝ち点: 1 は 6/3=2、他は 4/2=2。得失点差 10/3 < 5/2? 1 は 3.33、2〜4 は 2.5
 	assert.Equal(t, []int64{1, 3, 4, 2}, order(got))
 	assert.Equal(t, [][]int64{{3, 4}}, got.Unresolved)
-	decided := format.RankBand(entries, format.BandRule(), []int64{4, 3})
+	decided := format.RankBand(entries, format.BandRule(),
+		[]format.Decision{{Order: []int64{4, 3}, Basis: got.UnresolvedBasis[0]}})
 	assert.Equal(t, []int64{1, 4, 3, 2}, order(decided))
 }

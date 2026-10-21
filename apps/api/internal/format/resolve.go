@@ -37,10 +37,11 @@ type State struct {
 	ConfirmedStages map[int]bool
 	// Manual は出どころが manual の枠に運営者が入れたチーム
 	Manual map[SlotKey]int64
-	// RankDecisions はグループごとの運営者の順位指定(group_rank_decisions)。RankInput.Decision と同じ
-	RankDecisions map[int][]int64
+	// RankDecisions はグループごとの運営者の順位指定(group_rank_decisions。古い順)。
+	// RankInput.Decisions と同じ
+	RankDecisions map[int][]Decision
 	// BandDecisions は段の全体順位の運営者の指定
-	BandDecisions map[BandKey][]int64
+	BandDecisions map[BandKey][]Decision
 }
 
 // clone は map を複製した State を返す(影響の計算で元の State を変えないため)。
@@ -424,7 +425,7 @@ func (r *resolver) groupStatus(g Group) GroupStatus {
 		return status
 	}
 	ranking := RankPool(RankInput{Teams: teams, Games: games, Rule: r.cfg.Tiebreak,
-		Forfeit: r.cfg.Forfeit, Decision: r.st.RankDecisions[g.Index]})
+		Forfeit: r.cfg.Forfeit, Decisions: r.st.RankDecisions[g.Index]})
 	r.rankings[g.Index] = &ranking
 	status.Ranking = &ranking
 	switch {
