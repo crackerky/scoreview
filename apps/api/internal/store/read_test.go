@@ -334,7 +334,7 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 // 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。
 func TestGetDivisionStandingsTieOrder(t *testing.T) {
 	db, b, sc := setup(t)
-	division := b.Division(sc.Tournament.ID)
+	division := b.Division(sc.Tournament.ID, func(row *store.Division) { row.StandingsPublished = true })
 	rankOne := func(order int) store.Team {
 		return b.Team(division, func(row *store.Team) { row.FinalRank, row.SortOrder = ptr(1), order })
 	}

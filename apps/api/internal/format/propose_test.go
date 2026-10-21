@@ -70,6 +70,15 @@ func TestPropose4on4TwelveTeams(t *testing.T) {
 func TestProposeRejectsBadInput(t *testing.T) {
 	_, err := format.Propose(format.ProposalInput{Teams: 12, Courts: 0, SlotMinutes: 20, Sport: format.SportFour})
 	require.ErrorIs(t, err, domain.ErrBadRequest)
+	// 巨大な値で計算とメモリを使い切らせない(セキュリティ点検 L-3)
+	for _, in := range []format.ProposalInput{
+		{Teams: 12, Courts: 1_000_000_000, SlotMinutes: 20, Sport: format.SportFour},
+		{Teams: 1_000_000_000, Courts: 2, SlotMinutes: 20, Sport: format.SportFour},
+		{Teams: 12, Courts: 2, SlotMinutes: 1_000_000_000, Sport: format.SportFour},
+	} {
+		_, err = format.Propose(in)
+		assert.ErrorIs(t, err, domain.ErrBadRequest, "%+v", in)
+	}
 	_, err = format.Propose(format.ProposalInput{Teams: 12, Courts: 2, SlotMinutes: 20, Sport: "golf"})
 	require.ErrorIs(t, err, domain.ErrBadRequest)
 }

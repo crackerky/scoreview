@@ -1,0 +1,10 @@
+# CLI からのデプロイ(vercel deploy)で送らないもの。Git 連携のデプロイは .gitignore で同じものが外れる。
+# .local/ は参照サイトの生 HTML と取込データ(実在の個人名を含む)と開発用 DB で、公開環境に入れない。
+.local/
+apps/api/bin/
+.claude/worktrees/
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local

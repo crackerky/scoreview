@@ -29,6 +29,20 @@
 - api は全リクエストで `X-Internal-Token` を検証する。binding はネットワーク到達性を与えるだけで、呼び出し元の認証にはならないためである。
 - 管理画面の操作は、Next.js の Server Actions が受けて api の管理用エンドポイントへ中継する。ログインのセッショントークンは Next.js が httpOnly Cookie に保存し、api へは `Authorization: Bearer` で渡す。
 
+- web は全ページに Content-Security-Policy を付ける(`apps/web/src/proxy.ts`、`src/security/csp.utils.ts`)。管理画面は要求ごとの nonce でスクリプトを限り、閲覧ページは画像の読み込み先を自サイトに限る(`REFERENCE_ASSET_MODE=allow` のときだけ参照サイトの画像の置き場も許す)。どちらも埋め込み、`<base>`、他サイトへのフォーム送信を禁じる。Permissions-Policy と HSTS は `next.config.ts` で付ける。
+
+### 環境変数
+
+例はリポジトリ直下の `.env.example`。
+
+| サービス | 名前 | 内容 |
+|---|---|---|
+| web | `BACKEND_INTERNAL_URL` | api の URL(Vercel では binding が入れる) |
+| web, api | `INTERNAL_API_TOKEN` | web と api の共有秘密(32 文字以上。`openssl rand -hex 32`)。`change-me` を含む値では api が起動しない |
+| web | `PUBLIC_SITE_URL` | サイトの公開 URL(例 `https://score.example.com`)。記録係の画面の Route Handler が、リクエストの Origin をこの値と比べる(Host ヘッダーは送り手が決めるので使わない)。未設定なら手元の開発用の `http://localhost:3000`。Vercel ではデプロイごとの URL(`VERCEL_URL`)も許す |
+| api | `DATABASE_URL` | PostgreSQL の接続文字列 |
+| api | `PORT` | 待ち受けるポート(既定 8080。Vercel が入れる) |
+
 ## 依存の向き
 
 ```

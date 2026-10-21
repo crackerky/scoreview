@@ -41,10 +41,11 @@ type ForfeitScore struct {
 	Loser  int
 }
 
-// Validate は規定スコアが「敗者 0 以上、勝者が敗者より多い」ことを確かめる。
+// Validate は規定スコアが「敗者 0 以上、勝者が敗者より多く MaxScore 以下」であることを確かめる。
 func (s ForfeitScore) Validate(field string) error {
-	if s.Loser < 0 || s.Winner <= s.Loser {
-		return Invalid(field, "winner must be greater than loser, and loser must be 0 or more")
+	if s.Loser < 0 || s.Winner <= s.Loser || s.Winner > MaxScore {
+		return Invalid(field, fmt.Sprintf(
+			"winner must be greater than loser and at most %d, and loser must be 0 or more", MaxScore))
 	}
 	return nil
 }
