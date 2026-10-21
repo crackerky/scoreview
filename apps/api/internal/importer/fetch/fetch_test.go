@@ -91,6 +91,7 @@ func TestFetchUsesCache(t *testing.T) {
 		assert.Equal(t, "<html>/scview/525</html>", string(body))
 	}
 	assert.Equal(t, 1, srv.hits["/scview/525"], "2 回目はキャッシュから返す")
+	assert.Equal(t, 1, c.Requests(), "キャッシュから返したページは数えない")
 }
 
 func TestFetchNotFoundIsTypedAndCached(t *testing.T) {
@@ -116,6 +117,7 @@ func TestFetchRetriesWithExponentialBackoff(t *testing.T) {
 	_, err := c.Fetch(context.Background(), ts.URL+path)
 	require.NoError(t, err)
 	assert.Equal(t, 3, srv.hits[path])
+	assert.Equal(t, 3, c.Requests(), "再試行も数える")
 	// 再試行の前に 2 秒、4 秒待つ。その時点で前回から 1.2 秒以上経っているので間隔待ちは起きない
 	assert.Equal(t, []time.Duration{2 * time.Second, 4 * time.Second}, clock.sleeps)
 }
