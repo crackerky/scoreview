@@ -449,12 +449,35 @@ func TestGetTeam(t *testing.T) {
 			ID: sc.PlayerA7.ID, Number: "7", Name: domain.I18nText{Ja: "架空 七郎", En: "Shichiro KAKU"},
 			Gender: ptr(domain.Gender("M")),
 		},
-		Games: 1, Goals: 2, Blocks: 2,
+		// 試合数は出場記録の数(1)ではなくチームの試合数
+		Games: 2, Goals: 2, Blocks: 2,
 	}, page.Players[0])
 	assert.Equal(t, []store.StaffLine{{
 		ID: sc.StaffA.ID, Role: domain.I18nText{Ja: "マネージャ", En: "Manager"},
 		Name: domain.I18nText{Ja: "架空 監督", En: "Coach KAKU"},
 	}}, page.Staff)
+}
+
+// 出場記録のあるチームで記録のない選手は欠場。出場記録のないチームでは誰も欠場にしない。
+func TestGetTeamAbsentPlayers(t *testing.T) {
+	db, b, sc := setup(t)
+	benched := b.Player(sc.TeamA.ID)
+	page, err := store.GetTeam(context.Background(), db, sc.TeamA.ID)
+	require.NoError(t, err)
+	absent := map[int64]bool{}
+	for _, line := range page.Players {
+		absent[line.Player.ID] = line.Absent
+		assert.Equal(t, page.Record.Games, line.Games)
+	}
+	assert.Equal(t, map[int64]bool{sc.PlayerA7.ID: false, sc.PlayerA10.ID: false, benched.ID: true}, absent)
+
+	other := b.Team(sc.Mixed)
+	rookie := b.Player(other.ID)
+	page, err = store.GetTeam(context.Background(), db, other.ID)
+	require.NoError(t, err)
+	require.Len(t, page.Players, 1)
+	assert.Equal(t, rookie.ID, page.Players[0].Player.ID)
+	assert.False(t, page.Players[0].Absent)
 }
 
 func TestGetTeamDiscgolfIsRosterOnly(t *testing.T) {

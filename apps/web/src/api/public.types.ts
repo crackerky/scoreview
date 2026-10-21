@@ -189,7 +189,7 @@ export const teamResponseSchema = z.object({
   }),
   record: tallySchema.extend({ rank: z.number().int().nullable() }),
   matches: z.array(matchRowSchema),
-  players: z.array(playerLineSchema.extend({ games: z.number().int() })),
+  players: z.array(playerLineSchema.extend({ games: z.number().int(), absent: z.boolean() })),
   staff: z.array(
     z.object({
       id: z.number().int(),

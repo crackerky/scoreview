@@ -248,8 +248,12 @@ type BracketCell = {
   }
   record: Tally & { rank: number | null }
   matches: MatchRow[]                      // 日付、時刻の昇順
-  players: Array<{ player: PlayerRef; games: number; assists: number; goals: number; blocks: number }>
-                                           // (得点+アシスト)降順、得点降順、背番号の数値昇順
+  players: Array<{
+    player: PlayerRef
+    games: number                          // チームの試合数(record.games)。全選手で同じ値
+    assists: number; goals: number; blocks: number
+    absent: boolean                        // 欠場。出場記録のあるチームで、どの試合にも出ていない選手
+  }>                                       // (得点+アシスト)降順、得点降順、背番号の数値昇順
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
 }
 ```

@@ -28,7 +28,8 @@
       "games": 0,
       "assists": 0,
       "goals": 0,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     },
     {
       "player": {
@@ -40,7 +41,8 @@
       "games": 0,
       "assists": 0,
       "goals": 0,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     }
   ],
   "staff": []

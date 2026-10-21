@@ -164,10 +164,11 @@
         },
         "gender": "M"
       },
-      "games": 1,
+      "games": 2,
       "assists": 0,
       "goals": 2,
-      "blocks": 2
+      "blocks": 2,
+      "absent": false
     },
     {
       "player": {
@@ -179,10 +180,11 @@
         },
         "gender": "F"
       },
-      "games": 1,
+      "games": 2,
       "assists": 1,
       "goals": 0,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     }
   ],
   "staff": [

@@ -286,6 +286,8 @@ type PlayerLine struct {
 	Assists int
 	Goals   int
 	Blocks  int
+	// Absent は欠場(出場記録の取られているチームで、どの試合にも出場していない選手)
+	Absent bool
 }
 
 // StaffLine はスタッフ一覧の 1 行。

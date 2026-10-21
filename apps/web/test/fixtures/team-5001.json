@@ -86,7 +86,8 @@
       "games": 5,
       "assists": 6,
       "goals": 4,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     },
     {
       "player": {
@@ -98,7 +99,8 @@
       "games": 5,
       "assists": 1,
       "goals": 3,
-      "blocks": 2
+      "blocks": 2,
+      "absent": false
     },
     {
       "player": {
@@ -110,7 +112,8 @@
       "games": 5,
       "assists": 3,
       "goals": 1,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     },
     {
       "player": {
@@ -122,7 +125,8 @@
       "games": 4,
       "assists": 0,
       "goals": 0,
-      "blocks": 1
+      "blocks": 1,
+      "absent": false
     }
   ],
   "staff": [

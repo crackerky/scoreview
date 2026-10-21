@@ -89,23 +89,27 @@ function PlayersTable({ players, lang }: { players: TeamResponse['players']; lan
   return (
     <Tbl tableStyle={{ width: '100%' }}>
       <TblHeaderRow columns={playerColumns(lang)} />
-      {players.map(({ player, games, assists, goals, blocks }) => (
-        <tr key={player.id}>
-          <td className="CM">{player.number}</td>
-          <td className="LM">
-            <PlayerLink id={player.id} gender={player.gender} lang={lang}>
-              {pickText(lang, player.name)}
-            </PlayerLink>
-          </td>
-          <td className="CM">{games}</td>
-          <td className="CM">{assists}</td>
-          <td className="CM">{goals}</td>
-          <td className="CM">{`${assists + goals}${trailing}`}</td>
-          {/* clone-spec D 1.1: ブロック 0 は数字を出さない(空白 2 つだけのセル) */}
-          <td className="CM">{`${blocks === 0 ? '' : blocks}${trailing}`}</td>
-          <td className="CM" />
-        </tr>
-      ))}
+      {players.map(({ player, games, assists, goals, blocks, absent }) => {
+        // clone-spec D 1.1: 欠場の選手は行の全セルに ABS(灰色の背景)を付ける
+        const cm = absent ? 'CM ABS' : 'CM'
+        return (
+          <tr key={player.id}>
+            <td className={cm}>{player.number}</td>
+            <td className={absent ? 'LM ABS' : 'LM'}>
+              <PlayerLink id={player.id} gender={player.gender} lang={lang}>
+                {pickText(lang, player.name)}
+              </PlayerLink>
+            </td>
+            <td className={cm}>{games}</td>
+            <td className={cm}>{assists}</td>
+            <td className={cm}>{goals}</td>
+            <td className={cm}>{`${assists + goals}${trailing}`}</td>
+            {/* clone-spec D 1.1: ブロック 0 は数字を出さない(空白 2 つだけのセル) */}
+            <td className={cm}>{`${blocks === 0 ? '' : blocks}${trailing}`}</td>
+            <td className={cm} />
+          </tr>
+        )
+      })}
     </Tbl>
   )
 }

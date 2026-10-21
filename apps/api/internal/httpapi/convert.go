@@ -316,7 +316,7 @@ func toTeamPage(page store.TeamPage) teamPageDTO {
 	for _, line := range page.Players {
 		out.Players = append(out.Players, playerLineDTO{
 			Player: toPlayerRef(line.Player), Games: line.Games, Assists: line.Assists, Goals: line.Goals,
-			Blocks: line.Blocks,
+			Blocks: line.Blocks, Absent: line.Absent,
 		})
 	}
 	for _, staff := range page.Staff {

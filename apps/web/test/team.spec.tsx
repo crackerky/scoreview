@@ -70,6 +70,18 @@ describe('チームページ(clone-spec D 1.1)', () => {
     assert.match(html, /<td class="CM">4 {2}<\/td><td class="CM">2 {2}<\/td>/)
   })
 
+  test('欠場の選手は行の全セルに ABS を付ける', () => {
+    const players = team.players.map((line, index) =>
+      index === 3 ? { ...line, absent: true } : line,
+    )
+    const out = renderHtml(<TeamView data={{ ...team, players }} lang="jp" />)
+    assert.match(
+      out,
+      /<tr><td class="CM ABS">00<\/td><td class="LM ABS"><a class="playerLinkM" href="[^"]*">仮名 四郎<\/a><\/td>(<td class="CM ABS">[^<]*<\/td>){6}<\/tr>/,
+    )
+    assert.equal([...out.matchAll(/ABS/g)].length, 8)
+  })
+
   test('スタッフ一覧は表 70%、役割と名前のリンク、その後 <hr /> と <br /> 3 つで終わる', () => {
     assert.match(
       html,

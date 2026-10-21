@@ -318,6 +318,7 @@ type playerLineDTO struct {
 	Assists int          `json:"assists"`
 	Goals   int          `json:"goals"`
 	Blocks  int          `json:"blocks"`
+	Absent  bool         `json:"absent"`
 }
 
 type staffLineDTO struct {

@@ -15,7 +15,7 @@ const sqlMatchesOfTeam = "left_team_id = ? OR right_team_id = ?"
 //
 // 成績はディビジョンでの通算(終了した試合だけ)、順位は teams.final_rank(clone-spec D 1.1 の 3)。
 // 対戦一覧は試合記録の左右のまま日付、時刻の昇順。選手はスタッフを除き domain.ComparePlayers の順、
-// スタッフは ID 順。ディスクゴルフ(stats_kind=discgolf)のディビジョンは roster_only にする
+// スタッフは ID 順。選手の試合数はチームの試合数。ディスクゴルフ(stats_kind=discgolf)のディビジョンは roster_only にする
 // (clone-spec D 1.2)。
 func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 	team, err := findByID[Team](ctx, db, id, domain.ResourceTeam)
@@ -76,6 +76,15 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 		Players: []PlayerLine{},
 		Staff:   []StaffLine{},
 	}
+	// 出場記録のある選手が 1 人でもいれば、出場記録の取られているチーム。そのチームで記録のない選手は
+	// 欠場として灰色(ABS)にする。試合詳細のない大会のチームは全員記録がないので欠場にしない
+	// (参照サイトの全チームページで、ABS の行は出場記録のない選手と一致した)
+	teamHasStats := false
+	for _, player := range members {
+		if agg := aggs.get(player.ID); agg.games() > 0 {
+			teamHasStats = true
+		}
+	}
 	for _, player := range members {
 		if player.IsStaff() {
 			ref := playerRef(player)
@@ -86,10 +95,12 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 			continue
 		}
 		agg := aggs.get(player.ID)
+		// 試合数はチームの試合数(終了した試合)。参照サイトのチームページでは、出場記録の数や欠場に
+		// かかわらず全選手がチームの試合数を出す(取込済みの 7,060 行すべてで一致)
 		page.Players = append(page.Players, PlayerLine{
-			Player: playerRef(
-				player,
-			), Games: agg.games(), Assists: agg.Assists, Goals: agg.Goals, Blocks: agg.Blocks,
+			Player: playerRef(player), Games: page.Record.Games,
+			Assists: agg.Assists, Goals: agg.Goals, Blocks: agg.Blocks,
+			Absent: teamHasStats && agg.games() == 0,
 		})
 	}
 	domain.SortPlayers(page.Players, func(line PlayerLine) domain.PlayerSortKey {
