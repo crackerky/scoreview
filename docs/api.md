@@ -190,10 +190,11 @@ type Tally = {
 {
   frame: TournamentFrame
   division: { id: number; name: I18nText }
-  standings: Array<Tally & { team: TeamRef; rank: number | null }>  // rank 昇順(NULL は末尾)、同順位は sort_order 順
+  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順
+  standings: Array<Tally & { team: TeamRef; rank: number | null }>
   leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
     team: TeamRef; player: PlayerRef
-    games: number; assists: number; goals: number
+    games: number; assists: number; goals: number   // games は選手のチームの試合数
   }>
   blockLeaders: Array<{ team: TeamRef; player: PlayerRef; games: number; blocks: number }>  // 上位 10 件、0 件は除く
 }

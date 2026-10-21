@@ -331,6 +331,33 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 	assert.LessOrEqual(t, before, int64(7))
 }
 
+// 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。
+func TestGetDivisionStandingsTieOrder(t *testing.T) {
+	db, b, sc := setup(t)
+	division := b.Division(sc.Tournament.ID)
+	rankOne := func(order int) store.Team {
+		return b.Team(division, func(row *store.Team) { row.FinalRank, row.SortOrder = ptr(1), order })
+	}
+	first, second, third := rankOne(0), rankOne(1), rankOne(2)
+	b.Match(division, &third, &first, storetest.Finished(5, 0))
+	b.Match(division, &second, &first, storetest.Finished(2, 1))
+	b.Match(division, &third, &second, storetest.Finished(1, 0))
+	scorer := b.Player(first.ID)
+	match := b.Match(division, &first, &second, storetest.Finished(1, 0))
+	b.Goal(match.ID, domain.SideLeft, 60, &scorer, nil)
+
+	page, err := store.GetDivisionStandings(context.Background(), db, division.ID)
+	require.NoError(t, err)
+	var order []int64
+	for _, row := range page.Standings {
+		order = append(order, row.Team.ID)
+	}
+	// third 2 勝(+6)、second 1 勝(-1)、first 1 勝(-5)
+	assert.Equal(t, []int64{third.ID, second.ID, first.ID}, order)
+	require.Len(t, page.Leaders, 1)
+	assert.Equal(t, 3, page.Leaders[0].Games, "出場は 1 試合でもチームの試合数")
+}
+
 func TestGetDivisionStandings(t *testing.T) {
 	db, _, sc := setup(t)
 	page, err := store.GetDivisionStandings(context.Background(), db, sc.Mixed.ID)

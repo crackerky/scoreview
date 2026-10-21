@@ -167,7 +167,7 @@
         },
         "gender": "M"
       },
-      "games": 1,
+      "games": 2,
       "assists": 0,
       "goals": 2
     },
@@ -209,7 +209,7 @@
         },
         "gender": "F"
       },
-      "games": 1,
+      "games": 2,
       "assists": 1,
       "goals": 0
     }
@@ -232,7 +232,7 @@
         },
         "gender": "M"
       },
-      "games": 1,
+      "games": 2,
       "blocks": 2
     },
     {
