@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { type TournamentFrame, tournamentFrameSchema } from '../src/api/common.types.ts'
 import { buildNavi } from '../src/components/navi.utils.ts'
 import { ScoreNavi } from '../src/components/ScoreNavi.tsx'
 import { loadFixture } from './fixtures/load.ts'
+import { renderHtml } from './render.ts'
 
 const standard = tournamentFrameSchema.parse(loadFixture('frame-1'))
 
@@ -95,7 +95,7 @@ describe('大会ナビの 7 パターン', () => {
 
 describe('ScoreNavi の描画', () => {
   test('直リンク、p.ar のドロップダウン、ディビジョン → グループの 2 階層', () => {
-    const html = renderToStaticMarkup(<ScoreNavi frame={standard} lang="jp" />)
+    const html = renderHtml(<ScoreNavi frame={standard} lang="jp" />)
     assert.match(html, /^<ul id="score_navi">/)
     assert.match(html, /<li><a href="\/pscore\/scv_top\/open\/1\?lang=jp">大会トップ<\/a><\/li>/)
     assert.match(html, /<p class="ar">スケジュール<\/p><ul><li><a href="\/pscore\/scv_search_tn/)
@@ -114,7 +114,7 @@ describe('ScoreNavi の描画', () => {
 
   test('リンクなしのグループは名前だけ、末尾に幅調整の空 li', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
-    const html = renderToStaticMarkup(<ScoreNavi frame={frame} lang="jp" />)
+    const html = renderHtml(<ScoreNavi frame={frame} lang="jp" />)
     assert.match(html, /エントリー一覧/)
     assert.match(html, /<p class="ar">成績<\/p>/)
     assert.match(
@@ -127,7 +127,7 @@ describe('ScoreNavi の描画', () => {
 
   test('lang=en はリンクに引き継がれ、英語名が空のディビジョンは空のまま', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
-    const html = renderToStaticMarkup(<ScoreNavi frame={frame} lang="en" />)
+    const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)
     assert.match(html, /href="\/pscore\/scv_team_list\/open\/2\?lang=en">Entry List</)
     assert.match(html, /<li><p><\/p><ul><\/ul><\/li>/)
   })
