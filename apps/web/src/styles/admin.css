@@ -1,0 +1,471 @@
+/*
+ * 管理画面(/admin)の見た目。参照サイトの見た目には合わせず、スマートフォンで入力しやすい素の CSS にする。
+ * 閲覧ページの CSS(legacy.css)は全ページに読み込まれるので、.adm の中だけで上書きする。
+ * 押せる要素は 44px 以上(WCAG 2.2 の 2.5.5 Target Size (Enhanced) と Apple HIG の最小タップ領域)。
+ */
+:root {
+  --adm-tap: 44px;
+  --adm-gap: 12px;
+  --adm-fg: #1f2328;
+  --adm-muted: #59636e;
+  --adm-line: #d0d7de;
+  --adm-bg: #f6f8fa;
+  --adm-accent: #0b63c5;
+  --adm-danger: #c62828;
+  --adm-ok: #1a7f37;
+  --adm-left: #0b63c5;
+  --adm-right: #b35900;
+}
+
+.adm {
+  box-sizing: border-box;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--adm-gap) 48px;
+  color: var(--adm-fg);
+  font:
+    16px / 1.5 system-ui,
+    -apple-system,
+    "Hiragino Sans",
+    "Noto Sans JP",
+    sans-serif;
+  letter-spacing: normal;
+}
+
+.adm *,
+.adm *::before,
+.adm *::after {
+  box-sizing: inherit;
+}
+
+.adm a {
+  color: var(--adm-accent);
+  text-decoration: underline;
+}
+
+.adm h1 {
+  font-size: 1.4rem;
+  margin: 16px 0 8px;
+}
+
+.adm h2 {
+  font-size: 1.15rem;
+  margin: 24px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm h3 {
+  font-size: 1rem;
+  margin: 16px 0 8px;
+}
+
+.adm-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px var(--adm-gap);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--adm-gap);
+  flex: 1;
+}
+
+.adm-header nav a,
+.adm-header .adm-user {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+}
+
+.adm-header .adm-user {
+  color: var(--adm-muted);
+  font-size: 0.875rem;
+}
+
+.adm-crumbs {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  color: var(--adm-muted);
+}
+
+.adm-notice {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.adm-notice.ok {
+  color: var(--adm-ok);
+  background: #dafbe1;
+}
+
+.adm-notice.error {
+  color: var(--adm-danger);
+  background: #ffebe9;
+}
+
+.adm form {
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm fieldset {
+  border: 1px solid var(--adm-line);
+  border-radius: 6px;
+  margin: 0 0 var(--adm-gap);
+  padding: 8px var(--adm-gap) var(--adm-gap);
+}
+
+.adm legend {
+  padding: 0 4px;
+  font-weight: bold;
+}
+
+.adm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm-field > span {
+  font-size: 0.875rem;
+  color: var(--adm-muted);
+}
+
+.adm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 var(--adm-gap);
+}
+
+.adm input[type="text"],
+.adm input[type="email"],
+.adm input[type="password"],
+.adm input[type="number"],
+.adm input[type="date"],
+.adm input[type="time"],
+.adm input[type="url"],
+.adm select,
+.adm textarea {
+  width: 100%;
+  min-height: var(--adm-tap);
+  padding: 8px 10px;
+  border: 1px solid var(--adm-line);
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+}
+
+.adm textarea {
+  min-height: 120px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+}
+
+.adm-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--adm-tap);
+  margin: 0 0 4px;
+}
+
+.adm-check input {
+  width: 22px;
+  height: 22px;
+}
+
+.adm button {
+  min-height: var(--adm-tap);
+  min-width: var(--adm-tap);
+  padding: 8px 16px;
+  border: 1px solid var(--adm-accent);
+  border-radius: 6px;
+  background: var(--adm-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.adm button.secondary {
+  background: #fff;
+  color: var(--adm-accent);
+}
+
+.adm button.danger {
+  border-color: var(--adm-danger);
+  background: #fff;
+  color: var(--adm-danger);
+}
+
+.adm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.adm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--adm-gap);
+  font-size: 0.9375rem;
+}
+
+.adm-table th,
+.adm-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--adm-line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.adm-table th {
+  font-weight: bold;
+  background: var(--adm-bg);
+}
+
+.adm-scroll {
+  overflow-x: auto;
+}
+
+.adm-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm-list li {
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm .adm-list a {
+  display: flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+  padding: 4px 0;
+}
+
+.adm-muted {
+  color: var(--adm-muted);
+  font-size: 0.875rem;
+}
+
+.adm-badge {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  background: var(--adm-bg);
+  border: 1px solid var(--adm-line);
+}
+
+.adm-badge.live {
+  color: #fff;
+  background: var(--adm-danger);
+  border-color: var(--adm-danger);
+}
+
+.adm-badge.finished {
+  color: #fff;
+  background: var(--adm-muted);
+  border-color: var(--adm-muted);
+}
+
+/* ===== スコア入力 ===== */
+
+.adm-scoreboard {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--adm-fg);
+  color: #fff;
+  text-align: center;
+}
+
+.adm-scoreboard .score {
+  font-size: 2.25rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-scoreboard .team {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.adm-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--adm-gap);
+}
+
+.adm-side {
+  border: 2px solid var(--adm-left);
+  border-radius: 8px;
+  padding: 8px var(--adm-gap);
+}
+
+.adm-side.right {
+  border-color: var(--adm-right);
+}
+
+.adm-side h2 {
+  margin-top: 4px;
+}
+
+/* 得点者とアシストの選択。radio を大きなボタンとして並べる(JavaScript なしで 1 タップずつ選べる) */
+.adm-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.adm-picks label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--adm-tap);
+  padding: 4px 6px;
+  border: 1px solid var(--adm-line);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.875rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.adm-picks input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.adm-picks label:has(input:checked) {
+  border-color: var(--adm-accent);
+  background: var(--adm-accent);
+  color: #fff;
+  font-weight: bold;
+}
+
+.adm-picks label:has(input:focus-visible) {
+  outline: 3px solid #f5a623;
+}
+
+.adm-goal {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1.125rem;
+}
+
+.adm-side.right .adm-goal {
+  border-color: var(--adm-right);
+  background: var(--adm-right);
+}
+
+.adm-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm-quick form {
+  margin: 0;
+}
+
+.adm-quick button {
+  width: 100%;
+}
+
+.adm-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.adm-events li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-events form {
+  margin: 0;
+}
+
+/* 自分の担当試合(記録係のトップ)。1 試合 1 枚のカードで、押すと記録画面に入る */
+.adm-matches {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--adm-gap);
+  display: grid;
+  gap: 8px;
+}
+
+.adm .adm-matches a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-left: 6px solid var(--adm-accent);
+  border-radius: 10px;
+  color: var(--adm-fg);
+  text-decoration: none;
+}
+
+.adm .adm-matches li.live a {
+  border-left-color: var(--adm-danger);
+}
+
+.adm .adm-matches li.finished a {
+  border-left-color: var(--adm-line);
+  color: var(--adm-muted);
+}
+
+.adm-matches .when {
+  font-weight: bold;
+}
+
+.adm-matches .teams {
+  grid-column: 1 / -1;
+  font-size: 1.05rem;
+}
+
+.adm-matches .state {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 0.875rem;
+}
+
+.adm-matches .sub {
+  grid-column: 1 / -1;
+  color: var(--adm-muted);
+  font-size: 0.8125rem;
+}

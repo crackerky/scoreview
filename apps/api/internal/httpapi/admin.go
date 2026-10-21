@@ -1,0 +1,235 @@
+package httpapi
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
+	"scoreview/api/internal/auth"
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/store"
+)
+
+// 認証と管理用エンドポイントの共通部分(docs/api.md「管理用エンドポイント」)。
+
+// maxBodyBytes は管理用のボディの上限。自由記述 HTML(大会トップ)が最大の項目で、参照サイトの
+// 大会で最大でも数十 KB なので 1 MiB に収まる。
+const maxBodyBytes = 1 << 20
+
+// policy は管理用エンドポイントの認可の規則。
+type policy struct {
+	// staffTournament が nil ならadmin 専用。nil でなければ、staff はこれが返す大会の担当なら許す
+	staffTournament func(*Server, *http.Request) (int64, error)
+	// anyUser なら役割を問わずログインしていればよい(応答の絞り込みはハンドラが行う)
+	anyUser bool
+	// scoreMatch なら、staff はパスの {id} の試合を覆う割り当て(staff_assignments)も要る
+	scoreMatch bool
+}
+
+// adminOnly は管理者だけに許す。
+func adminOnly() policy { return policy{} }
+
+// anyUser はログインしていれば誰にでも許す。
+func anyUser() policy { return policy{anyUser: true} }
+
+// staffOfTournament は記録係にも、パスの {id} の大会の担当なら許す。
+func staffOfTournament() policy {
+	return policy{
+		staffTournament: func(_ *Server, r *http.Request) (int64, error) { return pathID(r) },
+	}
+}
+
+// staffOfDivision は記録係にも、パスの {id} のディビジョンの大会の担当なら許す。
+func staffOfDivision() policy {
+	return policy{staffTournament: func(s *Server, r *http.Request) (int64, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return 0, err
+		}
+		return store.TournamentOfDivision(r.Context(), s.db, id)
+	}}
+}
+
+// staffOfMatch は記録係にも、パスの {id} の試合の大会の担当なら許す。
+func staffOfMatch() policy {
+	return policy{staffTournament: func(s *Server, r *http.Request) (int64, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return 0, err
+		}
+		return store.TournamentOfMatch(r.Context(), s.db, id)
+	}}
+}
+
+// scorerOfMatch は記録係にも、パスの {id} の試合の大会の担当で、割り当てがその試合を覆うなら許す
+// (担当外の試合は入力できない。docs/operations/operator-experience.md「記録係」5)。
+func scorerOfMatch() policy {
+	rule := staffOfMatch()
+	rule.scoreMatch = true
+	return rule
+}
+
+// adminFunc は認可済みの利用者を受け取るハンドラ。
+type adminFunc func(r *http.Request, user domain.User) (any, error)
+
+// admin はセッションと権限を確かめてから fn を呼ぶルートを登録する。成功すると status で応答し、
+// 204 なら本文を書かない。
+func (s *Server) admin(pattern string, rule policy, status int, fn adminFunc) {
+	s.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		user, err := s.authenticate(r)
+		if err == nil {
+			err = s.authorize(r, user, rule)
+		}
+		var body any
+		if err == nil {
+			body, err = fn(r, user)
+		}
+		if err != nil {
+			writeError(w, s.log, err)
+			return
+		}
+		if status == http.StatusNoContent {
+			w.WriteHeader(status)
+			return
+		}
+		writeJSON(w, status, body)
+	})
+}
+
+// bearerToken は Authorization: Bearer {token} のトークンを返す。無ければ空文字。
+func bearerToken(r *http.Request) string {
+	const prefix = "Bearer "
+	header := r.Header.Get("Authorization")
+	if len(header) <= len(prefix) || !strings.EqualFold(header[:len(prefix)], prefix) {
+		return ""
+	}
+	return header[len(prefix):]
+}
+
+func (s *Server) authenticate(r *http.Request) (domain.User, error) {
+	return auth.Authenticate(r.Context(), s.db, bearerToken(r), s.now())
+}
+
+func (s *Server) authorize(r *http.Request, user domain.User, rule policy) error {
+	if user.Role == domain.RoleAdmin || rule.anyUser {
+		return nil
+	}
+	if user.Role != domain.RoleStaff || rule.staffTournament == nil {
+		return fmt.Errorf("%w: admin only", domain.ErrForbidden)
+	}
+	tournamentID, err := rule.staffTournament(s, r)
+	if err != nil {
+		return err
+	}
+	ok, err := store.IsTournamentStaff(r.Context(), s.db, user.ID, tournamentID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: not a staff of tournament %d", domain.ErrForbidden, tournamentID)
+	}
+	if !rule.scoreMatch {
+		return nil
+	}
+	matchID, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	ok, err = store.CanScoreMatch(r.Context(), s.db, user.ID, matchID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: match %d is not assigned to this staff", domain.ErrForbidden, matchID)
+	}
+	return nil
+}
+
+func actorOf(
+	user domain.User,
+) domain.Actor {
+	return domain.Actor{UserID: user.ID, Role: user.Role}
+}
+
+// decodeBody はボディの JSON を dst に読み込む。dst に既に入っている値は、ボディに無いキーの分だけ残る
+// (PATCH は現在の値を入れてから呼ぶ)。未知のキー、型の違い、複数の値は検証エラーにする。
+func decodeBody(r *http.Request, dst any) error {
+	data, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxBodyBytes))
+	if err != nil {
+		return domain.Invalid("body", "too large or unreadable")
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return domain.Invalid("body", err.Error())
+	}
+	if dec.More() {
+		return domain.Invalid("body", "must be a single JSON value")
+	}
+	return nil
+}
+
+// withPathID はパスの {id} を読んでから fn を呼ぶ adminFunc にする。
+func withPathID(
+	fn func(ctx context.Context, id int64, r *http.Request, user domain.User) (any, error),
+) adminFunc {
+	return func(r *http.Request, user domain.User) (any, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return nil, err
+		}
+		return fn(r.Context(), id, r, user)
+	}
+}
+
+// 認証
+
+func (s *Server) authRoutes() {
+	s.handle("POST /api/v1/auth/login", s.login)
+	s.admin("POST /api/v1/auth/logout", anyUser(), http.StatusNoContent, s.logout)
+	s.admin("GET /api/v1/auth/me", anyUser(), http.StatusOK, s.me)
+}
+
+func (s *Server) login(r *http.Request) (any, error) {
+	var body loginBodyDTO
+	if err := decodeBody(r, &body); err != nil {
+		return nil, err
+	}
+	// パスワードの長さの上限だけは照合の前に確かめる(巨大な入力で argon2 を回させない)
+	if len(body.Password) > 4*auth.MaxPasswordLen {
+		return nil, auth.ErrInvalidCredentials
+	}
+	session, err := auth.Login(r.Context(), s.db, body.Email, body.Password, s.now())
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			s.log.Info("login failed")
+		}
+		return nil, err
+	}
+	ids, err := store.StaffTournamentIDs(r.Context(), s.db, session.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	return loginDTO{
+		Token:     session.Token,
+		ExpiresAt: formatInstant(session.ExpiresAt),
+		User:      toAdminUser(session.User, ids),
+	}, nil
+}
+
+func (s *Server) logout(r *http.Request, _ domain.User) (any, error) {
+	return nil, auth.Logout(r.Context(), s.db, bearerToken(r))
+}
+
+func (s *Server) me(r *http.Request, user domain.User) (any, error) {
+	ids, err := store.StaffTournamentIDs(r.Context(), s.db, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return meDTO{User: toAdminUser(user, ids)}, nil
+}

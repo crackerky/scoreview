@@ -26,6 +26,7 @@ Go の DTO(`apps/api/internal/httpapi/dto*.go`)と TypeScript の zod スキー�
 | `forbidden` | 403 | 権限がない |
 | `not_found` | 404 | ID が存在しない。`message` は参照サイトのエラー画面に出す `{種別}_ID [{id}]`(`TOURNAMENT_ID`、`ENTRY_TEAM_ID`、`ENTRY_PLAYER_ID`、`MATCH_ID`、`EVENT_DIVISION_ID`、`GROUP_ID`、`TGALLERY_ID`) |
 | `conflict` | 409 | 一意制約違反、状態遷移の不正 |
+| `too_many_requests` | 429 | ログイン試行の制限を超えた(同じメールアドレスで 15 分に 10 回失敗) |
 | `internal` | 500 | それ以外 |
 
 ## 共通の型
@@ -41,6 +42,8 @@ type TeamBarStyle = 'default' | 'mixed' | 'women' | 'univ' | 'waku1' | 'waku2'
 type EntryKind = 'team' | 'individual'
 type StatsKind = 'ultimate' | 'discgolf'
 type MatchStatus = 'scheduled' | 'live' | 'finished'
+// 試合の結果の種類(docs/format-engine.md「試合の結果の種類」)。管理用の応答だけに出す
+type ResultType = 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
 type GroupKind = 'pool' | 'bracket' | 'image'
 type Side = 'left' | 'right'
 type Gender = 'M' | 'F'
@@ -347,37 +350,375 @@ type BracketCell = {
 
 ## 管理用エンドポイント
 
-`/api/v1/admin/` 以下は `Authorization: Bearer {sessionToken}` が必要。
-記録係(staff)は `tournament_staff` に登録された大会の試合とイベントだけを操作できる。
-それ以外はすべて管理者(admin)専用。
+`/api/v1/admin/` 以下と `/api/v1/auth/logout`、`/api/v1/auth/me` は `Authorization: Bearer {sessionToken}` が必要。
+トークンが無い、未知、期限切れなら 401(`unauthorized`)。
+
+記録係(staff)は `tournament_staff` に登録された大会について、次の操作だけができる。
+それ以外はすべて管理者(admin)専用で、staff が呼ぶと 403(`forbidden`)。
+
+- 読み取り: 大会一覧(担当大会だけが返る)、大会、ディビジョン一覧、ディビジョン、試合一覧、試合(スコア入力画面のデータ)、試合の監査ログ、自分の担当試合
+- 変更: 試合の状態、結果の種類、得点経過の追加・取り消し・得点者の付け直し、試合ごとの選手記録。
+  ただし**記録係の割り当て**(`staff_assignments`)が覆う試合だけ。割り当ての無い試合を変えると 403
+
+パスの資源が存在しなければ、権限の判定より先に 404 を返す。
+
+### 共通の規則
+
+- 以下の表のパスは `/api/v1` を省いて書く(`/admin/tournaments` は `/api/v1/admin/tournaments`)。
+- 作成(`POST`)は 201 と作った資源、部分更新(`PATCH`)は 200 と更新後の資源、削除(`DELETE`)は 204(本文なし)を返す。
+  一覧は `{ 複数形のキー: [...] }` で返す(例 `{ tournaments: [...] }`)。
+- ボディは JSON 1 つ。未知のキー、型の違い、1 MiB を超えるボディは 400。
+- `PATCH` のボディは作成と同じ形で、**ボディにあるキーだけ**を変える。入れ子のオブジェクト(`name` など)もキーごとに変える(`{"name":{"en":"X"}}` は `name.ja` を変えない)。
+  キーに `null` を入れるとその値を消す。
+- 作成でボディに無いキーは、各型の「既定」の値になる。
+- URL の項目(ロゴ、バナー、写真、グループの画像)は `http(s)://` の絶対 URL か `/` で始まるサイト内のパスだけを受け付ける(`javascript:` などは 400)。
+- 自由記述 HTML(`topHtml`)は**保存時に**無害化する。応答と閲覧用の `topHtml` は無害化後の値になる。
 
 ### 認証
 
+```ts
+type AdminUser = {
+  id: number; email: string; displayName: string; role: 'admin' | 'staff'
+  tournamentIds: number[]          // 担当大会(tournament_staff)。昇順
+}
+```
+
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /api/v1/auth/login` | `{ email, password }` | `{ token, expiresAt, user }`。失敗は 401(メールアドレスの有無を区別しない文面) |
+| `POST /api/v1/auth/login` | `{ email, password }` | `{ token, expiresAt, user: AdminUser }`。`expiresAt` は RFC 3339(UTC)。失敗は 401 で、メールアドレスの有無を区別しない文面。試行の制限を超えたら 429 |
 | `POST /api/v1/auth/logout` | なし | 204 |
-| `GET /api/v1/auth/me` | なし | `{ user: { id, email, displayName, role } }` |
+| `GET /api/v1/auth/me` | なし | `{ user: AdminUser }` |
 
-### 登録と編集
+- メールアドレスは前後の空白を除いた小文字で比べる。
+- セッションの有効期間はログインから 24 時間(延長しない)。トークンは 32 バイトの乱数の base64url で、api は SHA-256 だけを保存する。
+- ログイン試行の制限: 同じメールアドレスで 15 分に 10 回失敗すると、古い失敗が 15 分の窓から外れるまで照合せずに 429 を返す。存在しないアドレスへの試行も同じく数える。成功すると失敗の記録を消す。
 
-各リソースは `GET`(一覧または単体)、`POST`(作成)、`PATCH`(部分更新)、`DELETE` を持つ。
-ボディのキーは閲覧用の型に合わせて camelCase にする(例 `nameJa` ではなく `name: { ja, en }`)。
-詳細は実装時に本節へ追記する。
+### 大会とバナー
 
-| リソース | パス |
-|---|---|
-| 大会 | `/api/v1/admin/tournaments`、`/api/v1/admin/tournaments/{id}` |
-| バナー | `/api/v1/admin/tournaments/{id}/banners` |
-| ディビジョン | `/api/v1/admin/tournaments/{id}/divisions`、`/api/v1/admin/divisions/{id}` |
-| グループ | `/api/v1/admin/divisions/{id}/groups`、`/api/v1/admin/groups/{id}`、`PUT /api/v1/admin/groups/{id}/teams` |
-| トーナメント表の生成 | `POST /api/v1/admin/groups/{id}/bracket`(ボディ `{ template }`)、`GET /api/v1/admin/bracket-templates` |
-| チーム | `/api/v1/admin/divisions/{id}/teams`、`/api/v1/admin/teams/{id}` |
-| 選手とスタッフ | `/api/v1/admin/teams/{id}/players`、`/api/v1/admin/players/{id}` |
-| 試合 | `/api/v1/admin/divisions/{id}/matches`、`/api/v1/admin/matches/{id}` |
-| 試合イベント | `POST /api/v1/admin/matches/{id}/events`、`DELETE /api/v1/admin/matches/{id}/events/{eventId}` |
-| 試合ごとの選手記録 | `PUT /api/v1/admin/matches/{id}/player-stats` |
-| 試合の状態 | `POST /api/v1/admin/matches/{id}/status`(ボディ `{ status, winnerSide }`) |
-| 最終順位 | `PUT /api/v1/admin/divisions/{id}/final-ranks`(ボディ `[{ teamId, rank }]`) |
-| ギャラリー | `/api/v1/admin/tournaments/{id}/galleries`、`/api/v1/admin/galleries/{id}`、`PUT /api/v1/admin/galleries/{id}/photos` |
-| ユーザー | `/api/v1/admin/users`、`PUT /api/v1/admin/users/{id}/tournaments` |
+```ts
+type TournamentInput = {
+  name: I18nText                     // name.ja は必須
+  shortName: string
+  status: TournamentStatus           // 既定 'entry_open'
+  listed: boolean                    // 既定 true。false なら大会一覧に出さない
+  startDate: string | null           // "YYYY-MM-DD"。大会一覧の並び順
+  logoUrl: string | null
+  topHtml: I18nText                  // 保存時に無害化
+  labels: { teamList: 'teams' | 'entries'; groups: 'groups' | 'results' }  // 既定 teams, groups
+  showSchedule: boolean              // 既定 true
+  // 不戦勝の規定スコア。既定 null(未設定)。winner > loser >= 0
+  forfeitScore: { winner: number; loser: number } | null
+}
+type AdminTournament = { id: number } & TournamentInput
+type Banner = { imageUrl: string; linkUrl: string | null }
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments` | なし | `{ tournaments: AdminTournament[] }`(開催日の新しい順。staff は担当大会だけ) |
+| `POST /admin/tournaments` | `TournamentInput` | `AdminTournament` |
+| `GET` / `PATCH` / `DELETE /admin/tournaments/{id}` | `PATCH` は `TournamentInput` の一部 | `AdminTournament` / 204。削除は配下を全部消す |
+| `GET /admin/tournaments/{id}/banners` | なし | `{ banners: Banner[] }`(表示順) |
+| `PUT /admin/tournaments/{id}/banners` | `{ banners: Banner[] }`(この順で表示。最大 30) | `{ banners: Banner[] }` |
+
+### ディビジョンと最終順位
+
+```ts
+type DivisionInput = {
+  name: I18nText                     // name.ja は必須
+  kind: DivisionKind                 // 既定 'none'
+  sortOrder: number                  // 既定 0
+  scheduleEnabled: boolean           // 既定 true。大会トップの [スケジュール] をリンクにする
+  standingsPublished: boolean        // 既定 false。大会トップの [最終順位] を公開する
+  entryKind: EntryKind               // 既定 'team'
+  statsKind: StatsKind               // 既定 'ultimate'
+}
+type AdminDivision = { id: number; tournamentId: number } & DivisionInput
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/divisions` | なし | `{ divisions: AdminDivision[] }`(sort_order, id 順) |
+| `POST /admin/tournaments/{id}/divisions` | `DivisionInput` | `AdminDivision` |
+| `GET` / `PATCH` / `DELETE /admin/divisions/{id}` | | `AdminDivision` / 204 |
+| `PUT /admin/divisions/{id}/final-ranks` | `Array<{ teamId: number; rank: number \| null }>` | `{ teams: AdminTeam[] }` |
+
+最終順位は `teams.final_rank` をまとめて書く(配列に無いチームは変えない。同順位可。`null` で消す)。
+公開は `PATCH /admin/divisions/{id}` の `standingsPublished` で切り替える。
+
+### グループとトーナメント表
+
+```ts
+type GroupInput = {
+  name: string                       // 必須。参照サイトの表記ゆれもそのまま
+  kind: GroupKind                    // 既定 'pool'
+  sortOrder: number                  // 既定 0
+  linked: boolean                    // 既定 true
+  published: boolean                 // 既定 true。false ならナビに出さない
+  image: { url: string; width: number | null; height: number | null } | null  // kind='image' なら必須
+}
+type AdminGroup = {
+  id: number; divisionId: number
+  bracket: { pattern: string; ptnName: string } | null   // 生成済みのトーナメント表の識別子
+  teams: Array<{ teamId: number; rankOverride: number | null }>  // group_teams の登録順
+} & GroupInput
+type MatchSideInput = {
+  teamId: number | null
+  placeholder: { code: string; outcome: 'win' | 'lose' } | null  // "[A1-勝ち]" は { code: 'A1', outcome: 'win' }
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/divisions/{id}/groups` | なし | `{ groups: AdminGroup[] }`(非公開も含む) |
+| `POST /admin/divisions/{id}/groups` | `GroupInput` | `AdminGroup`。`kind='bracket'` は空の表で作る |
+| `GET` / `PATCH` / `DELETE /admin/groups/{id}` | | `AdminGroup` / 204。削除しても試合は残る(group が null になる) |
+| `PUT /admin/groups/{id}/teams` | `{ teams: Array<{ teamId; rankOverride }> }`(この順で対戦表と順位表に出す) | `AdminGroup` |
+| `GET /admin/bracket-templates` | なし | `{ templates: Array<{ id: string; name: I18nText; teams: number }> }` |
+| `POST /admin/groups/{id}/bracket` | `{ template: string; codePrefix: string; seeds: MatchSideInput[] }` | `AdminGroup` |
+
+トーナメント表の生成は、テンプレート(`single4`、`single8`、`single16`)の格子と試合を 1 回で作る。
+
+- `seeds` は表の上から順の枠で、数はテンプレートの `teams` と同じ。各枠は `teamId`(確定したチーム)か `placeholder`(未確定の参照。前のグループの試合など)のどちらか一方。確定したチームは同じディビジョンのチームに限り、グループのチームになる。
+- 試合 CD は `codePrefix` と通し番号(1 回戦の上から、次のラウンド、…、決勝、3 位決定戦の順)。例 `single8` と `"B"` なら 1 回戦が B1〜B4、準決勝が B5 と B6、決勝が B7、3 位決定戦が B8。
+- 後続の試合の左右は前の試合を `placeholder` で参照する(B5 の左は `[B1-勝ち]`、B8 の左は `[B5-負け]`)。
+- グループに試合が既にあるか、ディビジョンに同じ CD の試合があれば 409(作り直すときは試合を消してから)。
+- 格子は閲覧用の `bracket` で返る。スコアが入るまで game セルの文字列は試合 CD。
+
+### チームと選手
+
+```ts
+type TeamInput = {
+  fullName: I18nText                 // fullName.ja は必須。加工せずに保存する
+  shortName: I18nText                // shortName.ja は必須
+  comment: I18nText
+  barStyle: TeamBarStyle             // 既定 'default'
+  sortOrder: number
+  finalRank: number | null
+}
+type AdminTeam = { id: number; tournamentId: number; divisionId: number } & TeamInput
+type PlayerInput = {
+  number: string                     // "00" のような表記を保つ
+  name: I18nText                     // name.ja は必須
+  gender: Gender | null
+  role: I18nText | null              // null なら選手、値があればスタッフ(role.ja 必須)
+}
+type AdminPlayer = { id: number; teamId: number } & PlayerInput
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/divisions/{id}/teams` | なし | `{ teams: AdminTeam[] }` |
+| `POST /admin/divisions/{id}/teams` | `TeamInput` | `AdminTeam` |
+| `GET` / `PATCH` / `DELETE /admin/teams/{id}` | | `AdminTeam` / 204 |
+| `GET /admin/teams/{id}/players` | なし | `{ players: AdminPlayer[] }`(ID 順。スタッフを含む) |
+| `POST /admin/teams/{id}/players` | `PlayerInput` | `AdminPlayer` |
+| `GET` / `PATCH` / `DELETE /admin/players/{id}` | | `AdminPlayer` / 204 |
+
+### 試合
+
+```ts
+type MatchInput = {
+  groupId: number | null             // 同じディビジョンのグループ
+  code: string                       // 試合 CD。未確定チームの参照に使う
+  date: string | null                // "YYYY-MM-DD"
+  time: string | null                // "HH:MM"
+  field: string | null               // コート
+  hasDetail: boolean                 // 既定 true
+  left: MatchSideInput               // teamId は同じディビジョンのチーム。左右で同じチームは不可
+  right: MatchSideInput
+}
+type AdminMatch = {
+  id: number; divisionId: number; groupId: number | null
+  code: string; date: string | null; time: string | null; field: string | null
+  hasDetail: boolean; status: MatchStatus
+  left: MatchSide; right: MatchSide  // 閲覧用と同じ形。ただし team が解決済みでも placeholder を返す
+  winnerSide: Side | null            // 同点で勝者を決めた試合と、不戦勝・不成立の勝者
+  resultType: ResultType
+}
+type MatchDetail = {
+  match: AdminMatch
+  context: {                         // 見出しとスコアシートに出す名前
+    tournamentId: number; tournamentName: string; divisionName: string; groupName: string | null
+  }
+  inBracket: boolean                 // トーナメント(bracket グループ)の試合
+  forfeitScore: { winner: number; loser: number } | null  // 大会の不戦勝の規定スコア
+  startedAt: string | null           // 経過 0 秒の時刻(RFC 3339、UTC)。得点経過が無ければ null
+  events: Array<{                    // 時系列の昇順
+    id: number; clientId: string     // clientId は端末が付けた UUID(無ければ api が付けた UUID)
+    seq: number; elapsedSec: number
+    kind: 'goal' | 'timeout' | 'pull' | 'end'; side: Side | null
+    scorer: PlayerRef | null; assist: PlayerRef | null; callahan: boolean
+    leftScore: number; rightScore: number       // その時点の累計
+  }>
+  playerStats: Array<{ playerId: number; side: Side; blocks: number; greatests: number }>
+  rosters: { left: AdminPlayer[]; right: AdminPlayer[] }   // 左右のチームの選手とスタッフ
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/divisions/{id}/matches` | なし | `{ matches: AdminMatch[] }`(日付、時刻、コートの自然順) |
+| `POST /admin/divisions/{id}/matches` | `MatchInput` | `AdminMatch`(未試合で作る) |
+| `GET /admin/matches/{id}` | なし | `MatchDetail` |
+| `PATCH /admin/matches/{id}` | `MatchInput` の一部 | `AdminMatch`。スコアと状態は変えない |
+| `DELETE /admin/matches/{id}` | なし | 204 |
+| `POST /admin/matches/{id}/events` | 下記 | 201 と `MatchDetail` |
+| `DELETE /admin/matches/{id}/events/{eventId}` | なし(クエリ `clientId` で操作 ID) | 200 と `MatchDetail`(取り消し後の状態を返す) |
+| `PATCH /admin/matches/{id}/events/{eventId}` | `{ clientId?, scorerId, assistId, callahan }` | `MatchDetail`。goal の得点者、アシスト、キャラハンを付け直す。終了した試合でも可 |
+| `PUT /admin/matches/{id}/player-stats` | `{ stats: Array<{ playerId; side; blocks; greatests }> }` | `MatchDetail` |
+| `POST /admin/matches/{id}/status` | 下記 | `MatchDetail` |
+| `POST /admin/matches/{id}/result` | 下記 | `MatchDetail`。通常以外の結果で試合を終える |
+| `GET /admin/matches/{id}/audit` | なし | `{ entries: AuditEntry[] }`(新しい順。下記「監査ログ」) |
+
+`{eventId}` は得点経過の `id`(正の整数)か `clientId`(UUID)。通信が切れている間に記録した得点経過は、端末が api の `id` を知らないので `clientId` で指す。
+
+**操作 ID(`clientId`)と冪等性**: 試合を変える操作(得点経過の追加・取り消し・付け直し、状態の変更、結果の種類)には、端末が UUID の `clientId` を付けられる。
+同じ `clientId` の操作が既に適用済みなら、2 回目は何もせずに現在の `MatchDetail` を返す(得点経過の追加なら 201、他は 200)。
+端末は通信が切れている間の操作を溜め、つながったら順に送り直す。応答が届かずに送り直しても二重に登録されない。
+UUID の形でない `clientId` は 400。得点経過の追加では `clientId` がその得点経過の `clientId` になる。
+
+得点経過の追加のボディ:
+
+```ts
+{
+  clientId?: string | null           // 操作 ID(UUID)
+  kind: 'goal' | 'timeout' | 'pull' | 'end'
+  side: Side | null                  // goal は得点した側、timeout は取った側、pull はプルした側。end は null
+  elapsedSec?: number | null         // 省略か null なら、最初のイベントを記録した時刻からの経過秒
+  scorerId?: number | null           // goal だけ。side のチームの選手
+  assistId?: number | null           // goal だけ。得点者と別の選手。キャラハンなら null
+  callahan?: boolean                 // goal だけ
+  winnerSide?: Side | null           // end だけ。同点のトーナメントの試合では必須
+}
+```
+
+状態の変更のボディ:
+
+```ts
+{
+  clientId?: string | null           // 操作 ID(UUID)
+  status: MatchStatus
+  winnerSide?: Side | null           // finished にするときだけ。同点のトーナメントの試合では必須
+  score?: { left: number; right: number } | null  // 得点経過の無い試合(詳細なし)の結果。経過がある試合では指定不可
+}
+```
+
+結果の種類のボディ(`POST /admin/matches/{id}/result`):
+
+```ts
+{
+  clientId?: string | null           // 操作 ID(UUID)
+  resultType: Exclude<ResultType, 'normal'>
+  winnerSide?: Side | null           // forfeit と no_contest は必須。abandoned は同点のトーナメントの試合で必須。
+                                     // double_forfeit と unplayed は指定不可
+  forfeitScore?: { winner: number; loser: number } | null
+                                     // forfeit だけ。大会に規定スコアが無いときに必須。あるときは省略するか同じ値
+}
+```
+
+| 種類 | 記録する値 | 成績の集計(チーム、プール、勝ち点) |
+|---|---|---|
+| `forfeit`(不戦勝) | 大会の規定スコアを勝者の側に。`winnerSide` | 規定スコアで勝ち・負け |
+| `double_forfeit`(両チーム不戦敗) | スコアなし(`null`) | 両チームとも負け。得失点なし |
+| `no_contest`(不成立) | スコアなし。`winnerSide` | 勝ち・負けだけ。得失点なし |
+| `abandoned`(途中打ち切り) | その時点の得点経過のスコア | 通常の試合と同じ |
+| `unplayed`(未消化。途中打ち切りを未消化にした場合も) | その時点のスコア(あれば) | 数えない |
+
+- 試合前でも試合中でも `finished` になる。終了した試合には 409(結果を変えるときは管理者が `status: 'live'` へ戻す)。
+- 試合中へ戻すと `resultType` は `normal` に戻り、スコアは得点経過から計算し直す(規定スコアを引き継がない)。
+- 勝者がいれば、通常の終了と同じく後続試合の未確定チームを埋める。両チーム不戦敗と未消化は埋めない。
+
+試合のスコアと状態は、得点経過と状態の変更からだけ決まる。
+
+- スコアは得点経過の goal の数で、追加と取り消しのたびに計算し直す。
+- 状態は `scheduled → live → finished` の順に進む(飛び越しも可)。未試合の試合は最初のイベントで `live`、`end` の追加で `finished` になる。
+- `finished → live` の戻し(`end` の取り消し、または状態の変更)は admin だけ。状態の変更で戻すと `end` の得点経過を消す。それ以外の戻しは 409。
+- 終了した試合には得点経過を足せない(409)。取り消せるのは `end` だけ。
+- 終了時、スコアに差があれば勝者はスコアで決まり、`winnerSide` は保存しない(スコアと矛盾する指定は 400)。同点なら `winnerSide` を保存し、トーナメントの試合で指定が無ければ 400。
+- 試合が終わると、同じディビジョンで、この試合の CD を `placeholder` で参照する未試合の試合のチームを、勝者または敗者で埋める。終了を取り消すと空に戻す(既に始まった後続試合は変えない)。トーナメント表の格子のチーム名も同時に書き直す。
+
+### 監査ログ
+
+スコア、得点経過、試合の状態、結果の種類、最終順位の変更は、変更と同じトランザクションで 1 操作 1 行の監査ログに残る(docs/format-engine.md「監査ログ」)。
+
+```ts
+type AuditMatchState = {
+  status: MatchStatus; resultType: ResultType
+  leftScore: number | null; rightScore: number | null; winnerSide: Side | null
+}
+type AuditEvent = {
+  clientId: string; kind: 'goal' | 'timeout' | 'pull' | 'end'; side: Side | null; elapsedSec: number
+  scorer: { id: number; number: string; name: string } | null   // 記録した時点の背番号と名前
+  assist: { id: number; number: string; name: string } | null
+  callahan: boolean
+}
+type AuditEntry = {
+  id: number
+  at: string                         // RFC 3339(UTC)
+  user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
+  action: 'event.add' | 'event.remove' | 'event.update' | 'match.status' | 'match.result' | 'team.final_rank'
+  matchId: number | null; teamId: number | null
+  // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
+  before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
+  after: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
+}
+```
+
+最終順位の変更(`PUT /admin/divisions/{id}/final-ranks` と `PATCH /admin/teams/{id}` の `finalRank`)は、値が変わったチームごとに 1 行残す。
+
+### 記録係の割り当て
+
+記録係(staff)を、試合 1 つ、またはコート・日付・時間帯の範囲に割り当てる。
+範囲の条件は `null` なら問わない(全部 `null` なら大会の全試合)。時間帯は `from` 以上 `to` 未満で、試合の開始時刻で判定する。
+コートや時刻が決まっていない試合は、その条件のある割り当てでは覆わない。
+
+```ts
+type AssignmentInput = {
+  userId: number                     // 役割 staff のユーザー
+  matchId: number | null             // 同じ大会の試合。指定したら他の条件は null
+  field: string | null               // コート
+  date: string | null                // "YYYY-MM-DD"
+  from: string | null                // "HH:MM"
+  to: string | null                  // "HH:MM"。from より後
+}
+type Assignment = { id: number; userName: string; matchCode: string | null } & AssignmentInput
+type AssignedMatch = AdminMatch & { tournamentId: number; tournamentName: string; divisionName: string }
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/assignments` | なし | `{ assignments: Assignment[] }`(記録係、日付、時刻、コートの順) |
+| `POST /admin/tournaments/{id}/assignments` | `AssignmentInput` | `Assignment`。記録係がまだ大会の担当でなければ担当にもする |
+| `DELETE /admin/assignments/{id}` | なし | 204 |
+| `GET /admin/me/matches` | なし | `{ matches: AssignedMatch[] }`。自分の割り当てが覆う試合(日付、時刻、コートの順)。誰でも呼べる |
+
+### ギャラリー
+
+```ts
+type AdminGallery = {
+  id: number; tournamentId: number
+  name: string; sortOrder: number
+  photos: Array<{ thumbUrl: string; fullUrl: string }>   // 表示順
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/galleries` | なし | `{ galleries: AdminGallery[] }` |
+| `POST /admin/tournaments/{id}/galleries` | `{ name, sortOrder }` | `AdminGallery` |
+| `GET` / `PATCH` / `DELETE /admin/galleries/{id}` | `PATCH` は `{ name, sortOrder }` の一部 | `AdminGallery` / 204 |
+| `PUT /admin/galleries/{id}/photos` | `{ photos: Array<{ thumbUrl; fullUrl }> }`(この順で表示) | `AdminGallery` |
+
+### ユーザー
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/users` | なし | `{ users: AdminUser[] }`(役割、メールアドレス順) |
+| `POST /admin/users` | `{ email, displayName, role, password }`(role の既定 'staff'。password は 12〜256 文字で必須) | `AdminUser` |
+| `GET` / `PATCH` / `DELETE /admin/users/{id}` | `PATCH` は `{ email, displayName, role, password }` の一部 | `AdminUser` / 204 |
+| `PUT /admin/users/{id}/tournaments` | `{ tournamentIds: number[] }`(担当大会を置き換える) | `AdminUser` |
+
+- パスワードは応答に含めない。`PATCH` で `password` を変えると、そのユーザーの全セッションを消す。
+- 自分自身の役割の変更と削除は 409(管理者がいなくなるのを防ぐ)。
+- 最初の管理者は `go run ./cmd/createadmin -email ...` で作る(パスワードは環境変数 `SCOREVIEW_ADMIN_PASSWORD` か標準入力)。

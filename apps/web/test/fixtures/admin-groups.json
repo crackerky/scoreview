@@ -1,0 +1,52 @@
+{
+  "groups": [
+    {
+      "id": 100000000,
+      "divisionId": 100000008,
+      "name": "Tounament A",
+      "kind": "bracket",
+      "sortOrder": 0,
+      "linked": true,
+      "published": true,
+      "image": null,
+      "bracket": {
+        "pattern": "T8",
+        "ptnName": "8 Teams =Tounament A="
+      },
+      "teams": [
+        {
+          "teamId": 100000013,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000014,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000015,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000016,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000017,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000018,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000019,
+          "rankOverride": null
+        },
+        {
+          "teamId": 100000020,
+          "rankOverride": null
+        }
+      ]
+    }
+  ]
+}

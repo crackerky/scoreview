@@ -1,0 +1,18 @@
+{
+  "divisions": [
+    {
+      "id": 100000008,
+      "tournamentId": 100000004,
+      "name": {
+        "ja": "オープン",
+        "en": "Open"
+      },
+      "kind": "mixed",
+      "sortOrder": 0,
+      "scheduleEnabled": true,
+      "standingsPublished": false,
+      "entryKind": "team",
+      "statsKind": "ultimate"
+    }
+  ]
+}

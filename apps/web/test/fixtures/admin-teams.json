@@ -1,0 +1,164 @@
+{
+  "teams": [
+    {
+      "id": 100000013,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ1",
+        "en": "Fictional Club 1"
+      },
+      "shortName": {
+        "ja": "架空1",
+        "en": "Fictional 1"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000014,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ2",
+        "en": "Fictional Club 2"
+      },
+      "shortName": {
+        "ja": "架空2",
+        "en": "Fictional 2"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000015,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ3",
+        "en": "Fictional Club 3"
+      },
+      "shortName": {
+        "ja": "架空3",
+        "en": "Fictional 3"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000016,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ4",
+        "en": "Fictional Club 4"
+      },
+      "shortName": {
+        "ja": "架空4",
+        "en": "Fictional 4"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000017,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ5",
+        "en": "Fictional Club 5"
+      },
+      "shortName": {
+        "ja": "架空5",
+        "en": "Fictional 5"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000018,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ6",
+        "en": "Fictional Club 6"
+      },
+      "shortName": {
+        "ja": "架空6",
+        "en": "Fictional 6"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000019,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ7",
+        "en": "Fictional Club 7"
+      },
+      "shortName": {
+        "ja": "架空7",
+        "en": "Fictional 7"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    },
+    {
+      "id": 100000020,
+      "tournamentId": 100000004,
+      "divisionId": 100000008,
+      "fullName": {
+        "ja": "架空クラブ8",
+        "en": "Fictional Club 8"
+      },
+      "shortName": {
+        "ja": "架空8",
+        "en": "Fictional 8"
+      },
+      "comment": {
+        "ja": "",
+        "en": ""
+      },
+      "barStyle": "default",
+      "sortOrder": 0,
+      "finalRank": null
+    }
+  ]
+}

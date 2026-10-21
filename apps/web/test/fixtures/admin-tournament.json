@@ -1,0 +1,22 @@
+{
+  "id": 100000004,
+  "name": {
+    "ja": "WP6 動作確認カップ r5",
+    "en": "WP6 Check Cup r5"
+  },
+  "shortName": "",
+  "status": "entry_open",
+  "listed": true,
+  "startDate": "2026-11-03",
+  "logoUrl": null,
+  "topHtml": {
+    "ja": "",
+    "en": ""
+  },
+  "labels": {
+    "teamList": "teams",
+    "groups": "groups"
+  },
+  "showSchedule": true,
+  "forfeitScore": null
+}

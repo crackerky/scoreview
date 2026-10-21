@@ -1,0 +1,282 @@
+{
+  "matches": [
+    {
+      "id": 100001061,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B1",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 100000013,
+          "name": {
+            "ja": "架空1",
+            "en": "Fictional 1"
+          }
+        },
+        "placeholder": null,
+        "score": 2,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 100000014,
+          "name": {
+            "ja": "架空2",
+            "en": "Fictional 2"
+          }
+        },
+        "placeholder": null,
+        "score": 1,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001062,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B2",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": {
+          "id": 100000015,
+          "name": {
+            "ja": "架空3",
+            "en": "Fictional 3"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 100000016,
+          "name": {
+            "ja": "架空4",
+            "en": "Fictional 4"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001063,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B3",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": {
+          "id": 100000017,
+          "name": {
+            "ja": "架空5",
+            "en": "Fictional 5"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 100000018,
+          "name": {
+            "ja": "架空6",
+            "en": "Fictional 6"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001064,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B4",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": {
+          "id": 100000019,
+          "name": {
+            "ja": "架空7",
+            "en": "Fictional 7"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 100000020,
+          "name": {
+            "ja": "架空8",
+            "en": "Fictional 8"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001065,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B5",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": {
+          "id": 100000013,
+          "name": {
+            "ja": "架空1",
+            "en": "Fictional 1"
+          }
+        },
+        "placeholder": {
+          "code": "B1",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "B2",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001066,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B6",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": null,
+        "placeholder": {
+          "code": "B3",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "B4",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001067,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B7",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": null,
+        "placeholder": {
+          "code": "B5",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "B6",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    },
+    {
+      "id": 100001068,
+      "divisionId": 100000008,
+      "groupId": 100000000,
+      "code": "B8",
+      "date": null,
+      "time": null,
+      "field": null,
+      "hasDetail": true,
+      "status": "scheduled",
+      "left": {
+        "team": null,
+        "placeholder": {
+          "code": "B5",
+          "outcome": "lose"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "B6",
+          "outcome": "lose"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "winnerSide": null,
+      "resultType": "normal"
+    }
+  ]
+}
