@@ -1,8 +1,8 @@
 import type { AdminMatch, AdminTeam } from '@/api/admin.types'
 
 /**
- * 試合の片側やトーナメント表の枠の選択。チーム(値はチーム ID)か、同じディビジョンの試合の勝者・敗者
- * (値は "A1-win"。表示は参照サイトと同じ "[A1-勝ち]")を選ぶ。値の読み取りは sideChoiceSchema。
+ * 試合の片側やトーナメント表の枠の選択。チーム(値はチーム ID)か、渡された試合の勝者・敗者
+ * (値は "A1-win"。表示は運営の言葉で「A1 の勝者」)を選ぶ。値の読み取りは sideChoiceSchema。
  */
 export function SideChoice({
   label,
@@ -36,10 +36,10 @@ export function SideChoice({
           <optgroup label="試合の勝者・敗者">
             {codes.flatMap((code) => [
               <option key={`${code}-win`} value={`${code}-win`}>
-                [{code}-勝ち]
+                {code} の勝者
               </option>,
               <option key={`${code}-lose`} value={`${code}-lose`}>
-                [{code}-負け]
+                {code} の負けチーム
               </option>,
             ])}
           </optgroup>
