@@ -18,6 +18,7 @@ export default async function TournamentSchedulePage(props: IdPageProps) {
     <>
       <title>{tournamentPageTitle(data.frame, lang, msg(lang, 'titleAllSchedule'))}</title>
       <SiteFrame
+        heading={msg(lang, 'navSchedule')}
         asOf={now}
         variant={{ kind: 'tournament', frame: data.frame, lang }}
         topMenu={null}

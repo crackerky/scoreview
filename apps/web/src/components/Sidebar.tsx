@@ -3,6 +3,7 @@ import type { TournamentFrame } from '@/api/common.types'
 import { divisionHref, groupHref } from '@/i18n/href'
 import type { Lang } from '@/i18n/lang'
 import { pickText } from '@/i18n/lang'
+import { bannerAlt } from './banner.utils'
 import { groupLinkLabel } from './navi.utils'
 import { assetSrc, referenceAssetMode } from './referenceAsset.utils'
 
@@ -26,7 +27,8 @@ type SidebarProps = {
 
 export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
   return (
-    <div id="sub">
+    // 本サイト独自: div ではなく aside(ランドマーク)。CSS は id で当たるので見た目は同じ
+    <aside id="sub">
       <table cellPadding={0} cellSpacing={0}>
         <tbody>
           <tr>
@@ -46,7 +48,7 @@ export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
                   )}
                   <tr>
                     <td>
-                      <Banners banners={frame.banners} />
+                      <Banners banners={frame.banners} lang={lang} />
                     </td>
                   </tr>
                 </tbody>
@@ -59,7 +61,7 @@ export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
           </tr>
         </tbody>
       </table>
-    </div>
+    </aside>
   )
 }
 
@@ -109,7 +111,7 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
 const bannerWidthPx = 160
 const bannerHeightPx = 60
 
-function Banners({ banners }: { banners: TournamentFrame['banners'] }) {
+function Banners({ banners, lang }: { banners: TournamentFrame['banners']; lang: Lang }) {
   const mode = referenceAssetMode()
   return (
     <div className="sub_banners">
@@ -117,7 +119,7 @@ function Banners({ banners }: { banners: TournamentFrame['banners'] }) {
         const image = (
           <img
             src={assetSrc(banner.imageUrl, mode)}
-            alt=""
+            alt={bannerAlt(banner, lang)}
             width={bannerWidthPx}
             height={bannerHeightPx}
             loading="lazy"

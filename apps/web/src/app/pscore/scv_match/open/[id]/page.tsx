@@ -25,6 +25,7 @@ export default async function MatchPage(props: IdPageProps) {
     <>
       <title>{tournamentPageTitle(data.frame, lang, suffix)}</title>
       <SiteFrame
+        heading={`${fullName(left, lang)} vs ${fullName(right, lang)}`}
         asOf={now}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={

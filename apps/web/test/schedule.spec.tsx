@@ -21,18 +21,18 @@ describe('検索フォーム(clone-spec B 3〜5)', () => {
     )
     assert.match(
       html,
-      /<td class="NINI CM BOLD" width="40px">日付<\/td><td class="" width="120px"><select name="ymd" class="NWAKU {2}WMAX" id="ymd"><option value=""><\/option><option value="20261017">2026\/10\/17<\/option><option value="20261018" selected="">2026\/10\/18<\/option><\/select><\/td><td class="NINI" width="10px"><\/td>/,
+      /<td class="NINI CM BOLD" width="40px"><label for="ymd">日付<\/label><\/td><td class="" width="120px"><select name="ymd" class="NWAKU {2}WMAX" id="ymd"><option value=""><\/option><option value="20261017">2026\/10\/17<\/option><option value="20261018" selected="">2026\/10\/18<\/option><\/select><\/td><td class="NINI" width="10px"><\/td>/,
     )
   })
 
   test('大会全体の team の value は正式名、コートは異なり値', () => {
     assert.match(
       html,
-      /<td class="NINI CM BOLD" width="60px">チーム名<\/td><td class="" width="180px"><select name="team" class="NWAKU {2}WMAX" id="team"><option value="" selected=""><\/option><option value="架空チームA">架空チームA<\/option>/,
+      /<td class="NINI CM BOLD" width="60px"><label for="team">チーム名<\/label><\/td><td class="" width="180px"><select name="team" class="NWAKU {2}WMAX" id="team"><option value="" selected=""><\/option><option value="架空チームA">架空チームA<\/option>/,
     )
     assert.match(
       html,
-      /<td class="NINI CM BOLD" width="60px">コート<\/td><td class="" width="100px"><select name="field" class="NWAKU {2}WMAX" id="field"><option value="" selected=""><\/option><option value="1">1<\/option><option value="2">2<\/option><\/select>/,
+      /<td class="NINI CM BOLD" width="60px"><label for="field">コート<\/label><\/td><td class="" width="100px"><select name="field" class="NWAKU {2}WMAX" id="field"><option value="" selected=""><\/option><option value="1">1<\/option><option value="2">2<\/option><\/select>/,
     )
   })
 
@@ -43,7 +43,7 @@ describe('検索フォーム(clone-spec B 3〜5)', () => {
       /<select name="ymd" class="NWAKU {2}WMAX" id="ymd"><option value="" selected=""><\/option><option value="20261018">2026\/10\/18<\/option>/,
     )
     assert.match(div, /<option value="5001">Fictional A<\/option>/)
-    assert.match(div, />Date<\/td>.*>Team<\/td>.*>Field<\/td>/)
+    assert.match(div, />Date<\/label><\/td>.*>Team<\/label><\/td>.*>Field<\/label><\/td>/)
   })
 
   test('更新ボタンは現在の絞り込みで開き直す。最初は NG だけ見える', () => {

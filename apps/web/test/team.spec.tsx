@@ -3,7 +3,7 @@ import { describe, test } from 'node:test'
 import { teamResponseSchema } from '../src/api/public.types.ts'
 import { TeamView } from '../src/components/TeamView.tsx'
 import { loadFixture } from './fixtures/load.ts'
-import { renderHtml } from './render.ts'
+import { renderHtml, renderHtmlWithNotes } from './render.ts'
 
 const team = teamResponseSchema.parse(loadFixture('team-5001'))
 const rosterOnly = teamResponseSchema.parse(loadFixture('team-5003'))
@@ -193,5 +193,16 @@ describe('チームページ: ディスクゴルフ団体戦(clone-spec D 1.2)',
         '<tr><td class="CM">2</td><td class="LM"><a class="playerLinkF" href="/pscore/scv_player/open/70102?lang=jp">仮名 二</a></td></tr>' +
         '</tbody></table></div><br/><br/><br/>',
     )
+  })
+})
+
+describe('読み上げ用の補足(本サイト独自)', () => {
+  test('選手名のリンクに性別(色だけで示している)を視覚的に隠して添える', () => {
+    const html = renderHtmlWithNotes(<TeamView data={team} lang="jp" />)
+    assert.match(
+      html,
+      /open\/70001\?lang=jp">架空 太郎<span class="sv_sr" data-scoreview-addition="">\(男性\)<\/span><\/a>/,
+    )
+    assert.match(html, /<span class="sv_sr" data-scoreview-addition="">\(女性\)<\/span>/)
   })
 })

@@ -5,6 +5,7 @@ import { DivisionStandingsView } from '@/components/DivisionStandingsView'
 import { SiteFrame } from '@/components/SiteFrame'
 import { tournamentPageTitle } from '@/components/title.utils'
 import { pickText } from '@/i18n/lang'
+import { msg } from '@/i18n/messages'
 
 // clone-spec C 1: ディビジョン成績。title の接尾辞は "-{ディビジョン名}-"(参照サイトの実 HTML で確認)
 export default async function DivisionStandingsPage(props: IdPageProps) {
@@ -15,6 +16,7 @@ export default async function DivisionStandingsPage(props: IdPageProps) {
     <>
       <title>{tournamentPageTitle(data.frame, lang, suffix)}</title>
       <SiteFrame
+        heading={`${msg(lang, 'navDivisionScore')} ${pickText(lang, data.division.name)}`}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={null}
       >

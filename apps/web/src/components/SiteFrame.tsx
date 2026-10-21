@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { TournamentFrame } from '@/api/common.types'
 import { brand } from '@/brand/brand.config'
 import { formatAsOf } from '@/format/format.utils'
-import type { Lang } from '@/i18n/lang'
+import { type Lang, pickText } from '@/i18n/lang'
 import { ScoreNavi } from './ScoreNavi'
 import { Sidebar } from './Sidebar'
 import { SiteHeader } from './SiteHeader'
@@ -10,6 +10,8 @@ import { SiteHeader } from './SiteHeader'
 // clone-spec A 1.1 / 1.6: 全ページ共通の外枠。
 // 大会ページ: 背景パターン、#score_navi、#sub あり。大会一覧: 黒背景、ナビとサイドバーなし。
 // 参照サイトと同じく body の背景はページ内の <style> で切り替える。
+// 本サイト独自: 外側の #header、#main、#footer は div ではなく header / main / footer 要素にし
+// (ランドマーク)、#main の先頭に視覚的に隠した h1 を置く。CSS は id で当たるので見た目は同じ。
 
 type FrameVariant =
   | { kind: 'list' }
@@ -35,6 +37,11 @@ type SiteFrameProps = {
    * 試合のページで渡す。省略時は出さない
    */
   asOf?: Date
+  /**
+   * 視覚的に隠した h1 の、大会名の後ろに付ける文字(「チーム一覧」やチーム名)。支援技術でページの
+   * 内容が分かるようにする。大会一覧では使わない(サイト名の一覧の見出しになる)
+   */
+  heading?: string
   children: ReactNode
 }
 
@@ -43,19 +50,28 @@ const bodyStyles = {
   tournament: 'body {background: var(--brand-body-color) var(--brand-body-bg) repeat top;}',
 } as const
 
-export function SiteFrame({ variant, topMenu, year, asOf, children }: SiteFrameProps) {
+/** 視覚的に隠した h1 の文字。英語名の無い大会は日本語名を使う(見出しを空にしない)。 */
+function pageHeading(variant: FrameVariant, heading: string | undefined): string {
+  if (variant.kind === 'list') {
+    return brand.tournamentListTitle
+  }
+  const name = pickText(variant.lang, variant.frame.name) || variant.frame.name.ja
+  return heading === undefined || heading === '' ? name : `${name} ${heading}`
+}
+
+export function SiteFrame({ variant, topMenu, year, asOf, heading, children }: SiteFrameProps) {
   const copyrightYear = year ?? new Date().getFullYear()
   return (
     <>
       <style>{bodyStyles[variant.kind]}</style>
       <div id="top">
         <div id="wrapper">
-          <div id="header">
+          <header id="header">
             <SiteHeader />
             {variant.kind === 'tournament' && (
               <ScoreNavi frame={variant.frame} lang={variant.lang} />
             )}
-          </div>
+          </header>
           {variant.kind === 'tournament' && (
             <Sidebar
               frame={variant.frame}
@@ -64,7 +80,10 @@ export function SiteFrame({ variant, topMenu, year, asOf, children }: SiteFrameP
             />
           )}
           <div id="contents">
-            <div id="main">
+            <main id="main">
+              <h1 className="sv_sr" data-scoreview-addition="">
+                {pageHeading(variant, heading)}
+              </h1>
               <div id="score_parts">
                 {topMenu !== undefined && <div id="score_topmenu">{topMenu}</div>}
                 <div id="score_view">
@@ -77,16 +96,16 @@ export function SiteFrame({ variant, topMenu, year, asOf, children }: SiteFrameP
                 </div>
               </div>
               <br />
-            </div>
+            </main>
           </div>
         </div>
       </div>
       <div id="footer_ue" />
-      <div id="footer">
+      <footer id="footer">
         <div className="copyright">
           {`Copyright(c) ${copyrightYear} ${brand.copyrightHolder} All Rights Reserved.`}
         </div>
-      </div>
+      </footer>
     </>
   )
 }

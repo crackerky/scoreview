@@ -14,20 +14,29 @@ const nbsp = ' '
 
 type Bracket = NonNullable<GroupResponse['bracket']>
 
+// 本サイト独自: 勝ち上がり(win、赤)と敗退(lose、青)のセルは色だけで区別しているので、読み上げ用に補う
+const outcomeNotes: Record<Lang, { win: string; lose: string }> = {
+  jp: { win: '勝ち', lose: '負け' },
+  en: { win: 'won', lose: 'lost' },
+}
+
 function CellContent({
   cell,
   note,
   lang,
 }: {
   cell: BracketCell
-  /** 試合セルの補足(試合中、不戦勝など)。読み上げ用に出す */
+  /** 読み上げ用の補足(試合セルの試合中や不戦勝、勝ち上がり・敗退のセルの勝ち負け) */
   note: string | null
   lang: Lang
 }) {
   if (cell.team !== null) {
     return (
       <span className="teamimg_tn">
-        <a href={teamHref(cell.team.id, lang)}>{pickText(lang, cell.team.name)}</a>
+        <a href={teamHref(cell.team.id, lang)}>
+          {pickText(lang, cell.team.name)}
+          <ScreenReaderNote text={note} />
+        </a>
       </span>
     )
   }
@@ -77,6 +86,8 @@ export function BracketTable({
             <tr key={rowIndex}>
               {row.map((cell, cellIndex) => {
                 const note = noteOf(cell)
+                const outcome =
+                  cell.kind === 'win' || cell.kind === 'lose' ? outcomeNotes[lang][cell.kind] : null
                 return (
                   <td
                     // biome-ignore lint/suspicious/noArrayIndexKey: 同上(列も固定)
@@ -84,7 +95,7 @@ export function BracketTable({
                     className={bracketCellClass(cell, bracket.columns)}
                     title={note ?? undefined}
                   >
-                    <CellContent cell={cell} note={note} lang={lang} />
+                    <CellContent cell={cell} note={note ?? outcome} lang={lang} />
                   </td>
                 )
               })}
