@@ -61,10 +61,11 @@ func (s *Server) setResult(
 		return nil, err
 	}
 	detail, err := store.SetMatchResult(ctx, s.db, actorOf(user), id, store.ResultInput{
-		Type:         domain.ResultType(body.ResultType),
-		WinnerSide:   toSidePtr(body.WinnerSide),
-		ForfeitScore: body.ForfeitScore.toDomain(),
-		ClientID:     body.ClientID,
+		Type:          domain.ResultType(body.ResultType),
+		WinnerSide:    toSidePtr(body.WinnerSide),
+		ForfeitScore:  body.ForfeitScore.toDomain(),
+		ClientID:      body.ClientID,
+		ExpectedScore: body.ExpectedScore.toDomain(),
 	})
 	if err != nil {
 		return nil, err

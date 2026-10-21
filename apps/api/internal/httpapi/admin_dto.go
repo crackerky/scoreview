@@ -556,6 +556,10 @@ type matchDetailDTO struct {
 	Events       []adminEventDTO  `json:"events"`
 	PlayerStats  []playerStatDTO  `json:"playerStats"`
 	Rosters      rostersDTO       `json:"rosters"`
+	// 記録画面のための値(記録担当、二重記録の疑い、試合時間)
+	Scorer            *scorerClaimDTO       `json:"scorer"`
+	ConcurrentRecords []concurrentRecordDTO `json:"concurrentRecords"`
+	MatchMinutes      *int                  `json:"matchMinutes"`
 }
 
 type eventBodyDTO struct {
@@ -567,6 +571,8 @@ type eventBodyDTO struct {
 	AssistID   *int64  `json:"assistId"`
 	Callahan   bool    `json:"callahan"`
 	WinnerSide *string `json:"winnerSide"`
+	// ExpectedScore は kind=end で記録係が確認したスコア
+	ExpectedScore *scoreDTO `json:"expectedScore"`
 }
 
 type scoreDTO struct {
@@ -574,11 +580,21 @@ type scoreDTO struct {
 	Right int `json:"right"`
 }
 
+// toDomain は nil なら nil を返す。
+func (s *scoreDTO) toDomain() *domain.Score {
+	if s == nil {
+		return nil
+	}
+	return &domain.Score{Left: s.Left, Right: s.Right}
+}
+
 type statusBodyDTO struct {
 	ClientID   *string   `json:"clientId"`
 	Status     string    `json:"status"`
 	WinnerSide *string   `json:"winnerSide"`
 	Score      *scoreDTO `json:"score"`
+	// ExpectedScore は終了にするときに記録係が確認したスコア
+	ExpectedScore *scoreDTO `json:"expectedScore"`
 }
 
 type eventPlayersBodyDTO struct {
@@ -593,6 +609,8 @@ type resultBodyDTO struct {
 	ResultType   string           `json:"resultType"`
 	WinnerSide   *string          `json:"winnerSide"`
 	ForfeitScore *forfeitScoreDTO `json:"forfeitScore"`
+	// ExpectedScore は途中打ち切りで記録係が確認したスコア
+	ExpectedScore *scoreDTO `json:"expectedScore"`
 }
 
 type playerStatsBodyDTO struct {
@@ -722,6 +740,9 @@ func toMatchDetail(detail store.MatchDetail) matchDetailDTO {
 		started := formatInstant(*detail.StartedAt)
 		out.StartedAt = &started
 	}
+	out.Scorer = toScorerClaimDTO(detail.Scorer)
+	out.ConcurrentRecords = toConcurrentRecordDTOs(detail.ConcurrentRecords)
+	out.MatchMinutes = detail.MatchMinutes
 	for i, stat := range detail.PlayerStats {
 		out.PlayerStats[i] = playerStatDTO{
 			PlayerID:  stat.PlayerID,
