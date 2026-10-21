@@ -228,7 +228,8 @@ func (fs *formatState) writeFinalRanks(ctx context.Context, tx *gorm.DB) error {
 		ranks[f.TeamID] = f.Rank
 	}
 	var teams []Team
-	if err := tx.WithContext(ctx).Where(sqlByDivision, fs.division.ID).Find(&teams).Error; err != nil {
+	if err := tx.WithContext(ctx).Where(sqlByDivision, fs.division.ID).Order(sqlOrderID).
+		Find(&teams).Error; err != nil {
 		return fmt.Errorf("load teams of division %d: %w", fs.division.ID, err)
 	}
 	for _, team := range teams {
@@ -373,7 +374,8 @@ func ConfirmStage(
 			if fs.plan.Groups[g].Kind != domain.GroupPool {
 				continue
 			}
-			if fs.res.Groups[g].State == format.GroupPlaying {
+			// 先に「未消化のまま確定」したプールも、段の未消化の印に数える
+			if fs.res.Groups[g].State == format.GroupPlaying || fs.groups[g].ConfirmedUnplayed {
 				played = true
 			}
 			if err := confirmGroupIn(ctx, tx, fs, actor, g, unplayed, now); err != nil {

@@ -69,6 +69,10 @@ func (s ScheduleSetting) config() (format.ScheduleConfig, error) {
 		if err != nil {
 			return format.ScheduleConfig{}, err
 		}
+		if !end.After(start) {
+			// 終了が開始より前だと、置ける枠の数が負になり「制限なし」と区別できない
+			return format.ScheduleConfig{}, domain.Invalid("schedule.end", "must be after schedule.start")
+		}
 		cfg.End = end
 	}
 	return cfg, nil
@@ -216,6 +220,12 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 	}
 	for _, s := range slots {
 		key := format.SlotKey{Group: fs.groupIndex[s.GroupID], Position: s.Position}
+		// Plan は保存したテンプレートとパラメータから毎回作り直すので、エンジンの生成が変わると進行中の
+		// 大会の形が黙って変わる。保存した出どころと照合し、食い違えば進めない
+		if !fs.plan.HasSlot(key) || !format.SourceEquals(fs.plan.SlotSource(key), s.Source) {
+			return fmt.Errorf("%w: 保存した大会の形(グループ %d の枠 %d)が、今のエンジンが作る形と食い違います。"+
+				"形を適用し直してください", domain.ErrConflict, key.Group, key.Position)
+		}
 		fs.slots[key] = s
 	}
 	var matches []Match

@@ -142,6 +142,10 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	if cfg.TeamRestSlots < 0 || cfg.StageGapSlots < 0 || cfg.GroupsInParallel < 0 {
 		return nil, domain.Invalid("schedule", "slot counts must not be negative")
 	}
+	if !cfg.End.IsZero() && !cfg.End.After(cfg.Start) {
+		// 置ける枠の数が負になり、「制限なし」(maxSlot = -1)と区別できなくなる
+		return nil, domain.Invalid("schedule", "end must be after start")
+	}
 	parallel := cfg.GroupsInParallel
 	if parallel == 0 {
 		parallel = DefaultGroupsInParallel
