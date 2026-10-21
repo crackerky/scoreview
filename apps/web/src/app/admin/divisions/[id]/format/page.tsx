@@ -96,6 +96,8 @@ export default async function FormatWizardPage(props: IdPageProps) {
       {refs.length >= 2 ? (
         <FormatWizard
           divisionId={id}
+          divisionName={`${division.name.ja} ${division.name.en}`}
+          tournamentId={tournament.id}
           teams={refs}
           initialSeeds={initialSeeds}
           defaultDate={tournament.startDate ?? new Date().toISOString().slice(0, 10)}

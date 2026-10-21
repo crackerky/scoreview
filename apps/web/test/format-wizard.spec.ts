@@ -8,9 +8,11 @@ import {
   describeSide,
   endText,
   initialConditions,
+  parseSport,
   sameInput,
   scheduleOf,
   shiftConditions,
+  sportFromContext,
   type WizardForm,
   withDayCount,
   withSport,
@@ -171,5 +173,29 @@ describe('管理画面の言い方', () => {
       ],
     )
     assert.equal(days[0]?.cells.get('10:00|2')?.code, 'A2')
+  })
+})
+
+describe('競技の初期値', () => {
+  test('部門の名前から推定する', () => {
+    assert.equal(sportFromContext('Open 4on4', []), 'four')
+    assert.equal(sportFromContext('ビーチミックス Beach Mixed', ['seven']), 'beach')
+    assert.equal(sportFromContext('7人制 オープン', ['four']), 'seven')
+  })
+
+  test('名前で分からなければ同じ大会の他の部門の形、それも無ければ null', () => {
+    assert.equal(sportFromContext('オープン', ['four', 'seven']), 'four')
+    assert.equal(sportFromContext('ミックス Mixed', []), null)
+  })
+
+  test('推定した競技の枠の長さと休みで始める。端末に保存した値は競技として読めるものだけ', () => {
+    const cond = initialConditions(null, '2026-11-14', 'four')
+    assert.equal(cond.sport, 'four')
+    assert.equal(cond.slotMinutes, 20)
+    assert.equal(cond.restSlots, 0)
+    assert.equal(initialConditions(null, '2026-11-14').sport, 'seven')
+    assert.equal(parseSport('beach'), 'beach')
+    assert.equal(parseSport('ten'), null)
+    assert.equal(parseSport(null), null)
   })
 })

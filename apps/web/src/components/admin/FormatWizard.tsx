@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { type DragEvent, useState, useTransition } from 'react'
+import { type DragEvent, useEffect, useState, useTransition } from 'react'
 import {
   moveTo,
   proposalSentence,
@@ -18,11 +18,15 @@ import {
   copyFormat,
   describeSide,
   endText,
+  fallbackSport,
   initialConditions,
+  lastSportKey,
   maxDays,
+  parseSport,
   sameInput,
   scheduleOf,
   shiftConditions,
+  sportFromContext,
   type WizardForm,
   withDayCount,
   withSport,
@@ -34,6 +38,7 @@ import type {
   PreviewGroup,
   Proposal,
   SavedFormat,
+  Sport,
   Tiebreak,
 } from '@/api/format.types'
 import {
@@ -52,6 +57,9 @@ import { BracketTable } from '@/components/BracketTable'
 
 export type WizardProps = {
   divisionId: number
+  /** 部門の名前と大会(競技の初期値の推定に使う) */
+  divisionName: string
+  tournamentId: number
   teams: TeamRef[]
   initialSeeds: number[]
   defaultDate: string
@@ -71,9 +79,48 @@ function chosenOf(saved: SavedFormat | null): Chosen | null {
   return saved ? { template: saved.template, params: saved.params, title: saved.title } : null
 }
 
+/** 部門の名前と同じ大会の他の部門の形から推定した競技(推定できなければ null) */
+function contextSport(props: WizardProps): Sport | null {
+  const others = props.copies.flatMap((copy) =>
+    copy.tournamentId === props.tournamentId &&
+    copy.divisionId !== props.divisionId &&
+    copy.schedule?.sport
+      ? [copy.schedule.sport]
+      : [],
+  )
+  return sportFromContext(props.divisionName, others)
+}
+
+/** この端末で最後に使った競技を読む。保存できない端末(プライベートブラウズなど)では null */
+function readLastSport(): Sport | null {
+  try {
+    return parseSport(window.localStorage.getItem(lastSportKey))
+  } catch (error) {
+    if (error instanceof DOMException) {
+      return null
+    }
+    throw error
+  }
+}
+
+/** 使った競技をこの端末に覚える。保存できない端末では覚えない(次の初期値が 7 人制になるだけ) */
+function rememberSport(sport: Sport) {
+  try {
+    window.localStorage.setItem(lastSportKey, sport)
+  } catch (error) {
+    if (!(error instanceof DOMException)) {
+      throw error
+    }
+  }
+}
+
 function initialForm(props: WizardProps): WizardForm {
   const base = props.saved ?? props.inherited
-  let cond = initialConditions(base?.schedule ?? null, props.defaultDate)
+  let cond = initialConditions(
+    base?.schedule ?? null,
+    props.defaultDate,
+    contextSport(props) ?? fallbackSport,
+  )
   if (props.saved === null && props.inherited !== null) {
     // 引き継いだ時間割の設定は、日付だけ今回の大会の開催日に合わせる
     cond = shiftConditions(cond, props.defaultDate)
@@ -93,6 +140,23 @@ export function FormatWizard(props: WizardProps) {
   const { divisionId, teams } = props
   const router = useRouter()
   const [form, setForm] = useState<WizardForm>(() => initialForm(props))
+  // 保存済みの形も推定もなければ、この端末で最後に使った競技にする。localStorage はサーバーの描画に
+  // 無いので、描画の食い違いを避けて画面を出した後に読む
+  const useLastSport =
+    (props.saved ?? props.inherited)?.schedule == null && contextSport(props) === null
+  useEffect(() => {
+    if (!useLastSport) {
+      return
+    }
+    const last = readLastSport()
+    if (last !== null) {
+      setForm((current) =>
+        current.cond.sport === fallbackSport
+          ? { ...current, cond: withSport(current.cond, last) }
+          : current,
+      )
+    }
+  }, [useLastSport])
   const [proposals, setProposals] = useState<Proposal[] | null>(null)
   const [preview, setPreview] = useState<FormatPreview | null>(null)
   // previewed は今出ているプレビューを作った入力。作成はこれをそのまま送る
@@ -175,6 +239,7 @@ export function FormatWizard(props: WizardProps) {
     run(
       () => applyFormatAction(divisionId, input),
       () => {
+        rememberSport(cond.sport)
         router.push(
           `/admin/divisions/${divisionId}/progress?ok=${encodeURIComponent('大会の形を作りました')}`,
         )
@@ -335,7 +400,10 @@ function ConditionFields({
             value={cond.sport}
             onChange={(event) => {
               const sport = sportOptions.find((option) => option.value === event.target.value)
-              if (sport) onChange(withSport(cond, sport.value))
+              if (sport) {
+                rememberSport(sport.value)
+                onChange(withSport(cond, sport.value))
+              }
             }}
           >
             {sportOptions.map((option) => (
