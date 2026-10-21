@@ -132,6 +132,10 @@ func (v progressBuilder) describeImpact(impact *format.Impact) CorrectionImpact 
 		if c.Before == 0 || c.After == 0 {
 			continue // 枠が埋まる前後の変化は順位の入れ替わりではない
 		}
+		if !fs.groupPlayed(c.Group) {
+			// 1 試合目の前の順位は全チーム同点の並びで意味が無い(レビュー L1)
+			continue
+		}
 		if _, seen := byGroup[c.Group]; !seen {
 			order = append(order, c.Group)
 		}
@@ -224,4 +228,15 @@ func ApplyCorrection(
 				StatusInput{Status: domain.MatchFinished, WinnerSide: input.WinnerSide, Score: &score})
 		})
 	return impact, err
+}
+
+// groupPlayed は、今の結果でグループに数えられる結果(終了し、未消化でない)が 1 つ以上あるかどうか。
+func (fs *formatState) groupPlayed(group int) bool {
+	for _, m := range fs.plan.GroupMatches(group) {
+		res, ok := fs.state.Results[m.Code]
+		if ok && res.Status == domain.MatchFinished && res.Type != format.ResultUnplayed {
+			return true
+		}
+	}
+	return false
 }

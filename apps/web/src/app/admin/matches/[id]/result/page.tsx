@@ -305,8 +305,7 @@ function ChangedMeanwhile({
   return (
     <section className="hq-box danger" role="alert">
       <h2>
-        この間に結果が {detail.match.left.score ?? '-'}-{detail.match.right.score ?? '-'}
-        に変わりました。上書きしますか
+        {`この間に結果が ${detail.match.left.score ?? '-'}-${detail.match.right.score ?? '-'} に変わりました。上書きしますか`}
       </h2>
       <table className="hq-rank">
         <tbody>

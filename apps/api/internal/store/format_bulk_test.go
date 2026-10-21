@@ -169,6 +169,25 @@ func TestBracketTimeUp(t *testing.T) {
 	assert.Contains(t, strings.Join(closing.Ties, "\n"), "9〜12 位は 9 位タイ")
 }
 
+// 準決勝の片方だけ終わった順位決定戦: 残りが取りうる最も上の順位で並べ、並んだ数だけ次を下げる。
+func TestClosingRanksAfterOneSemifinal(t *testing.T) {
+	ctx := context.Background()
+	f := newFormatFixture(t)
+	f.finishPools(t)
+	f.confirmPools(t)
+	f.finish(t, "G3", 5, 3)
+	g3 := f.match(t, "G3")
+	closing, err := store.GetClosing(ctx, f.db, f.division.ID)
+	require.NoError(t, err)
+	rank := map[int64]int{}
+	for _, r := range closing.Ranks {
+		rank[r.Team.ID] = r.Rank
+	}
+	assert.Equal(t, 9, rank[*g3.LeftTeamID], "G3 の勝者は 9〜10 位なので 9 位タイ")
+	assert.Equal(t, 12, rank[*g3.RightTeamID], "9 位タイが 3 チームなので G3 の敗者は 12 位")
+	assert.Contains(t, strings.Join(closing.Ties, "\n"), "9〜11 位は 9 位タイ")
+}
+
 // 中断と再開: 中断中は閲覧ページの帯の情報を返し、再開で中断した分だけ未開始の試合をずらす。
 func TestSuspendAndResume(t *testing.T) {
 	ctx := context.Background()

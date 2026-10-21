@@ -582,7 +582,7 @@ function GroupCard({
     isAdmin &&
     group.remaining > 0 &&
     ((group.kind === 'pool' && group.state === 'playing') ||
-      (group.kind === 'bracket' && group.state !== 'finished'))
+      (group.kind === 'bracket' && group.state === 'playing'))
   return (
     <section className="hq-group">
       <h3>

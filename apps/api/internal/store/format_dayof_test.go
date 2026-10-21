@@ -142,3 +142,17 @@ func TestCorrectionImpactValidatesFirst(t *testing.T) {
 		store.CorrectionInput{Score: domain.Score{Left: 5, Right: 3}})
 	require.ErrorIs(t, err, domain.ErrConflict, "対戦チームが決まる前の試合")
 }
+
+// 1 試合目の影響表示に、意味のない順位の変化(全チーム同点の並びからの変化)を出さない(L1)。
+func TestFirstGameImpactHasNoRankNoise(t *testing.T) {
+	f := newFormatFixture(t)
+	impact, err := store.PreviewCorrection(context.Background(), f.db, f.match(t, "A1").ID,
+		store.CorrectionInput{Score: domain.Score{Left: 11, Right: 9}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"順位と次の組み合わせは変わりません"}, impact.Lines)
+	f.finish(t, "A1", 11, 9)
+	impact, err = store.PreviewCorrection(context.Background(), f.db, f.match(t, "A1").ID,
+		store.CorrectionInput{Score: domain.Score{Left: 9, Right: 11}})
+	require.NoError(t, err)
+	assert.Contains(t, strings.Join(impact.Lines, "\n"), "予選 A 組", "結果のある組の入れ替わりは出す")
+}

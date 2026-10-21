@@ -360,15 +360,22 @@
   background: #fff5f5;
 }
 
-/* 本部の進行画面の見出しの行(自動更新の時刻とリンク) */
+/* 本部の進行画面のリンク。スマートフォンでは押せる高さ(44px)にする(レビュー M7) */
 .adm .hq-head a,
 .adm .hq-todo a,
-.adm .hq-group a,
 .adm .hq-box a,
 .adm .hq-tabs a {
   display: inline-flex;
   align-items: center;
   min-height: var(--adm-tap);
+}
+
+@media (max-width: 700px) {
+  .adm .hq-group a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--adm-tap);
+  }
 }
 
 .adm .hq-updated {

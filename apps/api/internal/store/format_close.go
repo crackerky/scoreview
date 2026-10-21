@@ -111,7 +111,8 @@ type rankRow struct {
 }
 
 // closingRanks は解決結果から最終順位を作る。エンジンの順位があるチームはそのまま、未消化で終わった
-// 順位決定戦のチームは、その試合から先で取りえた最も上の順位で並べる(ReachablePlaces)。どの
+// 順位決定戦のチームは、その試合から先で取りえた最も上の順位が同じチームどうしを同順位にする
+// (ReachablePlaces。同順位の次のチームは並んだ数だけ下げる)。どの
 // 順位決定戦にも進めなかったチーム(未決の同順位で枠が埋まらなかった)は、最後の順位の次で並べる。
 func (fs *formatState) closingRanks(res *format.Resolution) []rankRow {
 	var rows []rankRow
@@ -120,13 +121,28 @@ func (fs *formatState) closingRanks(res *format.Resolution) []rankRow {
 		rows = append(rows, rankRow{team: f.TeamID, rank: f.Rank, tied: f.Tied})
 		ranked[f.TeamID] = true
 	}
+	engineRank := map[int64]int{}
+	for _, f := range res.Final {
+		engineRank[f.TeamID] = f.Rank
+	}
 	for _, g := range fs.plan.Groups {
 		if !g.Final || g.Kind != domain.GroupBracket {
 			continue
 		}
+		// グループの各チームの「取りうる最も上の順位」(エンジンが決めたチームはその順位)
+		type placed struct {
+			team     int64
+			key      int
+			proposed bool
+		}
+		var entries []placed
 		for _, slot := range g.Slots {
 			st := res.Slots[format.SlotKey{Group: g.Index, Position: slot.Position}]
-			if !st.Resolved() || ranked[st.TeamID] {
+			if !st.Resolved() {
+				continue
+			}
+			if rank, ok := engineRank[st.TeamID]; ok {
+				entries = append(entries, placed{team: st.TeamID, key: rank - g.RankOffset})
 				continue
 			}
 			last := ""
@@ -136,12 +152,24 @@ func (fs *formatState) closingRanks(res *format.Resolution) []rankRow {
 					last = m.Code
 				}
 			}
-			places := fs.plan.ReachablePlaces(last)
-			if len(places) == 0 {
+			if places := fs.plan.ReachablePlaces(last); len(places) > 0 {
+				entries = append(entries, placed{team: st.TeamID, key: places[0], proposed: true})
+			}
+		}
+		// 同じ「最も上の順位」のチームは同順位にし、その次のチームは並んだ数だけ下げる(9 位タイが
+		// 3 チームなら次は 12 位)
+		for _, e := range entries {
+			if !e.proposed || ranked[e.team] {
 				continue
 			}
-			rows = append(rows, rankRow{team: st.TeamID, rank: g.RankOffset + places[0], proposed: true})
-			ranked[st.TeamID] = true
+			above := 0
+			for _, other := range entries {
+				if other.key < e.key {
+					above++
+				}
+			}
+			rows = append(rows, rankRow{team: e.team, rank: g.RankOffset + 1 + above, proposed: true})
+			ranked[e.team] = true
 		}
 	}
 	next := 1
