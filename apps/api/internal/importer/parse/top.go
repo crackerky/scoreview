@@ -252,12 +252,11 @@ func parseNav(doc *goquery.Document) (parsedNav, error) {
 	return out, nil
 }
 
-// navName はナビのグループとギャラリーの名前。名前の前後の半角空白は名前の一部として残す
-// (参照サイトのグループ "17th placement tournament " は、ページの title にも空白つきで出る)。
+// navName はナビのグループとギャラリーの名前(前後の半角空白は残す。nameText)。
 // 名前が空のリンクは、参照サイト(CakePHP の link())がリンク先の URL を文字として出すので空にする
 // (英語名のないグループの英語版で観測)。
 func navName(sel *goquery.Selection) string {
-	name := strings.Trim(sel.Text(), "\r\n\t")
+	name := nameText(sel)
 	if strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
 		return ""
 	}

@@ -61,6 +61,15 @@ func TestParseTeamSOTG(t *testing.T) {
 	assert.False(t, without.SOTG)
 }
 
+// 見出しの正式名は字下げだけを除き、名前の末尾の空白は残す(4694 の形)。
+func TestParseTeamKeepsTrailingSpaceOfName(t *testing.T) {
+	html := "<html><body><div id=\"score_view\"><span class='SCV_MIDA_M'>\n\t\t架空 <br>\n\t</span>" +
+		"</div></body></html>"
+	tm, err := ParseTeam(strings.NewReader(html), site.LangJP)
+	require.NoError(t, err)
+	assert.Equal(t, "架空 ", tm.Name.JA)
+}
+
 // SCORE メニューのディビジョン名の後ろの略号(536、237 で観測した形)。
 func TestParseTeamMenuSuffixes(t *testing.T) {
 	html := `<html><body><div id='sub'><div class="menu_list"><ul>

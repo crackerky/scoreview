@@ -95,7 +95,8 @@ func ParseTeam(r io.Reader, lang site.Lang) (*Team, error) {
 		return nil, err
 	}
 	out := &Team{
-		Name:    textOf(lang, cellText(sv.Find("span.SCV_MIDA_M").First())),
+		// 見出しは "{正式名}<br>"。名前の末尾の空白も title に出るので残す(4694 "BUTTERFLY ")
+		Name:    textOf(lang, nameText(sv.Find("span.SCV_MIDA_M").First())),
 		Comment: textOf(lang, cellText(sv.Find("div.SCV_TEAM_COMM").First())),
 		Matches: []MatchRow{},
 		Players: []TeamPlayer{},
