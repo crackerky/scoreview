@@ -270,12 +270,18 @@ type BracketCell = {
 {
   frame: TournamentFrame
   match: {
-    id: number; code: string; groupName: string | null
+    id: number; code: string
+    // スコアボードのグループ欄。試合に別の文字があればそれ(大文字小文字の違う旧名、2017 年は空)、
+    // なければグループの名前。グループがなければ null
+    groupName: string | null
     date: string | null; time: string | null; field: string | null
     status: MatchStatus
     // fullName は正式名(ページの title 用)。team が null なら null
     left: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
     right: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
+    note: string                             // スコアボード下の行の中央の備考。多くは空
+    hideBlocks: boolean                      // 出場選手表に Block 列を出さない
+    hideStats: boolean                       // 統計表を出さない
     breadcrumb: { divisionId: number; divisionName: I18nText; groupId: number | null }
   }
   // 時系列の昇順(古い順)。画面では web が逆順にして新しい順で出す

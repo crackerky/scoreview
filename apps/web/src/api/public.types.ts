@@ -229,6 +229,10 @@ export const matchResponseSchema = z.object({
     status: matchStatusSchema,
     left: matchPageSideSchema,
     right: matchPageSideSchema,
+    // スコアボード下の行の中央の備考と、Block 列・統計表を出さない試合(clone-spec D 2.2、2.4、2.5)
+    note: z.string(),
+    hideBlocks: z.boolean(),
+    hideStats: z.boolean(),
     breadcrumb: z.object({
       divisionId: z.number().int(),
       divisionName: i18nTextSchema,

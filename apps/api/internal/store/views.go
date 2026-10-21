@@ -309,15 +309,20 @@ type MatchPage struct {
 
 // MatchInfo は試合のスコアボードの情報。
 type MatchInfo struct {
-	ID         int64
-	Code       string
-	GroupName  *string
-	Date       *string
-	Time       *string
-	Field      *string
-	Status     domain.MatchStatus
-	Left       MatchTeamScore
-	Right      MatchTeamScore
+	ID        int64
+	Code      string
+	GroupName *string
+	Date      *string
+	Time      *string
+	Field     *string
+	Status    domain.MatchStatus
+	Left      MatchTeamScore
+	Right     MatchTeamScore
+	// Note はスコアボード下の行の中央の備考。HideBlocks / HideStats は出場選手表の Block 列と
+	// 統計表を出さない試合(clone-spec D 2.4、D 2.5)
+	Note       string
+	HideBlocks bool
+	HideStats  bool
 	Breadcrumb Breadcrumb
 }
 

@@ -258,6 +258,38 @@ describe('試合ページ: 統計(clone-spec D 2.5)', () => {
   })
 })
 
+describe('試合ページ: 試合ごとの表示の違い', () => {
+  const variant = {
+    ...match,
+    match: { ...match.match, note: '架空の備考', hideBlocks: true, hideStats: true },
+    events: match.events.map((event) =>
+      event.kind === 'end' ? { ...event, side: 'left' as const } : event,
+    ),
+  }
+  const out = renderHtml(<MatchView data={variant} now={now} lang="jp" />)
+
+  test('備考はフッター行の中央に出る', () => {
+    assert.match(out, /<td class="LM TG_MD1" width="68%">架空の備考<\/td>/)
+  })
+
+  test('Block 列のない試合は 4 列(10/50/15/15%)', () => {
+    assert.doesNotMatch(out, />Block</)
+    assert.match(
+      out,
+      /<table id="lplayers"><tbody><tr><td class="MD1 CM" width="10%">#<\/td><td class="MD1 CM" width="50%">Player<\/td><td class="MD1 CM" width="15%">Assist<\/td><td class="MD1 CM" width="15%">Goal<\/td><\/tr>/,
+    )
+  })
+
+  test('統計表のない試合は出場選手の後の <hr/> で終わる', () => {
+    assert.doesNotMatch(out, /統計情報/)
+    assert.match(out, /<\/table><hr\/>$/)
+  })
+
+  test('試合終了の行の ★', () => {
+    assert.deepEqual(cellTexts(eventRows(out)[0] ?? '').slice(3, 5), ['★', '試合終了'])
+  })
+})
+
 describe('試合ページ: 更新ボタン(clone-spec D 2.1)', () => {
   test('初期 HTML は両方 display:none、OK は refpos=1 付きの同じページ、alt は参照サイトの綴り', () => {
     const menu = renderHtml(<MatchTopMenu matchId={9002} lang="jp" scrollToNavi={false} />)

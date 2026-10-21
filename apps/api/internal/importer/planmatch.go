@@ -216,6 +216,20 @@ func (p *planner) applyMatchPage(id int64, m *parse.Match) {
 		gp := p.ensureGroup(*bc.GroupID, mp.div, m.GroupName)
 		mp.row.GroupID = ptr(gp.row.ID)
 	}
+	// clone-spec D 2.2: 試合ページのグループ欄はグループの今の名前と違うことがある(大文字小文字、
+	// 別のグループ名、2017 年は空)ので、違うときだけ試合に持たせる
+	groupName := ""
+	if mp.row.GroupID != nil {
+		if gp := p.groupByID[*mp.row.GroupID]; gp != nil {
+			groupName = gp.row.Name
+		}
+	}
+	if clean(m.GroupName) != clean(groupName) {
+		mp.row.GroupLabel = ptr(m.GroupName)
+	}
+	mp.row.Note = m.Note
+	mp.row.HideBlocks = !m.BlockColumn
+	mp.row.HideStats = m.Stats == nil
 	if m.Code != "" {
 		mp.row.Code = m.Code
 	}
@@ -554,7 +568,8 @@ func (p *planner) planEventsAndStats() {
 				Kind:     domain.EventKind(ev.Kind),
 				Callahan: ev.Callahan && ev.Kind == string(domain.EventGoal),
 			}
-			if ev.Side != nil && ev.Kind != string(domain.EventEnd) {
+			if ev.Side != nil {
+				// 試合終了の行の ★ も側として残す(clone-spec D 2.3)
 				row.Side = ptr(domain.Side(*ev.Side))
 			}
 			if ev.Kind == string(domain.EventGoal) {

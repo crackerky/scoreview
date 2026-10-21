@@ -205,8 +205,9 @@ func TestBuildPlanUsesMatchPageDateAndEvents(t *testing.T) {
 				ScorerID: &scorer, AssistID: &assist,
 			},
 			{Seq: 3, ElapsedSec: 70, Kind: "timeout"}, // ★ のないタイムアウトは飛ばす
-			{Seq: 4, ElapsedSec: 90, Kind: "end"},
+			{Seq: 4, ElapsedSec: 90, Kind: "end", Side: &left},
 		},
+		Note: "架空の備考",
 		Players: parse.MatchPlayers{
 			Left: []parse.MatchPlayer{
 				{PlayerID: scorer, Number: "7", Blocks: ptr(2)}, {PlayerID: assist, Number: "8"},
@@ -221,7 +222,13 @@ func TestBuildPlanUsesMatchPageDateAndEvents(t *testing.T) {
 	assert.Equal(t, "09:30", *m.StartTime)
 	assert.Equal(t, "B", *m.Field)
 	require.Len(t, plan.Import.Events, 3)
-	assert.Nil(t, plan.Import.Events[2].Side, "end は側なし")
+	assert.Equal(t, ptr(domain.SideLeft), plan.Import.Events[2].Side, "end の ★ も残す")
+	// グループ欄が空(2017 年の形)で、Block 列と統計表のない試合ページ
+	assert.Equal(t, ptr(""), m.GroupLabel, "グループ名 Pool A と違うので試合に持たせる")
+	assert.Equal(t, "架空の備考", m.Note)
+	assert.True(t, m.HideBlocks)
+	assert.True(t, m.HideStats)
+	assert.Nil(t, findMatch(t, plan.Import, 102).GroupLabel, "試合ページがなければグループの名前")
 	assert.Equal(t, &scorer, plan.Import.Events[1].ScorerID)
 	require.Len(t, plan.Import.Players, 2, "チームページがなければ試合ページの選手を足す")
 	require.Len(t, plan.Import.Stats, 2)

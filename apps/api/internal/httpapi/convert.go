@@ -345,6 +345,7 @@ func toMatchPage(page store.MatchPage) matchPageDTO {
 			Date: match.Date, Time: match.Time, Field: match.Field, Status: string(match.Status),
 			Left:  toMatchTeamScore(match.Left),
 			Right: toMatchTeamScore(match.Right),
+			Note:  match.Note, HideBlocks: match.HideBlocks, HideStats: match.HideStats,
 			Breadcrumb: breadcrumbDTO{
 				DivisionID:   match.Breadcrumb.DivisionID,
 				DivisionName: toI18n(match.Breadcrumb.DivisionName),

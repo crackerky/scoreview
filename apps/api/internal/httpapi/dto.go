@@ -349,6 +349,9 @@ type matchInfoDTO struct {
 	Status     string            `json:"status"`
 	Left       matchTeamScoreDTO `json:"left"`
 	Right      matchTeamScoreDTO `json:"right"`
+	Note       string            `json:"note"`
+	HideBlocks bool              `json:"hideBlocks"`
+	HideStats  bool              `json:"hideStats"`
 	Breadcrumb breadcrumbDTO     `json:"breadcrumb"`
 }
 

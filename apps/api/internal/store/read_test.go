@@ -542,6 +542,21 @@ func TestGetMatch(t *testing.T) {
 	}, page.Stats)
 }
 
+// 試合に持たせたグループ欄の文字、備考、Block 列と統計表を隠す印はそのまま返す。
+func TestGetMatchDisplayValues(t *testing.T) {
+	db, b, sc := setup(t)
+	match := b.Match(sc.Mixed, &sc.TeamA, &sc.TeamB, storetest.Finished(1, 0), func(row *store.Match) {
+		row.GroupID, row.GroupLabel = &sc.Pool.ID, ptr("Qualifying Pool A")
+		row.Note, row.HideBlocks, row.HideStats = "架空の備考", true, true
+	})
+	page, err := store.GetMatch(context.Background(), db, match.ID)
+	require.NoError(t, err)
+	assert.Equal(t, ptr("Qualifying Pool A"), page.Match.GroupName, "グループの名前より試合の文字")
+	assert.Equal(t, "架空の備考", page.Match.Note)
+	assert.True(t, page.Match.HideBlocks)
+	assert.True(t, page.Match.HideStats)
+}
+
 func TestGetMatchWithoutGroupOrEvents(t *testing.T) {
 	db, _, sc := setup(t)
 	page, err := store.GetMatch(context.Background(), db, sc.MatchWomen.ID)

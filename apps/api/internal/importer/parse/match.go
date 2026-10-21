@@ -32,7 +32,12 @@ type Match struct {
 	Events []MatchEvent `json:"events"`
 	// Players は出場選手表。
 	Players MatchPlayers `json:"players"`
-	Stats   *MatchStats  `json:"stats"`
+	// BlockColumn は出場選手表に Block 列があるか(試合ごとに違う)。
+	BlockColumn bool `json:"block_column"`
+	// Stats は統計表。統計表のない試合(2017 年の 151)では nil。
+	Stats *MatchStats `json:"stats"`
+	// Note はスコアボード下の行の中央の備考("スクラッチのため" など。多くは空)。
+	Note string `json:"note"`
 }
 
 // MatchSide は対戦の片側。
@@ -57,7 +62,8 @@ type MatchEvent struct {
 	Seq        int    `json:"seq"`
 	ElapsedSec int    `json:"elapsed_sec"`
 	Kind       string `json:"kind"` // goal / timeout / pull / end
-	// Side は goal なら得点した側、timeout は取った側、pull はプルした側(★ の列)。end は nil。
+	// Side は goal なら得点した側、timeout は取った側、pull はプルした側(★ の列)。end は ★ が
+	// あればその列の側、なければ nil。
 	Side     *string `json:"side"`
 	ScorerID *int64  `json:"scorer_id"`
 	AssistID *int64  `json:"assist_id"`
@@ -156,6 +162,13 @@ func ParseMatch(r io.Reader, lang site.Lang) (*Match, error) {
 	if err := parseMatchScore(board.Eq(1), out, lang); err != nil {
 		return nil, err
 	}
+	if board.Length() >= 3 {
+		// フッター行: -対戦結果- / 備考 / 表示時刻
+		if tds := board.Eq(2).Find("td"); tds.Length() == 3 {
+			out.Note = cellText(tds.Eq(1))
+		}
+	}
+	out.BlockColumn = len(headerLabels(sv.Find("table#lplayers").First())) == 5
 	if out.Breadcrumb, err = parseBreadcrumb(doc); err != nil {
 		return nil, err
 	}
@@ -300,14 +313,16 @@ func parseMatchEvent(tds *goquery.Selection) (MatchEvent, error) {
 		return ev, unexpected("event %q has both sides filled", text(4))
 	}
 	switch {
-	case kind == "end":
-		return ev, nil
 	case leftFilled:
 		ev.Side = ptr("left")
 	case rightFilled:
 		ev.Side = ptr("right")
 	default:
 		// timeout / pull は ★ の列で側が決まる。★ のない行は側不明として nil のまま返す
+		return ev, nil
+	}
+	if kind == "end" {
+		// 試合終了の行にも ★ が付くことがある(44803、44867。どちらの側かの意味は未確認)
 		return ev, nil
 	}
 	if kind != "goal" {

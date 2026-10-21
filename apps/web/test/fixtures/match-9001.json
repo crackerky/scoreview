@@ -9,18 +9,42 @@
     "field": "1",
     "status": "finished",
     "left": {
-      "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
-      "fullName": { "ja": "架空チームA", "en": "Fictional A" },
+      "team": {
+        "id": 5001,
+        "name": {
+          "ja": "架空チームA",
+          "en": "Fictional A"
+        }
+      },
+      "fullName": {
+        "ja": "架空チームA",
+        "en": "Fictional A"
+      },
       "score": 1
     },
     "right": {
-      "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
-      "fullName": { "ja": "架空チームB", "en": "Fictional B" },
+      "team": {
+        "id": 5002,
+        "name": {
+          "ja": "架空チームB",
+          "en": "Fictional B"
+        }
+      },
+      "fullName": {
+        "ja": "架空チームB",
+        "en": "Fictional B"
+      },
       "score": 0
     },
+    "note": "",
+    "hideBlocks": false,
+    "hideStats": false,
     "breadcrumb": {
       "divisionId": 101,
-      "divisionName": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "divisionName": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
       "groupId": 1001
     }
   },
@@ -43,13 +67,19 @@
       "scorer": {
         "id": 70001,
         "number": "7",
-        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "name": {
+          "ja": "架空 太郎",
+          "en": "Taro KAKU"
+        },
         "gender": "M"
       },
       "assist": {
         "id": 70002,
         "number": "10",
-        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "name": {
+          "ja": "見本 三郎",
+          "en": "Saburo MIHON"
+        },
         "gender": "M"
       },
       "leftScore": 1,
@@ -72,7 +102,10 @@
         "player": {
           "id": 70001,
           "number": "7",
-          "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+          "name": {
+            "ja": "架空 太郎",
+            "en": "Taro KAKU"
+          },
           "gender": "M"
         },
         "assists": 0,
@@ -83,7 +116,10 @@
         "player": {
           "id": 70002,
           "number": "10",
-          "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+          "name": {
+            "ja": "見本 三郎",
+            "en": "Saburo MIHON"
+          },
           "gender": "M"
         },
         "assists": 1,
@@ -94,7 +130,19 @@
     "right": []
   },
   "stats": {
-    "left": { "goals": 1, "fromOffense": 0, "fromDefense": 1, "fromTurnover": 0, "timeouts": 0 },
-    "right": { "goals": 0, "fromOffense": 0, "fromDefense": 0, "fromTurnover": 0, "timeouts": 0 }
+    "left": {
+      "goals": 1,
+      "fromOffense": 0,
+      "fromDefense": 1,
+      "fromTurnover": 0,
+      "timeouts": 0
+    },
+    "right": {
+      "goals": 0,
+      "fromOffense": 0,
+      "fromDefense": 0,
+      "fromTurnover": 0,
+      "timeouts": 0
+    }
   }
 }
