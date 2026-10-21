@@ -88,6 +88,25 @@ func TestParseMatchOldFormat(t *testing.T) {
 	assert.Equal(t, 1, m.Stats.Left.Timeouts)
 }
 
+// 「キャラハンゴール」のイベント(clone-spec に未記載。525 の取込で見つかった変種)
+func TestParseMatchCallahanGoal(t *testing.T) {
+	m, err := ParseMatch(fixture(t, "match_45310_jp.html"), site.LangJP)
+	require.NoError(t, err)
+	var callahans []MatchEvent
+	for _, ev := range m.Events {
+		if ev.Callahan {
+			callahans = append(callahans, ev)
+		}
+	}
+	require.Len(t, callahans, 1)
+	ev := callahans[0]
+	assert.Equal(t, "goal", ev.Kind)
+	assert.Equal(t, ptr("right"), ev.Side)
+	assert.NotNil(t, ev.ScorerID)
+	assert.Nil(t, ev.AssistID, "キャラハンにアシストはない")
+	assert.Equal(t, ptr(3), ev.Score)
+}
+
 // 出場選手表に Block 列がない試合(clone-spec に未記載の変種)
 func TestParseMatchWithoutBlockColumn(t *testing.T) {
 	m, err := ParseMatch(fixture(t, "match_44347_jp.html"), site.LangJP)

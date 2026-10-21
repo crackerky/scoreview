@@ -61,6 +61,9 @@ type MatchEvent struct {
 	Side     *string `json:"side"`
 	ScorerID *int64  `json:"scorer_id"`
 	AssistID *int64  `json:"assist_id"`
+	// Callahan はイベント列が「キャラハンゴール」の得点(アシストなし)。clone-spec に未記載で、
+	// 525 の取込で見つかった(試合 45310)。
+	Callahan bool `json:"callahan"`
 	// Score は goal の行に出る得点側の累計(検証用)。
 	Score *int `json:"score"`
 }
@@ -105,7 +108,11 @@ var (
 )
 
 // eventKind は得点経過のイベント列の文言を種類に変える(clone-spec D 2.3、D 4)。
+// キャラハンゴールは goal として扱い、呼び出し側が isCallahan で印を付ける。
 func eventKind(s string) (string, bool) {
+	if isCallahan(s) {
+		return "goal", true
+	}
 	switch s {
 	case "得点", "Goal":
 		return "goal", true
@@ -117,6 +124,12 @@ func eventKind(s string) (string, bool) {
 		return "end", true
 	}
 	return "", false
+}
+
+// isCallahan はイベント列の文言がキャラハンゴールか。英語版の文言は未観測なので推測で
+// "Callahan" を含むものとする。
+func isCallahan(s string) bool {
+	return s == "キャラハンゴール" || strings.Contains(s, "Callahan")
 }
 
 // ParseMatch は試合ページを読む。
@@ -280,6 +293,7 @@ func parseMatchEvent(tds *goquery.Selection) (MatchEvent, error) {
 		return ev, unexpected("unknown event %q", text(4))
 	}
 	ev.Kind = kind
+	ev.Callahan = isCallahan(text(4))
 	leftFilled := text(1) != "" || text(2) != "" || text(3) != ""
 	rightFilled := text(5) != "" || text(6) != "" || text(7) != ""
 	if leftFilled && rightFilled {

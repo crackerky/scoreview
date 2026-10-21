@@ -48,6 +48,7 @@ type PlayerEvent struct {
 	OppTeamID  *int64 `json:"opp_team_id"`
 	ElapsedSec int    `json:"elapsed_sec"`
 	Kind       string `json:"kind"`
+	Callahan   bool   `json:"callahan"`
 	ScorerID   *int64 `json:"scorer_id"`
 	AssistID   *int64 `json:"assist_id"`
 }
@@ -179,6 +180,7 @@ func parsePlayerEvents(table *goquery.Selection) ([]PlayerEvent, error) {
 			return false
 		}
 		ev.Kind = kind
+		ev.Callahan = isCallahan(cellText(tds.Eq(4)))
 		out = append(out, ev)
 		return true
 	})
