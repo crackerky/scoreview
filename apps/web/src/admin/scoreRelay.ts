@@ -4,7 +4,7 @@ import { matches } from '@/api/admin'
 import type { MatchDetail } from '@/api/admin.types'
 import { ApiError } from '@/api/client'
 import { describeZodError } from './form.utils'
-import { isSameOriginJson, parseMatchId } from './relay.utils'
+import { isSameOriginJson, parseMatchId, siteOrigins } from './relay.utils'
 import type { ScoreOp } from './scoreOps.utils'
 import { scoreOpSchema } from './scoreOps.utils'
 import { readSessionToken } from './session'
@@ -89,7 +89,11 @@ export async function relayDetail(matchIdText: string): Promise<Response> {
 
 /** POST: 操作 1 つを api へ送る */
 export async function relayOp(request: Request, matchIdText: string): Promise<Response> {
-  if (!isSameOriginJson(request)) {
+  const site = siteOrigins({
+    PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
+    VERCEL_URL: process.env.VERCEL_URL,
+  })
+  if (!isSameOriginJson(request, site)) {
     return errorResponse(403, 'forbidden', 'cross-site or non-JSON request')
   }
   const matchId = parseMatchId(matchIdText)
