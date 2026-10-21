@@ -21,6 +21,11 @@ func GetGroup(ctx context.Context, db *gorm.DB, id int64) (GroupPage, error) {
 	if err != nil {
 		return GroupPage{}, err
 	}
+	// 非公開のグループはナビに出さない(frame.go)のと同じく、ID を直接指定しても出さない
+	// (docs/requirements.md「権限モデル」。セキュリティ点検 L-6)
+	if !group.Published {
+		return GroupPage{}, domain.NotFound(domain.ResourceGroup, id)
+	}
 	division, err := findInternal[Division](ctx, db, group.DivisionID, "division")
 	if err != nil {
 		return GroupPage{}, err

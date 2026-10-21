@@ -199,7 +199,8 @@ type Tally = {
 {
   frame: TournamentFrame
   division: { id: number; name: I18nText }
-  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順
+  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順。
+  // ディビジョンの順位が未公開(standings_published=false)の間は全行の rank が null
   standings: Array<Tally & { team: TeamRef; rank: number | null }>
   leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
     team: TeamRef; player: PlayerRef
@@ -212,6 +213,7 @@ type Tally = {
 ### `GET /api/v1/groups/{id}`
 
 グループ成績。`kind` に応じて `pool`、`bracket`、`image` のどれか 1 つが非 null になる。
+非公開(`published=false`)のグループは 404(`GROUP_ID`)。ナビに出さないものを ID の直接指定でも出さない。
 
 ```ts
 {
@@ -265,7 +267,7 @@ type BracketCell = {
     comment: I18nText
     layout: 'standard' | 'roster_only'     // roster_only はディスクゴルフ団体戦(成績表と対戦一覧を出さない)
   }
-  record: Tally & { rank: number | null }
+  record: Tally & { rank: number | null }  // rank はディビジョンの順位が未公開の間は null
   matches: MatchRow[]                      // 日付、時刻の昇順
   players: Array<{
     player: PlayerRef

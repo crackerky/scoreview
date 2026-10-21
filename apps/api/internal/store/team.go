@@ -14,7 +14,8 @@ const sqlMatchesOfTeam = "left_team_id = ? OR right_team_id = ?"
 
 // GetTeam はチームページを返す。無ければ ENTRY_TEAM_ID の NotFound。
 //
-// 成績はディビジョンでの通算(終了した試合だけ)、順位は teams.final_rank(clone-spec D 1.1 の 3)。
+// 成績はディビジョンでの通算(終了した試合だけ)、順位は teams.final_rank(clone-spec D 1.1 の 3。
+// ディビジョンの順位が未公開なら nil。publishedRank)。
 // 対戦一覧は試合記録の左右のまま日付、時刻の昇順。選手はスタッフを除き domain.ComparePlayers の順、
 // スタッフは役割の順(domain.CompareStaffRoles)、同じ役割は ID 順。選手の試合数はチームの試合数。ディスクゴルフ(stats_kind=discgolf)のディビジョンは roster_only にする
 // (clone-spec D 1.2)。
@@ -72,7 +73,7 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 			Layout:    layout,
 		},
 		Record:  domain.TallyFor(id, toResults(matches)),
-		Rank:    team.FinalRank,
+		Rank:    publishedRank(division, team),
 		Matches: rows,
 		Players: []PlayerLine{},
 		Staff:   []StaffLine{},

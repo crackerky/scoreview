@@ -100,7 +100,11 @@ func TestSeedIsReadable(t *testing.T) {
 	require.NoError(t, db.Find(&groups).Error)
 	for _, group := range groups {
 		_, err := store.GetGroup(ctx, db, group.ID)
-		require.NoError(t, err, group.Name)
+		if group.Published {
+			require.NoError(t, err, group.Name)
+		} else {
+			require.ErrorIs(t, err, domain.ErrNotFound, group.Name)
+		}
 	}
 	var players []store.Player
 	require.NoError(t, db.Find(&players).Error)
