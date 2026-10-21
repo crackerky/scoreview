@@ -18,3 +18,15 @@
   margin: 0;
   padding-left: 1.5em;
 }
+
+/* チームページのチーム名の下の追記(次の試合、所属グループ)。順位の根拠と同じ控えめな体裁 */
+.sv_team_notes {
+  margin: 4px 0 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #555;
+}
+
+.sv_team_notes p {
+  margin: 0;
+}
