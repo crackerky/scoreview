@@ -15,6 +15,7 @@ const (
 	sqlByID           = "id = ?"
 	sqlByIDs          = "id IN ?"
 	sqlByTournament   = "tournament_id = ?"
+	sqlByTournaments  = "tournament_id IN ?"
 	sqlByDivision     = "division_id = ?"
 	sqlByDivisions    = "division_id IN ?"
 	sqlByTeam         = "team_id = ?"
@@ -294,6 +295,7 @@ func toMatchRows(matches []Match, teams map[int64]Team) ([]domain.MatchRow, erro
 func toResult(match Match) domain.Result {
 	result := domain.Result{
 		LeftScore: match.LeftScore, RightScore: match.RightScore, Status: match.Status, WinnerSide: match.WinnerSide,
+		ResultType: match.ResultType,
 	}
 	if match.LeftTeamID != nil {
 		result.LeftTeamID = *match.LeftTeamID

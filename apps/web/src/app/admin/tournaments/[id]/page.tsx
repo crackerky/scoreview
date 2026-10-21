@@ -1,6 +1,6 @@
 import { divisionKindOptions, tournamentStatusOptions } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { divisions, galleries, tournaments } from '@/api/admin'
+import { assignments, divisions, galleries, matches, tournaments, users } from '@/api/admin'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import {
   createDivisionAction,
@@ -19,6 +19,7 @@ import {
   Select,
   TextArea,
 } from '@/components/admin/AdminParts'
+import { AssignmentSection } from '@/components/admin/AssignmentSection'
 
 export default async function AdminTournamentPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
@@ -30,8 +31,9 @@ export default async function AdminTournamentPage(props: IdPageProps) {
   const isAdmin = user.role === 'admin'
   return (
     <AdminShell user={user} title={tournament.name.ja} notice={notice}>
-      <p>
+      <p className="adm-actions">
         <a href={`/scview/${id}`}>閲覧ページを開く</a>
+        <a href={`/admin/tournaments/${id}/timetable`}>時間割を印刷</a>
       </p>
       <h2>ディビジョン</h2>
       <ul className="adm-list">
@@ -44,7 +46,15 @@ export default async function AdminTournamentPage(props: IdPageProps) {
           </li>
         ))}
       </ul>
-      {isAdmin ? <AdminSections id={id} token={token} tournament={tournament} back={back} /> : null}
+      {isAdmin ? (
+        <AdminSections
+          id={id}
+          token={token}
+          tournament={tournament}
+          divisionIds={divisionList.divisions.map((division) => division.id)}
+          back={back}
+        />
+      ) : null}
     </AdminShell>
   )
 }
@@ -53,15 +63,23 @@ async function AdminSections({
   id,
   token,
   tournament,
+  divisionIds,
   back,
 }: {
   id: number
   token: string
   tournament: Awaited<ReturnType<typeof tournaments.get>>
+  divisionIds: number[]
   back: string
 }) {
-  const [banners, galleryList] = await loadAdmin(() =>
-    Promise.all([tournaments.banners(token, id), galleries.list(token, id)]),
+  const [banners, galleryList, assignmentList, userList, matchLists] = await loadAdmin(() =>
+    Promise.all([
+      tournaments.banners(token, id),
+      galleries.list(token, id),
+      assignments.list(token, id),
+      users.list(token),
+      Promise.all(divisionIds.map((divisionId) => matches.list(token, divisionId))),
+    ]),
   )
   const bannerLines = banners.banners
     .map((banner) => [banner.imageUrl, banner.linkUrl ?? ''].join(' ').trim())
@@ -92,6 +110,14 @@ async function AdminSections({
         </div>
         <button type="submit">作成</button>
       </form>
+
+      <AssignmentSection
+        tournamentId={id}
+        back={back}
+        assignments={assignmentList.assignments}
+        staff={userList.users.filter((user) => user.role === 'staff')}
+        matches={matchLists.flatMap((list) => list.matches)}
+      />
 
       <h2>基本情報</h2>
       <form action={updateTournamentAction}>
@@ -126,7 +152,23 @@ async function AdminSections({
             ]}
             defaultValue={tournament.labels.groups}
           />
+          <Field
+            label="不戦勝のスコア(勝ったチーム)"
+            name="forfeitWinner"
+            type="number"
+            defaultValue={tournament.forfeitScore?.winner ?? null}
+          />
+          <Field
+            label="不戦勝のスコア(負けたチーム)"
+            name="forfeitLoser"
+            type="number"
+            defaultValue={tournament.forfeitScore?.loser ?? null}
+          />
         </div>
+        <p className="adm-muted">
+          不戦勝のスコアは大会の規程に合わせて入れてください(例 15 と
+          0)。空欄のままだと、記録係が不戦勝を記録するときにスコアの入力を求めます。
+        </p>
         <Check label="大会一覧に載せる" name="listed" defaultChecked={tournament.listed} />
         <Check
           label="ナビにスケジュールとディビジョン成績を出す"

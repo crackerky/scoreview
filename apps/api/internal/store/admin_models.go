@@ -64,3 +64,38 @@ type BracketSlot struct {
 
 // TableName は GORM に表名を伝える。
 func (BracketSlot) TableName() string { return "bracket_slots" }
+
+// AuditLog は audit_log の行(00004)。Before と After は変更前後の値の JSON。ClientID は端末が付けた
+// 操作の ID で、同じ ID の操作を 2 回適用しないために引く。
+type AuditLog struct {
+	ID           int64     `gorm:"column:id;primaryKey"`
+	TournamentID int64     `gorm:"column:tournament_id"`
+	MatchID      *int64    `gorm:"column:match_id"`
+	TeamID       *int64    `gorm:"column:team_id"`
+	UserID       *int64    `gorm:"column:user_id"`
+	Action       string    `gorm:"column:action"`
+	Before       []byte    `gorm:"column:before;type:jsonb"`
+	After        []byte    `gorm:"column:after;type:jsonb"`
+	ClientID     *string   `gorm:"column:client_id"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+}
+
+// TableName は GORM に表名を伝える。
+func (AuditLog) TableName() string { return "audit_log" }
+
+// StaffAssignment は staff_assignments の行(00004)。StartTime と EndTime は "HH:MM"(書き込み)
+// または "HH:MM:SS"(読み取り)。
+type StaffAssignment struct {
+	ID           int64      `gorm:"column:id;primaryKey"`
+	TournamentID int64      `gorm:"column:tournament_id"`
+	UserID       int64      `gorm:"column:user_id"`
+	MatchID      *int64     `gorm:"column:match_id"`
+	Field        *string    `gorm:"column:field"`
+	MatchDate    *time.Time `gorm:"column:match_date"`
+	StartTime    *string    `gorm:"column:start_time"`
+	EndTime      *string    `gorm:"column:end_time"`
+	CreatedAt    time.Time  `gorm:"column:created_at"`
+}
+
+// TableName は GORM に表名を伝える。
+func (StaffAssignment) TableName() string { return "staff_assignments" }

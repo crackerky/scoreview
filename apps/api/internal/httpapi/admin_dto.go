@@ -78,6 +78,27 @@ type tournamentInputDTO struct {
 	TopHTML      i18nDTO   `json:"topHtml"`
 	Labels       labelsDTO `json:"labels"`
 	ShowSchedule bool      `json:"showSchedule"`
+	// 不戦勝の規定スコア。null は未設定
+	ForfeitScore *forfeitScoreDTO `json:"forfeitScore"`
+}
+
+type forfeitScoreDTO struct {
+	Winner int `json:"winner"`
+	Loser  int `json:"loser"`
+}
+
+func toForfeitScoreDTO(score *domain.ForfeitScore) *forfeitScoreDTO {
+	if score == nil {
+		return nil
+	}
+	return &forfeitScoreDTO{Winner: score.Winner, Loser: score.Loser}
+}
+
+func (dto *forfeitScoreDTO) toDomain() *domain.ForfeitScore {
+	if dto == nil {
+		return nil
+	}
+	return &domain.ForfeitScore{Winner: dto.Winner, Loser: dto.Loser}
 }
 
 type adminTournamentDTO struct {
@@ -111,6 +132,7 @@ func toTournamentInput(record store.TournamentRecord) tournamentInputDTO {
 			Groups:   record.GroupLabel,
 		},
 		ShowSchedule: record.ShowSchedule,
+		ForfeitScore: toForfeitScoreDTO(record.ForfeitScore),
 	}
 }
 
@@ -128,6 +150,7 @@ func (in tournamentInputDTO) fields() store.TournamentFields {
 		TeamListLabel: in.Labels.TeamList,
 		GroupLabel:    in.Labels.Groups,
 		ShowSchedule:  in.ShowSchedule,
+		ForfeitScore:  in.ForfeitScore.toDomain(),
 	}
 }
 
@@ -484,6 +507,7 @@ type adminMatchDTO struct {
 	Left       matchSideDTO `json:"left"`
 	Right      matchSideDTO `json:"right"`
 	WinnerSide *string      `json:"winnerSide"`
+	ResultType string       `json:"resultType"`
 }
 
 type adminMatchListDTO struct {
@@ -492,6 +516,7 @@ type adminMatchListDTO struct {
 
 type adminEventDTO struct {
 	ID         int64         `json:"id"`
+	ClientID   string        `json:"clientId"`
 	Seq        int           `json:"seq"`
 	ElapsedSec int           `json:"elapsedSec"`
 	Kind       string        `json:"kind"`
@@ -515,15 +540,26 @@ type rostersDTO struct {
 	Right []adminPlayerDTO `json:"right"`
 }
 
+type matchContextDTO struct {
+	TournamentID   int64   `json:"tournamentId"`
+	TournamentName string  `json:"tournamentName"`
+	DivisionName   string  `json:"divisionName"`
+	GroupName      *string `json:"groupName"`
+}
+
 type matchDetailDTO struct {
-	Match       adminMatchDTO   `json:"match"`
-	InBracket   bool            `json:"inBracket"`
-	Events      []adminEventDTO `json:"events"`
-	PlayerStats []playerStatDTO `json:"playerStats"`
-	Rosters     rostersDTO      `json:"rosters"`
+	Match        adminMatchDTO    `json:"match"`
+	Context      matchContextDTO  `json:"context"`
+	InBracket    bool             `json:"inBracket"`
+	ForfeitScore *forfeitScoreDTO `json:"forfeitScore"`
+	StartedAt    *string          `json:"startedAt"`
+	Events       []adminEventDTO  `json:"events"`
+	PlayerStats  []playerStatDTO  `json:"playerStats"`
+	Rosters      rostersDTO       `json:"rosters"`
 }
 
 type eventBodyDTO struct {
+	ClientID   *string `json:"clientId"`
 	Kind       string  `json:"kind"`
 	Side       *string `json:"side"`
 	ElapsedSec *int    `json:"elapsedSec"`
@@ -539,9 +575,24 @@ type scoreDTO struct {
 }
 
 type statusBodyDTO struct {
+	ClientID   *string   `json:"clientId"`
 	Status     string    `json:"status"`
 	WinnerSide *string   `json:"winnerSide"`
 	Score      *scoreDTO `json:"score"`
+}
+
+type eventPlayersBodyDTO struct {
+	ClientID *string `json:"clientId"`
+	ScorerID *int64  `json:"scorerId"`
+	AssistID *int64  `json:"assistId"`
+	Callahan bool    `json:"callahan"`
+}
+
+type resultBodyDTO struct {
+	ClientID     *string          `json:"clientId"`
+	ResultType   string           `json:"resultType"`
+	WinnerSide   *string          `json:"winnerSide"`
+	ForfeitScore *forfeitScoreDTO `json:"forfeitScore"`
 }
 
 type playerStatsBodyDTO struct {
@@ -616,7 +667,16 @@ func toAdminMatch(record store.MatchRecord) adminMatchDTO {
 		Left:       toMatchSide(record.Left),
 		Right:      toMatchSide(record.Right),
 		WinnerSide: sidePtrString(record.WinnerSide),
+		ResultType: resultTypeString(record.ResultType),
 	}
+}
+
+// resultTypeString は結果の種類の文字列。値の無い行(取込の途中など)は normal にする。
+func resultTypeString(value domain.ResultType) string {
+	if value == "" {
+		return string(domain.ResultNormal)
+	}
+	return string(value)
 }
 
 func toAdminMatches(records []store.MatchRecord) adminMatchListDTO {
@@ -630,8 +690,13 @@ func toAdminMatches(records []store.MatchRecord) adminMatchListDTO {
 func toMatchDetail(detail store.MatchDetail) matchDetailDTO {
 	out := matchDetailDTO{
 		Match: toAdminMatch(detail.Match), InBracket: detail.InBracket,
-		Events:      make([]adminEventDTO, len(detail.Events)),
-		PlayerStats: make([]playerStatDTO, len(detail.PlayerStats)),
+		Context: matchContextDTO{
+			TournamentID: detail.TournamentID, TournamentName: detail.TournamentName,
+			DivisionName: detail.DivisionName, GroupName: detail.GroupName,
+		},
+		ForfeitScore: toForfeitScoreDTO(detail.ForfeitScore),
+		Events:       make([]adminEventDTO, len(detail.Events)),
+		PlayerStats:  make([]playerStatDTO, len(detail.PlayerStats)),
 		Rosters: rostersDTO{
 			Left: toAdminPlayers(detail.Rosters.Left), Right: toAdminPlayers(detail.Rosters.Right),
 		},
@@ -639,6 +704,7 @@ func toMatchDetail(detail store.MatchDetail) matchDetailDTO {
 	for i, ev := range detail.Events {
 		out.Events[i] = adminEventDTO{
 			ID:         ev.ID,
+			ClientID:   ev.ClientID,
 			Seq:        ev.Seq,
 			ElapsedSec: ev.ElapsedSec,
 			Kind:       string(ev.Kind),
@@ -651,6 +717,10 @@ func toMatchDetail(detail store.MatchDetail) matchDetailDTO {
 			LeftScore:  ev.LeftScore,
 			RightScore: ev.RightScore,
 		}
+	}
+	if detail.StartedAt != nil {
+		started := formatInstant(*detail.StartedAt)
+		out.StartedAt = &started
 	}
 	for i, stat := range detail.PlayerStats {
 		out.PlayerStats[i] = playerStatDTO{

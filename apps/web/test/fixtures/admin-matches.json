@@ -32,7 +32,8 @@
         "placeholder": null,
         "score": 1
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001062,
@@ -66,7 +67,8 @@
         "placeholder": null,
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001063,
@@ -100,7 +102,8 @@
         "placeholder": null,
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001064,
@@ -134,7 +137,8 @@
         "placeholder": null,
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001065,
@@ -168,7 +172,8 @@
         },
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001066,
@@ -196,7 +201,8 @@
         },
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001067,
@@ -224,7 +230,8 @@
         },
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     },
     {
       "id": 100001068,
@@ -252,7 +259,8 @@
         },
         "score": null
       },
-      "winnerSide": null
+      "winnerSide": null,
+      "resultType": "normal"
     }
   ]
 }

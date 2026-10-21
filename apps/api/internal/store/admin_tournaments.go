@@ -26,6 +26,8 @@ type TournamentFields struct {
 	TeamListLabel string // teams | entries
 	GroupLabel    string // groups | results
 	ShowSchedule  bool
+	// ForfeitScore は不戦勝の規定スコア。nil は未設定(運営会社に未確認なので既定値を持たない)
+	ForfeitScore *domain.ForfeitScore
 }
 
 // TournamentRecord は管理画面の大会。
@@ -49,6 +51,11 @@ func (f TournamentFields) validate() error {
 	if f.GroupLabel != "groups" && f.GroupLabel != "results" {
 		return domain.Invalid("labels.groups", "must be groups or results")
 	}
+	if f.ForfeitScore != nil {
+		if err := f.ForfeitScore.Validate("forfeitScore"); err != nil {
+			return err
+		}
+	}
 	return domain.CheckOptionalURL("logoUrl", f.LogoURL)
 }
 
@@ -57,6 +64,11 @@ func (f TournamentFields) apply(row *Tournament) error {
 	row.Status, row.Listed, row.LogoURL = f.Status, f.Listed, f.LogoURL
 	row.TopHTMLJa, row.TopHTMLEn = f.TopHTML.Ja, f.TopHTML.En
 	row.TeamListLabel, row.GroupLabel, row.ShowSchedule = f.TeamListLabel, f.GroupLabel, f.ShowSchedule
+	row.ForfeitWinnerScore, row.ForfeitLoserScore = nil, nil
+	if f.ForfeitScore != nil {
+		winner, loser := f.ForfeitScore.Winner, f.ForfeitScore.Loser
+		row.ForfeitWinnerScore, row.ForfeitLoserScore = &winner, &loser
+	}
 	row.StartDate = nil
 	if f.StartDate != nil {
 		day, err := domain.ParseDay("startDate", *f.StartDate)
@@ -85,7 +97,16 @@ func toTournamentRecord(row Tournament) TournamentRecord {
 		TeamListLabel: row.TeamListLabel,
 		GroupLabel:    row.GroupLabel,
 		ShowSchedule:  row.ShowSchedule,
+		ForfeitScore:  tournamentForfeitScore(row),
 	}}
+}
+
+// tournamentForfeitScore は大会の不戦勝の規定スコア。未設定なら nil。
+func tournamentForfeitScore(row Tournament) *domain.ForfeitScore {
+	if row.ForfeitWinnerScore == nil || row.ForfeitLoserScore == nil {
+		return nil
+	}
+	return &domain.ForfeitScore{Winner: *row.ForfeitWinnerScore, Loser: *row.ForfeitLoserScore}
 }
 
 // ListAdminTournaments は大会を開催日の新しい順(大会一覧と同じ並び)で返す。onlyIDs が nil なら全大会、

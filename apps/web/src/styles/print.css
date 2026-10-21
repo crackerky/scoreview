@@ -1,0 +1,66 @@
+/*
+ * 閲覧ページの印刷(日程、グループ、ディビジョン成績などを会場に貼る。docs/operations/
+ * operator-experience.md「紙を上回ることが前提」1)。画面の見た目(clone-spec の再現)は変えず、
+ * 印刷のときだけナビ、サイドバー、フッター、更新ボタンを消して本文を A4 縦の幅に収める。
+ * 参照サイトに印刷用の CSS は無い(.NOPRINT の規則だけがある)ので、本サイト独自の追加。
+ */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  /*
+   * ページ内の <style> が body の背景を、legacy.css が body:has(> #top) の flex を指定するので、
+   * それより詳細度の高いセレクタで白の背景と通常の流れに戻す
+   */
+  html body,
+  html body:has(> #top) {
+    background: #fff;
+    display: block;
+    min-height: 0;
+  }
+
+  #header,
+  #sub,
+  #footer_ue,
+  #footer,
+  #Refresh_OK,
+  #Refresh_NG {
+    display: none;
+  }
+
+  #top {
+    width: auto;
+  }
+
+  #main {
+    float: none;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .text_title {
+    width: auto;
+    margin: 0 0 4mm;
+    padding: 0;
+    background: none;
+  }
+
+  /* 試合の状態の行の色(MC_MAE など)は印刷でも残す(未試合と終了を見分けるため) */
+  #main * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #main tr {
+    break-inside: avoid;
+  }
+
+  #main a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

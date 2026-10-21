@@ -118,17 +118,32 @@ func CreateTeam(
 }
 
 // UpdateTeam はチームの値を fields で置き換える。
-func UpdateTeam(ctx context.Context, db *gorm.DB, id int64, fields TeamFields) (TeamRecord, error) {
+func UpdateTeam(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	id int64,
+	fields TeamFields,
+) (TeamRecord, error) {
 	if err := fields.validate(); err != nil {
 		return TeamRecord{}, err
 	}
-	row, err := findByID[Team](ctx, db, id, domain.ResourceTeam)
+	var row Team
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		row, err = findByID[Team](ctx, tx, id, domain.ResourceTeam)
+		if err != nil {
+			return err
+		}
+		before := row.FinalRank
+		fields.apply(&row)
+		if err := tx.Save(&row).Error; err != nil {
+			return writeError("update team", err)
+		}
+		return auditFinalRank(ctx, tx, actor, row, before)
+	})
 	if err != nil {
 		return TeamRecord{}, err
-	}
-	fields.apply(&row)
-	if err := db.WithContext(ctx).Save(&row).Error; err != nil {
-		return TeamRecord{}, writeError("update team", err)
 	}
 	return toTeamRecord(row), nil
 }
@@ -150,6 +165,7 @@ type FinalRank struct {
 func SetFinalRanks(
 	ctx context.Context,
 	db *gorm.DB,
+	actor domain.Actor,
 	divisionID int64,
 	ranks []FinalRank,
 ) ([]TeamRecord, error) {
@@ -163,16 +179,26 @@ func SetFinalRanks(
 			return err
 		}
 		for i, rank := range ranks {
-			result := tx.Model(&Team{}).Where(sqlTeamInDivision, rank.TeamID, divisionID).
-				Update("final_rank", rank.Rank)
-			if result.Error != nil {
-				return writeError("set final rank", result.Error)
+			var teams []Team
+			if err := tx.Where(sqlTeamInDivision, rank.TeamID, divisionID).Limit(1).
+				Find(&teams).Error; err != nil {
+				return fmt.Errorf("load team %d: %w", rank.TeamID, err)
 			}
-			if result.RowsAffected == 0 {
+			if len(teams) == 0 {
 				return domain.Invalid(
 					fmt.Sprintf("[%d].teamId", i),
 					"is not a team of the division",
 				)
+			}
+			team := teams[0]
+			before := team.FinalRank
+			err := tx.Model(&Team{}).Where(sqlByID, team.ID).Update("final_rank", rank.Rank).Error
+			if err != nil {
+				return writeError("set final rank", err)
+			}
+			team.FinalRank = rank.Rank
+			if err := auditFinalRank(ctx, tx, actor, team, before); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -184,6 +210,35 @@ func SetFinalRanks(
 }
 
 const sqlTeamInDivision = "id = ? AND division_id = ?"
+
+// auditFinalRank は最終順位が変わったときだけ監査ログに残す(docs/format-engine.md「監査ログ」)。
+func auditFinalRank(
+	ctx context.Context,
+	tx *gorm.DB,
+	actor domain.Actor,
+	team Team,
+	before *int,
+) error {
+	if sameRank(before, team.FinalRank) {
+		return nil
+	}
+	id := team.ID
+	return writeAudit(ctx, tx, auditEntry{
+		tournamentID: team.TournamentID,
+		teamID:       &id,
+		actor:        actor,
+		action:       AuditFinalRank,
+		before:       AuditSnapshot{FinalRank: before},
+		after:        AuditSnapshot{FinalRank: team.FinalRank},
+	})
+}
+
+func sameRank(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
 
 // PlayerFields は選手(またはスタッフ)の編集できる値。Role があればスタッフ。
 type PlayerFields struct {

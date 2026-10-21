@@ -26,8 +26,11 @@ type Tournament struct {
 	TeamListLabel string                  `gorm:"column:team_list_label"` // teams | entries
 	GroupLabel    string                  `gorm:"column:group_label"`     // groups | results
 	ShowSchedule  bool                    `gorm:"column:show_schedule"`
-	CreatedAt     time.Time               `gorm:"column:created_at"`
-	UpdatedAt     time.Time               `gorm:"column:updated_at"`
+	// 不戦勝の規定スコア(00004)。両方 NULL なら未設定
+	ForfeitWinnerScore *int      `gorm:"column:forfeit_winner_score"`
+	ForfeitLoserScore  *int      `gorm:"column:forfeit_loser_score"`
+	CreatedAt          time.Time `gorm:"column:created_at"`
+	UpdatedAt          time.Time `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -158,8 +161,10 @@ type Match struct {
 	Status                  domain.MatchStatus `gorm:"column:status"`
 	HasDetail               bool               `gorm:"column:has_detail"`
 	WinnerSide              *domain.Side       `gorm:"column:winner_side"`
-	CreatedAt               time.Time          `gorm:"column:created_at"`
-	UpdatedAt               time.Time          `gorm:"column:updated_at"`
+	// 結果の種類(00004)。取込ツールとシードは書かないので DB の既定値 normal になる
+	ResultType domain.ResultType `gorm:"column:result_type;default:normal"`
+	CreatedAt  time.Time         `gorm:"column:created_at"`
+	UpdatedAt  time.Time         `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -176,7 +181,9 @@ type MatchEvent struct {
 	ScorerID   *int64           `gorm:"column:scorer_id"`
 	AssistID   *int64           `gorm:"column:assist_id"`
 	Callahan   bool             `gorm:"column:callahan"` // キャラハンゴール(goal のときだけ)
-	CreatedAt  time.Time        `gorm:"column:created_at"`
+	// 端末が付けた ID(00004)。空なら DB が作る(取込ツール、JavaScript なしの入力)
+	ClientID  string    `gorm:"column:client_id;default:gen_random_uuid()"`
+	CreatedAt time.Time `gorm:"column:created_at"`
 }
 
 // TableName は GORM に表名を伝える。

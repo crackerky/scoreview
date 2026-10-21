@@ -1,3 +1,4 @@
+import { auditUser, describeAudit, formatAuditTime } from '@/admin/audit.utils'
 import { sideChoiceValue, sideName, statusLabel } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { groups, matches, teams } from '@/api/admin'
@@ -13,13 +14,15 @@ export default async function AdminMatchPage(props: IdPageProps) {
   const { user, token } = await requireUser('admin')
   const detail = await loadAdmin(() => matches.detail(token, id))
   const match = detail.match
-  const [teamList, groupList, matchList] = await loadAdmin(() =>
+  const [teamList, groupList, matchList, audit] = await loadAdmin(() =>
     Promise.all([
       teams.list(token, match.divisionId),
       groups.list(token, match.divisionId),
       matches.list(token, match.divisionId),
+      matches.audit(token, id),
     ]),
   )
+  const names = { left: sideName(match.left), right: sideName(match.right) }
   const back = `/admin/matches/${id}`
   const others = matchList.matches.filter((other) => other.id !== id)
   const title = `${match.code || '試合'} ${sideName(match.left)} - ${sideName(match.right)}`
@@ -29,6 +32,8 @@ export default async function AdminMatchPage(props: IdPageProps) {
       <p className="adm-actions">
         <span className={`adm-badge ${match.status}`}>{statusLabel(match.status)}</span>
         <a href={`/admin/matches/${id}/score`}>スコア入力</a>
+        <a href={`/admin/matches/${id}/sheet`}>スコアシートを印刷</a>
+        <a href={`/admin/matches/${id}/score/basic`}>簡易の入力画面</a>
         <a href={`/pscore/scv_match/open/${id}`}>閲覧ページを開く</a>
       </p>
       <form action={updateMatchAction}>
@@ -76,6 +81,44 @@ export default async function AdminMatchPage(props: IdPageProps) {
         />
         <button type="submit">保存</button>
       </form>
+      <h2>変更の履歴</h2>
+      <p className="adm-muted">
+        スコア、得点経過、試合の進行、結果の種類を、誰がいつ変えたかの記録です(新しい順)。
+      </p>
+      {audit.entries.length === 0 ? (
+        <p className="adm-muted">まだ記録がありません。</p>
+      ) : (
+        <div className="adm-scroll">
+          <table className="adm-table adm-audit">
+            <thead>
+              <tr>
+                <th>時刻</th>
+                <th>誰が</th>
+                <th>何を</th>
+                <th>変更前</th>
+                <th>変更後</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.entries.map((entry) => {
+                const line = describeAudit(entry, names)
+                return (
+                  <tr key={entry.id}>
+                    <td>{formatAuditTime(entry.at)}</td>
+                    <td>{auditUser(entry)}</td>
+                    <td>
+                      {line.what}
+                      {line.target ? <span className="adm-muted"> {line.target}</span> : null}
+                    </td>
+                    <td>{line.before}</td>
+                    <td>{line.after}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
       <DeleteForm
         action={deleteMatchAction}
         values={{ back, id, divisionId: match.divisionId }}

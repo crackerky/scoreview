@@ -1,0 +1,290 @@
+/*
+ * 管理画面の印刷用ページ(スコアシート、時間割)。画面では A4 の紙の見本を並べ、印刷では操作の欄を
+ * 消して 1 試合 1 枚(スコアシートは A4 縦、時間割は A4 横)に収める。寸法は mm で書く(紙に合わせるため)。
+ */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@page timetable {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+.pr {
+  color: #000;
+  background: #e9ecef;
+  font:
+    10pt / 1.35 system-ui,
+    "Hiragino Sans",
+    "Noto Sans JP",
+    sans-serif;
+  letter-spacing: normal;
+  min-height: 100vh;
+  padding: 8px 0 24px;
+}
+
+.pr *,
+.pr *::before,
+.pr *::after {
+  box-sizing: border-box;
+}
+
+.pr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  max-width: 210mm;
+  margin: 0 auto 8px;
+  padding: 0 8px;
+  font-size: 15px;
+}
+
+.pr-toolbar button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid #0b63c5;
+  border-radius: 6px;
+  background: #0b63c5;
+  color: #fff;
+  font: inherit;
+  font-weight: bold;
+}
+
+.pr-page {
+  width: 190mm;
+  margin: 0 auto 12px;
+  padding: 8mm;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+}
+
+.pr-timetable {
+  page: timetable;
+  width: 281mm;
+}
+
+.pr h1 {
+  margin: 0;
+  font-size: 15pt;
+}
+
+.pr h2 {
+  margin: 3mm 0 1.5mm;
+  font-size: 10.5pt;
+}
+
+.pr-small {
+  margin: 0;
+  font-size: 8.5pt;
+  color: #333;
+}
+
+.pr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 4mm;
+  padding-bottom: 2mm;
+  border-bottom: 0.6mm solid #000;
+}
+
+.pr-meta {
+  display: flex;
+  gap: 2mm;
+  margin: 0;
+}
+
+.pr-meta div {
+  min-width: 18mm;
+  border: 0.3mm solid #000;
+  padding: 0.8mm 1.5mm;
+}
+
+.pr-meta dt {
+  font-size: 7.5pt;
+}
+
+.pr-meta dd {
+  margin: 0;
+  font-size: 11pt;
+  font-weight: bold;
+}
+
+.pr-meta .pr-code {
+  font-size: 15pt;
+}
+
+.pr-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+  margin-top: 2mm;
+  align-items: start;
+}
+
+.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pr-table caption {
+  text-align: left;
+  font-weight: bold;
+  font-size: 11pt;
+  padding-bottom: 1mm;
+}
+
+.pr-table th,
+.pr-table td {
+  border: 0.25mm solid #000;
+  padding: 0 1.2mm;
+  height: 5mm;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.pr-table th {
+  font-size: 8pt;
+  background: #eee;
+}
+
+.pr-table .num {
+  width: 13mm;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pr-table .mark {
+  width: 9mm;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pr-table .score {
+  width: 13mm;
+  text-align: center;
+}
+
+.pr-box {
+  display: inline-block;
+  width: 3.6mm;
+  height: 3.6mm;
+  margin: 0 0.6mm;
+  border: 0.3mm solid #000;
+  line-height: 3.4mm;
+  text-align: center;
+  vertical-align: -0.6mm;
+  font-size: 8pt;
+}
+
+.pr-line {
+  margin: 2mm 0 0;
+}
+
+.pr-gap {
+  display: inline-block;
+  width: 8mm;
+}
+
+.pr-fill {
+  display: inline-block;
+  min-width: 12mm;
+  border-bottom: 0.3mm solid #000;
+  text-align: center;
+  font-weight: bold;
+}
+
+.pr-choice {
+  margin-right: 2mm;
+  white-space: nowrap;
+}
+
+.pr-signs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4mm;
+  margin: 4mm 0 2mm;
+}
+
+.pr-signs div {
+  height: 13mm;
+  border: 0.3mm solid #000;
+  padding: 0.8mm 1.5mm;
+  font-size: 8pt;
+}
+
+.pr-grid th,
+.pr-grid td {
+  height: auto;
+  padding: 1mm;
+  vertical-align: top;
+}
+
+.pr-grid .pr-time {
+  width: 14mm;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.pr-cell + .pr-cell {
+  margin-top: 1mm;
+  padding-top: 1mm;
+  border-top: 0.2mm dashed #000;
+}
+
+.pr-cell-code {
+  font-weight: bold;
+  margin-right: 1.5mm;
+}
+
+.pr-cell-div {
+  font-size: 7.5pt;
+}
+
+.pr-cell-teams {
+  display: block;
+  font-size: 9pt;
+}
+
+.pr-cell-score {
+  display: block;
+  font-size: 8pt;
+  font-weight: bold;
+}
+
+.pr-unplaced {
+  margin: 0;
+  padding-left: 5mm;
+}
+
+@media print {
+  .pr {
+    background: none;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .pr-toolbar {
+    display: none;
+  }
+
+  .pr-page {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    break-after: page;
+  }
+
+  .pr-page:last-child {
+    break-after: auto;
+  }
+
+  .pr-table tr,
+  .pr-cell {
+    break-inside: avoid;
+  }
+}

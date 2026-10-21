@@ -16,6 +16,8 @@ const (
 const (
 	ResourceUser  Resource = "USER_ID"
 	ResourceEvent Resource = "MATCH_EVENT_ID"
+	// ResourceAssignment は記録係の割り当て(staff_assignments)
+	ResourceAssignment Resource = "STAFF_ASSIGNMENT_ID"
 )
 
 // Valid は既知の役割かどうか。

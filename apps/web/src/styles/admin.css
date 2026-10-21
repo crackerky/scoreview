@@ -417,3 +417,55 @@
 .adm-events form {
   margin: 0;
 }
+
+/* 自分の担当試合(記録係のトップ)。1 試合 1 枚のカードで、押すと記録画面に入る */
+.adm-matches {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--adm-gap);
+  display: grid;
+  gap: 8px;
+}
+
+.adm .adm-matches a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-left: 6px solid var(--adm-accent);
+  border-radius: 10px;
+  color: var(--adm-fg);
+  text-decoration: none;
+}
+
+.adm .adm-matches li.live a {
+  border-left-color: var(--adm-danger);
+}
+
+.adm .adm-matches li.finished a {
+  border-left-color: var(--adm-line);
+  color: var(--adm-muted);
+}
+
+.adm-matches .when {
+  font-weight: bold;
+}
+
+.adm-matches .teams {
+  grid-column: 1 / -1;
+  font-size: 1.05rem;
+}
+
+.adm-matches .state {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 0.875rem;
+}
+
+.adm-matches .sub {
+  grid-column: 1 / -1;
+  color: var(--adm-muted);
+  font-size: 0.8125rem;
+}
