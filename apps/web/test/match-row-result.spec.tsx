@@ -13,6 +13,7 @@ const base: MatchRow = {
   field: '1',
   status: 'finished',
   resultType: 'normal',
+  winnerSide: 'left',
   left: {
     team: { id: 1, name: { ja: '架空A', en: 'A' } },
     placeholder: null,

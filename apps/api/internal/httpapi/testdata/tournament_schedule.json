@@ -151,6 +151,7 @@
       "field": "1",
       "status": "scheduled",
       "resultType": "normal",
+      "winnerSide": null,
       "left": {
         "team": {
           "id": 2,
@@ -193,6 +194,7 @@
       "field": "B",
       "status": "finished",
       "resultType": "normal",
+      "winnerSide": "left",
       "left": {
         "team": {
           "id": 5,
@@ -235,6 +237,7 @@
       "field": "2",
       "status": "live",
       "resultType": "normal",
+      "winnerSide": null,
       "left": {
         "team": {
           "id": 4,

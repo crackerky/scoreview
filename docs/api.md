@@ -92,6 +92,9 @@ type MatchRow = {
   status: MatchStatus
   // 結果の種類。通常以外は閲覧ページの状況列に種類を出す(本サイト独自。requirements の意図的な差分)
   resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
+  // 終了した試合の勝った側(勝者の指定があればスコアより優先)。引き分け、未終了、両者不戦敗、未消化は null。
+  // 状況列の「BREEZE の不戦勝」のように、結果の種類と勝ったチームを合わせて出すのに使う(本サイト独自)
+  winnerSide: Side | null
   left: MatchSide
   right: MatchSide
 }

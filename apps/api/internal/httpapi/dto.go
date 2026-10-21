@@ -84,7 +84,9 @@ type matchRowDTO struct {
 	Field     *string `json:"field"`
 	Status    string  `json:"status"`
 	// ResultType は normal / forfeit / double_forfeit / no_contest / abandoned / unplayed
-	ResultType string       `json:"resultType"`
+	ResultType string `json:"resultType"`
+	// WinnerSide は終了した試合の勝った側。引き分けなどは nil
+	WinnerSide *string      `json:"winnerSide"`
 	Left       matchSideDTO `json:"left"`
 	Right      matchSideDTO `json:"right"`
 }

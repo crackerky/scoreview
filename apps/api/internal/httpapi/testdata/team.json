@@ -113,6 +113,7 @@
       "field": "1",
       "status": "finished",
       "resultType": "normal",
+      "winnerSide": "left",
       "left": {
         "team": {
           "id": 1,
@@ -147,6 +148,7 @@
       "field": "2",
       "status": "finished",
       "resultType": "normal",
+      "winnerSide": null,
       "left": {
         "team": {
           "id": 3,

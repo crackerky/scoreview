@@ -107,6 +107,7 @@ func toMatchRow(row domain.MatchRow) matchRowDTO {
 		Field:      row.Field,
 		Status:     string(row.Status),
 		ResultType: resultTypeOrNormal(row.ResultType),
+		WinnerSide: sidePtrString(row.WinnerSide),
 		Left:       toMatchSide(row.Left),
 		Right:      toMatchSide(row.Right),
 	}
