@@ -238,7 +238,7 @@ func (p *planner) planGroups() {
 	for _, dp := range p.divs {
 		for j, ng := range dp.nav.Groups {
 			gp := &groupPlan{div: dp, row: store.Group{
-				Name: ng.Name, Kind: domain.GroupPool, SortOrder: j,
+				Name: ng.Name, NameEn: ng.NameEN, Kind: domain.GroupPool, SortOrder: j,
 				Linked: ng.Linked, Published: true,
 			}}
 			if ng.ID != nil {
@@ -704,7 +704,9 @@ func (p *planner) assemble() *store.TournamentImport {
 	imp.Events = p.events
 	imp.Stats = p.stats
 	for i, ng := range p.b.Top.Nav.Galleries {
-		g := store.GalleryImport{Gallery: store.Gallery{ID: ng.ID, Name: ng.Name, SortOrder: i}}
+		g := store.GalleryImport{Gallery: store.Gallery{
+			ID: ng.ID, Name: ng.Name, NameEn: ng.NameEN, SortOrder: i,
+		}}
 		if page := p.b.Galleries[ng.ID]; page != nil {
 			if page.Name != "" {
 				g.Gallery.Name = page.Name

@@ -16,7 +16,7 @@ type frameDTO struct {
 	Labels       labelsDTO          `json:"labels"`
 	ShowSchedule bool               `json:"showSchedule"`
 	Divisions    []frameDivisionDTO `json:"divisions"`
-	Galleries    []idNameDTO        `json:"galleries"`
+	Galleries    []frameGalleryDTO  `json:"galleries"`
 	Banners      []bannerDTO        `json:"banners"`
 }
 
@@ -33,14 +33,14 @@ type frameDivisionDTO struct {
 }
 
 type frameGroupDTO struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Linked bool   `json:"linked"`
+	ID     int64   `json:"id"`
+	Name   i18nDTO `json:"name"`
+	Linked bool    `json:"linked"`
 }
 
-type idNameDTO struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+type frameGalleryDTO struct {
+	ID   int64   `json:"id"`
+	Name i18nDTO `json:"name"`
 }
 
 type bannerDTO struct {

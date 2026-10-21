@@ -21,13 +21,16 @@ func toFrame(frame store.Frame) frameDTO {
 		Labels:       labelsDTO{TeamList: frame.TeamListLabel, Groups: frame.GroupsLabel},
 		ShowSchedule: frame.ShowSchedule,
 		Divisions:    make([]frameDivisionDTO, 0, len(frame.Divisions)),
-		Galleries:    make([]idNameDTO, 0, len(frame.Galleries)),
+		Galleries:    make([]frameGalleryDTO, 0, len(frame.Galleries)),
 		Banners:      make([]bannerDTO, 0, len(frame.Banners)),
 	}
 	for _, division := range frame.Divisions {
 		groups := make([]frameGroupDTO, 0, len(division.Groups))
 		for _, group := range division.Groups {
-			groups = append(groups, frameGroupDTO{ID: group.ID, Name: group.Name, Linked: group.Linked})
+			groups = append(
+				groups,
+				frameGroupDTO{ID: group.ID, Name: toI18n(group.Name), Linked: group.Linked},
+			)
 		}
 		out.Divisions = append(out.Divisions, frameDivisionDTO{
 			ID: division.ID, Name: toI18n(division.Name), ScheduleEnabled: division.ScheduleEnabled,
@@ -35,7 +38,10 @@ func toFrame(frame store.Frame) frameDTO {
 		})
 	}
 	for _, gallery := range frame.Galleries {
-		out.Galleries = append(out.Galleries, idNameDTO{ID: gallery.ID, Name: gallery.Name})
+		out.Galleries = append(
+			out.Galleries,
+			frameGalleryDTO{ID: gallery.ID, Name: toI18n(gallery.Name)},
+		)
 	}
 	for _, banner := range frame.Banners {
 		out.Banners = append(out.Banners, bannerDTO{ImageURL: banner.ImageURL, LinkURL: banner.LinkURL})

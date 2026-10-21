@@ -30,14 +30,14 @@ type FrameDivision struct {
 // FrameGroup はナビのグループ。Linked が false なら名前だけ出す。
 type FrameGroup struct {
 	ID     int64
-	Name   string
+	Name   domain.I18nText
 	Linked bool
 }
 
 // FrameGallery はナビのギャラリー。
 type FrameGallery struct {
 	ID   int64
-	Name string
+	Name domain.I18nText
 }
 
 // FrameBanner はサイドバーのバナー。

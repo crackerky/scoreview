@@ -1,8 +1,10 @@
 package parse
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,12 +29,16 @@ func TestParseTournamentTopStandard(t *testing.T) {
 	assert.True(t, d.ScheduleLinked)
 	assert.True(t, d.StandingsLinked)
 	require.Len(t, d.Groups, 8)
-	assert.Equal(t, NavGroup{ID: ptr(int64(6623)), Name: "Tounament A", Linked: true}, d.Groups[0])
+	assert.Equal(t, NavGroup{
+		ID: ptr(int64(6623)), Name: "Tounament A", NameEN: "Tounament A", Linked: true,
+	}, d.Groups[0])
 	assert.Equal(t, "21st-29th placement tournament", d.Groups[7].Name)
 
 	assert.Equal(t, Nav{
 		TeamListLabel: "teams", GroupLabel: "groups", ShowSchedule: true,
-		Galleries: []NavGallery{{ID: 362, Name: "Day2-AM"}, {ID: 363, Name: "Day2-PM"}},
+		Galleries: []NavGallery{
+			{ID: 362, Name: "Day2-AM", NameEN: "Day2-AM"}, {ID: 363, Name: "Day2-PM", NameEN: "Day2-PM"},
+		},
 	}, top.Nav)
 
 	assert.Contains(t, top.TopHTML.JA, "見本チーム")
@@ -43,6 +49,21 @@ func TestParseTournamentTopStandard(t *testing.T) {
 	assert.Equal(t, "http://www.clubjr.com/event_2026atami_4.Map.pdf", *top.Banners[0].LinkURL)
 	assert.Nil(t, top.Banners[1].LinkURL)
 	assert.Contains(t, top.Banners[0].ImageURL, "https://score.clubjr.com/zfiles/ScoreViewTop/")
+}
+
+// ナビの名前: 前後の半角空白は名前の一部、英語名が空のリンクは参照サイトが URL を出すので空にする。
+func TestNavName(t *testing.T) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(`<ul>
+<li><a href="https://score.clubjr.com/pscore/scv_group/open/1?lang=jp">架空 placement tournament </a></li>
+<li><a href="https://score.clubjr.com/pscore/scv_group/open/1?lang=en">https://score.clubjr.com/pscore/scv_group/open/1?lang=en</a></li>
+<li><p>
+	架空</p></li></ul>`))
+	require.NoError(t, err)
+	var names []string
+	doc.Find("li > a, li > p").Each(func(_ int, sel *goquery.Selection) {
+		names = append(names, navName(sel))
+	})
+	assert.Equal(t, []string{"架空 placement tournament ", "", "架空"}, names)
 }
 
 // ディスクゴルフ個人戦: エントリー一覧/成績、スケジュールなし、リンクはダミー、英語名が空(clone-spec E 3)

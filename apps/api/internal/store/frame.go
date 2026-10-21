@@ -46,7 +46,7 @@ func loadTournamentScope(
 	var groups []Group
 	if len(divisionIDs) > 0 {
 		// bracket_layout は大きいのでナビでは読まない
-		err := tx.Select("id", "division_id", "name", "linked").
+		err := tx.Select("id", "division_id", "name", "name_en", "linked").
 			Where(sqlPublishedGroups, divisionIDs, true).Order(sqlOrderSortID).Find(&groups).Error
 		if err != nil {
 			return tournamentScope{}, fmt.Errorf("load groups of tournament %d: %w", tournament.ID, err)
@@ -77,7 +77,7 @@ func buildFrame(
 	groupsByDivision := map[int64][]FrameGroup{}
 	for _, group := range groups {
 		groupsByDivision[group.DivisionID] = append(groupsByDivision[group.DivisionID],
-			FrameGroup{ID: group.ID, Name: group.Name, Linked: group.Linked})
+			FrameGroup{ID: group.ID, Name: i18n(group.Name, group.NameEn), Linked: group.Linked})
 	}
 	frame := Frame{
 		ID:            tournament.ID,
@@ -104,7 +104,10 @@ func buildFrame(
 		)
 	}
 	for _, gallery := range galleries {
-		frame.Galleries = append(frame.Galleries, FrameGallery{ID: gallery.ID, Name: gallery.Name})
+		frame.Galleries = append(
+			frame.Galleries,
+			FrameGallery{ID: gallery.ID, Name: i18n(gallery.Name, gallery.NameEn)},
+		)
 	}
 	for _, banner := range banners {
 		frame.Banners = append(

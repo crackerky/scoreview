@@ -138,6 +138,12 @@ describe('ScoreNavi の描画', () => {
     assert.doesNotMatch(html, /scv_search|scv_division|scv_group/)
   })
 
+  test('lang=en ではグループとギャラリーも英語名("---" もそのまま)', () => {
+    const html = renderHtml(<ScoreNavi frame={standard} lang="en" />)
+    assert.match(html, /href="\/pscore\/scv_group\/open\/1002\?lang=en">Tournament A</)
+    assert.match(html, /href="\/pscore\/scv_tgallery\/open\/201\?lang=en">---</)
+  })
+
   test('lang=en はリンクに引き継がれ、英語名が空のディビジョンは空のまま', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
     const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)

@@ -85,9 +85,9 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
                 {division.groups.map((group) => (
                   <li key={group.id}>
                     {group.linked ? (
-                      <a href={groupHref(group.id, lang)}>{group.name}</a>
+                      <a href={groupHref(group.id, lang)}>{pickText(lang, group.name)}</a>
                     ) : (
-                      <p>{group.name}</p>
+                      <p>{pickText(lang, group.name)}</p>
                     )}
                   </li>
                 ))}

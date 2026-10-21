@@ -152,6 +152,8 @@ dropdown の挙動(`jquery.dropdown.js` v1.1.7、`$('#score_navi').dropdown()` �
 - 高さは **初期化時に `target.height()` で測った値**。ただし初期状態が `display:none` なのでjQuery 1.7 は一時表示して測る(通常の挙動)。
 - showClass/textClass 等は未設定(クラス付与なし)。`a.open` クラスは使われない(CSSにはあるが付かない)。
 
+名前の言語(突き合わせで確認): lang=en ではグループとギャラリーも英語名で出る。ギャラリーの英語名は `---` の大会が多い(440、451 など)。英語名が空のグループは、`<a>` の文字がリンク先の URL そのもの(`https://score.clubjr.com/pscore/scv_group/open/2182?lang=en`。CakePHP の link() が空の文字を URL で補う既定動作)。グループ名の前後の半角空白は名前の一部で、グループページの title にも残る(`-17th placement tournament -`)。
+
 `score_navi.css` の見た目:
 - `li{float:left; position:relative; width:160px; border-left/top/bottom:1px solid #888}`、最後の li に `border-right:1px solid #888 !important`。サブメニュー内 li は left/right/top を `!important` で 1px #888、bottom なし(最後だけ bottom 1px)。
 - `li a, li p{padding:8px 0; margin:0; display:block; color:#008080; text-decoration:none; opacity:.99; background:repeating-linear-gradient(-45deg,#f9f9f9,#f9f9f9 5px,#fdfcff 5px,#fdfcff 10px)}`(斜めストライプ薄灰)。`text-align` は header の `text-align:center` が継承 → 中央揃え。

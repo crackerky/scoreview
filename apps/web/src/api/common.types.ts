@@ -48,10 +48,13 @@ export const tournamentFrameSchema = z.object({
       name: i18nTextSchema,
       // サイドバーの SCORE メニューに出すか(スケジュールのないディビジョンは出ない)
       scheduleEnabled: z.boolean(),
-      groups: z.array(z.object({ id: z.number().int(), name: z.string(), linked: z.boolean() })),
+      // name.ja は前後の空白も名前の一部(参照サイトの title に空白つきで出る)
+      groups: z.array(
+        z.object({ id: z.number().int(), name: i18nTextSchema, linked: z.boolean() }),
+      ),
     }),
   ),
-  galleries: z.array(z.object({ id: z.number().int(), name: z.string() })),
+  galleries: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
   banners: z.array(z.object({ imageUrl: z.string(), linkUrl: z.string().nullable() })),
 })
 export type TournamentFrame = z.infer<typeof tournamentFrameSchema>

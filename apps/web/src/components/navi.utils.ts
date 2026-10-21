@@ -98,9 +98,9 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
       entries: division.groups.map(
         (group): NaviLeaf =>
           group.linked
-            ? { kind: 'link', label: group.name, href: groupHref(group.id, lang) }
+            ? { kind: 'link', label: pickText(lang, group.name), href: groupHref(group.id, lang) }
             : // 推測: リンクなしのグループは名前だけの <p> で出す(参照サイトで名前つきの実例は未観測)
-              { kind: 'text', label: group.name },
+              { kind: 'text', label: pickText(lang, group.name) },
       ),
     })),
   })
@@ -113,7 +113,7 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
       widthPx: galleryWidthPx,
       entries: frame.galleries.map((gallery) => ({
         kind: 'link',
-        label: gallery.name,
+        label: pickText(lang, gallery.name),
         href: galleryHref(gallery.id, lang),
       })),
     })

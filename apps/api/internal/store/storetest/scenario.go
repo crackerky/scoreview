@@ -76,7 +76,9 @@ func BuildScenario(tb testing.TB, builder *Builder) Scenario {
 	buildGroups(tb, builder, &sc)
 	buildMatches(tb, builder, &sc)
 
-	sc.Gallery = builder.Gallery(sc.Tournament.ID, func(row *store.Gallery) { row.Name = "Day2-AM" })
+	sc.Gallery = builder.Gallery(sc.Tournament.ID, func(row *store.Gallery) {
+		row.Name, row.NameEn = "Day2-AM", "---"
+	})
 	builder.Photo(
 		sc.Gallery.ID,
 		func(row *store.GalleryPhoto) { row.ThumbURL, row.FullURL = "/g/mini/1.jpg", "/g/1.jpg" },
@@ -126,7 +128,7 @@ func buildGroups(tb testing.TB, builder *Builder, sc *Scenario) {
 		builder.GroupTeam(sc.Pool.ID, team.ID, func(row *store.GroupTeam) { row.SortOrder = i })
 	}
 	sc.Image = builder.Group(sc.Mixed.ID, domain.GroupImage, func(row *store.Group) {
-		row.Name, row.SortOrder = "Temporary ranking", 2
+		row.Name, row.NameEn, row.SortOrder = "Temporary ranking", "Temporary ranking", 2
 		row.ImageURL, row.ImageWidth, row.ImageHeight = Ptr("/ranking.jpg"), Ptr(500), Ptr(695)
 	})
 	sc.Hidden = builder.Group(sc.Mixed.ID, domain.GroupPool, func(row *store.Group) {

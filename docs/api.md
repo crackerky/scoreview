@@ -56,10 +56,10 @@ type TournamentFrame = {
     id: number
     name: I18nText
     scheduleEnabled: boolean         // サイドバーの SCORE メニューに出すか(divisions.schedule_enabled)
-    // published=true のグループだけ。sort_order, id 順
-    groups: Array<{ id: number; name: string; linked: boolean }>
+    // published=true のグループだけ。sort_order, id 順。name.ja は前後の空白も名前の一部
+    groups: Array<{ id: number; name: I18nText; linked: boolean }>
   }>
-  galleries: Array<{ id: number; name: string }>
+  galleries: Array<{ id: number; name: I18nText }>  // 英語名は "---" のことが多い(参照サイトの値)
   banners: Array<{ imageUrl: string; linkUrl: string | null }>
 }
 

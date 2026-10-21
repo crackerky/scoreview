@@ -60,13 +60,19 @@ func TestGetTournamentTopAndFrame(t *testing.T) {
 	require.Len(t, frame.Divisions, 2)
 	assert.Equal(t, sc.Mixed.ID, frame.Divisions[0].ID)
 	// 非公開(published=false)のグループは出ず、sort_order 順
+	// 英語名が空のグループは en も空のまま(日本語で補わない)
 	assert.Equal(t, []store.FrameGroup{
-		{ID: sc.Pool.ID, Name: "Qualifying pool A", Linked: true},
-		{ID: sc.Bracket.ID, Name: "Tounament A", Linked: false},
-		{ID: sc.Image.ID, Name: "Temporary ranking", Linked: true},
+		{ID: sc.Pool.ID, Name: domain.I18nText{Ja: "Qualifying pool A"}, Linked: true},
+		{ID: sc.Bracket.ID, Name: domain.I18nText{Ja: "Tounament A"}, Linked: false},
+		{
+			ID: sc.Image.ID, Name: domain.I18nText{Ja: "Temporary ranking", En: "Temporary ranking"},
+			Linked: true,
+		},
 	}, frame.Divisions[0].Groups)
 	assert.Equal(t, []store.FrameGroup{}, frame.Divisions[1].Groups)
-	assert.Equal(t, []store.FrameGallery{{ID: sc.Gallery.ID, Name: "Day2-AM"}}, frame.Galleries)
+	assert.Equal(t, []store.FrameGallery{
+		{ID: sc.Gallery.ID, Name: domain.I18nText{Ja: "Day2-AM", En: "---"}},
+	}, frame.Galleries)
 	assert.Equal(t, []store.FrameBanner{
 		{ImageURL: "/b1.png", LinkURL: ptr("https://example.com/")}, {ImageURL: "/b2.png"},
 	}, frame.Banners)
