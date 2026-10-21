@@ -810,7 +810,7 @@ type Impact = {
 | `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
 | `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は 400 |
 | `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |
-| `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }` |
+| `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }`。同じ大会の他のディビジョンの試合とのコートの重なりも `court_conflict`(`codes` の 2 つ目が相手の試合 CD)。形の適用で作る時間割は、他のディビジョンの試合のコートと時刻を避ける |
 | `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |
 | `POST /admin/matches/{id}/swap-schedule` | `{ otherMatchId: number }` | `{ violations }`。未試合の 2 試合の日付、時刻、コートを入れ替える |
 

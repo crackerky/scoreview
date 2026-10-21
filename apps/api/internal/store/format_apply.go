@@ -144,6 +144,10 @@ func draftFormat(ctx context.Context, db *gorm.DB, division Division, input Form
 		if err != nil {
 			return nil, err
 		}
+		// 同じ大会の他のディビジョンの試合が使うコートと時刻を避ける
+		if cfg.Busy, err = otherDivisionBusy(ctx, db, division, cfg.SlotMinutes); err != nil {
+			return nil, err
+		}
 		if d.schedule, err = format.BuildSchedule(plan, cfg); err != nil {
 			return nil, err
 		}

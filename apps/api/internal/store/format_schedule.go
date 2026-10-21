@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -15,6 +16,54 @@ import (
 
 // maxShiftMinutes は一度に遅らせる(早める)分数の上限。1 日の大会で半日を超えるずらしは入力の誤り。
 const maxShiftMinutes = 6 * 60
+
+const sqlTimedMatchesOfDivisions = "division_id IN ? AND field IS NOT NULL AND match_date IS NOT NULL" +
+	" AND start_time IS NOT NULL"
+
+// otherDivisionBusy は同じ大会の他のディビジョンの試合でふさがっているコートと時間(コートは大会で
+// 共有する)。試合の長さはそのディビジョンの時間割の設定の枠の長さで、設定が無ければ slotMinutes
+// (推測: 形の無いディビジョンの試合の長さは記録に無いので、こちらの枠と同じとみなす)。
+func otherDivisionBusy(ctx context.Context, db *gorm.DB, division Division, slotMinutes int) ([]format.Busy, error) {
+	tx := db.WithContext(ctx)
+	var others []int64
+	if err := tx.Model(&Division{}).Where(sqlOtherDivisionsOf, division.TournamentID, division.ID).
+		Pluck("id", &others).Error; err != nil {
+		return nil, fmt.Errorf("list divisions of tournament %d: %w", division.TournamentID, err)
+	}
+	if len(others) == 0 {
+		return nil, nil
+	}
+	var formats []DivisionFormat
+	if err := tx.Where(sqlFormatsOfDivisions, others).Find(&formats).Error; err != nil {
+		return nil, fmt.Errorf("list formats of tournament: %w", err)
+	}
+	minutes := map[int64]int{}
+	for _, f := range formats {
+		var setting ScheduleSetting
+		if f.Schedule != nil && json.Unmarshal(f.Schedule, &setting) == nil && setting.SlotMinutes > 0 {
+			minutes[f.DivisionID] = setting.SlotMinutes
+		}
+	}
+	var matches []Match
+	if err := tx.Where(sqlTimedMatchesOfDivisions, others).Order(sqlOrderID).Find(&matches).Error; err != nil {
+		return nil, fmt.Errorf("list matches of other divisions: %w", err)
+	}
+	var out []format.Busy
+	for _, m := range matches {
+		start, ok := matchStart(m)
+		if !ok {
+			continue
+		}
+		length := slotMinutes
+		if v, ok := minutes[m.DivisionID]; ok {
+			length = v
+		}
+		naive := time.Date(start.Year(), start.Month(), start.Day(), start.Hour(), start.Minute(), 0, 0, time.UTC)
+		out = append(out, format.Busy{Court: *m.Field, Start: naive,
+			End: naive.Add(time.Duration(length) * time.Minute), Label: m.Code})
+	}
+	return out, nil
+}
 
 func (fs *formatState) scheduleConfig() (format.ScheduleConfig, error) {
 	if fs.schedule == nil {
@@ -53,6 +102,9 @@ func CheckFormatSchedule(ctx context.Context, db *gorm.DB, divisionID int64) ([]
 	}
 	// 終了時刻は当日の遅れで超えるのが普通なので、再検査では見ない(生成時だけ見る)
 	cfg.End = time.Time{}
+	if cfg.Busy, err = otherDivisionBusy(ctx, db, fs.division, cfg.SlotMinutes); err != nil {
+		return nil, err
+	}
 	return toViolations(format.CheckSchedule(fs.plan, cfg, fs.assignments())), nil
 }
 
