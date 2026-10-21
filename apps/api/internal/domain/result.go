@@ -67,7 +67,8 @@ type ResultOutcome struct {
 }
 
 // DecideResult は通常以外の結果で試合を終えるときに、保存するスコアと勝者を決める。
-// 規則に合わない入力(勝者の無い不戦勝、規定スコアの無い不戦勝、勝者を付けた未消化など)は検証エラー。
+// 規則に合わない入力(勝者の無い不戦勝、勝者を付けた未消化など)は検証エラー。規定スコアの無い
+// 不戦勝は、スコアを記録せず勝者だけを記録する。
 func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 	needsWinner := func() error {
 		if in.WinnerSide == nil {
@@ -86,11 +87,11 @@ func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 		if err := needsWinner(); err != nil {
 			return ResultOutcome{}, err
 		}
+		winner := *in.WinnerSide
 		if in.Forfeit == nil {
-			return ResultOutcome{}, Invalid(
-				"forfeitScore",
-				"is required: the tournament has no forfeit score",
-			)
+			// 大会に規定スコアが無ければ、記録係は勝者だけを記録し、スコアは本部が後で決める
+			// (記録係にその場で点数を決めさせない)
+			return ResultOutcome{Winner: &winner}, nil
 		}
 		if err := in.Forfeit.Validate("forfeitScore"); err != nil {
 			return ResultOutcome{}, err
@@ -99,7 +100,6 @@ func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 		if *in.WinnerSide == SideRight {
 			score = Score{Left: in.Forfeit.Loser, Right: in.Forfeit.Winner}
 		}
-		winner := *in.WinnerSide
 		return ResultOutcome{Score: &score, Winner: &winner}, nil
 	case ResultNoContest:
 		if err := needsWinner(); err != nil {
