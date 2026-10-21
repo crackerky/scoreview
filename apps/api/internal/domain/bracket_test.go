@@ -61,7 +61,7 @@ func TestParseBracketLayoutRejectsBadInput(t *testing.T) {
 		{"not json", `{`},
 		{"zero columns", `{"columns":0,"rows":[]}`},
 		{"ragged row", `{"columns":2,"rows":[[{"kind":"team"}]]}`},
-		{"unknown kind", `{"columns":1,"rows":[[{"kind":"rank"}]]}`},
+		{"unknown kind", `{"columns":1,"rows":[[{"kind":"bogus"}]]}`},
 		{"unknown key", `{"columns":1,"rows":[],"extra":1}`},
 	}
 	for _, tc := range cases {

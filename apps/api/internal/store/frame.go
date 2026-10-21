@@ -97,7 +97,10 @@ func buildFrame(
 		}
 		frame.Divisions = append(
 			frame.Divisions,
-			FrameDivision{ID: division.ID, Name: i18n(division.NameJa, division.NameEn), Groups: fg},
+			FrameDivision{
+				ID: division.ID, Name: i18n(division.NameJa, division.NameEn),
+				ScheduleEnabled: division.ScheduleEnabled, Groups: fg,
+			},
 		)
 	}
 	for _, gallery := range galleries {

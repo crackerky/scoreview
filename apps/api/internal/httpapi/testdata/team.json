@@ -18,6 +18,7 @@
           "ja": "ビーチミックス",
           "en": "Beach Mixed"
         },
+        "scheduleEnabled": true,
         "groups": [
           {
             "id": 1,
@@ -42,6 +43,7 @@
           "ja": "ウィメン",
           "en": "Women's"
         },
+        "scheduleEnabled": true,
         "groups": []
       }
     ],

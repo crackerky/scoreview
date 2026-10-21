@@ -32,6 +32,11 @@ const kindClass: Record<Exclude<BracketCell['kind'], ''>, string> = {
   txt_yen: 'txt_yen   ',
   txt_sharp: 'txt_sharp ',
   txt_and: 'txt_and   ',
+  // rank は旧い大会(2017〜2018)の格子で観測(空白 1 つ)。txt_left / txt_right は CSS 定義のみで
+  // 実例がないので、空白 1 つは推測
+  rank: 'rank ',
+  txt_left: 'txt_left ',
+  txt_right: 'txt_right ',
 }
 
 /** ブラケットの td の class。例 "WDiv4 BdRight BdTop game "、空セルは "WDiv4 "。 */

@@ -30,7 +30,8 @@ func toFrame(frame store.Frame) frameDTO {
 			groups = append(groups, frameGroupDTO{ID: group.ID, Name: group.Name, Linked: group.Linked})
 		}
 		out.Divisions = append(out.Divisions, frameDivisionDTO{
-			ID: division.ID, Name: toI18n(division.Name), Groups: groups,
+			ID: division.ID, Name: toI18n(division.Name), ScheduleEnabled: division.ScheduleEnabled,
+			Groups: groups,
 		})
 	}
 	for _, gallery := range frame.Galleries {

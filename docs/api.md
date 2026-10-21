@@ -55,6 +55,7 @@ type TournamentFrame = {
   divisions: Array<{
     id: number
     name: I18nText
+    scheduleEnabled: boolean         // サイドバーの SCORE メニューに出すか(divisions.schedule_enabled)
     // published=true のグループだけ。sort_order, id 順
     groups: Array<{ id: number; name: string; linked: boolean }>
   }>
@@ -224,7 +225,7 @@ type Tally = {
 
 type BracketCell = {
   borders: { top: boolean; bottom: boolean; left: boolean; right: boolean }
-  kind: '' | 'team' | 'win' | 'lose' | 'game' | 'txt_yen' | 'txt_sharp' | 'txt_and'
+  kind: '' | 'team' | 'win' | 'lose' | 'game' | 'txt_yen' | 'txt_sharp' | 'txt_and' | 'rank' | 'txt_left' | 'txt_right'
   text: string                       // team 参照がなければこの文字列を出す
   team: TeamRef | null               // チーム名のセル
   matchId: number | null             // game セル。スコア文字列は text に入る

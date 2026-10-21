@@ -26,9 +26,10 @@ type labelsDTO struct {
 }
 
 type frameDivisionDTO struct {
-	ID     int64           `json:"id"`
-	Name   i18nDTO         `json:"name"`
-	Groups []frameGroupDTO `json:"groups"`
+	ID              int64           `json:"id"`
+	Name            i18nDTO         `json:"name"`
+	ScheduleEnabled bool            `json:"scheduleEnabled"`
+	Groups          []frameGroupDTO `json:"groups"`
 }
 
 type frameGroupDTO struct {

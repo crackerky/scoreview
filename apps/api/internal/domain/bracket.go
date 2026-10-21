@@ -21,12 +21,16 @@ const (
 	BracketTxtYen   BracketCellKind = "txt_yen"
 	BracketTxtSharp BracketCellKind = "txt_sharp"
 	BracketTxtAnd   BracketCellKind = "txt_and"
+	// 以下 3 つは参照サイトの旧い大会の格子に出る(rank は 33 セルで観測。txt_left/right は CSS 定義のみ)
+	BracketRank     BracketCellKind = "rank"
+	BracketTxtLeft  BracketCellKind = "txt_left"
+	BracketTxtRight BracketCellKind = "txt_right"
 )
 
 func (k BracketCellKind) valid() bool {
 	switch k {
 	case BracketEmpty, BracketTeam, BracketWin, BracketLose, BracketGame,
-		BracketTxtYen, BracketTxtSharp, BracketTxtAnd:
+		BracketTxtYen, BracketTxtSharp, BracketTxtAnd, BracketRank, BracketTxtLeft, BracketTxtRight:
 		return true
 	}
 	return false

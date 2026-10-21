@@ -19,10 +19,12 @@ type Frame struct {
 }
 
 // FrameDivision はナビのディビジョン。Groups は published のグループだけ(sort_order, id 順)。
+// ScheduleEnabled はサイドバーの SCORE メニューに出すかどうか(スケジュールのないディビジョンは出ない)。
 type FrameDivision struct {
-	ID     int64
-	Name   domain.I18nText
-	Groups []FrameGroup
+	ID              int64
+	Name            domain.I18nText
+	ScheduleEnabled bool
+	Groups          []FrameGroup
 }
 
 // FrameGroup はナビのグループ。Linked が false なら名前だけ出す。

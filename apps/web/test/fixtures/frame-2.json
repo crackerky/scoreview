@@ -1,15 +1,39 @@
 {
   "id": 2,
-  "name": { "ja": "2026 架空ディスクゴルフ大会", "en": "" },
+  "name": {
+    "ja": "2026 架空ディスクゴルフ大会",
+    "en": ""
+  },
   "shortName": "2026 DG",
-  "labels": { "teamList": "entries", "groups": "results" },
+  "labels": {
+    "teamList": "entries",
+    "groups": "results"
+  },
   "showSchedule": false,
   "divisions": [
-    { "id": 301, "name": { "ja": "ＤＧシングルス（土曜日）", "en": "" }, "groups": [] },
+    {
+      "id": 301,
+      "name": {
+        "ja": "ＤＧシングルス（土曜日）",
+        "en": ""
+      },
+      "scheduleEnabled": false,
+      "groups": []
+    },
     {
       "id": 302,
-      "name": { "ja": "ＤＧシングルス（日曜日）", "en": "" },
-      "groups": [{ "id": 3001, "name": "最終結果", "linked": false }]
+      "name": {
+        "ja": "ＤＧシングルス（日曜日）",
+        "en": ""
+      },
+      "scheduleEnabled": false,
+      "groups": [
+        {
+          "id": 3001,
+          "name": "最終結果",
+          "linked": false
+        }
+      ]
     }
   ],
   "galleries": [],
