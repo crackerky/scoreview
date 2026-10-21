@@ -270,6 +270,16 @@ func toPool(pool store.PoolView) poolDTO {
 			tallyDTO: toTally(row.Tally), Team: toTeamRef(row.Team), Points: row.Points, Rank: row.Rank,
 		})
 	}
+	out.Notes = poolNotesDTO{Reasons: toTeamNotes(pool.Notes.Reasons),
+		Conditions: toTeamNotes(pool.Notes.Conditions)}
+	return out
+}
+
+func toTeamNotes(notes []store.TeamNote) []teamNoteDTO {
+	out := make([]teamNoteDTO, len(notes))
+	for i, n := range notes {
+		out[i] = teamNoteDTO{Team: toTeamRef(n.Team), Text: n.Text}
+	}
 	return out
 }
 

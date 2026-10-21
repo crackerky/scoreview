@@ -196,7 +196,32 @@
         "points": 1,
         "rank": 2
       }
-    ]
+    ],
+    "notes": {
+      "reasons": [],
+      "conditions": [
+        {
+          "team": {
+            "id": 2,
+            "name": {
+              "ja": "ブラボー",
+              "en": "Bravo"
+            }
+          },
+          "text": "次の A3 に勝てば 2 位以上が確定"
+        },
+        {
+          "team": {
+            "id": 3,
+            "name": {
+              "ja": "チャーリー",
+              "en": "Charlie"
+            }
+          },
+          "text": "次の A3 で引き分け以上なら 2 位以上が確定"
+        }
+      ]
+    }
   },
   "bracket": null,
   "image": null,

@@ -215,6 +215,11 @@ type Tally = {
       | { kind: 'match'; matchId: number; status: MatchStatus; text: string }  // text は "9-3"(試合記録の左右順)
     >>
     results: Array<Tally & { team: TeamRef; points: number; rank: number | null }>  // teams と同じ順
+    // 本サイト独自の補足(requirements.md「意図的な差分」)。文は日本語
+    notes: {
+      reasons: Array<{ team: TeamRef; text: string }>     // 同点を分けた根拠「勝ち点同数、得失点差で上位」。順位を手で上書きしたプールは空
+      conditions: Array<{ team: TeamRef; text: string }>  // 進行中のプールの勝ち上がり条件「次の A3 に勝てば 1 位確定」
+    }
   } | null
   bracket: {
     pattern: string                  // "T8A"

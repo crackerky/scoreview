@@ -215,6 +215,8 @@ type PoolView struct {
 	Teams   []domain.TeamRef
 	Matrix  [][]MatrixCell
 	Results []PoolResultRow
+	// Notes は本サイト独自の補足(順位の根拠と勝ち上がり条件。pool_notes.go)
+	Notes PoolNotes
 }
 
 // PoolResultRow はリーグ結果の 1 行。

@@ -213,3 +213,33 @@ describe('契約違反と title', () => {
     )
   })
 })
+
+describe('プールの補足(本サイト独自。requirements.md「意図的な差分」)', () => {
+  const [first, second] = poolOf(pool).teams
+  assert.ok(first && second)
+  const withNotes: GroupResponse = {
+    ...pool,
+    pool: {
+      ...poolOf(pool),
+      notes: {
+        reasons: [{ team: first, text: '勝ち点同数、得失点差で上位' }],
+        conditions: [{ team: second, text: '次の A3 に勝てば 1 位確定' }],
+      },
+    },
+  }
+
+  test('リーグ結果の下に、勝ち上がり条件と順位の根拠を小さく出す', () => {
+    const html = renderHtml(<GroupView data={withNotes} lang="jp" />)
+    assert.match(
+      html,
+      /<\/table><\/div><div class="sv_pool_notes"><p class="sv_pool_notes_head">勝ち上がり条件/,
+    )
+    assert.match(html, /<li>架空チームA: 勝ち点同数、得失点差で上位<\/li>/)
+    assert.match(html, /次の A3 に勝てば 1 位確定/)
+  })
+
+  test('補足が無い、または英語表示なら出さない', () => {
+    assert.doesNotMatch(renderHtml(<GroupView data={pool} lang="jp" />), /sv_pool_notes/)
+    assert.doesNotMatch(renderHtml(<GroupView data={withNotes} lang="en" />), /sv_pool_notes/)
+  })
+})

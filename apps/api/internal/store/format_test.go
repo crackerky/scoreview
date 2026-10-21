@@ -145,6 +145,12 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	require.NoError(t, store.DecideRank(ctx, f.db, f.actor, poolD,
 		store.RankDecisionInput{Teams: d, Reason: "ブリックマーク投げ"}))
 	require.NoError(t, store.ConfirmGroup(ctx, f.db, f.actor, poolD, false, now))
+	page, err := store.GetGroup(ctx, f.db, poolD)
+	require.NoError(t, err)
+	require.NotNil(t, page.Pool)
+	require.NotEmpty(t, page.Pool.Notes.Reasons)
+	assert.Equal(t, "勝ち点同数、運営者の指定で決定", page.Pool.Notes.Reasons[0].Text)
+	assert.Equal(t, 1, *page.Pool.Results[2].Rank, "閲覧ページの順位も運営者の指定(シード 12 が 1 位)")
 	var confirms, decisions int64
 	require.NoError(t, f.db.Model(&store.AuditLog{}).Where("action = ?", store.AuditGroupConfirm).
 		Count(&confirms).Error)

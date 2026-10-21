@@ -1,0 +1,20 @@
+/*
+ * 本サイト独自の補足(順位の根拠、勝ち上がり条件)の見た目。参照サイトの表を崩さないよう、
+ * 表の下に小さい灰色の文字で出す(docs/requirements.md「意図的な差分」)。
+ */
+.sv_pool_notes {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #555;
+}
+
+.sv_pool_notes_head {
+  margin: 4px 0 0;
+  font-weight: bold;
+}
+
+.sv_pool_notes ul {
+  margin: 0;
+  padding-left: 1.5em;
+}
