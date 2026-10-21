@@ -1,0 +1,12 @@
+{
+  "id": 3,
+  "name": { "ja": "2027 架空フリースタイル", "en": "2027 Fictional Freestyle" },
+  "shortName": "2027 FFS",
+  "labels": { "teamList": "teams", "groups": "groups" },
+  "showSchedule": false,
+  "divisions": [
+    { "id": 401, "name": { "ja": "フリースタイル チーム制", "en": "Freestyle Team" }, "groups": [] }
+  ],
+  "galleries": [{ "id": 203, "name": "Day-1" }],
+  "banners": []
+}

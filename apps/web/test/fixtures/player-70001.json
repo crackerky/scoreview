@@ -1,0 +1,47 @@
+{
+  "frame": "frame-1",
+  "player": {
+    "id": 70001,
+    "number": "7",
+    "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+    "gender": "M",
+    "role": null
+  },
+  "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+  "prev": {
+    "id": 70009,
+    "number": "",
+    "name": { "ja": "見本 次郎", "en": "Jiro MIHON" },
+    "gender": "M",
+    "role": { "ja": "マネージャ", "en": "Manager" }
+  },
+  "next": {
+    "id": 70002,
+    "number": "10",
+    "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+    "gender": "M",
+    "role": null
+  },
+  "statsKind": "ultimate",
+  "stats": { "games": 5, "assists": 6, "goals": 4, "callahans": 0, "greatests": 0, "blocks": 0 },
+  "events": [
+    {
+      "code": "A1",
+      "date": "2026-10-18",
+      "opponent": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+      "elapsedSec": 240,
+      "scorer": {
+        "id": 70001,
+        "number": "7",
+        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 70002,
+        "number": "10",
+        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "gender": "M"
+      }
+    }
+  ]
+}

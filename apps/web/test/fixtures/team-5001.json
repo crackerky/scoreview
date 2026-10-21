@@ -1,0 +1,62 @@
+{
+  "frame": "frame-1",
+  "team": {
+    "id": 5001,
+    "fullName": { "ja": "架空チームA", "en": "Fictional A" },
+    "shortName": { "ja": "架空チームA", "en": "Fictional A" },
+    "comment": { "ja": "架空のチーム紹介です。", "en": "" },
+    "layout": "standard"
+  },
+  "record": {
+    "games": 5,
+    "wins": 3,
+    "draws": 0,
+    "losses": 2,
+    "goalsFor": 27,
+    "goalsAgainst": 28,
+    "rank": 4
+  },
+  "matches": [
+    {
+      "matchId": 9001,
+      "hasDetail": true,
+      "code": "A1",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": 1,
+      "status": "finished",
+      "left": {
+        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "placeholder": null,
+        "score": 9
+      },
+      "right": {
+        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "placeholder": null,
+        "score": 3
+      }
+    }
+  ],
+  "players": [
+    {
+      "player": {
+        "id": 70001,
+        "number": "7",
+        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "gender": "M"
+      },
+      "games": 5,
+      "assists": 6,
+      "goals": 4,
+      "blocks": 0
+    }
+  ],
+  "staff": [
+    {
+      "id": 70009,
+      "role": { "ja": "マネージャ", "en": "Manager" },
+      "name": { "ja": "見本 次郎", "en": "Jiro MIHON" },
+      "gender": "M"
+    }
+  ]
+}

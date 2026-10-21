@@ -1,0 +1,44 @@
+{
+  "frame": "frame-1",
+  "divisions": [
+    {
+      "id": 101,
+      "name": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "kind": "mixed",
+      "entryKind": "team",
+      "teams": [
+        {
+          "id": 5001,
+          "name": { "ja": "架空チームA", "en": "Fictional A" },
+          "barStyle": "mixed",
+          "memberCount": 11
+        },
+        {
+          "id": 5002,
+          "name": { "ja": "架空チームB", "en": "Fictional B" },
+          "barStyle": "mixed",
+          "memberCount": 15
+        },
+        {
+          "id": 5003,
+          "name": { "ja": "架空大学", "en": "Fictional Univ" },
+          "barStyle": "univ",
+          "memberCount": 9
+        },
+        {
+          "id": 5004,
+          "name": { "ja": "架空チームD", "en": "" },
+          "barStyle": "mixed",
+          "memberCount": 0
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "name": { "ja": "ウィメン", "en": "Women's" },
+      "kind": "women",
+      "entryKind": "team",
+      "teams": []
+    }
+  ]
+}

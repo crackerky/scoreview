@@ -1,0 +1,69 @@
+{
+  "frame": "frame-1",
+  "group": {
+    "id": 1001,
+    "name": "Qualifying pool A",
+    "kind": "pool",
+    "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } }
+  },
+  "pool": {
+    "teams": [
+      { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } }
+    ],
+    "matrix": [
+      [
+        { "kind": "self" },
+        { "kind": "match", "matchId": 9001, "status": "finished", "text": "9-3" }
+      ],
+      [{ "kind": "lower" }, { "kind": "self" }]
+    ],
+    "results": [
+      {
+        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "points": 3,
+        "rank": 1,
+        "games": 1,
+        "wins": 1,
+        "draws": 0,
+        "losses": 0,
+        "goalsFor": 9,
+        "goalsAgainst": 3
+      },
+      {
+        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "points": 0,
+        "rank": 2,
+        "games": 1,
+        "wins": 0,
+        "draws": 0,
+        "losses": 1,
+        "goalsFor": 3,
+        "goalsAgainst": 9
+      }
+    ]
+  },
+  "bracket": null,
+  "image": null,
+  "matches": [
+    {
+      "matchId": 9001,
+      "hasDetail": true,
+      "code": "A1",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": 1,
+      "status": "finished",
+      "left": {
+        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "placeholder": null,
+        "score": 9
+      },
+      "right": {
+        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "placeholder": null,
+        "score": 3
+      }
+    }
+  ]
+}

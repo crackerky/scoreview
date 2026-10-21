@@ -1,0 +1,95 @@
+{
+  "frame": "frame-1",
+  "match": {
+    "id": 9001,
+    "code": "A1",
+    "groupName": "Qualifying pool A",
+    "date": "2026-10-18",
+    "time": "09:00",
+    "field": 1,
+    "status": "finished",
+    "left": {
+      "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      "score": 1
+    },
+    "right": {
+      "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+      "score": 0
+    },
+    "breadcrumb": {
+      "divisionId": 101,
+      "divisionName": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "groupId": 1001
+    }
+  },
+  "events": [
+    {
+      "elapsedSec": 0,
+      "kind": "pull",
+      "side": "right",
+      "scorer": null,
+      "assist": null,
+      "leftScore": 0,
+      "rightScore": 0
+    },
+    {
+      "elapsedSec": 240,
+      "kind": "goal",
+      "side": "left",
+      "scorer": {
+        "id": 70001,
+        "number": "7",
+        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 70002,
+        "number": "10",
+        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "gender": "M"
+      },
+      "leftScore": 1,
+      "rightScore": 0
+    },
+    {
+      "elapsedSec": 1200,
+      "kind": "end",
+      "side": null,
+      "scorer": null,
+      "assist": null,
+      "leftScore": 1,
+      "rightScore": 0
+    }
+  ],
+  "lineups": {
+    "left": [
+      {
+        "player": {
+          "id": 70001,
+          "number": "7",
+          "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+          "gender": "M"
+        },
+        "assists": 0,
+        "goals": 1,
+        "blocks": 0
+      },
+      {
+        "player": {
+          "id": 70002,
+          "number": "10",
+          "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+          "gender": "M"
+        },
+        "assists": 1,
+        "goals": 0,
+        "blocks": 2
+      }
+    ],
+    "right": []
+  },
+  "stats": {
+    "left": { "goals": 1, "fromOffense": 0, "fromDefense": 1, "fromTurnover": 0, "timeouts": 0 },
+    "right": { "goals": 0, "fromOffense": 0, "fromDefense": 0, "fromTurnover": 0, "timeouts": 0 }
+  }
+}

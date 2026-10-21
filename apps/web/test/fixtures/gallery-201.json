@@ -1,0 +1,12 @@
+{
+  "frame": "frame-1",
+  "gallery": {
+    "id": 201,
+    "name": "Day1-AM",
+    "photos": [
+      { "thumbUrl": "/brand/photo-sample-thumb.svg", "fullUrl": "/brand/photo-sample.svg" },
+      { "thumbUrl": "/brand/photo-sample-thumb.svg", "fullUrl": "/brand/photo-sample.svg" },
+      { "thumbUrl": "/brand/photo-sample-thumb.svg", "fullUrl": "/brand/photo-sample.svg" }
+    ]
+  }
+}
