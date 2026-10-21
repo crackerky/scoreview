@@ -62,8 +62,9 @@ type Client struct {
 	now         func() time.Time
 	sleep       func(ctx context.Context, d time.Duration) error
 
-	mu      sync.Mutex
-	lastReq time.Time
+	mu       sync.Mutex
+	lastReq  time.Time
+	requests int
 }
 
 // Option は Client の設定を変える。
@@ -190,7 +191,16 @@ func (c *Client) waitTurn(ctx context.Context) error {
 		}
 	}
 	c.lastReq = c.now()
+	c.requests++
 	return nil
+}
+
+// Requests はこの Client が参照サイトに送った HTTP リクエストの数(再試行を含む。キャッシュから
+// 返したページは数えない)を返す。
+func (c *Client) Requests() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.requests
 }
 
 func (c *Client) fetchOnce(ctx context.Context, pageURL string) ([]byte, error) {
