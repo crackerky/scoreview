@@ -17,6 +17,8 @@ const securityHeaders = [
   // HTTPS だけで開かせる。Vercel が独自ドメインに付ける既定と同じ 2 年(63072000 秒)を明示する。
   // includeSubDomains と preload は、同じドメインの他のサイトに影響するので付けない
   { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
+  // 模倣の段階(クライアントへのデモ)なので検索エンジンに載せない。正式公開のときに外す
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
   // Content-Security-Policy はページごとに変える(管理画面は nonce)ので src/proxy.ts で付ける
 ]
 
