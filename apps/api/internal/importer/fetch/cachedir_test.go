@@ -1,4 +1,4 @@
-package main
+package fetch
 
 import (
 	"os"
@@ -8,27 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestParseIDs(t *testing.T) {
-	ids, err := parseIDs("525, 440,,451")
-	require.NoError(t, err)
-	assert.Equal(t, []int64{525, 440, 451}, ids)
-
-	ids, err = parseIDs("")
-	require.NoError(t, err)
-	assert.Empty(t, ids)
-
-	for _, bad := range []string{"abc", "0", "-1"} {
-		_, err := parseIDs(bad)
-		assert.Error(t, err, bad)
-	}
-}
-
-func TestRepresentativeTournaments(t *testing.T) {
-	ids := representativeTournaments()
-	assert.Len(t, ids, 16, "docs/representative-tournaments.md の表の行数")
-	assert.Equal(t, int64(525), ids[0])
-}
 
 func TestMainWorktree(t *testing.T) {
 	repo := t.TempDir()
@@ -42,6 +21,14 @@ func TestMainWorktree(t *testing.T) {
 	assert.Equal(t, repo, mainWorktree(repo), "本体は .git がディレクトリなのでそのまま")
 
 	other := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(other, ".git"), []byte("gitdir: /x/modules/y"), 0o600))
+	submodule := []byte("gitdir: /x/modules/y")
+	require.NoError(t, os.WriteFile(filepath.Join(other, ".git"), submodule, 0o600))
 	assert.Equal(t, other, mainWorktree(other), "submodule など worktree でない .git ファイル")
+}
+
+func TestDefaultCacheDirEndsWithLocalCache(t *testing.T) {
+	dir, err := DefaultCacheDir()
+	require.NoError(t, err, "テストはリポジトリの中で走る")
+	tail := filepath.Join(filepath.Base(filepath.Dir(dir)), filepath.Base(dir))
+	assert.Equal(t, DefaultCacheSubdir, tail)
 }
