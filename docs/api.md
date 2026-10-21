@@ -427,6 +427,7 @@ type Banner = { imageUrl: string; linkUrl: string | null }
 | `GET` / `PATCH` / `DELETE /admin/tournaments/{id}` | `PATCH` は `TournamentInput` の一部 | `AdminTournament` / 204。削除は配下を全部消す |
 | `GET /admin/tournaments/{id}/banners` | なし | `{ banners: Banner[] }`(表示順) |
 | `PUT /admin/tournaments/{id}/banners` | `{ banners: Banner[] }`(この順で表示。最大 30) | `{ banners: Banner[] }` |
+| `POST /admin/tournaments/{id}/copy` | `{ name: I18nText; startDate: string; withTeams: boolean }`(`name.ja` が空ならコピー元と同じ名前。`startDate` 必須) | 201 と `AdminTournament`。新しい大会は `status: 'entry_open'`、`listed: false`(準備中)。引き継ぐのは大会の設定(案内文は保存時と同じ無害化を通す)、バナー、部門(コピー元を覚える)、`withTeams` ならチームと選手(最終順位は消す)。試合、組、結果、ギャラリー、記録係の割り当ては引き継がない。部門の形は、その部門の `GET /admin/divisions/{id}/format` の `inherited` で初期値になる |
 
 ### ディビジョンと最終順位
 
@@ -519,6 +520,7 @@ type AdminPlayer = { id: number; teamId: number } & PlayerInput
 | `GET /admin/divisions/{id}/teams` | なし | `{ teams: AdminTeam[] }` |
 | `POST /admin/divisions/{id}/teams` | `TeamInput` | `AdminTeam` |
 | `GET` / `PATCH` / `DELETE /admin/teams/{id}` | | `AdminTeam` / 204 |
+| `DELETE /admin/divisions/{id}/teams` | なし | `{ deleted: number }`。部門のチームと選手をまとめて消す(名簿の貼り直し)。試合が 1 件でもあれば 409 |
 | `GET /admin/teams/{id}/players` | なし | `{ players: AdminPlayer[] }`(ID 順。スタッフを含む) |
 | `POST /admin/teams/{id}/players` | `PlayerInput` | `AdminPlayer` |
 | `GET` / `PATCH` / `DELETE /admin/players/{id}` | | `AdminPlayer` / 204 |
@@ -808,7 +810,7 @@ type Impact = {
 | `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明 |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
 | `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
-| `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null }` |
+| `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null; inherited: SavedFormat \| null }`。`inherited` は大会のコピーで作った部門(形がまだ無い)のコピー元の形で、`seeds` はコピー元のシード順のチームをこの部門の同じ正式名のチームに置き換えたもの |
 | `GET /admin/formats?exclude={divisionId}` | なし | `{ formats: SavedFormat[] }`(前回の大会の形のコピー元。新しい順に 30 件) |
 | `GET /admin/divisions/{id}/progress` | なし | `Progress` |
 | `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |

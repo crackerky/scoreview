@@ -281,6 +281,8 @@ type savedFormatDTO struct {
 
 type savedFormatOneDTO struct {
 	Format *savedFormatDTO `json:"format"`
+	// Inherited は大会のコピーで作った部門(形がまだ無い)のコピー元の形。シードはこの部門のチーム
+	Inherited *savedFormatDTO `json:"inherited"`
 }
 
 type savedFormatListDTO struct {

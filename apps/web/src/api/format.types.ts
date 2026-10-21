@@ -168,7 +168,11 @@ export const savedFormatSchema = z.object({
 export type SavedFormat = z.infer<typeof savedFormatSchema>
 
 /** GET /admin/divisions/{id}/format */
-export const savedFormatOneSchema = z.object({ format: savedFormatSchema.nullable() })
+export const savedFormatOneSchema = z.object({
+  format: savedFormatSchema.nullable(),
+  /** 大会のコピーで作った部門(形がまだ無い)のコピー元の形。シードはこの部門のチーム */
+  inherited: savedFormatSchema.nullable(),
+})
 /** GET /admin/formats */
 export const savedFormatListSchema = z.object({ formats: z.array(savedFormatSchema) })
 

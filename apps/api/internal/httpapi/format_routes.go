@@ -38,6 +38,7 @@ func (s *Server) formatRoutes() {
 	s.admin("GET "+base+"/divisions/{id}/schedule-check", adminOnly(), ok, withPathID(s.checkSchedule))
 	s.admin("POST "+base+"/divisions/{id}/schedule-shift", adminOnly(), ok, withPathID(s.shiftSchedule))
 	s.admin("POST "+base+"/matches/{id}/swap-schedule", adminOnly(), ok, withPathID(s.swapSchedule))
+	s.setupRoutes()
 }
 
 func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
@@ -124,14 +125,22 @@ func (s *Server) getFormat(ctx context.Context, id int64, _ *http.Request, _ dom
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return savedFormatOneDTO{}, nil
+	if ok {
+		dto, err := toSavedFormat(saved)
+		if err != nil {
+			return nil, err
+		}
+		return savedFormatOneDTO{Format: &dto}, nil
 	}
-	dto, err := toSavedFormat(saved)
+	inherited, ok, err := store.GetInheritedFormat(ctx, s.db, id)
+	if err != nil || !ok {
+		return savedFormatOneDTO{}, err
+	}
+	dto, err := toSavedFormat(inherited)
 	if err != nil {
 		return nil, err
 	}
-	return savedFormatOneDTO{Format: &dto}, nil
+	return savedFormatOneDTO{Inherited: &dto}, nil
 }
 
 func (s *Server) listFormats(r *http.Request, _ domain.User) (any, error) {
