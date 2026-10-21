@@ -1408,10 +1408,16 @@ ul#score_navi li > ul {
   clip-path: inset(0 0 100% 0);
 }
 
-ul#score_navi li:hover > ul {
+/* 本サイト独自: タップとキーボードでも開く(見出しの p は tabindex=0。docs/requirements.md「意図的な差分」) */
+ul#score_navi li:hover > ul,
+ul#score_navi li:focus-within > ul {
   display: block;
   opacity: 1;
   clip-path: inset(-20px -1000px -1000px -1000px);
+}
+
+ul#score_navi li p[role="button"] {
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1423,7 +1429,8 @@ ul#score_navi li:hover > ul {
   }
 
   @starting-style {
-    ul#score_navi li:hover > ul {
+    ul#score_navi li:hover > ul,
+    ul#score_navi li:focus-within > ul {
       opacity: 0;
       clip-path: inset(0 0 100% 0);
     }
