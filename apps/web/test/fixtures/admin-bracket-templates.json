@@ -1,0 +1,28 @@
+{
+  "templates": [
+    {
+      "id": "single4",
+      "name": {
+        "ja": "4 チーム(準決勝、決勝、3 位決定戦)",
+        "en": "4 teams (semifinals, final, 3rd place)"
+      },
+      "teams": 4
+    },
+    {
+      "id": "single8",
+      "name": {
+        "ja": "8 チーム(1 回戦、準決勝、決勝、3 位決定戦)",
+        "en": "8 teams (1st round, semifinals, final, 3rd place)"
+      },
+      "teams": 8
+    },
+    {
+      "id": "single16",
+      "name": {
+        "ja": "16 チーム(シングルエリミネーション)",
+        "en": "16 teams (single elimination)"
+      },
+      "teams": 16
+    }
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "match": {
+    "id": 100001061,
+    "divisionId": 100000008,
+    "groupId": 100000000,
+    "code": "B1",
+    "date": null,
+    "time": null,
+    "field": null,
+    "hasDetail": true,
+    "status": "finished",
+    "left": {
+      "team": {
+        "id": 100000013,
+        "name": {
+          "ja": "架空1",
+          "en": "Fictional 1"
+        }
+      },
+      "placeholder": null,
+      "score": 2
+    },
+    "right": {
+      "team": {
+        "id": 100000014,
+        "name": {
+          "ja": "架空2",
+          "en": "Fictional 2"
+        }
+      },
+      "placeholder": null,
+      "score": 1
+    },
+    "winnerSide": null
+  },
+  "inBracket": true,
+  "events": [
+    {
+      "id": 100017856,
+      "seq": 1,
+      "elapsedSec": 0,
+      "kind": "pull",
+      "side": "right",
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 0,
+      "rightScore": 0
+    },
+    {
+      "id": 100017857,
+      "seq": 2,
+      "elapsedSec": 0,
+      "kind": "goal",
+      "side": "left",
+      "scorer": {
+        "id": 100000000,
+        "number": "7",
+        "name": {
+          "ja": "選手A1",
+          "en": ""
+        },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 100000001,
+        "number": "10",
+        "name": {
+          "ja": "選手B1",
+          "en": ""
+        },
+        "gender": "F"
+      },
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 0
+    },
+    {
+      "id": 100017858,
+      "seq": 3,
+      "elapsedSec": 1,
+      "kind": "goal",
+      "side": "right",
+      "scorer": {
+        "id": 100000005,
+        "number": "23",
+        "name": {
+          "ja": "選手C2",
+          "en": ""
+        },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 100000003,
+        "number": "7",
+        "name": {
+          "ja": "選手A2",
+          "en": ""
+        },
+        "gender": "M"
+      },
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 1
+    },
+    {
+      "id": 100017859,
+      "seq": 4,
+      "elapsedSec": 1,
+      "kind": "timeout",
+      "side": "right",
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 1
+    },
+    {
+      "id": 100017860,
+      "seq": 5,
+      "elapsedSec": 2,
+      "kind": "goal",
+      "side": "left",
+      "scorer": {
+        "id": 100000001,
+        "number": "10",
+        "name": {
+          "ja": "選手B1",
+          "en": ""
+        },
+        "gender": "F"
+      },
+      "assist": {
+        "id": 100000002,
+        "number": "23",
+        "name": {
+          "ja": "選手C1",
+          "en": ""
+        },
+        "gender": "M"
+      },
+      "callahan": false,
+      "leftScore": 2,
+      "rightScore": 1
+    },
+    {
+      "id": 100017861,
+      "seq": 6,
+      "elapsedSec": 4,
+      "kind": "end",
+      "side": null,
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 2,
+      "rightScore": 1
+    }
+  ],
+  "playerStats": [
+    {
+      "playerId": 100000000,
+      "side": "left",
+      "blocks": 2,
+      "greatests": 0
+    }
+  ],
+  "rosters": {
+    "left": [
+      {
+        "id": 100000000,
+        "teamId": 100000013,
+        "number": "7",
+        "name": {
+          "ja": "選手A1",
+          "en": ""
+        },
+        "gender": "M",
+        "role": null
+      },
+      {
+        "id": 100000001,
+        "teamId": 100000013,
+        "number": "10",
+        "name": {
+          "ja": "選手B1",
+          "en": ""
+        },
+        "gender": "F",
+        "role": null
+      },
+      {
+        "id": 100000002,
+        "teamId": 100000013,
+        "number": "23",
+        "name": {
+          "ja": "選手C1",
+          "en": ""
+        },
+        "gender": "M",
+        "role": null
+      }
+    ],
+    "right": [
+      {
+        "id": 100000003,
+        "teamId": 100000014,
+        "number": "7",
+        "name": {
+          "ja": "選手A2",
+          "en": ""
+        },
+        "gender": "M",
+        "role": null
+      },
+      {
+        "id": 100000004,
+        "teamId": 100000014,
+        "number": "10",
+        "name": {
+          "ja": "選手B2",
+          "en": ""
+        },
+        "gender": "F",
+        "role": null
+      },
+      {
+        "id": 100000005,
+        "teamId": 100000014,
+        "number": "23",
+        "name": {
+          "ja": "選手C2",
+          "en": ""
+        },
+        "gender": "M",
+        "role": null
+      }
+    ]
+  }
+}
