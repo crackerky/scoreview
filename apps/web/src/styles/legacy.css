@@ -1,1 +1,1438 @@
-/* 参照サイトの見た目を再現する CSS。値の出典は docs/clone-spec/A 2 章。 */
+/*
+ * 参照サイトの見た目を再現する CSS。値の出典は docs/clone-spec/A 2 章(と B〜D で使うクラス)。
+ * 参照サイトの normalize.css / score_fonts.css / score_frame.css / score_app.css / score_navi.css
+ * の値を読み、必要な規則だけを書き直した。ブランド色と画像は brand.css の変数を使う。
+ * 詳細度は参照サイトと同じに保つ(#main a が .Select_Link の色に勝つ、など。clone-spec A 2.1)。
+ */
+/* biome-ignore-all lint/complexity/noImportantStyles: 参照サイトの !important(色帯、選手名、ナビの罫線)を再現する */
+/* biome-ignore-all lint/style/noDescendingSpecificity: 参照サイトの規則の順序と詳細度をそのまま保つ */
+
+/* ===== normalize(参照サイトの 2011 年版 normalize.css のうち効く規則) ===== */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+nav,
+section {
+  display: block;
+}
+
+body {
+  margin: 0;
+}
+
+a:focus {
+  outline: thin dotted;
+}
+
+a:hover,
+a:active {
+  outline: 0;
+}
+
+b,
+strong {
+  font-weight: bold;
+}
+
+small {
+  font-size: 75%;
+}
+
+/* 大会ナビのサブメニューの位置はこの margin(1em)込みで決まる(score_navi の top:22px と合わせて約 35px) */
+ul,
+ol {
+  margin: 1em 0;
+  padding: 0 0 0 40px;
+}
+
+dd {
+  margin: 0 0 0 40px;
+}
+
+figure,
+form {
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ===== フォント(score_fonts.css) ===== */
+/* 81.25% = 13px、行の高さ 1.5em */
+body {
+  font:
+    81.25% / 1.5em "ＭＳ Ｐゴシック",
+    "MS PGothic",
+    "ヒラギノ角ゴ Pro W3",
+    "Hiragino Kaku Gothic Pro",
+    sans-serif;
+}
+
+address,
+em,
+strong,
+th {
+  font-style: normal;
+  font-weight: normal;
+}
+
+select,
+input,
+button,
+textarea {
+  font:
+    100% "ＭＳ Ｐゴシック",
+    "MS PGothic",
+    "ヒラギノ角ゴ Pro W3",
+    "Hiragino Kaku Gothic Pro",
+    sans-serif;
+}
+
+table {
+  font-size: inherit;
+}
+
+pre,
+code,
+kbd,
+samp,
+tt {
+  font-family: monospace;
+  line-height: 100%;
+}
+
+/* ===== 基本(score_frame.css) ===== */
+html {
+  overflow-y: scroll;
+  /* score_app.css: iframe 時の横スクロール排除 */
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  letter-spacing: 0.05em;
+  color: #333;
+}
+
+br {
+  letter-spacing: normal;
+}
+
+a {
+  color: #333;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--brand-link);
+}
+
+img {
+  border: 0;
+  vertical-align: bottom;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ===== 外枠のレイアウト ===== */
+#top {
+  width: 980px;
+  margin: 0 auto;
+}
+
+#wrapper {
+  width: 100%;
+}
+
+/* #header は参照サイトで入れ子に 2 回出る(同じ id)。どちらにも同じ規則が効く */
+#header {
+  position: relative;
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  background-image: var(--brand-header-bg);
+  background-repeat: no-repeat;
+}
+
+#outer1 {
+  margin: 0 auto;
+}
+
+#header_bar {
+  padding-right: 6px;
+  font-size: 12px;
+}
+
+#header_bar_spacer {
+  height: 11px;
+}
+
+#header_social {
+  width: 190px;
+  margin: 0;
+  padding: 5px 35px 0 0;
+  text-align: center;
+}
+
+#header_social a + a {
+  margin-left: 4px;
+}
+
+#navigation {
+  width: 765px;
+}
+
+#navigation ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#navigation li {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 183px;
+  height: 32px;
+  float: right;
+}
+
+/* 参照サイトは画像スプライト(文字は隠す)。ここでは画像の代わりに文字のボタンで出す */
+#navigation li a {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  line-height: 32px;
+  overflow: hidden;
+  border-left: 1px solid #fff;
+  color: #fff;
+  font-weight: bold;
+  background: var(--brand-header-menu-bg);
+}
+
+#navigation li a:hover {
+  color: #fff;
+  background: var(--brand-header-menu-hover);
+}
+
+#header_spacer {
+  height: 14px;
+}
+
+/* 695px + 左右 padding 52px で #main(710px)からはみ出すのが原寸(clone-spec A 2.2) */
+.text_title {
+  clear: left;
+  width: 695px;
+  font-weight: bold;
+  background-image: var(--brand-title-bg);
+  background-repeat: no-repeat;
+  padding: 26px;
+  margin-left: 7px;
+  margin-top: 6px;
+  margin-bottom: 10px;
+  font-size: 161.6%;
+}
+
+#sub {
+  float: right;
+  width: 210px;
+  padding: 2px;
+  background: #fff;
+  margin-right: 20px;
+}
+
+/* 参照サイトは 09_menu_outline_*.jpg の枠画像。ここでは同じ寸法の罫線で置き換える */
+#sub .sub_frame_top,
+#sub .sub_frame_bottom {
+  height: 9px;
+  padding: 0;
+  background: linear-gradient(to bottom, #f4f4f4, var(--brand-sidebar-frame));
+}
+
+#sub .sub_frame_top {
+  border-radius: 5px 5px 0 0;
+}
+
+#sub .sub_frame_bottom {
+  border-radius: 0 0 5px 5px;
+}
+
+#sub .sub_frame_side {
+  width: 4px;
+  padding: 0;
+  background: var(--brand-sidebar-frame);
+}
+
+#sub .sub_banners {
+  text-align: center;
+  margin: 15px 0;
+  line-height: 40%;
+}
+
+#contents {
+  margin: 0;
+  padding: 0;
+}
+
+#main {
+  float: left;
+  width: 710px;
+  min-height: 550px;
+  padding: 5px;
+  background: rgb(255 255 255 / 100%);
+  border: solid 1px #888;
+}
+
+#footer_ue {
+  clear: both;
+  height: 30px;
+}
+
+#footer {
+  background: var(--brand-footer-bg);
+}
+
+.copyright {
+  padding: 8px 0;
+  font-style: normal;
+  font-size: 85%;
+  color: #fff;
+  text-align: center;
+}
+
+/*
+ * ページが短いときにフッターを画面の下端へ押し下げる(参照サイトは footerFixed.js が
+ * #footer_ue の高さを計算する。clone-spec A 1.4)。外枠のあるページの body だけを縦の flex にする。
+ */
+body:has(> #top) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body:has(> #top) > #footer_ue {
+  flex: 1 0 30px;
+}
+
+/* ===== #main の中(score_frame.css) ===== */
+#main a {
+  color: var(--brand-link);
+}
+
+#main a:hover {
+  text-decoration: underline;
+}
+
+#main h2 {
+  width: 100%;
+  margin-bottom: 1px;
+  padding: 5px;
+  color: #333;
+  font-size: 123.1%;
+  font-weight: bold;
+  border-top: 2px solid #f66013;
+}
+
+#main h3 {
+  margin-bottom: 3px;
+  font-size: 116%;
+  padding: 0 0 3px 8px;
+  margin-left: 20px;
+  width: 90%;
+  border-left: 5px solid #f66013;
+}
+
+#main h4 {
+  margin: 5px 0 2px 30px;
+  padding: 2px;
+  font-size: 100%;
+  background: #d0dfe9;
+}
+
+#main h5 {
+  margin-top: 5px;
+  margin-bottom: 2px;
+  padding-left: 5px;
+  font-size: 100%;
+  color: #f66013;
+  border-left: 8px solid #f66013;
+}
+
+#main h6 {
+  margin-bottom: 2px;
+  font-size: 100%;
+  color: #f66013;
+}
+
+#main p {
+  margin: 0 0 0 5px;
+}
+
+#main dt {
+  margin-bottom: 3px;
+}
+
+#main dd {
+  margin: 0 0 0.5em 1em;
+  padding: 3px;
+  background: #f1f1f1;
+}
+
+.Title {
+  width: 100%;
+  margin-bottom: 5px;
+  padding: 5px;
+  color: #333;
+  font-size: 123.1%;
+  font-weight: bold;
+  line-height: 1.6;
+  border-top: 2px solid #f66013;
+}
+
+/* ===== 汎用(score_app.css) ===== */
+.H0 {
+  height: 0;
+}
+.H5 {
+  height: 5px;
+}
+.H10 {
+  height: 10px;
+}
+.H18 {
+  height: 18px;
+}
+.H24 {
+  height: 24px;
+}
+.H30 {
+  height: 30px;
+}
+.H40 {
+  height: 40px;
+}
+.H50 {
+  height: 50px;
+}
+
+.WMAX {
+  width: 100%;
+}
+.W99p {
+  width: 99%;
+}
+.W98p {
+  width: 98%;
+}
+.W97p {
+  width: 97%;
+}
+.W96p {
+  width: 96%;
+}
+.W95p {
+  width: 95%;
+}
+.W90p {
+  width: 90%;
+}
+.W80p {
+  width: 80%;
+}
+.W75p {
+  width: 75%;
+}
+
+.LM {
+  text-align: left;
+}
+.RM {
+  text-align: right;
+}
+.CM {
+  text-align: center;
+}
+.LMB {
+  text-align: left;
+  font-weight: bold;
+}
+.LRB {
+  text-align: right;
+  font-weight: bold;
+}
+.LCB {
+  text-align: center;
+  font-weight: bold;
+}
+
+.VAT {
+  vertical-align: top;
+}
+.VAM {
+  vertical-align: middle;
+}
+.VAB {
+  vertical-align: bottom;
+}
+
+.BOLD {
+  font-weight: bold;
+}
+.NOWRAP {
+  white-space: nowrap;
+}
+.CURSOR_P {
+  cursor: pointer;
+}
+
+@media print {
+  .NOPRINT {
+    visibility: hidden;
+  }
+}
+
+/* 文字の大きさ(YUI 方式。13px = 100%) */
+.fp20 {
+  font-size: 20%;
+}
+.fp30 {
+  font-size: 30%;
+}
+.fp40 {
+  font-size: 40%;
+}
+.fp50 {
+  font-size: 50%;
+}
+.fp60 {
+  font-size: 60%;
+}
+.px10 {
+  font-size: 77%;
+}
+.px11 {
+  font-size: 85%;
+}
+.px12 {
+  font-size: 93%;
+}
+.px13 {
+  font-size: 100%;
+}
+.px14 {
+  font-size: 108%;
+}
+.px15 {
+  font-size: 116%;
+}
+.px16 {
+  font-size: 123.1%;
+}
+.px17 {
+  font-size: 131%;
+}
+.px18 {
+  font-size: 138.5%;
+}
+.px19 {
+  font-size: 146.5%;
+}
+.px20 {
+  font-size: 153.9%;
+}
+.px21 {
+  font-size: 161.6%;
+}
+.px22 {
+  font-size: 167%;
+}
+.px23 {
+  font-size: 174%;
+}
+.px24 {
+  font-size: 182%;
+}
+.px25 {
+  font-size: 189%;
+}
+.px26 {
+  font-size: 197%;
+}
+
+/* 文字色(HISU=必須、NINI=任意。スケジュールの検索フォームのラベルで使う) */
+.HISU {
+  color: #f00;
+}
+.NINI {
+  color: #0a0;
+}
+.MIDA {
+  color: #00f;
+}
+.COMM {
+  color: #ff8c00;
+}
+
+/* 入力枠 */
+.FWAKU {
+  border: 1px solid #7f9db9;
+}
+.NWAKU {
+  border: 1px solid #6495ed;
+}
+.HWAKU {
+  border: 1px solid #ffa500;
+}
+.LWAKU {
+  border: 1px solid #fff;
+}
+.LWAKU_Y {
+  border: 1px solid #ffffe0;
+  background-color: #ffffe0;
+}
+
+/* ボタン */
+.BTN_S,
+.BTN_M,
+.BTN_L,
+.BTN_LL {
+  text-align: center;
+  color: #000;
+  overflow: visible;
+  padding: 3px;
+}
+.BTN_S {
+  width: 50px;
+}
+.BTN_M {
+  width: 100px;
+}
+.BTN_L {
+  width: 140px;
+}
+.BTN_LL {
+  width: 220px;
+}
+
+/* ===== グラデーション(チーム一覧・大会一覧の色帯) ===== */
+.AreaSepa {
+  background: linear-gradient(
+    to bottom,
+    #959595 0%,
+    #0d0d0d 46%,
+    #010101 50%,
+    #0a0a0a 53%,
+    #4e4e4e 76%,
+    #383838 87%,
+    #1b1b1b 100%
+  );
+}
+
+.FTitle {
+  background: linear-gradient(to bottom, #75a5e7 0%, #1d4395 64%);
+}
+
+.FTitle_Univ {
+  background: linear-gradient(to bottom, #9fd959 0%, #5cb03e 44%, #22742b 100%);
+}
+
+.FTitle_Women {
+  background: linear-gradient(to bottom, #fac0f2 0%, #f59bd0 31%, #f26a87 100%);
+}
+
+.FTitle_Mix {
+  background: linear-gradient(to bottom, #e084ea 0%, #9f138a 100%);
+}
+
+.FTitle_Waku1 {
+  background: linear-gradient(to bottom, #edc603 16%, #e27500 78%);
+}
+
+.FTitle_Waku2 {
+  background: linear-gradient(
+    to bottom,
+    #d5d898 0%,
+    #c2c66c 17%,
+    #aeb244 33%,
+    #878c00 70%,
+    #5f6200 100%
+  );
+}
+
+.FNaiyo {
+  background: linear-gradient(135deg, #f6f8f9 0%, #e5ebee 50%, #d7dee3 51%, #f5f7f9 100%);
+}
+
+/* ===== スコア画面の見出しと部品 ===== */
+.SCV_MIDA_S {
+  font-size: 93%;
+  color: #00f;
+  font-weight: bold;
+  line-height: 120%;
+}
+
+.SCV_MIDA_M {
+  font-size: 131%;
+  font-weight: bold;
+  line-height: 250%;
+  color: #fff;
+  background-color: var(--brand-badge-bg);
+  padding: 4px 10px;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.SCV_MIDA_L {
+  font-size: 167%;
+  color: #000;
+  font-weight: bold;
+  line-height: 200%;
+}
+
+.SCV_SOTG_COMM {
+  font-size: 93%;
+  color: #ff4500;
+  line-height: 120%;
+}
+
+.SCV_TEAM_COMM {
+  font-size: 100%;
+  color: #483d8b;
+  line-height: 140%;
+  margin: 5px 30px 10px;
+  padding: 6px 10px;
+  vertical-align: middle;
+  border: 2px solid lightgray;
+}
+
+.TeamListMIDA {
+  font-size: 131%;
+  font-weight: bold;
+  line-height: 150%;
+  color: #fff;
+  background-color: var(--brand-heading-bg);
+  padding: 4px 10px;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.TeamListBLOCK {
+  padding: 0;
+  float: left;
+  border: 1px solid #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* #main 内では #main a(ID の詳細度)が勝つので、a.Select_Link の実際の色は #0172AB になる */
+.Select_Link {
+  color: #008080;
+  font-size: 116%;
+  text-decoration: none;
+}
+
+.Dummy_Link {
+  color: #ccc;
+  font-size: 116%;
+  text-decoration: none;
+}
+
+.playerLink {
+  color: #008080;
+  text-decoration: none;
+}
+
+.playerLinkM {
+  color: #000080 !important;
+  text-decoration: none;
+}
+
+.playerLinkF {
+  color: #cf143c !important;
+  text-decoration: none;
+}
+
+.playerimg img {
+  margin: 0 4px 5px 10px;
+  vertical-align: middle;
+  border: 1px solid lightgray;
+}
+
+.playerimg_at_list img {
+  margin: 1px 3px 1px 1px;
+  vertical-align: middle;
+  border: 1px solid lightgray;
+  width: 70px;
+}
+
+.teamLink a {
+  color: inherit;
+}
+
+.teamimg img,
+.teamimg_rnk img {
+  margin: 0 4px 2px 2px;
+  vertical-align: middle;
+  border: 1px solid lightgray;
+}
+
+.teamimg a {
+  color: #008080;
+}
+
+.teamimg_uni2 img {
+  margin: 0 4px 0 2px;
+  vertical-align: middle;
+  border-left: 1px solid lightgray;
+  border-right: 1px solid lightgray;
+  border-bottom: 1px solid lightgray;
+}
+
+.teamimg_rnk a {
+  color: #fff !important;
+}
+
+.teamimg_tn img {
+  margin: 0 4px;
+  vertical-align: text-bottom;
+  border: 1px solid lightgray;
+}
+
+.teamimg_tn a {
+  color: #00f;
+  text-decoration: none;
+}
+
+.tnmt_game_link {
+  color: #008080;
+  font-size: 123.1%;
+}
+
+.tnmt_play_now {
+  color: #f00;
+  font-size: 123.1%;
+}
+
+.teamimg_big img {
+  margin: 0 10px 3px 0;
+  vertical-align: bottom;
+  border: 1px solid lightgray;
+}
+
+.teamimg_big_match img {
+  margin: 0 10px 0 0;
+  vertical-align: bottom;
+  border: 1px solid lightgray;
+}
+
+.teamimg_big_match a {
+  color: #fff !important;
+}
+
+/* ===== 表(TBL) ===== */
+.TBL {
+  margin: 0 10px;
+}
+
+.TBL table {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #d4d0c8;
+  border-left: 1px solid #d4d0c8;
+  border-collapse: collapse;
+  border-spacing: 0;
+  background-color: #fff;
+  empty-cells: show;
+  table-layout: fixed;
+  width: 100%;
+  font-size: 93%;
+}
+
+.TBL td {
+  border-right: 1px solid #d4d0c8;
+  border-bottom: 1px solid #d4d0c8;
+  padding: 0.1em 0.3em;
+}
+
+.TBL TR.TRDMY {
+  height: 0;
+}
+.TBL TD.TDDMY {
+  padding: 0;
+  border: 0;
+}
+
+.TBL TD.MD1 {
+  font-weight: bold;
+  color: #fff;
+  background-color: var(--brand-heading-bg);
+}
+
+/* 並べ替えの見出しリンク(clone-spec B 2) */
+.TBL A.MD1 {
+  font-weight: bold;
+  color: #fff !important;
+  text-decoration: underline;
+}
+.TBL A.MD1_ASC {
+  font-weight: bold;
+  color: #0f0 !important;
+  text-decoration: underline;
+}
+.TBL A.MD1_DSC {
+  font-weight: bold;
+  color: #0ff !important;
+  text-decoration: underline;
+}
+
+/* 得点経過のイベント行 */
+.TBL TD.EVT {
+  color: #00f;
+  background-color: #f5f5f5;
+}
+.TBL TD.EVT_GLP {
+  color: #000;
+  background-color: #caecf8;
+}
+.TBL TD.EVT_GRP {
+  color: #000;
+  background-color: #f6f1c5;
+}
+
+/* HL1 は参照サイトでも中身が空の定義 */
+.TBL TD.HL2 {
+  color: #f00;
+  background-color: #fff0f5;
+}
+.TBL TD.HL3 {
+  color: #00f;
+  background-color: #f5f5f5;
+}
+.TBL TD.ABS {
+  color: #000;
+  background-color: #c0c0c0;
+}
+
+/* 対戦リストの行の状態(試合前・試合中・終了)と、ディビジョン種別の背景 */
+.TBL TD.MC_MAE {
+  color: #000;
+  background-color: #fff;
+}
+.TBL TD.MC_NOW {
+  color: #f00;
+  background-color: #fff0f5;
+}
+.TBL TD.MC_END {
+  color: #00f;
+  background-color: #f8f8ff;
+}
+.TBL TD.MC_MEN {
+  background-color: #ddfbdd !important;
+}
+.TBL TD.MC_WOM {
+  background-color: #fff4e4 !important;
+}
+.TBL TD.MC_MIX {
+  background-color: #ffffd1 !important;
+}
+
+/* リーグの対戦表(マトリクス) */
+.TBL TD.RM_MD1 {
+  color: #fff;
+  background-color: var(--brand-heading-bg);
+  font-weight: bold;
+}
+.TBL TD.RM_NASI {
+  color: #000;
+  background-color: #fff3b1;
+  font-weight: bold;
+}
+.TBL TD.RM_AIDA {
+  color: #000;
+  background-color: var(--brand-heading-bg);
+  font-weight: bold;
+}
+.TBL TD.RM_NOW {
+  color: #f00;
+  background-color: #fff0f5;
+  font-weight: bold;
+}
+.RM_NOW_Link {
+  color: #f00;
+  font-weight: bold;
+  font-size: 100%;
+}
+.TBL TD.RM_ARI {
+  color: #00008b;
+  background-color: #f5f5f5;
+  font-weight: bold;
+}
+.RM_ARI_Link {
+  color: #00f;
+  font-weight: bold;
+  font-size: 100%;
+}
+
+/* 試合ページ */
+.TBL TD.TG_MD1 {
+  font-weight: bold;
+  color: #fff;
+  background-color: var(--brand-badge-bg);
+}
+.TBL TD.TG_VSTITLE {
+  font-size: 153.9%;
+  font-weight: bold;
+  color: #fff;
+  background-color: var(--brand-badge-bg);
+}
+.TBL TD.TG_POINT {
+  font-size: 153.9%;
+  font-weight: bold;
+  color: #00f;
+  background-color: #fff;
+}
+.TBL TD.TG_NOWPLAY {
+  font-weight: bold;
+  color: #f00;
+  background-color: #fff0f5;
+}
+.TBL TD.TG_EVMOJI {
+  font-size: 100%;
+}
+.TG_GUTS_SET_SEL {
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 116%;
+}
+.TG_GUTS_SETLINK {
+  color: #fff;
+  font-weight: bold;
+  font-size: 108%;
+}
+
+.TG_EventList {
+  min-height: 400px;
+  border-bottom: 1px solid #d4d0c8;
+  border-top: 1px solid #d4d0c8;
+}
+
+.TG_PlayersList_Ult,
+.TG_PlayersList_Guts {
+  overflow-y: scroll;
+  height: 150px;
+  border-bottom: 1px solid #d4d0c8;
+  border-top: 1px solid #d4d0c8;
+}
+
+/* ===== 入力画面用の表(ITBL。スケジュールの検索フォーム) ===== */
+.ITBL table {
+  margin: 10px;
+  padding: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  empty-cells: show;
+  table-layout: fixed;
+}
+
+.ITBL TR.TRDMY {
+  height: 0;
+}
+.ITBL TD.TDDMY {
+  padding: 0;
+}
+
+/* ===== トーナメント表(TN_TMPL。セルの罫線でブラケットを描く。clone-spec C 2.3) ===== */
+.TN_TMPL table {
+  border-collapse: collapse;
+  border: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.TN_TMPL table tr td {
+  padding: 2px;
+  word-break: break-all;
+}
+.TN_TMPL .BdLeft {
+  border-left: 2px solid var(--brand-heading-bg);
+}
+.TN_TMPL .BdRight {
+  border-right: 2px solid var(--brand-heading-bg);
+}
+.TN_TMPL .BdTop {
+  border-top: 2px solid var(--brand-heading-bg);
+}
+.TN_TMPL .BdBtm {
+  border-bottom: 2px solid var(--brand-heading-bg);
+}
+.TN_TMPL .txt_yen,
+.TN_TMPL .txt_and {
+  text-align: center;
+  vertical-align: middle;
+  color: #00f;
+  font-weight: bold;
+}
+.TN_TMPL .txt_sharp {
+  text-align: center;
+  vertical-align: middle;
+  color: #f00;
+  font-weight: bold;
+}
+.TN_TMPL .txt_left {
+  text-align: left;
+  vertical-align: middle;
+  color: #ff4500;
+  font-weight: bold;
+}
+.TN_TMPL .txt_right {
+  text-align: right;
+  vertical-align: middle;
+  color: #ff4500;
+  font-weight: bold;
+}
+.TN_TMPL .game {
+  text-align: center;
+  vertical-align: middle;
+  color: #000;
+  font-weight: bold;
+}
+.TN_TMPL .team {
+  text-align: left;
+  vertical-align: middle;
+  color: #008000;
+}
+.TN_TMPL .win {
+  text-align: left;
+  vertical-align: middle;
+  color: #f00;
+}
+.TN_TMPL .lose {
+  text-align: left;
+  vertical-align: middle;
+  color: #0000cd;
+}
+.TN_TMPL .rank {
+  text-align: right;
+  vertical-align: middle;
+  color: #ff4500;
+  font-weight: bold;
+}
+.TN_TMPL .WDiv1 {
+  width: 100%;
+}
+.TN_TMPL .WDiv2 {
+  width: 50%;
+}
+.TN_TMPL .WDiv3 {
+  width: 33.333%;
+}
+.TN_TMPL .WDiv4 {
+  width: 25%;
+}
+.TN_TMPL .WDiv5 {
+  width: 20%;
+}
+.TN_TMPL .WDiv6 {
+  width: 16.667%;
+}
+.TN_TMPL .WDiv7 {
+  width: 14.286%;
+}
+.TN_TMPL .WDiv8 {
+  width: 12.5%;
+}
+.TN_TMPL .WDiv9 {
+  width: 11.111%;
+}
+.TN_TMPL .WDiv10 {
+  width: 10%;
+}
+.TN_TMPL .WDiv11 {
+  width: 9.091%;
+}
+.TN_TMPL .WDiv12 {
+  width: 8.333%;
+}
+.TN_TMPL .WDiv13 {
+  width: 7.692%;
+}
+.TN_TMPL .WDiv14 {
+  width: 7.143%;
+}
+.TN_TMPL .WDiv15 {
+  width: 6.667%;
+}
+.TN_TMPL .WDiv16 {
+  width: 6.25%;
+}
+.TN_TMPL .WDiv17 {
+  width: 5.882%;
+}
+.TN_TMPL .WDiv18 {
+  width: 5.556%;
+}
+.TN_TMPL .WDiv19 {
+  width: 5.263%;
+}
+.TN_TMPL .WDiv20 {
+  width: 5%;
+}
+
+/* ===== チーム紹介の年度タブ(参照サイトの CSS に残っている定義) ===== */
+ul.sstab {
+  margin: 0;
+  padding: 0;
+  border-bottom: 2px #ddd solid;
+}
+ul.sstab li {
+  float: left;
+  margin: 0 0 0 5px;
+  position: relative;
+  bottom: -2px;
+  list-style-type: none;
+  border: 1px #ddd solid;
+  border-top: none;
+  border-bottom: 2px #ddd solid;
+}
+ul.sstab li.none {
+  border-bottom: 2px #fff solid;
+  font-weight: bold;
+}
+ul.sstab li a {
+  color: #000;
+  display: block;
+  padding: 2px 10px;
+  text-decoration: none;
+  background: linear-gradient(to bottom, #fff 0%, #f7f7f7 78%, #ededed 86%, #fafafa 100%);
+}
+ul.sstab li a.blue {
+  border-top: 5px #2384dc solid;
+}
+ul.sstab li a.green {
+  border-top: 5px #4cbb47 solid;
+}
+ul.sstab li a.red {
+  border-top: 5px #dd1d25 solid;
+}
+ul.sstab li a.yellow {
+  border-top: 5px #ffd242 solid;
+}
+ul.sstab li a:hover {
+  position: relative;
+  bottom: 2px;
+}
+
+/* パンくず(試合ページではコメントアウトされていて表示されない) */
+#breadcrumb {
+  margin: 0;
+  padding: 0;
+}
+#breadcrumb a {
+  color: #04b;
+  font-size: 108%;
+  font-weight: bold;
+  text-decoration: underline;
+  letter-spacing: 0;
+  padding-left: 10px;
+}
+
+/* ===== 大会ナビ(score_navi.css) ===== */
+ul#score_navi {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 50px;
+  list-style: none;
+}
+
+ul#score_navi li {
+  padding: 0;
+  margin: 0;
+  border-left: solid 1px #888;
+  border-top: solid 1px #888;
+  border-bottom: solid 1px #888;
+  position: relative;
+  float: left;
+  width: 160px;
+}
+
+ul#score_navi li:last-child {
+  border-right: solid 1px #888 !important;
+}
+
+ul#score_navi li ul li:last-child {
+  border-bottom: solid 1px #888 !important;
+}
+
+ul#score_navi li a,
+ul#score_navi li p {
+  padding: 8px 0;
+  margin: 0;
+  display: block;
+  color: var(--brand-navi-text);
+  text-decoration: none;
+  opacity: 0.99;
+  background: repeating-linear-gradient(-45deg, #f9f9f9, #f9f9f9 5px, #fdfcff 5px, #fdfcff 10px);
+}
+
+ul#score_navi li p.ar {
+  background:
+    var(--brand-navi-arrow-down) 140px 50% no-repeat,
+    repeating-linear-gradient(-45deg, #f9f9f9, #f9f9f9 5px, #fdfcff 5px, #fdfcff 10px);
+}
+
+ul#score_navi li a:hover,
+ul#score_navi li a.open {
+  background: var(--brand-navi-hover);
+}
+
+ul#score_navi li ul {
+  padding-left: 0;
+  padding-top: 0;
+  top: 22px;
+  left: -1px;
+  list-style: none;
+  position: absolute;
+  z-index: 999;
+}
+
+ul#score_navi li ul li {
+  border-right: solid 1px #888 !important;
+  border-left: solid 1px #888 !important;
+  border-top: solid 1px #888 !important;
+  border-bottom: none;
+  padding: 0;
+  float: none;
+}
+
+ul#score_navi li ul li p {
+  background:
+    var(--brand-navi-arrow-right) 145px 50% no-repeat,
+    repeating-linear-gradient(-45deg, #f9f9f9, #f9f9f9 5px, #fdfcff 5px, #fdfcff 10px);
+}
+
+ul#score_navi li ul li ul {
+  padding: 0;
+  position: absolute;
+  top: -7px;
+  left: 160px;
+}
+
+ul#score_navi li ul li ul li a,
+ul#score_navi li ul li ul li p {
+  padding: 5px 0 !important;
+}
+
+/*
+ * ドロップダウンの開閉。参照サイトは jquery.dropdown.js(hover、slide、100ms、linear)で、
+ * 開くときに高さ 0 から伸ばしつつ不透明にする(clone-spec A 1.3)。ここでは CSS だけで同じ動きにする。
+ */
+ul#score_navi li > ul {
+  display: none;
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+}
+
+ul#score_navi li:hover > ul {
+  display: block;
+  opacity: 1;
+  clip-path: inset(-20px -1000px -1000px -1000px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ul#score_navi li > ul {
+    transition:
+      opacity 100ms linear,
+      clip-path 100ms linear,
+      display 100ms linear allow-discrete;
+  }
+
+  @starting-style {
+    ul#score_navi li:hover > ul {
+      opacity: 0;
+      clip-path: inset(0 0 100% 0);
+    }
+  }
+}
+
+/* ===== ギャラリーのライトボックス(参照サイトの colorbox 既定の見た目に寄せた自作) ===== */
+.lightbox_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgb(0 0 0 / 90%);
+}
+
+.lightbox_box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 10000;
+  transform: translate(-50%, -50%);
+  padding: 21px 21px 49px;
+  border-radius: 6px;
+  background: #fff;
+  letter-spacing: normal;
+}
+
+.lightbox_box img {
+  display: block;
+  max-width: calc(100vw - 100px);
+  max-height: calc(100vh - 120px);
+}
+
+.lightbox_current {
+  position: absolute;
+  bottom: 25px;
+  left: 79px;
+  color: #949494;
+}
+
+.lightbox_button {
+  position: absolute;
+  bottom: 21px;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  color: #fff;
+  font:
+    bold 16px / 25px Arial,
+    Helvetica,
+    sans-serif;
+  cursor: pointer;
+  background: #8c8c8c;
+}
+
+.lightbox_button:hover {
+  background: #555;
+}
+
+.lightbox_previous {
+  left: 21px;
+}
+
+.lightbox_next {
+  left: 48px;
+}
+
+.lightbox_close {
+  right: 21px;
+}
