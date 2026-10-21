@@ -910,6 +910,21 @@ body:has(> #top) > #footer_ue {
   margin: 0 10px;
 }
 
+/*
+ * 本サイト独自: セルにリンクが 1 つだけあるとき(チーム名、[対戦結果]、選手名、対戦表のスコア、
+ * チーム一覧の帯)、リンクをセルの幅いっぱいにして押せる範囲を広げる。セルの大きさと文字の位置は
+ * 変わらない(揃えは td の text-align を継ぐ。[対戦結果] だけ文字が 1px 上下する)。リンクが 2 つ以上
+ * あるセル(大会トップの [スケジュール] [最終順位]、得点経過の得点者とアシスト)は縦に並ばないよう
+ * 対象外。トーナメント表(TN_TMPL)は block にすると行の高さが変わり罫線の山が崩れるので対象外
+ */
+.TBL td > a:only-child,
+.TBL td > span:only-child:has(> a:only-child),
+.TBL td > span:only-child > a:only-child,
+.TeamListBLOCK span.teamimg_rnk:only-child:has(> a:only-child),
+.TeamListBLOCK span.teamimg_rnk:only-child > a:only-child {
+  display: block;
+}
+
 .TBL table {
   margin: 0;
   padding: 0;
