@@ -189,7 +189,7 @@ describe('ギャラリー(clone-spec A 6)', () => {
 })
 
 describe('エラー画面(clone-spec A 7)', () => {
-  test('api の message を埋め、/scview だけメニューへの文と戻るリンクを付ける', () => {
+  test('api の message を埋め、/scview だけメニューへの文と戻るリンク、他は大会一覧へのリンクを付ける', () => {
     const withMenu = renderHtml(<NotFoundScreen message="TOURNAMENT_ID [999999]" withMenuLink />)
     assert.match(withMenu, /<title>Error<\/title>/)
     assert.match(
@@ -199,14 +199,18 @@ describe('エラー画面(clone-spec A 7)', () => {
     const plain = renderHtml(<NotFoundScreen message="TGALLERY_ID [999]" withMenuLink={false} />)
     assert.match(
       plain,
-      /<p>TGALLERY_ID \[999\]での操作に失敗しました。<br\/>情報が既に削除されているか、システムエラーの可能性があります。<br\/><\/p>/,
+      /<p>TGALLERY_ID \[999\]での操作に失敗しました。<br\/>情報が既に削除されているか、システムエラーの可能性があります。<br\/><br\/><br\/><a href="\/sctnmt" data-scoreview-addition="">←大会一覧へ<\/a><\/p>/,
     )
+    assert.doesNotMatch(withMenu, /大会一覧へ/)
   })
 
   test('ルート不一致は 404 Page Not Found', () => {
     const html = renderHtml(<RouteNotFoundScreen />)
     assert.match(html, /<title>404 Page Not Found<\/title>/)
-    assert.match(html, /<h1>404 Page Not Found<\/h1><p>The page you requested was not found.<\/p>/)
+    assert.match(
+      html,
+      /<h1>404 Page Not Found<\/h1><p>The page you requested was not found.<br\/><br\/><a href="\/sctnmt" data-scoreview-addition="">←大会一覧へ<\/a><\/p>/,
+    )
   })
 })
 

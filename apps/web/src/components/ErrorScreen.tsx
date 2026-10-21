@@ -55,6 +55,22 @@ function CiErrorPage({
 const menuUrl = '/auth/login'
 
 /**
+ * 本サイト独自: 戻り先の無いエラー画面に付ける大会一覧へのリンク。参照サイトは戻り先を出さず、
+ * URL を誤った観戦者が行き止まりになる(docs/requirements.md「意図的な差分」)
+ */
+function ListLink() {
+  return (
+    <>
+      <br />
+      <br />
+      <a href="/sctnmt" data-scoreview-addition="">
+        ←大会一覧へ
+      </a>
+    </>
+  )
+}
+
+/**
  * ID が存在しないときの画面。message は api の not_found の message("TOURNAMENT_ID [999999]" など)。
  * withMenuLink: /scview/{id} だけは「メニュー画面より…」の文と戻るリンクが付く(clone-spec A 7)。
  */
@@ -79,6 +95,7 @@ export function NotFoundScreen({
           <a href={menuUrl}>←メニュー画面に戻る</a>
         </>
       )}
+      {!withMenuLink && <ListLink />}
     </CiErrorPage>
   )
 }
@@ -88,6 +105,7 @@ export function RouteNotFoundScreen() {
   return (
     <CiErrorPage title="404 Page Not Found" heading="404 Page Not Found">
       The page you requested was not found.
+      <ListLink />
     </CiErrorPage>
   )
 }

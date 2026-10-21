@@ -48,7 +48,12 @@ const nextConfig: NextConfig = {
     ]
   },
   async redirects() {
-    return [{ source: '/', destination: '/sctnmt', permanent: false }]
+    return [
+      { source: '/', destination: '/sctnmt', permanent: false },
+      // 存在しない大会 ID のエラー画面の「メニュー画面」のリンク先(参照サイトの管理画面のパス。
+      // src/components/ErrorScreen.tsx)。この画面を見るのは URL を誤った観戦者なので、大会一覧へ送る
+      { source: '/auth/login', destination: '/sctnmt', permanent: false },
+    ]
   },
 }
 
