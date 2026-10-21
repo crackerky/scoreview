@@ -93,6 +93,9 @@ type MatchRow = {
   status: MatchStatus
   // 結果の種類。通常以外は閲覧ページの状況列に種類を出す(本サイト独自。requirements の意図的な差分)
   resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
+  // 終了した試合の勝った側(勝者の指定があればスコアより優先)。引き分け、未終了、両者不戦敗、未消化は null。
+  // 状況列の「BREEZE の不戦勝」のように、結果の種類と勝ったチームを合わせて出すのに使う(本サイト独自)
+  winnerSide: Side | null
   left: MatchSide
   right: MatchSide
 }
@@ -276,6 +279,12 @@ type BracketCell = {
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
                                            // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
   showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
+  // 以下はチーム名の下の本サイト独自の追記(requirements.md「意図的な差分」)
+  // 次の試合。matches のうち最初の試合中、なければ最初の未試合(結果の種類が normal)。大会が終了していれば null
+  nextMatchId: number | null
+  // 所属グループ(公開中のもの)のうち、いま見るべきもの。次の試合のグループ → 最後に終えた試合のグループ
+  // → group_teams の登録(ナビの並びで最初)の順に選ぶ。無ければ null
+  currentGroup: { id: number; name: I18nText; linked: boolean } | null
 }
 ```
 

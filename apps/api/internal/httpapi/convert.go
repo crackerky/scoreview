@@ -107,6 +107,7 @@ func toMatchRow(row domain.MatchRow) matchRowDTO {
 		Field:      row.Field,
 		Status:     string(row.Status),
 		ResultType: resultTypeOrNormal(row.ResultType),
+		WinnerSide: sidePtrString(row.WinnerSide),
 		Left:       toMatchSide(row.Left),
 		Right:      toMatchSide(row.Right),
 	}
@@ -331,6 +332,10 @@ func toTeamPage(page store.TeamPage) teamPageDTO {
 		Players:  make([]playerLineDTO, 0, len(page.Players)),
 		Staff:    make([]staffLineDTO, 0, len(page.Staff)),
 		ShowSotg: page.ShowSOTG,
+	}
+	out.NextMatchID = page.NextMatchID
+	if group := page.CurrentGroup; group != nil {
+		out.CurrentGroup = &frameGroupDTO{ID: group.ID, Name: toI18n(group.Name), Linked: group.Linked}
 	}
 	for _, line := range page.Players {
 		out.Players = append(out.Players, playerLineDTO{

@@ -13,6 +13,7 @@ export default async function GalleryPage(props: IdPageProps) {
     <>
       <title>{tournamentPageTitle(data.frame, lang)}</title>
       <SiteFrame
+        heading={data.gallery.name}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={null}
       >

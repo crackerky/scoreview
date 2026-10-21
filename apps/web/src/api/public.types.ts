@@ -197,6 +197,11 @@ export const teamResponseSchema = z.object({
   players: z.array(playerLineSchema.extend({ games: z.number().int(), absent: z.boolean() })),
   // SOTG スコア一覧(行は matches、値は空)を出すか
   showSotg: z.boolean(),
+  // チーム名の下の本サイト独自の追記(docs/requirements.md「意図的な差分」)。次の試合は matches の 1 件
+  nextMatchId: z.number().int().nullable(),
+  currentGroup: z
+    .object({ id: z.number().int(), name: i18nTextSchema, linked: z.boolean() })
+    .nullable(),
   staff: z.array(
     z.object({
       id: z.number().int(),

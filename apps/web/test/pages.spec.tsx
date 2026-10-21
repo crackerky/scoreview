@@ -82,6 +82,23 @@ describe('大会トップ(clone-spec A 4)', () => {
     )
   })
 
+  test('会場図のバナー(PDF)があればディビジョン表の下に文字のリンク、なければ出さない', () => {
+    assert.doesNotMatch(renderHtml(<TournamentTopView data={top1} lang="jp" />), /sv_venue_map/)
+    const map = {
+      imageUrl: '/zfiles/ScoreViewTop/%E4%BC%9A%E5%A0%B4%EF%BC%88Field%20Map%EF%BC%89.jpeg',
+      linkUrl: 'https://example.com/event_4.Map.pdf',
+    }
+    const data = { ...top1, frame: { ...top1.frame, banners: [...top1.frame.banners, map] } }
+    assert.match(
+      renderHtml(<TournamentTopView data={data} lang="jp" />),
+      /<\/table><\/div><p class="sv_venue_map" data-scoreview-addition=""><a href="https:\/\/example.com\/event_4.Map.pdf">会場図\(PDF\)<\/a><\/p><br\/><hr\/>/,
+    )
+    assert.match(
+      renderHtml(<TournamentTopView data={data} lang="en" />),
+      />Field map \(PDF\)<\/a><\/p>/,
+    )
+  })
+
   test('lang=en: 見出しは日本語名のまま、文言と英語名、英語の自由記述が空なら空の div', () => {
     const html = renderHtml(<TournamentTopView data={top1} lang="en" />)
     assert.match(html, /<div class="text_title">2026 架空ビーチカップ<\/div>/)
@@ -156,7 +173,10 @@ describe('ギャラリー(clone-spec A 6)', () => {
       /^<span class="SCV_MIDA_M">&lt; Day1-AM &gt;<\/span><br\/><div class="CM" id="photo">/,
     )
     assert.equal(html.match(/<a href="\/brand\/photo-sample.svg" rel="photos">/g)?.length, 3)
-    assert.match(html, /<img src="\/brand\/photo-sample-thumb.svg" alt="" style="margin:2px"\/>/)
+    assert.match(
+      html,
+      /<img src="\/brand\/photo-sample-thumb.svg" alt="" style="margin:2px" loading="lazy"\/>/,
+    )
     assert.doesNotMatch(html, /lightbox/)
   })
 

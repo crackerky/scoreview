@@ -84,7 +84,9 @@ type matchRowDTO struct {
 	Field     *string `json:"field"`
 	Status    string  `json:"status"`
 	// ResultType は normal / forfeit / double_forfeit / no_contest / abandoned / unplayed
-	ResultType string       `json:"resultType"`
+	ResultType string `json:"resultType"`
+	// WinnerSide は終了した試合の勝った側。引き分けなどは nil
+	WinnerSide *string      `json:"winnerSide"`
 	Left       matchSideDTO `json:"left"`
 	Right      matchSideDTO `json:"right"`
 }
@@ -315,6 +317,9 @@ type teamPageDTO struct {
 	Staff   []staffLineDTO  `json:"staff"`
 	// ShowSotg は SOTG スコア一覧を出すか(行は matches から作る。値は空)
 	ShowSotg bool `json:"showSotg"`
+	// NextMatchID と CurrentGroup はチーム名の下の本サイト独自の追記(次の試合、所属グループ)
+	NextMatchID  *int64         `json:"nextMatchId"`
+	CurrentGroup *frameGroupDTO `json:"currentGroup"`
 }
 
 type teamInfoDTO struct {

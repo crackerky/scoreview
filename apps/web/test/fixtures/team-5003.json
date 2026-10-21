@@ -61,5 +61,7 @@
     }
   ],
   "staff": [],
-  "showSotg": false
+  "showSotg": false,
+  "nextMatchId": null,
+  "currentGroup": null
 }

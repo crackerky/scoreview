@@ -3,7 +3,7 @@ import { describe, test } from 'node:test'
 import { teamResponseSchema } from '../src/api/public.types.ts'
 import { TeamView } from '../src/components/TeamView.tsx'
 import { loadFixture } from './fixtures/load.ts'
-import { renderHtml } from './render.ts'
+import { renderHtml, renderHtmlWithNotes } from './render.ts'
 
 const team = teamResponseSchema.parse(loadFixture('team-5001'))
 const rosterOnly = teamResponseSchema.parse(loadFixture('team-5003'))
@@ -11,11 +11,53 @@ const rosterOnly = teamResponseSchema.parse(loadFixture('team-5003'))
 describe('チームページ(clone-spec D 1.1)', () => {
   const html = renderHtml(<TeamView data={team} lang="jp" />)
 
-  test('見出しは正式名 + <br>、紹介コメントは見出しの直後', () => {
+  test('見出しは正式名 + <br>、紹介コメントは見出し(と本サイト独自の追記)の直後', () => {
     assert.match(
       html,
-      /^<span class="SCV_MIDA_M">架空チームA フライングクラブ<br\/><\/span><div class="SCV_TEAM_COMM">架空のチーム紹介です。<\/div><div class="TBL">/,
+      /^<span class="SCV_MIDA_M">架空チームA フライングクラブ<br\/><\/span><div class="sv_team_notes" data-scoreview-addition="">.*?<\/div><div class="SCV_TEAM_COMM">架空のチーム紹介です。<\/div><div class="TBL">/,
     )
+  })
+
+  test('追記: 次の試合(日時、コート、相手、コード)と所属グループへのリンク', () => {
+    assert.match(
+      html,
+      /<p>次の試合: 10\/19 10:40 コート 3 vs 架空チームB\(G2\)<\/p><p>所属グループ: <a href="\/pscore\/scv_group\/open\/1001\?lang=jp">Qualifying pool A<\/a><\/p>/,
+    )
+    const en = renderHtml(<TeamView data={team} lang="en" />)
+    assert.match(en, /<p>Next match: 10\/19 10:40 Field 3 vs Fictional B \(G2\)<\/p><p>Group: <a /)
+  })
+
+  test('追記: 試合中なら「試合中」、未確定の相手は決まり方、無ければ追記ごと出さない', () => {
+    const matches = team.matches.map((row) =>
+      row.matchId === 9003
+        ? {
+            ...row,
+            status: 'live' as const,
+            right: {
+              ...row.right,
+              team: null,
+              placeholder: { code: 'A1', outcome: 'win' as const },
+            },
+          }
+        : row,
+    )
+    const live = renderHtml(<TeamView data={{ ...team, matches }} lang="jp" />)
+    assert.match(live, /<p>試合中: 10\/19 10:40 コート 3 vs \[A1-勝ち\]\(G2\)<\/p>/)
+    const none = renderHtml(
+      <TeamView data={{ ...team, nextMatchId: null, currentGroup: null }} lang="jp" />,
+    )
+    assert.doesNotMatch(none, /sv_team_notes/)
+    const unlinked = renderHtml(
+      <TeamView
+        data={{
+          ...team,
+          nextMatchId: null,
+          currentGroup: { id: 1002, name: { ja: '順位決定戦', en: '' }, linked: false },
+        }}
+        lang="jp"
+      />,
+    )
+    assert.match(unlinked, /<p>所属グループ: 順位決定戦<\/p><\/div>/)
   })
 
   test('紹介コメントが空なら div ごと出さない', () => {
@@ -151,5 +193,16 @@ describe('チームページ: ディスクゴルフ団体戦(clone-spec D 1.2)',
         '<tr><td class="CM">2</td><td class="LM"><a class="playerLinkF" href="/pscore/scv_player/open/70102?lang=jp">仮名 二</a></td></tr>' +
         '</tbody></table></div><br/><br/><br/>',
     )
+  })
+})
+
+describe('読み上げ用の補足(本サイト独自)', () => {
+  test('選手名のリンクに性別(色だけで示している)を視覚的に隠して添える', () => {
+    const html = renderHtmlWithNotes(<TeamView data={team} lang="jp" />)
+    assert.match(
+      html,
+      /open\/70001\?lang=jp">架空 太郎<span class="sv_sr" data-scoreview-addition="">\(男性\)<\/span><\/a>/,
+    )
+    assert.match(html, /<span class="sv_sr" data-scoreview-addition="">\(女性\)<\/span>/)
   })
 })

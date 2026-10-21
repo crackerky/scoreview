@@ -156,3 +156,20 @@ func SortSchedule(rows []ScheduleRow, sort *ScheduleSort) {
 	}
 	slices.SortStableFunc(rows, compare)
 }
+
+// NextMatch はチームの試合の行(既定の並び)から、次に見るべき試合の位置を返す。
+// 試合中の試合があれば最初の試合中、なければ最初の未試合(結果の種類が通常のもの)。どちらも無ければ -1。
+// チームページの「次の試合」(本サイト独自。docs/requirements.md「意図的な差分」)に使う。
+func NextMatch(rows []MatchRow) int {
+	next := -1
+	for i, row := range rows {
+		switch {
+		case row.Status == MatchLive:
+			return i
+		case next < 0 && row.Status == MatchScheduled &&
+			(row.ResultType == ResultNormal || row.ResultType == ""):
+			next = i
+		}
+	}
+	return next
+}

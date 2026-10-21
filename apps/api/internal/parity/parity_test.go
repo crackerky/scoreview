@@ -55,6 +55,25 @@ func TestDifferencesAreReported(t *testing.T) {
 	assert.Len(t, res.Diffs, 2)
 }
 
+// 本サイト独自の追記(data-scoreview-addition の要素)は、表の中でも外でも比べない。
+func TestAdditionsAreIgnored(t *testing.T) {
+	withAdditions := strings.Replace(
+		oursHTML,
+		`<span class="SCV_MIDA_M">架空チーム<br/></span>`,
+		`<span class="SCV_MIDA_M">架空チーム<br/></span>`+
+			`<div class="sv_team_notes" data-scoreview-addition=""><p>次の試合: 10/18</p></div>`,
+		1,
+	)
+	withAdditions = strings.Replace(
+		withAdditions,
+		`>架空</a>`,
+		`>架空<span class="sv_sr" data-scoreview-addition="">(試合中)</span></a>`,
+		1,
+	)
+	res := parity.Compare("/x", "scv_team", extract(t, referenceHTML), extract(t, withAdditions))
+	assert.True(t, res.FullMatch(), res.Diffs)
+}
+
 // 日程の検索フォームと列見出し: 参照サイトは JavaScript(AddHiddenVal、Action)、本サイトは href と
 // <noscript> のボタンで同じことをする。選択肢の間の改行の有無も差にしない。
 func TestScheduleFormAndSortLinksMatch(t *testing.T) {

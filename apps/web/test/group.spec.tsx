@@ -4,7 +4,7 @@ import { type GroupResponse, groupResponseSchema } from '../src/api/public.types
 import { GroupShapeError, GroupView } from '../src/components/GroupView.tsx'
 import { tournamentPageTitle } from '../src/components/title.utils.ts'
 import { loadFixture } from './fixtures/load.ts'
-import { renderHtml } from './render.ts'
+import { renderHtml, renderHtmlWithNotes } from './render.ts'
 
 const pool = groupResponseSchema.parse(loadFixture('group-1001'))
 const bracketSmall = groupResponseSchema.parse(loadFixture('group-1002'))
@@ -86,7 +86,7 @@ describe('プール型(clone-spec C 2.1)', () => {
             ],
           },
         },
-        /<td class="RM_NOW {2}CM"><a class="RM_NOW_Link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">2-1<\/a><\/td>/,
+        /<td class="RM_NOW {2}CM" title="試合中"><a class="RM_NOW_Link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">2-1<span class="sv_sr" data-scoreview-addition="">\(試合中\)<\/span><\/a><\/td>/,
       ],
       [
         {
@@ -103,7 +103,7 @@ describe('プール型(clone-spec C 2.1)', () => {
       ],
     ]
     for (const [data, pattern] of variants) {
-      assert.match(renderHtml(<GroupView data={data} lang="jp" />), pattern)
+      assert.match(renderHtmlWithNotes(<GroupView data={data} lang="jp" />), pattern)
     }
   })
 
@@ -170,12 +170,44 @@ describe('トーナメント型(clone-spec C 2.3)', () => {
     assert.match(html, /<tr><td class="WDiv3 txt_and {3}">3rd - 4th<\/td>/)
   })
 
+  test('勝ち上がりのセル(win、色だけで示す)のチーム名に読み上げ用の「勝ち」を添える', () => {
+    const html = renderHtmlWithNotes(<GroupView data={bracketSmall} lang="jp" />)
+    assert.match(
+      html,
+      /class="WDiv2 [^"]*win {2}"><span class="teamimg_tn"><a href="[^"]+">架空チームA<span class="sv_sr" data-scoreview-addition="">\(勝ち\)<\/span><\/a>/,
+    )
+  })
+
+  test('不戦勝の試合セルは title と読み上げ用の文字に結果の種類と勝ったチーム', () => {
+    // group-1002 の結果一覧は空なので、同じ試合 9001 の行を group-1001 から借りる
+    const matches = pool.matches
+      .filter((match) => match.matchId === 9001)
+      .map((match) => ({ ...match, resultType: 'forfeit' as const }))
+    const html = renderHtmlWithNotes(<GroupView data={{ ...bracketSmall, matches }} lang="jp" />)
+    assert.match(
+      html,
+      /title="架空チームA の不戦勝"><a class="tnmt_game_link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<span class="sv_sr" data-scoreview-addition="">\(架空チームA の不戦勝\)<\/span><\/a>/,
+    )
+    const poolHtml = renderHtml(
+      <GroupView
+        data={{
+          ...pool,
+          matches: pool.matches.map((match) =>
+            match.matchId === 9001 ? { ...match, resultType: 'forfeit' as const } : match,
+          ),
+        }}
+        lang="en"
+      />,
+    )
+    assert.match(poolHtml, /<td class="RM_ARI {2}CM" title="Forfeit win: Fictional A">/)
+  })
+
   test('試合中の試合セルは tnmt_play_now(推測)、未試合はリンクなし(推測)', () => {
     assert.ok(bracketSmall.bracket)
     const rows = bracketSmall.bracket.rows.map((row) =>
       row.map((cell) => (cell.kind === 'game' ? { ...cell, status: 'live' as const } : cell)),
     )
-    const live = renderHtml(
+    const live = renderHtmlWithNotes(
       <GroupView
         data={{ ...bracketSmall, bracket: { ...bracketSmall.bracket, rows } }}
         lang="jp"
@@ -183,7 +215,7 @@ describe('トーナメント型(clone-spec C 2.3)', () => {
     )
     assert.match(
       live,
-      /<a class="tnmt_play_now" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<\/a>/,
+      /title="試合中"><a class="tnmt_play_now" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<span class="sv_sr" data-scoreview-addition="">\(試合中\)<\/span><\/a>/,
     )
     const scheduledRows = bracketSmall.bracket.rows.map((row) =>
       row.map((cell) =>
@@ -210,7 +242,7 @@ describe('画像のみ型(clone-spec E 4)', () => {
   test('見出しと div.TBL の中の img だけ', () => {
     assert.equal(
       renderHtml(<GroupView data={imageGroup} lang="jp" />),
-      '<span class="SCV_MIDA_M">&lt; ビーチミックス - Temporary ranking &gt;</span><br/><div class="TBL"><img src="/brand/photo-sample.svg" alt="" style="width:500px;height:333px"/></div>',
+      '<span class="SCV_MIDA_M">&lt; ビーチミックス - Temporary ranking &gt;</span><br/><div class="TBL"><img src="/brand/photo-sample.svg" alt="" width="500" height="333" style="width:500px;height:333px"/></div>',
     )
   })
   test('大きさが未登録なら style を付けない', () => {

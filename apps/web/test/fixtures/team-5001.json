@@ -30,6 +30,7 @@
       "matchId": 9001,
       "hasDetail": true,
       "resultType": "normal",
+      "winnerSide": "left",
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",
@@ -64,6 +65,7 @@
       "matchId": 9002,
       "hasDetail": true,
       "resultType": "normal",
+      "winnerSide": "right",
       "code": "A6",
       "date": "2026-10-18",
       "time": "11:20",
@@ -98,6 +100,7 @@
       "matchId": 9003,
       "hasDetail": false,
       "resultType": "normal",
+      "winnerSide": null,
       "code": "G2",
       "date": "2026-10-19",
       "time": "10:40",
@@ -209,5 +212,14 @@
       "gender": "M"
     }
   ],
-  "showSotg": false
+  "showSotg": false,
+  "nextMatchId": 9003,
+  "currentGroup": {
+    "id": 1001,
+    "name": {
+      "ja": "Qualifying pool A",
+      "en": "Qualifying pool A"
+    },
+    "linked": true
+  }
 }

@@ -18,3 +18,43 @@
   margin: 0;
   padding-left: 1.5em;
 }
+
+/* チームページのチーム名の下の追記(次の試合、所属グループ)。順位の根拠と同じ控えめな体裁 */
+.sv_team_notes {
+  margin: 4px 0 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #555;
+}
+
+.sv_team_notes p {
+  margin: 0;
+}
+
+/* 画面に出さず読み上げだけさせる補足(ScreenReaderNote、見えない h1)。一般的な visually-hidden の書き方 */
+.sv_sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 日程、グループ、チーム、試合のページの本文の上の「HH:MM 時点」。右寄せの小さい灰色の文字 */
+#main p.sv_as_of {
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #555;
+  text-align: right;
+}
+
+/* 大会トップのディビジョン表の下の会場図へのリンク(表の左端 80px + 余白に揃える) */
+#main p.sv_venue_map {
+  margin: 6px 0 0 90px;
+  font-size: 12px;
+}

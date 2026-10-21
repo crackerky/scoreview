@@ -2,6 +2,7 @@ import { getTournamentTop } from '@/api/public'
 import { SiteFrame } from '@/components/SiteFrame'
 import { TournamentTopView } from '@/components/TournamentTopView'
 import { tournamentPageTitle } from '@/components/title.utils'
+import { msg } from '@/i18n/messages'
 import { loadPageData } from './notFound'
 import { type IdPageProps, readIdPage } from './pageProps'
 
@@ -15,7 +16,10 @@ export async function TournamentTopPage(props: IdPageProps) {
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang)}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }}>
+      <SiteFrame
+        heading={msg(lang, 'navTournamentTop')}
+        variant={{ kind: 'tournament', frame: data.frame, lang }}
+      >
         <TournamentTopView data={data} lang={lang} />
       </SiteFrame>
     </>

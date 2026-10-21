@@ -227,6 +227,7 @@
       "field": "2",
       "status": "live",
       "resultType": "normal",
+      "winnerSide": null,
       "left": {
         "team": {
           "id": 4,

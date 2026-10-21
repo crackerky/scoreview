@@ -257,6 +257,7 @@ func toMatchRow(match Match, teams map[int64]Team) (domain.MatchRow, error) {
 		Field:      match.Field,
 		Status:     match.Status,
 		ResultType: match.ResultType,
+		WinnerSide: toResult(match).Winner(),
 		Left:       left,
 		Right:      right,
 	}, nil

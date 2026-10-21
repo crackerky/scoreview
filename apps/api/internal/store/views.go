@@ -265,6 +265,11 @@ type TeamPage struct {
 	Staff   []StaffLine
 	// ShowSOTG は SOTG スコア一覧(行は Matches、値は空)を出すか(divisions.show_sotg)
 	ShowSOTG bool
+	// NextMatchID は次の試合(Matches のうち試合中か最初の未試合。domain.NextMatch)。大会が終了して
+	// いるか、該当が無ければ nil。CurrentGroup はチームが入っている公開中のグループのうち、いま見るべき
+	// もの(無ければ nil)。どちらも本サイト独自の追記(docs/requirements.md「意図的な差分」)
+	NextMatchID  *int64
+	CurrentGroup *FrameGroup
 }
 
 // TeamLayout はチームページの構成。

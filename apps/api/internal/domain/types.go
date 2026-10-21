@@ -155,6 +155,9 @@ type MatchRow struct {
 	Status    MatchStatus
 	// ResultType は結果の種類。通常以外(不戦勝など)は閲覧ページの状況列に種類を出す
 	ResultType ResultType
+	// WinnerSide は終了した試合の勝った側(Result.Winner)。引き分け、未終了、両者不戦敗、未消化は nil。
+	// 不戦勝の状況列に勝ったチームの名前を出すのに使う
+	WinnerSide *Side
 	Left       MatchSide
 	Right      MatchSide
 }

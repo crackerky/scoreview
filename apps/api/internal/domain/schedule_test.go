@@ -93,3 +93,30 @@ func TestIsScheduleSortKey(t *testing.T) {
 		assert.False(t, domain.IsScheduleSortKey(key), key)
 	}
 }
+
+func TestNextMatch(t *testing.T) {
+	match := func(id int64, status domain.MatchStatus, result domain.ResultType) domain.MatchRow {
+		return domain.MatchRow{ID: id, Status: status, ResultType: result}
+	}
+	finished := match(1, domain.MatchFinished, domain.ResultNormal)
+	waiting := match(2, domain.MatchScheduled, domain.ResultNormal)
+	later := match(3, domain.MatchScheduled, domain.ResultNormal)
+	live := match(4, domain.MatchLive, domain.ResultNormal)
+	unplayed := match(5, domain.MatchScheduled, domain.ResultUnplayed)
+	cases := []struct {
+		name string
+		rows []domain.MatchRow
+		want int
+	}{
+		{"試合がない", nil, -1},
+		{"全試合が終了", []domain.MatchRow{finished}, -1},
+		{"最初の未試合", []domain.MatchRow{finished, waiting, later}, 1},
+		{"試合中が未試合より優先", []domain.MatchRow{finished, waiting, live}, 2},
+		{"未消化は次の試合にしない", []domain.MatchRow{unplayed, later}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, domain.NextMatch(tc.rows))
+		})
+	}
+}
