@@ -17,7 +17,9 @@ export const tiebreakOptions = [
 /** 候補の要約「この形で 24 試合、12:40 終了、全 12 位まで決まります」(2 日目なら「2 日目の 15:00 終了」) */
 export function proposalSentence(proposal: Proposal, teams: number): string {
   const day = proposal.endDay > 1 ? `${proposal.endDay} 日目の ` : ''
-  const head = `この形で ${proposal.matches} 試合、${day}${proposal.end} 終了`
+  // 収まらない形の終了時刻は会場の時間の外(夜中)になるので出さない(理由は fitNote で出す)
+  const end = proposal.overflow > 0 ? '' : `、${day}${proposal.end} 終了`
+  const head = `この形で ${proposal.matches} 試合${end}`
   if (proposal.unique === teams) {
     return `${head}、全 ${teams} 位まで決まります`
   }

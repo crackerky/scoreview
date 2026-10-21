@@ -34,6 +34,14 @@ describe('大会の形のウィザードの整形', () => {
       proposalSentence({ ...proposal, ranked: 8, unique: 8 }, 16),
       'この形で 24 試合、12:40 終了、16 チーム中 8 チームの順位が決まります',
     )
+    assert.equal(
+      proposalSentence({ ...proposal, endDay: 2, end: '15:00' }, 12),
+      'この形で 24 試合、2 日目の 15:00 終了、全 12 位まで決まります',
+    )
+    assert.equal(
+      proposalSentence({ ...proposal, overflow: 3, end: '02:00' }, 12),
+      'この形で 24 試合、全 12 位まで決まります',
+    )
   })
 
   test('シードの入れ替えと移動は元の配列を変えない', () => {

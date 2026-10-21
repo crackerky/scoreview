@@ -534,7 +534,8 @@ function PreviewSection(props: PreviewProps) {
     <section>
       <h2>プレビュー: {preview.title}</h2>
       <p className="fmt-big">
-        {preview.matches.length} 試合、{endText(preview.end, preview.endDay)}。
+        {preview.matches.length} 試合
+        {preview.fitNote ? '' : `、${endText(preview.end, preview.endDay)}`}。
         {preview.unique === preview.teams
           ? `全 ${preview.teams} 位まで決まります。`
           : `${preview.ranked} チームの順位が決まります。`}
