@@ -10,7 +10,13 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: '/(.*)', headers: securityHeaders }]
+    return [
+      { source: '/(.*)', headers: securityHeaders },
+      // 閲覧ページは毎回サーバーに確かめさせる(no-cache)が、no-store にはしない。no-store だと
+      // ブラウザの戻る・進むで bfcache が効かず、スマートフォンでページを毎回取り直すため。
+      // 管理画面(/admin)は個人の操作画面なので Next.js の既定(no-store)のまま
+      { source: '/((?!admin|_next).*)', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+    ]
   },
   async redirects() {
     return [{ source: '/', destination: '/sctnmt', permanent: false }]
