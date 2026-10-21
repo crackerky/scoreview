@@ -398,6 +398,23 @@ func (p *planner) planTeams() {
 		}
 	}
 	p.planFinalRanks()
+	p.planMenuSuffixes()
+}
+
+// planMenuSuffixes は SCORE メニューの略号("Ult" "Free" "DiscGolfT")をディビジョンに入れる。
+// メニューは大会の全ディビジョンを大会トップの表と同じ順に並べるので、数の合うチームページの
+// メニューから順に対応させる。
+func (p *planner) planMenuSuffixes() {
+	for _, id := range sortedKeys(p.b.Teams) {
+		suffixes := p.b.Teams[id].MenuSuffixes
+		if len(suffixes) != len(p.divs) {
+			continue
+		}
+		for i, dp := range p.divs {
+			dp.row.MenuSuffix = suffixes[i]
+		}
+		return
+	}
 }
 
 func (p *planner) breadcrumbDivision(m *parse.Match) *divPlan {

@@ -165,10 +165,11 @@ func TestBuildPlanSOTGFromTeamPage(t *testing.T) {
 	assert.False(t, plan.Import.Divisions[0].Division.ShowSOTG)
 
 	b := miniBundle()
-	b.Teams[1] = &parse.Team{Name: parse.Text{JA: "チーム一"}, SOTG: true}
+	b.Teams[1] = &parse.Team{Name: parse.Text{JA: "チーム一"}, SOTG: true, MenuSuffixes: []string{"Free"}}
 	plan, err = BuildPlan(b)
 	require.NoError(t, err)
 	assert.True(t, plan.Import.Divisions[0].Division.ShowSOTG)
+	assert.Equal(t, "Free", plan.Import.Divisions[0].Division.MenuSuffix, "SCORE メニューの略号")
 }
 
 func TestBuildPlanTournamentAndDivision(t *testing.T) {

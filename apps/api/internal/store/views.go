@@ -24,7 +24,9 @@ type FrameDivision struct {
 	ID              int64
 	Name            domain.I18nText
 	ScheduleEnabled bool
-	Groups          []FrameGroup
+	// MenuSuffix は SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
+	MenuSuffix string
+	Groups     []FrameGroup
 }
 
 // FrameGroup はナビのグループ。Linked が false なら名前だけ出す。

@@ -46,8 +46,10 @@ export const tournamentFrameSchema = z.object({
     z.object({
       id: z.number().int(),
       name: i18nTextSchema,
-      // サイドバーの SCORE メニューに出すか(スケジュールのないディビジョンは出ない)
+      // 日程があるか。false ならナビのスケジュールとディビジョン成績に出ず、SCORE メニューではリンクなし
       scheduleEnabled: z.boolean(),
+      // SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
+      menuSuffix: z.string(),
       // name.ja は前後の空白も名前の一部(参照サイトの title に空白つきで出る)
       groups: z.array(
         z.object({ id: z.number().int(), name: i18nTextSchema, linked: z.boolean() }),

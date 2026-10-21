@@ -18,6 +18,7 @@
         "en": "Beach Mixed"
       },
       "scheduleEnabled": true,
+      "menuSuffix": "Ult",
       "groups": [
         {
           "id": 1001,
@@ -44,6 +45,7 @@
         "en": "Women's"
       },
       "scheduleEnabled": true,
+      "menuSuffix": "Ult",
       "groups": []
     }
   ],

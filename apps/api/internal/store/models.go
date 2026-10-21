@@ -58,9 +58,11 @@ type Division struct {
 	EntryKind          domain.EntryKind    `gorm:"column:entry_kind"`
 	StatsKind          domain.StatsKind    `gorm:"column:stats_kind"`
 	// ShowSOTG はチームページに SOTG スコア一覧(値は空)を出すか(migrations/00010)
-	ShowSOTG  bool      `gorm:"column:show_sotg"`
-	CreatedAt time.Time `gorm:"column:created_at"`
-	UpdatedAt time.Time `gorm:"column:updated_at"`
+	ShowSOTG bool `gorm:"column:show_sotg"`
+	// MenuSuffix は SCORE メニューのディビジョン名の後ろの略号("Ult" など。空なら Ult。00011)
+	MenuSuffix string    `gorm:"column:menu_suffix"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+	UpdatedAt  time.Time `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。

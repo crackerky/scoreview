@@ -67,6 +67,17 @@ func loadTournamentScope(
 	}, nil
 }
 
+// defaultMenuSuffix は略号の登録がないディビジョンの略号。参照サイトの SCORE メニューで最も多い
+// (代表 16 大会の 3,395 件)アルティメットの "Ult"。
+const defaultMenuSuffix = "Ult"
+
+func menuSuffix(division Division) string {
+	if division.MenuSuffix == "" {
+		return defaultMenuSuffix
+	}
+	return division.MenuSuffix
+}
+
 func buildFrame(
 	tournament Tournament,
 	divisions []Division,
@@ -99,7 +110,7 @@ func buildFrame(
 			frame.Divisions,
 			FrameDivision{
 				ID: division.ID, Name: i18n(division.NameJa, division.NameEn),
-				ScheduleEnabled: division.ScheduleEnabled, Groups: fg,
+				ScheduleEnabled: division.ScheduleEnabled, MenuSuffix: menuSuffix(division), Groups: fg,
 			},
 		)
 	}

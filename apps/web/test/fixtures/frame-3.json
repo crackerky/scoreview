@@ -18,6 +18,7 @@
         "en": "Freestyle Team"
       },
       "scheduleEnabled": false,
+      "menuSuffix": "Ult",
       "groups": []
     }
   ],

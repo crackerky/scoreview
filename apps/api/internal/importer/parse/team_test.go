@@ -61,6 +61,18 @@ func TestParseTeamSOTG(t *testing.T) {
 	assert.False(t, without.SOTG)
 }
 
+// SCORE メニューのディビジョン名の後ろの略号(536、237 で観測した形)。
+func TestParseTeamMenuSuffixes(t *testing.T) {
+	html := `<html><body><div id='sub'><div class="menu_list"><ul>
+<li><a href="https://score.clubjr.com/pscore/scv_division/open/1?lang=jp">架空ミックス(Ult)</a><ul>
+<li><a href="#">架空リーグ</a></li></ul></li>
+<li><a href="#" onclick="alert(&quot;ページは存在しません&quot;); return false;">架空フリースタイル(Free)</a><ul></ul></li>
+</ul></div></div><div id="score_view"><span class='SCV_MIDA_M'>架空<br></span></div></body></html>`
+	tm, err := ParseTeam(strings.NewReader(html), site.LangJP)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Ult", "Free"}, tm.MenuSuffixes)
+}
+
 func TestParseTeamDiscGolf(t *testing.T) {
 	tm, err := ParseTeam(fixture(t, "team_17459_jp.html"), site.LangJP)
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package parse
 
 import (
 	"io"
+	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -23,6 +24,22 @@ type Team struct {
 	Staff   []TeamStaff  `json:"staff"`
 	// SOTG は SOTG スコア一覧の表があるか(224 のチームで観測。値はすべて空)。
 	SOTG bool `json:"sotg"`
+	// MenuSuffixes はサイドバーの SCORE メニューの各ディビジョン名の後ろの略号("Ult" など)。
+	// 大会の全ディビジョンが大会トップの表と同じ順に並ぶ(clone-spec A 1.5.1)。
+	MenuSuffixes []string `json:"menu_suffixes"`
+}
+
+var menuSuffixPattern = regexp.MustCompile(`\(([A-Za-z]+)\)$`)
+
+// parseMenuSuffixes は SCORE メニューの第 1 階層(ディビジョン)の略号を並べる。
+func parseMenuSuffixes(doc *goquery.Document) []string {
+	out := []string{}
+	doc.Find("#sub .menu_list > ul > li").Each(func(_ int, li *goquery.Selection) {
+		if m := menuSuffixPattern.FindStringSubmatch(cellText(li.ChildrenFiltered("a, p").First())); m != nil {
+			out = append(out, m[1])
+		}
+	})
+	return out
 }
 
 // sotgColumns は SOTG スコア一覧の列数(CD / 相手チーム / ※１〜※５ / 合計)。
@@ -83,6 +100,8 @@ func ParseTeam(r io.Reader, lang site.Lang) (*Team, error) {
 		Matches: []MatchRow{},
 		Players: []TeamPlayer{},
 		Staff:   []TeamStaff{},
+		// 略号は日英で同じ
+		MenuSuffixes: parseMenuSuffixes(doc),
 	}
 	var tblErr error
 	sv.Find("div.TBL > table").EachWithBreak(func(_ int, table *goquery.Selection) bool {

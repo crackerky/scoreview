@@ -40,13 +40,17 @@ describe('サイドバーの SCORE メニュー', () => {
     assert.match(html, /<a href="\/pscore\/scv_group\/open\/1002\?lang=en">Tournament A<\/a>/)
   })
 
-  test('スケジュールのないディビジョンは載せない', () => {
+  test('日程のないディビジョンもリンクなしで載り、略号は api の値', () => {
     const noSchedule = {
       ...frame,
-      divisions: frame.divisions.map((division) => ({ ...division, scheduleEnabled: false })),
+      divisions: frame.divisions.map((division) => ({
+        ...division,
+        scheduleEnabled: false,
+        menuSuffix: 'DiscGolfT',
+      })),
     }
     const html = renderHtml(<Sidebar frame={noSchedule} lang="jp" scoreMenu={true} />)
     assert.doesNotMatch(html, /scv_division/)
-    assert.match(html, /menu_list/)
+    assert.match(html, /<li><a>ビーチミックス\(DiscGolfT\)<\/a><ul>/)
   })
 })

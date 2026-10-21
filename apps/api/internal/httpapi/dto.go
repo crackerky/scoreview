@@ -29,6 +29,7 @@ type frameDivisionDTO struct {
 	ID              int64           `json:"id"`
 	Name            i18nDTO         `json:"name"`
 	ScheduleEnabled bool            `json:"scheduleEnabled"`
+	MenuSuffix      string          `json:"menuSuffix"`
 	Groups          []frameGroupDTO `json:"groups"`
 }
 

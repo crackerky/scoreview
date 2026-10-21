@@ -200,8 +200,8 @@ dropdown の挙動(`jquery.dropdown.js` v1.1.7、`$('#score_navi').dropdown()` �
 調査時には見落としており、ページ担当のスクリーンショット比較で見つけた。生 HTML 271 ページで確認した事実:
 - 出るページ: scv_division、scv_group、scv_team、scv_match、scv_player、scv_tgallery。出ないページ: sct_all(大会一覧)、scv_top(大会トップ)、scv_team_list、scv_search_tn、scv_search_div。
 - 位置: `#sub` の内側の table の先頭行(バナーの行の上)。`<td align="left">` の中に、見出し画像 `09_menu_score.png`(180x21、橙の帯に「SCORE」)、高さ 7px の空き、区切り線 `09_menu_brake_line.gif`(180x1)、`div.menu_list > ul`、最後にもう一度区切り線。
-- `ul > li` ごとにディビジョン 1 つ。`<a href=".../scv_division/open/{DIV}?lang=..">{ディビジョン名}(Ult)</a>` の後に、そのディビジョンのグループを `ul > li > a`(→ scv_group)で並べる。名前の接尾辞 `(Ult)` は日英とも付き、観測した全ディビジョンで同じ値だった。
-- スケジュールのないディビジョン(ディスクゴルフ、フリースタイル)は載らない(947、17459 の大会で項目 0)。
+- `ul > li` ごとにディビジョン 1 つ。`<a href=".../scv_division/open/{DIV}?lang=..">{ディビジョン名}(Ult)</a>` の後に、そのディビジョンのグループを `ul > li > a`(→ scv_group)で並べる。名前の接尾辞は日英とも付く競技の略号で、`(Ult)` のほか `(Free)`(237 のフリースタイル)、`(DiscGolfT)`(536 のディスクゴルフ団体戦)を観測した(突き合わせで訂正)。
+- スケジュールのないディビジョンも載る(突き合わせで訂正。当初の「載らない」は誤り)。リンクは `<a href="#" onclick="alert(&quot;ページは存在しません&quot;); return false;">` で、どこにも移らない(536 の 17459 では 2 項目とも、237 ではフリースタイルだけ)。本サイトは href のない `<a>` にする。
 - CSS(score_frame.css): `#sub ul{margin:2px 0 0 2px;padding:0}`、`#sub li{padding:2px 0 2px 12px;line-height:1.4;list-style:none}`、`#sub li a{color:#008080;display:block;padding-left:12px;background:url(bg_list.gif) 0 5px no-repeat}`、`#sub li p{color:#696969;...}`。
 
 ### 1.6 /sctnmt (大会一覧) と大会ページの外枠差分

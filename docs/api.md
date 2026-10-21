@@ -55,7 +55,10 @@ type TournamentFrame = {
   divisions: Array<{
     id: number
     name: I18nText
-    scheduleEnabled: boolean         // サイドバーの SCORE メニューに出すか(divisions.schedule_enabled)
+    // 日程があるか(divisions.schedule_enabled)。false のディビジョンはナビのスケジュールと
+    // ディビジョン成績に出ず、SCORE メニューではリンクのない項目になる
+    scheduleEnabled: boolean
+    menuSuffix: string               // SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
     // published=true のグループだけ。sort_order, id 順。name.ja は前後の空白も名前の一部
     groups: Array<{ id: number; name: I18nText; linked: boolean }>
   }>
