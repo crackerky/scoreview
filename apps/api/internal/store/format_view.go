@@ -287,8 +287,8 @@ func (fs *formatState) poolGames(index int) ([]int64, []format.Game, bool) {
 	var games []format.Game
 	for _, m := range fs.plan.GroupMatches(index) {
 		mt := fs.res.Matches[m.Code]
-		game := format.Game{Code: m.Code, Left: mt.Left.TeamID, Right: mt.Right.TeamID}
-		if res, ok := fs.state.Results[m.Code]; ok {
+		game := format.Game{Code: m.Code, Round: m.Round, Left: mt.Left.TeamID, Right: mt.Right.TeamID}
+		if res, ok := fs.state.Results[m.Code]; ok && !mt.Mismatch {
 			game.Result = &res
 		}
 		games = append(games, game)
