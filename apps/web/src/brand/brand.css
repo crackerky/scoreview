@@ -19,7 +19,9 @@
   --brand-header-menu-hover: #d96500;
   /* 背景 */
   --brand-header-bg: url("/brand/header-bg.svg");
-  --brand-body-bg: url("/brand/bg-pattern.svg");
+  /* 参照サイトの def_bgimg.png は黒一色の 360x245 画像(実物で確認)。画像を使わず色で同じ見た目にする */
+  --brand-body-bg: none;
+  --brand-body-color: #000;
   --brand-list-body-bg: #000;
   --brand-title-bg: url("/brand/title-bg.svg");
   --brand-navi-arrow-down: url("/brand/navi-arrow-down.svg");

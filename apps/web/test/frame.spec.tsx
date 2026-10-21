@@ -19,7 +19,10 @@ function renderTournament(topMenu?: null): string {
 describe('外枠', () => {
   test('大会ページ: 背景パターン、ナビ、サイドバー、本文の入れ子', () => {
     const html = renderTournament()
-    assert.match(html, /^<style>body \{background: white var\(--brand-body-bg\) repeat top;\}/)
+    assert.match(
+      html,
+      /^<style>body \{background: var\(--brand-body-color\) var\(--brand-body-bg\) repeat top;\}/,
+    )
     assert.match(
       html,
       /<div id="top"><div id="wrapper"><div id="header"><div id="outer1"><div id="header">/,

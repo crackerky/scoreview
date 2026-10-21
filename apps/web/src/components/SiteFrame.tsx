@@ -26,7 +26,7 @@ type SiteFrameProps = {
 
 const bodyStyles = {
   list: 'body {background: var(--brand-list-body-bg);}',
-  tournament: 'body {background: white var(--brand-body-bg) repeat top;}',
+  tournament: 'body {background: var(--brand-body-color) var(--brand-body-bg) repeat top;}',
 } as const
 
 export function SiteFrame({ variant, topMenu, year, children }: SiteFrameProps) {
