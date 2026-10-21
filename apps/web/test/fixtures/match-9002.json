@@ -39,6 +39,8 @@
     "note": "",
     "hideBlocks": false,
     "hideStats": false,
+    "resultType": "normal",
+    "winnerSide": null,
     "breadcrumb": {
       "divisionId": 101,
       "divisionName": {

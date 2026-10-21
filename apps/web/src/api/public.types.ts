@@ -245,6 +245,16 @@ export const matchResponseSchema = z.object({
     note: z.string(),
     hideBlocks: z.boolean(),
     hideStats: z.boolean(),
+    // 通常以外の結果(不戦勝など)をスコアボードに出す(本サイト独自)
+    resultType: z.enum([
+      'normal',
+      'forfeit',
+      'double_forfeit',
+      'no_contest',
+      'abandoned',
+      'unplayed',
+    ]),
+    winnerSide: sideSchema.nullable(),
     breadcrumb: z.object({
       divisionId: z.number().int(),
       divisionName: i18nTextSchema,

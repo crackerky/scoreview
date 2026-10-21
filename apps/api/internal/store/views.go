@@ -334,6 +334,9 @@ type MatchInfo struct {
 	Note       string
 	HideBlocks bool
 	HideStats  bool
+	// ResultType と WinnerSide は通常以外の結果(不戦勝など)をスコアボードに出すため(本サイト独自)
+	ResultType domain.ResultType
+	WinnerSide *domain.Side
 	Breadcrumb Breadcrumb
 }
 

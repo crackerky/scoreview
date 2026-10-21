@@ -364,6 +364,7 @@ func toMatchPage(page store.MatchPage) matchPageDTO {
 			Left:  toMatchTeamScore(match.Left),
 			Right: toMatchTeamScore(match.Right),
 			Note:  match.Note, HideBlocks: match.HideBlocks, HideStats: match.HideStats,
+			ResultType: resultTypeOrNormal(match.ResultType), WinnerSide: sidePtrString(match.WinnerSide),
 			Breadcrumb: breadcrumbDTO{
 				DivisionID:   match.Breadcrumb.DivisionID,
 				DivisionName: toI18n(match.Breadcrumb.DivisionName),

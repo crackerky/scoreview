@@ -308,6 +308,8 @@ type BracketCell = {
     note: string                             // スコアボード下の行の中央の備考。多くは空
     hideBlocks: boolean                      // 出場選手表に Block 列を出さない
     hideStats: boolean                       // 統計表を出さない
+    resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'  // 本サイト独自
+    winnerSide: Side | null      // 終了した試合の勝った側(引き分け、両者不戦敗、未消化は null)
     breadcrumb: { divisionId: number; divisionName: I18nText; groupId: number | null }
   }
   // 時系列の昇順(古い順)。画面では web が逆順にして新しい順で出す

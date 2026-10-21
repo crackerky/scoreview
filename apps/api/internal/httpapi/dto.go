@@ -374,6 +374,8 @@ type matchInfoDTO struct {
 	Note       string            `json:"note"`
 	HideBlocks bool              `json:"hideBlocks"`
 	HideStats  bool              `json:"hideStats"`
+	ResultType string            `json:"resultType"`
+	WinnerSide *string           `json:"winnerSide"`
 	Breadcrumb breadcrumbDTO     `json:"breadcrumb"`
 }
 
