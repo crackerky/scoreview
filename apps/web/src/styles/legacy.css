@@ -338,6 +338,13 @@ h6 {
   line-height: 40%;
 }
 
+/* 参照サイトのバナーは CMS の HTML で幅 160px を指定している(全大会で 160px。高さは 54〜64px と
+   画像ごとに違う)。原寸の大きい画像でもサイドバーからはみ出さないよう幅を固定し、高さは比率に任せる */
+#sub .sub_banners img {
+  width: 160px;
+  height: auto;
+}
+
 #contents {
   margin: 0;
   padding: 0;
