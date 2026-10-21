@@ -23,7 +23,7 @@ const (
 	sqlScorerFree         = "match_scorers.expires_at <= ? OR (match_scorers.user_id = ? AND match_scorers.device_id = ?)"
 	sqlActiveScorer       = "match_id = ? AND expires_at > ?"
 	sqlScorerOfDevice     = "match_id = ? AND user_id = ? AND device_id = ?"
-	sqlAddOpsOfMatch      = "match_id = ? AND action = ? AND client_id IS NOT NULL"
+	sqlAddOpsOfMatch      = "match_id = ? AND action = ?"
 	sqlDivisionFormatByID = "division_id = ?"
 )
 
@@ -185,16 +185,21 @@ func concurrentRecords(
 ) ([]ConcurrentRecordView, error) {
 	var adds []AuditLog
 	if err := db.WithContext(ctx).
-		Select("client_id", "user_id").
+		Select("after", "user_id").
 		Where(sqlAddOpsOfMatch, matchID, AuditEventAdd).
 		Find(&adds).
 		Error; err != nil {
 		return nil, fmt.Errorf("load recorders of match %d: %w", matchID, err)
 	}
+	// 得点経過の clientId は監査ログの after.event にある(操作 ID の無い入力でも DB が付けた値が入る)
 	recorder := make(map[string]int64, len(adds))
 	for _, add := range adds {
-		if add.ClientID != nil && add.UserID != nil {
-			recorder[*add.ClientID] = *add.UserID
+		var after AuditSnapshot
+		if err := decodeSnapshot(add.After, &after); err != nil {
+			return nil, fmt.Errorf("match %d: %w", matchID, err)
+		}
+		if after.Event != nil && add.UserID != nil {
+			recorder[after.Event.ClientID] = *add.UserID
 		}
 	}
 	recorded := make([]domain.RecordedEvent, 0, len(events))

@@ -127,14 +127,15 @@ func TestScorerClaimAndTakeover(t *testing.T) {
 		map[string]any{"clientId": opGoal, "kind": "goal", "side": "left"})
 	f.now = f.now.Add(2 * time.Second)
 	detail = f.call(t, http.StatusCreated, http.MethodPost, path+"/events",
-		map[string]any{"clientId": opGoal2, "kind": "goal", "side": "left"})
+		map[string]any{"kind": "goal", "side": "left"}) // 操作 ID の無い入力(簡易の入力画面など)
 	records := detail["concurrentRecords"].([]any)
 	require.Len(t, records, 1)
 	record := records[0].(map[string]any)
 	assert.Equal(t, "goal", record["kind"])
 	assert.Equal(t, opGoal, record["firstClientId"])
-	assert.Equal(t, opGoal2, record["secondClientId"])
+	assert.Equal(t, detail["events"].([]any)[1].(map[string]any)["clientId"], record["secondClientId"])
 	assert.Equal(t, "staff@example.com", record["firstUser"])
+	assert.Equal(t, "admin@example.com", record["secondUser"])
 	assert.Equal(t, float64(2), record["secondsApart"])
 	assert.Nil(t, detail["matchMinutes"], "時間割の無いディビジョンは試合時間なし")
 }
