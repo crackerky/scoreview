@@ -1,9 +1,11 @@
-import { sideName, statusLabel, tournamentStatusOptions } from '@/admin/labels.utils'
+import { statusLabel, tournamentStatusOptions } from '@/admin/labels.utils'
 import { courtLabel } from '@/admin/scoreKeeper.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
+import { type SideLabels, sideLabelsOf, sideText } from '@/admin/timetable.utils'
 import { matches, tournaments } from '@/api/admin'
 import type { AdminTournament, AssignedMatch } from '@/api/admin.types'
+import { formats } from '@/api/format'
 import { copyTournamentAction, createTournamentAction } from '@/app/admin/_actions/tournament'
 import type { SearchProps } from '@/app/admin/_lib/page'
 import { AdminShell, Check, Field, Hidden, readNotice } from '@/components/admin/AdminParts'
@@ -52,6 +54,13 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
     Promise.all([tournaments.list(token), matches.mine(token)]),
   )
   const shown = filterTournaments(list.tournaments, search, sort)
+  // 担当試合の未定のチームは、準備の画面と同じ言葉(「A組1位」「F2 の勝者」)で出す。決まり方は
+  // 大会の形の試合一覧にある(記録係も担当大会の部門なら読める)
+  const divisionIds = [...new Set(mine.matches.map((match) => match.divisionId))]
+  const formatLists = await loadAdmin(() =>
+    Promise.all(divisionIds.map((divisionId) => formats.matchesIfFormatted(token, divisionId))),
+  )
+  const labels = sideLabelsOf(formatLists.flatMap((formatList) => formatList?.matches ?? []))
   const statusLabel = (value: string) =>
     tournamentStatusOptions.find((option) => option.value === value)?.label ?? value
   return (
@@ -61,7 +70,7 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
       notice={notice}
     >
       {user.role === 'admin' && mine.matches.length === 0 ? null : (
-        <MyMatches list={mine.matches} />
+        <MyMatches list={mine.matches} labels={labels} />
       )}
       {user.role === 'admin' ? null : <h2>担当の大会</h2>}
       {list.tournaments.length > 5 ? (
@@ -166,7 +175,7 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
   )
 }
 
-function MyMatches({ list }: { list: AssignedMatch[] }) {
+function MyMatches({ list, labels }: { list: AssignedMatch[]; labels: SideLabels }) {
   if (list.length === 0) {
     return (
       <>
@@ -200,7 +209,8 @@ function MyMatches({ list }: { list: AssignedMatch[] }) {
                   .join(' ')}
               </span>
               <span className="teams">
-                {match.code} {sideName(match.left)} - {sideName(match.right)}
+                {match.code} {sideText(match.left, labels.get(match.id)?.left)} -{' '}
+                {sideText(match.right, labels.get(match.id)?.right)}
               </span>
               <span className="state">
                 {match.status === 'finished' && match.resultType !== 'normal'
