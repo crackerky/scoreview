@@ -1,0 +1,711 @@
+{
+  "divisionId": 100000040,
+  "title": "4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)",
+  "version": 1,
+  "tiebreak": "current",
+  "ruleText": [
+    "プールの順位は、勝ち点(勝ち 3、引き分け 1、負け 0)の多い方を上位とします。",
+    "並んだときは、次の順に比べて上位を決めます。(1) 並んだチームどうしの直接対決の勝者(2 チームが並んだときだけ)、(2) 得失点差の大きい方、(3) 得点の多い方。",
+    "すべての基準で並んだときは、運営が立ち会ってブリックマーク投げ(またはディスクフリップ)で決めます。"
+  ],
+  "advancement": [
+    "各プールの 1 位(A1、B1、C1、D1)は 1st placement tournament に進み、1〜4 位を決めます。1 回戦は A1 対 B1、C1 対 D1。",
+    "各プールの 2 位(A2、B2、C2、D2)は 5th placement tournament に進み、5〜8 位を決めます。1 回戦は A2 対 B2、C2 対 D2。",
+    "各プールの 3 位(A3、B3、C3、D3)は 9th placement tournament に進み、9〜12 位を決めます。1 回戦は A3 対 B3、C3 対 D3。",
+    "「A1」はプール A の 1 位を表します。プールの順位は、本部がプールの結果を確定してから次の組み合わせに反映します。"
+  ],
+  "slotMinutes": 20,
+  "courts": ["1", "2", "3", "4"],
+  "now": "2026-10-21T10:30:52Z",
+  "todo": [
+    {
+      "kind": "confirm_group",
+      "text": "Qualifying pool A の全試合が終わりました。順位を確かめて確定してください",
+      "groupId": 100000019,
+      "stageId": null,
+      "matchId": null,
+      "court": null,
+      "minutes": 0
+    },
+    {
+      "kind": "confirm_group",
+      "text": "Qualifying pool B の全試合が終わりました。順位を確かめて確定してください",
+      "groupId": 100000020,
+      "stageId": null,
+      "matchId": null,
+      "court": null,
+      "minutes": 0
+    },
+    {
+      "kind": "confirm_group",
+      "text": "Qualifying pool C の全試合が終わりました。順位を確かめて確定してください",
+      "groupId": 100000021,
+      "stageId": null,
+      "matchId": null,
+      "court": null,
+      "minutes": 0
+    },
+    {
+      "kind": "tie",
+      "text": "Qualifying pool D で 碧、楓、蓮 が全基準で並んでいます。順位を指定してください",
+      "groupId": 100000022,
+      "stageId": null,
+      "matchId": null,
+      "court": null,
+      "minutes": 0
+    }
+  ],
+  "stages": [
+    {
+      "id": 5,
+      "index": 0,
+      "name": "予選",
+      "confirmed": false,
+      "confirmedUnplayed": false,
+      "needsConfirm": false
+    },
+    {
+      "id": 6,
+      "index": 1,
+      "name": "順位決定",
+      "confirmed": false,
+      "confirmedUnplayed": false,
+      "needsConfirm": false
+    }
+  ],
+  "groups": [
+    {
+      "id": 100000019,
+      "letter": "A",
+      "name": "Qualifying pool A",
+      "kind": "pool",
+      "stage": 0,
+      "state": "ready",
+      "confirmedUnplayed": false,
+      "remaining": 0,
+      "slots": [
+        {
+          "label": "シード1",
+          "team": {
+            "id": 100000109,
+            "name": {
+              "ja": "旭",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード8",
+          "team": {
+            "id": 100000116,
+            "name": {
+              "ja": "菫",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード9",
+          "team": {
+            "id": 100000117,
+            "name": {
+              "ja": "椿",
+              "en": ""
+            }
+          },
+          "score": null
+        }
+      ],
+      "rows": [
+        {
+          "games": 2,
+          "wins": 2,
+          "draws": 0,
+          "losses": 0,
+          "goalsFor": 7,
+          "goalsAgainst": 2,
+          "team": {
+            "id": 100000109,
+            "name": {
+              "ja": "旭",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 6,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 1,
+          "draws": 0,
+          "losses": 1,
+          "goalsFor": 3,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000116,
+            "name": {
+              "ja": "菫",
+              "en": ""
+            }
+          },
+          "rank": 2,
+          "points": 3,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 0,
+          "losses": 2,
+          "goalsFor": 2,
+          "goalsAgainst": 6,
+          "team": {
+            "id": 100000117,
+            "name": {
+              "ja": "椿",
+              "en": ""
+            }
+          },
+          "rank": 3,
+          "points": 0,
+          "reason": "",
+          "unresolved": false
+        }
+      ],
+      "ties": [],
+      "conditions": []
+    },
+    {
+      "id": 100000020,
+      "letter": "B",
+      "name": "Qualifying pool B",
+      "kind": "pool",
+      "stage": 0,
+      "state": "ready",
+      "confirmedUnplayed": false,
+      "remaining": 0,
+      "slots": [
+        {
+          "label": "シード2",
+          "team": {
+            "id": 100000110,
+            "name": {
+              "ja": "梓",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード7",
+          "team": {
+            "id": 100000115,
+            "name": {
+              "ja": "栞",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード10",
+          "team": {
+            "id": 100000118,
+            "name": {
+              "ja": "柊",
+              "en": ""
+            }
+          },
+          "score": null
+        }
+      ],
+      "rows": [
+        {
+          "games": 2,
+          "wins": 2,
+          "draws": 0,
+          "losses": 0,
+          "goalsFor": 7,
+          "goalsAgainst": 2,
+          "team": {
+            "id": 100000110,
+            "name": {
+              "ja": "梓",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 6,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 1,
+          "draws": 0,
+          "losses": 1,
+          "goalsFor": 3,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000115,
+            "name": {
+              "ja": "栞",
+              "en": ""
+            }
+          },
+          "rank": 2,
+          "points": 3,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 0,
+          "losses": 2,
+          "goalsFor": 2,
+          "goalsAgainst": 6,
+          "team": {
+            "id": 100000118,
+            "name": {
+              "ja": "柊",
+              "en": ""
+            }
+          },
+          "rank": 3,
+          "points": 0,
+          "reason": "",
+          "unresolved": false
+        }
+      ],
+      "ties": [],
+      "conditions": []
+    },
+    {
+      "id": 100000021,
+      "letter": "C",
+      "name": "Qualifying pool C",
+      "kind": "pool",
+      "stage": 0,
+      "state": "ready",
+      "confirmedUnplayed": false,
+      "remaining": 0,
+      "slots": [
+        {
+          "label": "シード3",
+          "team": {
+            "id": 100000111,
+            "name": {
+              "ja": "茜",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード6",
+          "team": {
+            "id": 100000114,
+            "name": {
+              "ja": "桔梗",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード11",
+          "team": {
+            "id": 100000119,
+            "name": {
+              "ja": "藤",
+              "en": ""
+            }
+          },
+          "score": null
+        }
+      ],
+      "rows": [
+        {
+          "games": 2,
+          "wins": 2,
+          "draws": 0,
+          "losses": 0,
+          "goalsFor": 7,
+          "goalsAgainst": 2,
+          "team": {
+            "id": 100000111,
+            "name": {
+              "ja": "茜",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 6,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 1,
+          "draws": 0,
+          "losses": 1,
+          "goalsFor": 3,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000114,
+            "name": {
+              "ja": "桔梗",
+              "en": ""
+            }
+          },
+          "rank": 2,
+          "points": 3,
+          "reason": "",
+          "unresolved": false
+        },
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 0,
+          "losses": 2,
+          "goalsFor": 2,
+          "goalsAgainst": 6,
+          "team": {
+            "id": 100000119,
+            "name": {
+              "ja": "藤",
+              "en": ""
+            }
+          },
+          "rank": 3,
+          "points": 0,
+          "reason": "",
+          "unresolved": false
+        }
+      ],
+      "ties": [],
+      "conditions": []
+    },
+    {
+      "id": 100000022,
+      "letter": "D",
+      "name": "Qualifying pool D",
+      "kind": "pool",
+      "stage": 0,
+      "state": "tied",
+      "confirmedUnplayed": false,
+      "remaining": 0,
+      "slots": [
+        {
+          "label": "シード4",
+          "team": {
+            "id": 100000112,
+            "name": {
+              "ja": "碧",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード5",
+          "team": {
+            "id": 100000113,
+            "name": {
+              "ja": "楓",
+              "en": ""
+            }
+          },
+          "score": null
+        },
+        {
+          "label": "シード12",
+          "team": {
+            "id": 100000120,
+            "name": {
+              "ja": "蓮",
+              "en": ""
+            }
+          },
+          "score": null
+        }
+      ],
+      "rows": [
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 2,
+          "losses": 0,
+          "goalsFor": 4,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000112,
+            "name": {
+              "ja": "碧",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 2,
+          "reason": "勝ち点同数、全基準で並び未決",
+          "unresolved": true
+        },
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 2,
+          "losses": 0,
+          "goalsFor": 4,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000113,
+            "name": {
+              "ja": "楓",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 2,
+          "reason": "勝ち点同数、全基準で並び未決",
+          "unresolved": true
+        },
+        {
+          "games": 2,
+          "wins": 0,
+          "draws": 2,
+          "losses": 0,
+          "goalsFor": 4,
+          "goalsAgainst": 4,
+          "team": {
+            "id": 100000120,
+            "name": {
+              "ja": "蓮",
+              "en": ""
+            }
+          },
+          "rank": 1,
+          "points": 2,
+          "reason": "勝ち点同数、全基準で並び未決",
+          "unresolved": true
+        }
+      ],
+      "ties": [
+        [
+          {
+            "id": 100000112,
+            "name": {
+              "ja": "碧",
+              "en": ""
+            }
+          },
+          {
+            "id": 100000113,
+            "name": {
+              "ja": "楓",
+              "en": ""
+            }
+          },
+          {
+            "id": 100000120,
+            "name": {
+              "ja": "蓮",
+              "en": ""
+            }
+          }
+        ]
+      ],
+      "conditions": []
+    },
+    {
+      "id": 100000023,
+      "letter": "E",
+      "name": "1st placement tournament",
+      "kind": "bracket",
+      "stage": 1,
+      "state": "waiting",
+      "confirmedUnplayed": false,
+      "remaining": 4,
+      "slots": [
+        {
+          "label": "A1",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "B1",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "C1",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "D1",
+          "team": null,
+          "score": null
+        }
+      ],
+      "rows": [],
+      "ties": [],
+      "conditions": []
+    },
+    {
+      "id": 100000024,
+      "letter": "F",
+      "name": "5th placement tournament",
+      "kind": "bracket",
+      "stage": 1,
+      "state": "waiting",
+      "confirmedUnplayed": false,
+      "remaining": 4,
+      "slots": [
+        {
+          "label": "A2",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "B2",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "C2",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "D2",
+          "team": null,
+          "score": null
+        }
+      ],
+      "rows": [],
+      "ties": [],
+      "conditions": []
+    },
+    {
+      "id": 100000025,
+      "letter": "G",
+      "name": "9th placement tournament",
+      "kind": "bracket",
+      "stage": 1,
+      "state": "waiting",
+      "confirmedUnplayed": false,
+      "remaining": 4,
+      "slots": [
+        {
+          "label": "A3",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "B3",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "C3",
+          "team": null,
+          "score": null
+        },
+        {
+          "label": "D3",
+          "team": null,
+          "score": null
+        }
+      ],
+      "rows": [],
+      "ties": [],
+      "conditions": []
+    }
+  ],
+  "live": [],
+  "next": [
+    {
+      "id": 100003306,
+      "code": "E2",
+      "groupName": "1st placement tournament",
+      "date": "2026-10-21",
+      "time": "10:00",
+      "field": "1",
+      "status": "scheduled",
+      "left": {
+        "label": "A1",
+        "team": null,
+        "score": null
+      },
+      "right": {
+        "label": "B1",
+        "team": null,
+        "score": null
+      }
+    },
+    {
+      "id": 100003307,
+      "code": "E3",
+      "groupName": "1st placement tournament",
+      "date": "2026-10-21",
+      "time": "10:00",
+      "field": "2",
+      "status": "scheduled",
+      "left": {
+        "label": "C1",
+        "team": null,
+        "score": null
+      },
+      "right": {
+        "label": "D1",
+        "team": null,
+        "score": null
+      }
+    },
+    {
+      "id": 100003310,
+      "code": "F2",
+      "groupName": "5th placement tournament",
+      "date": "2026-10-21",
+      "time": "10:00",
+      "field": "3",
+      "status": "scheduled",
+      "left": {
+        "label": "A2",
+        "team": null,
+        "score": null
+      },
+      "right": {
+        "label": "B2",
+        "team": null,
+        "score": null
+      }
+    },
+    {
+      "id": 100003311,
+      "code": "F3",
+      "groupName": "5th placement tournament",
+      "date": "2026-10-21",
+      "time": "10:00",
+      "field": "4",
+      "status": "scheduled",
+      "left": {
+        "label": "C2",
+        "team": null,
+        "score": null
+      },
+      "right": {
+        "label": "D2",
+        "team": null,
+        "score": null
+      }
+    }
+  ],
+  "final": []
+}

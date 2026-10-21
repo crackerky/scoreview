@@ -372,7 +372,7 @@ function MatchList({
             <span className="sub">{match.groupName}</span>
           </a>
           {isAdmin ? (
-            <a href={`/admin/matches/${match.id}/result`} className="adm-muted">
+            <a href={`/admin/matches/${match.id}/result`} className="hq-sublink">
               結果を入れる・直す
             </a>
           ) : null}

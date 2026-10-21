@@ -164,6 +164,16 @@
 
 /* 進行画面 */
 
+/* 試合の行の下の「結果を入れる・直す」。admin.css の試合の行(大きいカード)の見た目を打ち消す */
+.adm .adm-matches a.hq-sublink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+  padding: 0 12px;
+  border: 0;
+  font-size: 0.875rem;
+}
+
 .adm .hq-todo {
   margin: 0;
   padding: 0;
