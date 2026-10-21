@@ -438,7 +438,7 @@ type TournamentInput = {
   name: I18nText                     // name.ja は必須
   shortName: string
   status: TournamentStatus           // 既定 'entry_open'
-  listed: boolean                    // 既定 true。false なら大会一覧に出さない
+  listed: boolean                    // 既定 false(準備中)。true なら大会一覧に出す
   startDate: string | null           // "YYYY-MM-DD"。大会一覧の並び順
   logoUrl: string | null
   topHtml: I18nText                  // 保存時に無害化
