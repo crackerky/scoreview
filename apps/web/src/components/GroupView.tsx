@@ -62,7 +62,7 @@ function GroupBody({ data, lang }: { data: GroupResponse; lang: Lang }) {
       }
       return (
         <>
-          <BracketTable bracket={data.bracket} lang={lang} />
+          <BracketTable bracket={data.bracket} matches={data.matches} lang={lang} />
           <br />
           <GameList matches={data.matches} lang={lang} />
         </>

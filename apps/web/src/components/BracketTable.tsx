@@ -1,8 +1,10 @@
-import type { BracketCell } from '@/api/common.types'
+import type { BracketCell, MatchRow } from '@/api/common.types'
 import type { GroupResponse } from '@/api/public.types'
 import { matchHref, teamHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { bracketCellClass } from './group.utils'
+import { matchCellNote } from './matchResult.utils'
+import { ScreenReaderNote } from './ScreenReaderNote'
 
 // clone-spec C 2.3: トーナメント表は 1 枚の table のセル罫線で描く(div.TN_TMPL)。
 // 参照サイトは直前に <!-- GeneratePtn:T8A --> と <!-- PtnName :... --> の HTML コメントを出すが、
@@ -12,7 +14,16 @@ const nbsp = ' '
 
 type Bracket = NonNullable<GroupResponse['bracket']>
 
-function CellContent({ cell, lang }: { cell: BracketCell; lang: Lang }) {
+function CellContent({
+  cell,
+  note,
+  lang,
+}: {
+  cell: BracketCell
+  /** 試合セルの補足(試合中、不戦勝など)。読み上げ用に出す */
+  note: string | null
+  lang: Lang
+}) {
   if (cell.team !== null) {
     return (
       <span className="teamimg_tn">
@@ -28,14 +39,35 @@ function CellContent({ cell, lang }: { cell: BracketCell; lang: Lang }) {
         href={matchHref(cell.matchId, lang)}
       >
         {cell.text}
+        <ScreenReaderNote text={note} />
       </a>
     )
   }
   // 空セルは &nbsp;(参照サイトの原文ママ)
-  return cell.text === '' ? nbsp : cell.text
+  return (
+    <>
+      {cell.text === '' ? nbsp : cell.text}
+      <ScreenReaderNote text={note} />
+    </>
+  )
 }
 
-export function BracketTable({ bracket, lang }: { bracket: Bracket; lang: Lang }) {
+export function BracketTable({
+  bracket,
+  matches,
+  lang,
+}: {
+  bracket: Bracket
+  /** グループの結果一覧の行(試合セルの補足を引く)。管理画面のプレビューなど試合が無ければ省く */
+  matches?: MatchRow[]
+  lang: Lang
+}) {
+  const rows = new Map((matches ?? []).map((match) => [match.matchId, match]))
+  // 本サイト独自: 試合中と不戦勝などは色とスコアだけでは分からないので、title と読み上げ用の文字で補う
+  const noteOf = (cell: BracketCell) =>
+    cell.kind === 'game' && cell.matchId !== null
+      ? matchCellNote(cell.status, rows.get(cell.matchId), lang)
+      : null
   return (
     <div className="TN_TMPL">
       <table>
@@ -43,12 +75,19 @@ export function BracketTable({ bracket, lang }: { bracket: Bracket; lang: Lang }
           {bracket.rows.map((row, rowIndex) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: テンプレートの固定グリッドで、行は並べ替えない
             <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: 同上(列も固定)
-                <td key={cellIndex} className={bracketCellClass(cell, bracket.columns)}>
-                  <CellContent cell={cell} lang={lang} />
-                </td>
-              ))}
+              {row.map((cell, cellIndex) => {
+                const note = noteOf(cell)
+                return (
+                  <td
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 同上(列も固定)
+                    key={cellIndex}
+                    className={bracketCellClass(cell, bracket.columns)}
+                    title={note ?? undefined}
+                  >
+                    <CellContent cell={cell} note={note} lang={lang} />
+                  </td>
+                )
+              })}
             </tr>
           ))}
         </tbody>

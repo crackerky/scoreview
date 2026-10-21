@@ -86,7 +86,7 @@ describe('プール型(clone-spec C 2.1)', () => {
             ],
           },
         },
-        /<td class="RM_NOW {2}CM"><a class="RM_NOW_Link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">2-1<\/a><\/td>/,
+        /<td class="RM_NOW {2}CM" title="試合中"><a class="RM_NOW_Link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">2-1<span class="sv_sr" data-scoreview-addition="">\(試合中\)<\/span><\/a><\/td>/,
       ],
       [
         {
@@ -170,6 +170,30 @@ describe('トーナメント型(clone-spec C 2.3)', () => {
     assert.match(html, /<tr><td class="WDiv3 txt_and {3}">3rd - 4th<\/td>/)
   })
 
+  test('不戦勝の試合セルは title と読み上げ用の文字に結果の種類と勝ったチーム', () => {
+    // group-1002 の結果一覧は空なので、同じ試合 9001 の行を group-1001 から借りる
+    const matches = pool.matches
+      .filter((match) => match.matchId === 9001)
+      .map((match) => ({ ...match, resultType: 'forfeit' as const }))
+    const html = renderHtml(<GroupView data={{ ...bracketSmall, matches }} lang="jp" />)
+    assert.match(
+      html,
+      /title="架空チームA の不戦勝"><a class="tnmt_game_link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<span class="sv_sr" data-scoreview-addition="">\(架空チームA の不戦勝\)<\/span><\/a>/,
+    )
+    const poolHtml = renderHtml(
+      <GroupView
+        data={{
+          ...pool,
+          matches: pool.matches.map((match) =>
+            match.matchId === 9001 ? { ...match, resultType: 'forfeit' as const } : match,
+          ),
+        }}
+        lang="en"
+      />,
+    )
+    assert.match(poolHtml, /<td class="RM_ARI {2}CM" title="Forfeit win: Fictional A">/)
+  })
+
   test('試合中の試合セルは tnmt_play_now(推測)、未試合はリンクなし(推測)', () => {
     assert.ok(bracketSmall.bracket)
     const rows = bracketSmall.bracket.rows.map((row) =>
@@ -183,7 +207,7 @@ describe('トーナメント型(clone-spec C 2.3)', () => {
     )
     assert.match(
       live,
-      /<a class="tnmt_play_now" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<\/a>/,
+      /title="試合中"><a class="tnmt_play_now" href="\/pscore\/scv_match\/open\/9001\?lang=jp">9-3<span class="sv_sr" data-scoreview-addition="">\(試合中\)<\/span><\/a>/,
     )
     const scheduledRows = bracketSmall.bracket.rows.map((row) =>
       row.map((cell) =>
