@@ -550,7 +550,7 @@ type MatchDetail = {
     tournamentId: number; tournamentName: string; divisionName: string; groupName: string | null
   }
   inBracket: boolean                 // トーナメント(bracket グループ)の試合
-  forfeitScore: { winner: number; loser: number } | null  // 大会の不戦勝の規定スコア
+  forfeitScore: { winner: number; loser: number } | null  // 不戦勝の規定スコア(大会、無ければ大会の形の設定)
   startedAt: string | null           // 経過 0 秒の時刻(RFC 3339、UTC)。得点経過が無ければ null
   events: Array<{                    // 時系列の昇順
     id: number; clientId: string     // clientId は端末が付けた UUID(無ければ api が付けた UUID)
@@ -621,13 +621,14 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
   winnerSide?: Side | null           // forfeit と no_contest は必須。abandoned は同点のトーナメントの試合で必須。
                                      // double_forfeit と unplayed は指定不可
   forfeitScore?: { winner: number; loser: number } | null
-                                     // forfeit だけ。大会に規定スコアが無いときに必須。あるときは省略するか同じ値
+                                     // forfeit だけ。規定スコア(大会、無ければ大会の形の設定)が無いときに必須。
+                                     // あるときは省略するか同じ値
 }
 ```
 
 | 種類 | 記録する値 | 成績の集計(チーム、プール、勝ち点) |
 |---|---|---|
-| `forfeit`(不戦勝) | 大会の規定スコアを勝者の側に。`winnerSide` | 規定スコアで勝ち・負け |
+| `forfeit`(不戦勝) | 規定スコア(大会、無ければ大会の形の設定)を勝者の側に。`winnerSide` | 記録したスコアで勝ち・負け |
 | `double_forfeit`(両チーム不戦敗) | スコアなし(`null`) | 両チームとも負け。得失点なし |
 | `no_contest`(不成立) | スコアなし。`winnerSide` | 勝ち・負けだけ。得失点なし |
 | `abandoned`(途中打ち切り) | その時点の得点経過のスコア | 通常の試合と同じ |

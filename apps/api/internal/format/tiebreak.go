@@ -138,10 +138,11 @@ func BandRule() Rule {
 
 // RankInput はプール順位の計算の入力。Teams はグループの枠の順。
 type RankInput struct {
-	Teams   []int64
-	Games   []Game
-	Rule    Rule
-	Forfeit ForfeitScore
+	Teams []int64
+	Games []Game
+	Rule  Rule
+	// Forfeit は不戦勝の規定スコア(スコアを記録していない不戦勝に使う)。nil は規定なし
+	Forfeit *ForfeitScore
 	// Decision は運営者が決めた順(group_rank_decisions)。未決の同順位のチームが全員ここに
 	// あれば、この並びで順位を決める
 	Decision []int64
@@ -391,7 +392,7 @@ func (r ratio) cmp(o ratio) int {
 // poolEvaluator はプールの基準の値を出す。
 type poolEvaluator struct {
 	games   []Game
-	forfeit ForfeitScore
+	forfeit *ForfeitScore
 	stats   map[int64]Stats
 }
 

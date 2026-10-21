@@ -138,7 +138,7 @@ func draftFormat(ctx context.Context, db *gorm.DB, division Division, input Form
 		return nil, domain.Invalid("forfeit", "winner score must be larger than loser score")
 	}
 	d := &formatDraft{input: input, spec: spec, plan: plan,
-		cfg: format.Config{Tiebreak: rule, Band: format.BandRule(), Forfeit: input.Forfeit}}
+		cfg: format.Config{Tiebreak: rule, Band: format.BandRule(), Forfeit: new(input.Forfeit)}}
 	if input.Schedule != nil {
 		cfg, err := input.Schedule.config()
 		if err != nil {

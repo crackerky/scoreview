@@ -117,7 +117,7 @@ func configFor(row DivisionFormat) (format.Config, error) {
 		return format.Config{}, err
 	}
 	return format.Config{Tiebreak: rule, Band: format.BandRule(),
-		Forfeit: format.ForfeitScore{Winner: row.ForfeitWinnerScore, Loser: row.ForfeitLoserScore}}, nil
+		Forfeit: &format.ForfeitScore{Winner: row.ForfeitWinnerScore, Loser: row.ForfeitLoserScore}}, nil
 }
 
 // specOf は division_formats の行から Spec を作る。
@@ -161,14 +161,15 @@ func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*forma
 	if fs.cfg, err = configFor(row); err != nil {
 		return nil, false, err
 	}
-	// 不戦勝の規定スコアは、大会の設定(記録係が不戦勝を記録するときに使う値)があればそれを使い、
-	// 無ければ形の指定の値を使う(順位計算と記録したスコアが食い違わないように)
-	tournament, err := findInternal[Tournament](ctx, db, fs.division.TournamentID, "tournament")
+	// 不戦勝は記録したスコアで数え、スコアの無い不戦勝だけに規定スコア(記録と同じ値。
+	// regulationForfeitScore)を使う
+	setting, err := regulationForfeitScore(ctx, db, fs.division)
 	if err != nil {
 		return nil, false, err
 	}
-	if setting := tournamentForfeitScore(tournament); setting != nil {
-		fs.cfg.Forfeit = format.ForfeitScore{Winner: setting.Winner, Loser: setting.Loser}
+	fs.cfg.Forfeit = nil
+	if setting != nil {
+		fs.cfg.Forfeit = &format.ForfeitScore{Winner: setting.Winner, Loser: setting.Loser}
 	}
 	if fs.plan, err = format.NewEngine().Generate(fs.spec); err != nil {
 		return nil, false, fmt.Errorf("regenerate format of division %d: %w", divisionID, err)

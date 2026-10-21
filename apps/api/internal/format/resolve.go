@@ -8,16 +8,19 @@ import (
 	"scoreview/api/internal/domain"
 )
 
-// Config は順位と結果の扱いの設定(division_formats のタイブレーク設定)。
+// Config は順位と結果の扱いの設定(division_formats のタイブレーク設定)。Forfeit は不戦勝の規定スコアで、
+// スコアを記録していない不戦勝だけに使う(記録したスコアがあればそちらで数える)。nil は規定なしで、
+// その不戦勝は勝敗だけを数える。
 type Config struct {
 	Tiebreak Rule
 	Band     Rule
-	Forfeit  ForfeitScore
+	Forfeit  *ForfeitScore
 }
 
 // DefaultConfig は初期値: 現行方式(直接対決あり)、全体順位の推測の基準、没収 15-0。
 func DefaultConfig() Config {
-	return Config{Tiebreak: CurrentRule(true), Band: BandRule(), Forfeit: DefaultForfeitScore()}
+	forfeit := DefaultForfeitScore()
+	return Config{Tiebreak: CurrentRule(true), Band: BandRule(), Forfeit: &forfeit}
 }
 
 // BandKey は段の全体順位の組(段の r 位を並べたもの)を指す。

@@ -500,8 +500,9 @@ func SetMatchResult(
 		})
 }
 
-// forfeitScoreOf は不戦勝に使う規定スコア。大会の設定があればそれを使い、入力が設定と違えば
-// 検証エラー(記録係が規定と違うスコアで記録しないように)。設定が無ければ入力を使う。
+// forfeitScoreOf は不戦勝に使う規定スコア(大会、無ければ大会の形の設定。regulationForfeitScore)。
+// 規定があればそれを使い、入力が規定と違えば検証エラー(記録係が規定と違うスコアで記録しないように)。
+// 規定が無ければ入力を使う。
 func forfeitScoreOf(
 	ctx context.Context,
 	tx *gorm.DB,
@@ -512,18 +513,17 @@ func forfeitScoreOf(
 	if err != nil {
 		return nil, err
 	}
-	tournament, err := findInternal[Tournament](ctx, tx, division.TournamentID, "tournament")
+	setting, err := regulationForfeitScore(ctx, tx, division)
 	if err != nil {
 		return nil, err
 	}
-	setting := tournamentForfeitScore(tournament)
 	if setting == nil {
 		return input, nil
 	}
 	if input != nil && *input != *setting {
 		return nil, domain.Invalid(
 			"forfeitScore",
-			fmt.Sprintf("the tournament defines %d-%d", setting.Winner, setting.Loser),
+			fmt.Sprintf("the forfeit score is %d-%d", setting.Winner, setting.Loser),
 		)
 	}
 	return setting, nil

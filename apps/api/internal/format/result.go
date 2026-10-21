@@ -9,7 +9,8 @@ type ResultType string
 const (
 	// ResultNormal はスコアで勝敗を決める。同点はプールでは引き分け、トーナメントでは Winner が要る
 	ResultNormal ResultType = "normal"
-	// ResultForfeit は没収(不戦勝)。Winner が要り、スコアは大会の規定スコアで数え、敗者の棄権試合数に数える
+	// ResultForfeit は没収(不戦勝)。Winner が要り、敗者の棄権試合数に数える。得点と失点は記録した
+	// スコアがあればそれ、無ければ規定スコア(Config.Forfeit)、どちらも無ければ数えない(勝敗だけ)
 	ResultForfeit ResultType = "forfeit"
 	// ResultVoid は不成立(人数不足など)。スコアを記録せず、Winner の勝敗だけを数える(JFDA 規程。R2 5.3)
 	ResultVoid ResultType = "void"
@@ -130,8 +131,9 @@ func (s Stats) Points() int { return pointsWin*s.Wins + pointsDraw*s.Draws }
 // GoalDiff は得失点差。
 func (s Stats) GoalDiff() int { return s.GoalsFor - s.GoalsAgainst }
 
-// add は game を team の側から見て加える。数えない試合なら何もしない。
-func (s *Stats) add(team int64, game Game, forfeit ForfeitScore) {
+// add は game を team の側から見て加える。数えない試合なら何もしない。forfeit は不戦勝の規定スコア
+// (nil は規定なし)で、スコアを記録していない不戦勝だけに使う。
+func (s *Stats) add(team int64, game Game, forfeit *ForfeitScore) {
 	var side domain.Side
 	switch team {
 	case game.Left:
@@ -163,26 +165,40 @@ func (s *Stats) add(team int64, game Game, forfeit ForfeitScore) {
 	case ResultVoid:
 		// 不成立はスコアを数えない
 	case ResultForfeit:
+		if winner != side {
+			s.Forfeits++
+		}
+		// 記録したスコア(閲覧ページの成績表と同じ値)を優先し、順位と表示を食い違わせない
+		if game.Result.LeftScore != nil && game.Result.RightScore != nil {
+			s.addScore(side, *game.Result.LeftScore, *game.Result.RightScore)
+			return
+		}
+		if forfeit == nil {
+			return // 規定スコアが無ければ得失点に数えない(勝敗だけ)
+		}
 		if winner == side {
 			s.GoalsFor += forfeit.Winner
 			s.GoalsAgainst += forfeit.Loser
 		} else {
 			s.GoalsFor += forfeit.Loser
 			s.GoalsAgainst += forfeit.Winner
-			s.Forfeits++
 		}
 	default:
-		own, opp := *game.Result.LeftScore, *game.Result.RightScore
-		if side == domain.SideRight {
-			own, opp = opp, own
-		}
-		s.GoalsFor += own
-		s.GoalsAgainst += opp
+		s.addScore(side, *game.Result.LeftScore, *game.Result.RightScore)
 	}
 }
 
+func (s *Stats) addScore(side domain.Side, left, right int) {
+	own, opp := left, right
+	if side == domain.SideRight {
+		own, opp = opp, own
+	}
+	s.GoalsFor += own
+	s.GoalsAgainst += opp
+}
+
 // statsFor は team の games 全体の成績。
-func statsFor(team int64, games []Game, forfeit ForfeitScore) Stats {
+func statsFor(team int64, games []Game, forfeit *ForfeitScore) Stats {
 	var s Stats
 	for _, g := range games {
 		s.add(team, g, forfeit)
