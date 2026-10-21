@@ -82,7 +82,8 @@ export const scheduleResponseSchema = z.object({
   filters: z.object({
     dates: z.array(z.string()),
     teams: z.array(z.object({ value: z.string(), name: i18nTextSchema })),
-    fieldMax: z.number().int(),
+    // その範囲の試合で使われたコートの異なり値(自然順)。参照サイトの select と同じ
+    fields: z.array(z.string()),
     selected: z.object({ ymd: z.string(), team: z.string(), field: z.string() }),
   }),
   sort: z.object({ key: z.string(), dir: z.enum(['asc', 'desc']) }).nullable(),
@@ -217,7 +218,7 @@ export const matchResponseSchema = z.object({
     groupName: z.string().nullable(),
     date: z.string().nullable(),
     time: z.string().nullable(),
-    field: z.number().int().nullable(),
+    field: z.string().nullable(),
     status: matchStatusSchema,
     left: z.object({ team: teamRefSchema.nullable(), score: z.number().int().nullable() }),
     right: z.object({ team: teamRefSchema.nullable(), score: z.number().int().nullable() }),
@@ -231,6 +232,8 @@ export const matchResponseSchema = z.object({
     z.object({
       elapsedSec: z.number().int(),
       kind: z.enum(['goal', 'timeout', 'pull', 'end']),
+      // 参照サイトの「キャラハンゴール」。kind が goal のときだけ true になる
+      callahan: z.boolean(),
       side: sideSchema.nullable(),
       scorer: playerRefSchema.nullable(),
       assist: playerRefSchema.nullable(),

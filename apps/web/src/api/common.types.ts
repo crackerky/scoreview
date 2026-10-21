@@ -80,7 +80,8 @@ export const matchRowSchema = z.object({
   code: z.string(),
   date: z.string().nullable(),
   time: z.string().nullable(),
-  field: z.number().int().nullable(),
+  // コートは数字とは限らない(参照サイトのディビジョン 467 は "A" "B")
+  field: z.string().nullable(),
   status: matchStatusSchema,
   left: matchSideSchema,
   right: matchSideSchema,

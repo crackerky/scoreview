@@ -9,7 +9,7 @@
       { "value": "架空チームB", "name": { "ja": "架空チームB", "en": "Fictional B" } },
       { "value": "架空大学", "name": { "ja": "架空大学", "en": "Fictional Univ" } }
     ],
-    "fieldMax": 2,
+    "fields": ["1", "2"],
     "selected": { "ymd": "20261018", "team": "", "field": "" }
   },
   "sort": null,
@@ -20,7 +20,7 @@
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",
-      "field": 1,
+      "field": "1",
       "status": "finished",
       "left": {
         "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
@@ -44,7 +44,7 @@
       "code": "A2",
       "date": "2026-10-18",
       "time": "10:00",
-      "field": 2,
+      "field": "2",
       "status": "finished",
       "left": {
         "team": { "id": 5003, "name": { "ja": "架空大学", "en": "Fictional Univ" } },
@@ -68,7 +68,7 @@
       "code": "B1",
       "date": "2026-10-18",
       "time": "11:00",
-      "field": 1,
+      "field": "1",
       "status": "scheduled",
       "left": { "team": null, "placeholder": { "code": "A1", "outcome": "win" }, "score": null },
       "right": { "team": null, "placeholder": { "code": "A2", "outcome": "lose" }, "score": null },

@@ -6,7 +6,7 @@
     "groupName": "Qualifying pool A",
     "date": "2026-10-18",
     "time": "09:00",
-    "field": 1,
+    "field": "1",
     "status": "finished",
     "left": {
       "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
@@ -26,6 +26,7 @@
     {
       "elapsedSec": 0,
       "kind": "pull",
+      "callahan": false,
       "side": "right",
       "scorer": null,
       "assist": null,
@@ -35,6 +36,7 @@
     {
       "elapsedSec": 240,
       "kind": "goal",
+      "callahan": false,
       "side": "left",
       "scorer": {
         "id": 70001,
@@ -54,6 +56,7 @@
     {
       "elapsedSec": 1200,
       "kind": "end",
+      "callahan": false,
       "side": null,
       "scorer": null,
       "assist": null,

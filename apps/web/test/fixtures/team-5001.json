@@ -23,7 +23,7 @@
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",
-      "field": 1,
+      "field": "1",
       "status": "finished",
       "left": {
         "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
