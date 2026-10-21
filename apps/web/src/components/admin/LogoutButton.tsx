@@ -29,7 +29,8 @@ export function LogoutButton() {
     discardPending()
   }
   return (
-    <form action={logoutAction} onSubmit={onSubmit}>
+    // 確認で取り消すことがあるので、送信中の表示(SubmitFeedback)の対象外にする
+    <form action={logoutAction} onSubmit={onSubmit} data-no-busy="">
       <button type="submit" className="secondary">
         ログアウト
       </button>
