@@ -12,7 +12,10 @@ export default async function GroupPage(props: IdPageProps) {
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang, `-${data.group.name}-`)}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }} topMenu={null}>
+      <SiteFrame
+        variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
+        topMenu={null}
+      >
         <GroupView data={data} lang={lang} />
       </SiteFrame>
     </>

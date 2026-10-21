@@ -23,7 +23,7 @@ export default async function MatchPage(props: IdPageProps) {
     <>
       <title>{tournamentPageTitle(data.frame, lang, suffix)}</title>
       <SiteFrame
-        variant={{ kind: 'tournament', frame: data.frame, lang }}
+        variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={
           <MatchTopMenu matchId={data.match.id} lang={lang} scrollToNavi={query.refpos === '1'} />
         }

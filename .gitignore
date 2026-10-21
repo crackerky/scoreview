@@ -13,3 +13,5 @@ coverage/
 apps/api/bin/
 # エージェントの git worktree
 .claude/worktrees/
+# next dev が自動生成するエージェント向けの規約ファイル
+apps/web/AGENTS.md

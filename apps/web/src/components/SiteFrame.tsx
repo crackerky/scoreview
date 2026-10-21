@@ -10,7 +10,15 @@ import { SiteHeader } from './SiteHeader'
 // 大会ページ: 背景パターン、#score_navi、#sub あり。大会一覧: 黒背景、ナビとサイドバーなし。
 // 参照サイトと同じく body の背景はページ内の <style> で切り替える。
 
-type FrameVariant = { kind: 'list' } | { kind: 'tournament'; frame: TournamentFrame; lang: Lang }
+type FrameVariant =
+  | { kind: 'list' }
+  | {
+      kind: 'tournament'
+      frame: TournamentFrame
+      lang: Lang
+      /** サイドバーに SCORE メニューを出すか(ディビジョン成績、グループ、チーム、試合、選手、ギャラリー) */
+      scoreMenu?: boolean
+    }
 
 type SiteFrameProps = {
   variant: FrameVariant
@@ -42,7 +50,13 @@ export function SiteFrame({ variant, topMenu, year, children }: SiteFrameProps) 
               <ScoreNavi frame={variant.frame} lang={variant.lang} />
             )}
           </div>
-          {variant.kind === 'tournament' && <Sidebar banners={variant.frame.banners} />}
+          {variant.kind === 'tournament' && (
+            <Sidebar
+              frame={variant.frame}
+              lang={variant.lang}
+              scoreMenu={variant.scoreMenu ?? false}
+            />
+          )}
           <div id="contents">
             <div id="main">
               <div id="score_parts">

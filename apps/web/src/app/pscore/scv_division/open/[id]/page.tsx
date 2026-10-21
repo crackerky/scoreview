@@ -14,7 +14,10 @@ export default async function DivisionStandingsPage(props: IdPageProps) {
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang, suffix)}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }} topMenu={null}>
+      <SiteFrame
+        variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
+        topMenu={null}
+      >
         <DivisionStandingsView data={data} lang={lang} />
       </SiteFrame>
     </>

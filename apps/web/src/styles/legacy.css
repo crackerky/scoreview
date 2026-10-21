@@ -281,6 +281,57 @@ h6 {
   background: var(--brand-sidebar-frame);
 }
 
+/* SCORE メニュー(参照サイトは 09_menu_score.png と 09_menu_brake_line.gif の画像。CSS で置き換える) */
+#sub .sub_score_title {
+  width: 180px;
+  height: 21px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding-left: 14px;
+  border-left: 6px solid var(--brand-badge-bg);
+  background: repeating-linear-gradient(-45deg, #fde8e0, #fde8e0 4px, #fff4ef 4px, #fff4ef 8px);
+  color: #000;
+  font-weight: bold;
+  font-size: 123.1%;
+  line-height: 21px;
+  text-align: left;
+}
+
+#sub .sub_brake_line {
+  width: 180px;
+  height: 1px;
+  margin: 0 auto;
+  border-top: 1px dotted #999;
+}
+
+/* score_frame.css の #sub ul / li / a / p。行頭の三角は bg_list.gif の代わり */
+#sub ul {
+  margin: 2px 0 0 2px;
+  padding: 0;
+}
+
+#sub li {
+  padding: 2px 0 2px 12px;
+  line-height: 1.4;
+  list-style: none;
+}
+
+#sub li a,
+#sub li p {
+  display: block;
+  margin: 0;
+  padding-left: 12px;
+  background: var(--brand-list-bullet) 0 5px no-repeat;
+}
+
+#sub li a {
+  color: #008080;
+}
+
+#sub li p {
+  color: #696969;
+}
+
 #sub .sub_banners {
   text-align: center;
   margin: 15px 0;

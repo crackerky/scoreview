@@ -14,7 +14,10 @@ export default async function TeamPage(props: IdPageProps) {
   return (
     <>
       <title>{title}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }} topMenu={null}>
+      <SiteFrame
+        variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
+        topMenu={null}
+      >
         <TeamView data={data} lang={lang} />
       </SiteFrame>
     </>

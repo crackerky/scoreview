@@ -26,6 +26,8 @@
   --brand-title-bg: url("/brand/title-bg.svg");
   --brand-navi-arrow-down: url("/brand/navi-arrow-down.svg");
   --brand-navi-arrow-right: url("/brand/navi-arrow-right.svg");
+  /* サイドバーの SCORE メニューの行頭記号(参照サイトの bg_list.gif の代わり) */
+  --brand-list-bullet: url("/brand/list-bullet.svg");
   /* サイドバーの枠(参照は 09_menu_outline_*.jpg の画像。ここでは罫線で置き換える) */
   --brand-sidebar-frame: #c8c8c8;
 }

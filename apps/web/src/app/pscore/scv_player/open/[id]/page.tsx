@@ -14,7 +14,10 @@ export default async function PlayerPage(props: IdPageProps) {
   return (
     <>
       <title>{title}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }} topMenu={null}>
+      <SiteFrame
+        variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
+        topMenu={null}
+      >
         <PlayerView data={data} lang={lang} />
       </SiteFrame>
     </>
