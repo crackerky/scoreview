@@ -334,7 +334,7 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 // 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。
 func TestGetDivisionStandingsTieOrder(t *testing.T) {
 	db, b, sc := setup(t)
-	division := b.Division(sc.Tournament.ID)
+	division := b.Division(sc.Tournament.ID, func(row *store.Division) { row.StandingsPublished = true })
 	rankOne := func(order int) store.Team {
 		return b.Team(division, func(row *store.Team) { row.FinalRank, row.SortOrder = ptr(1), order })
 	}
@@ -490,6 +490,49 @@ func TestGetTeam(t *testing.T) {
 		ID: sc.StaffA.ID, Role: domain.I18nText{Ja: "マネージャ", En: "Manager"},
 		Name: domain.I18nText{Ja: "架空 監督", En: "Coach KAKU"},
 	}}, page.Staff)
+}
+
+// チーム名の下の追記(本サイト独自): 次の試合と、いま見るべきグループ。
+func TestGetTeamWhereabouts(t *testing.T) {
+	db, b, sc := setup(t)
+	ctx := context.Background()
+
+	// 終了した大会では次の試合を出さない。グループは最後に終えた試合のもの
+	page, err := store.GetTeam(ctx, db, sc.TeamB.ID)
+	require.NoError(t, err)
+	assert.Nil(t, page.NextMatchID)
+	require.NotNil(t, page.CurrentGroup)
+	assert.Equal(t, sc.Pool.ID, page.CurrentGroup.ID)
+
+	// 進行中の大会: 未試合の A3 が次の試合で、グループはその試合のもの
+	running := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryClosed })
+	division := b.Division(running.ID)
+	home := b.Team(division)
+	away := b.Team(division)
+	pool := b.Group(division.ID, domain.GroupPool)
+	second := b.Group(division.ID, domain.GroupPool, func(row *store.Group) { row.SortOrder = 1 })
+	b.GroupTeam(pool.ID, home.ID)
+	b.Match(division, &home, &away, storetest.Finished(3, 1), storetest.At(t, "2026-10-17", "09:00", "1"),
+		func(row *store.Match) { row.GroupID = &pool.ID })
+	next := b.Match(division, &away, &home, storetest.At(t, "2026-10-18", "09:00", "2"),
+		func(row *store.Match) { row.GroupID = &second.ID })
+	page, err = store.GetTeam(ctx, db, home.ID)
+	require.NoError(t, err)
+	assert.Equal(t, &next.ID, page.NextMatchID)
+	require.NotNil(t, page.CurrentGroup)
+	assert.Equal(t, second.ID, page.CurrentGroup.ID)
+
+	// 試合のないチームは group_teams の登録から選ぶ。どこにも入っていなければ nil
+	idle := b.Team(division)
+	b.GroupTeam(second.ID, idle.ID)
+	page, err = store.GetTeam(ctx, db, idle.ID)
+	require.NoError(t, err)
+	assert.Nil(t, page.NextMatchID)
+	require.NotNil(t, page.CurrentGroup)
+	assert.Equal(t, second.ID, page.CurrentGroup.ID)
+	page, err = store.GetTeam(ctx, db, b.Team(division).ID)
+	require.NoError(t, err)
+	assert.Nil(t, page.CurrentGroup)
 }
 
 // 出場記録のあるチームで記録のない選手は欠場。出場記録のないチームでは誰も欠場にしない。

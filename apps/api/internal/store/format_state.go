@@ -64,6 +64,8 @@ const (
 	maxRestSlots = 6
 	// maxLunchMinutes は昼休みの長さの上限(分)
 	maxLunchMinutes = 240
+	// maxScheduleCourts はコートの数の上限(形の提案の上限と同じ。コートの数だけ配列を作るため)
+	maxScheduleCourts = 64
 )
 
 // Config は format.ScheduleConfig にする。日付と時刻は UTC の値として扱う(試合の日付と時刻は
@@ -73,8 +75,9 @@ func (s ScheduleSetting) Config() (format.ScheduleConfig, error) {
 		return format.ScheduleConfig{}, domain.Invalid("schedule.slotMinutes",
 			fmt.Sprintf("1 試合の枠の長さは 1〜%d 分にしてください", maxSlotMinutes))
 	}
-	if len(s.Courts) == 0 {
-		return format.ScheduleConfig{}, domain.Invalid("schedule.courts", "コートを 1 つ以上入れてください")
+	if len(s.Courts) == 0 || len(s.Courts) > maxScheduleCourts {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.courts",
+			fmt.Sprintf("コートは 1〜%d 面にしてください", maxScheduleCourts))
 	}
 	seen := map[string]bool{}
 	for i, court := range s.Courts {

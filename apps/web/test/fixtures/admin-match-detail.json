@@ -252,5 +252,8 @@
         "role": null
       }
     ]
-  }
+  },
+  "scorer": null,
+  "concurrentRecords": [],
+  "matchMinutes": null
 }

@@ -52,6 +52,7 @@ function add(
     assistId: null,
     callahan: false,
     winnerSide,
+    expectedScore: null,
   }
 }
 
@@ -108,6 +109,7 @@ describe('見込みの状態', () => {
       opId: uuid(9),
       status: 'live',
       winnerSide: null,
+      expectedScore: null,
     })
     assert.equal(reopened.match.status, 'live')
     assert.equal(
@@ -123,6 +125,7 @@ describe('見込みの状態', () => {
       resultType: 'forfeit',
       winnerSide: 'right',
       forfeitScore: { winner: 15, loser: 0 },
+      expectedScore: null,
     })
     assert.equal(forfeit.match.status, 'finished')
     assert.equal(forfeit.match.resultType, 'forfeit')
@@ -134,6 +137,7 @@ describe('見込みの状態', () => {
       resultType: 'double_forfeit',
       winnerSide: null,
       forfeitScore: null,
+      expectedScore: null,
     })
     assert.deepEqual([both.match.left.score, both.match.right.score], [null, null])
 
@@ -143,6 +147,7 @@ describe('見込みの状態', () => {
       resultType: 'abandoned',
       winnerSide: null,
       forfeitScore: null,
+      expectedScore: null,
     })
     assert.deepEqual([abandoned.match.left.score, abandoned.match.right.score], [1, 0])
   })
@@ -204,9 +209,16 @@ describe('端末への保存と送信', () => {
     const request = (headers: Record<string, string>) =>
       new Request('http://localhost:3003/admin/api/matches/1/ops', { method: 'POST', headers })
     const json = { 'content-type': 'application/json', host: 'localhost:3003' }
-    assert.equal(isSameOriginJson(request({ ...json, origin: 'http://localhost:3003' })), true)
-    assert.equal(isSameOriginJson(request({ ...json, origin: 'https://evil.example' })), false)
-    assert.equal(isSameOriginJson(request(json)), false)
+    const site = ['http://localhost:3003']
+    assert.equal(
+      isSameOriginJson(request({ ...json, origin: 'http://localhost:3003' }), site),
+      true,
+    )
+    assert.equal(
+      isSameOriginJson(request({ ...json, origin: 'https://evil.example' }), site),
+      false,
+    )
+    assert.equal(isSameOriginJson(request(json), site), false)
     assert.equal(
       isSameOriginJson(
         request({
@@ -214,6 +226,7 @@ describe('端末への保存と送信', () => {
           host: 'localhost:3003',
           origin: 'http://localhost:3003',
         }),
+        site,
       ),
       false,
     )

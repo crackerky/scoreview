@@ -112,6 +112,8 @@ export const matchRowSchema = z.object({
     'abandoned',
     'unplayed',
   ]),
+  // 終了した試合の勝った側。引き分けなどは null(状況列の「BREEZE の不戦勝」に使う。本サイト独自)
+  winnerSide: sideSchema.nullable(),
   left: matchSideSchema,
   right: matchSideSchema,
 })

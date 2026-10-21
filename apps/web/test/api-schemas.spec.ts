@@ -69,6 +69,7 @@ describe('閲覧用応答のスキーマ', () => {
       field: null,
       status: 'scheduled',
       resultType: 'normal',
+      winnerSide: null,
       left: { team: null, placeholder: { code: 'A1', outcome: 'win' }, score: null, labelEn: '' },
       right: {
         team: null,

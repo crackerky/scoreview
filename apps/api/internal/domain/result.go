@@ -41,10 +41,11 @@ type ForfeitScore struct {
 	Loser  int
 }
 
-// Validate は規定スコアが「敗者 0 以上、勝者が敗者より多い」ことを確かめる。
+// Validate は規定スコアが「敗者 0 以上、勝者が敗者より多く MaxScore 以下」であることを確かめる。
 func (s ForfeitScore) Validate(field string) error {
-	if s.Loser < 0 || s.Winner <= s.Loser {
-		return Invalid(field, "winner must be greater than loser, and loser must be 0 or more")
+	if s.Loser < 0 || s.Winner <= s.Loser || s.Winner > MaxScore {
+		return Invalid(field, fmt.Sprintf(
+			"winner must be greater than loser and at most %d, and loser must be 0 or more", MaxScore))
 	}
 	return nil
 }
@@ -67,7 +68,8 @@ type ResultOutcome struct {
 }
 
 // DecideResult は通常以外の結果で試合を終えるときに、保存するスコアと勝者を決める。
-// 規則に合わない入力(勝者の無い不戦勝、規定スコアの無い不戦勝、勝者を付けた未消化など)は検証エラー。
+// 規則に合わない入力(勝者の無い不戦勝、勝者を付けた未消化など)は検証エラー。規定スコアの無い
+// 不戦勝は、スコアを記録せず勝者だけを記録する。
 func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 	needsWinner := func() error {
 		if in.WinnerSide == nil {
@@ -86,11 +88,11 @@ func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 		if err := needsWinner(); err != nil {
 			return ResultOutcome{}, err
 		}
+		winner := *in.WinnerSide
 		if in.Forfeit == nil {
-			return ResultOutcome{}, Invalid(
-				"forfeitScore",
-				"is required: the tournament has no forfeit score",
-			)
+			// 規定スコア(大会、無ければ大会の形)が無ければ、勝者だけを記録し、スコアは本部が後で決める
+			// (記録係にその場で点数を決めさせない)
+			return ResultOutcome{Winner: &winner}, nil
 		}
 		if err := in.Forfeit.Validate("forfeitScore"); err != nil {
 			return ResultOutcome{}, err
@@ -99,7 +101,6 @@ func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 		if *in.WinnerSide == SideRight {
 			score = Score{Left: in.Forfeit.Loser, Right: in.Forfeit.Winner}
 		}
-		winner := *in.WinnerSide
 		return ResultOutcome{Score: &score, Winner: &winner}, nil
 	case ResultNoContest:
 		if err := needsWinner(); err != nil {

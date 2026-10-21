@@ -193,6 +193,9 @@ type matchSpec struct {
 	scores      [2]int
 	winner      *domain.Side
 	noDetail    bool
+	// result は結果の種類(空は通常)。noScore はスコアを記録しない結果(両者不戦敗、未消化)
+	result  domain.ResultType
+	noScore bool
 }
 
 // match は試合を作る。終了か試合中で詳細ありなら、スコアに合う得点経過と出場記録も作る。
@@ -220,13 +223,17 @@ func (s *seeder) match(
 	}
 	// スコアと状態の変更は本来 store の試合更新用関数だけが行う(scoreview-design 8)。
 	// シードでは行の作成時の初期値として入れる
-	if spec.status != domain.MatchScheduled {
+	if spec.status != domain.MatchScheduled && !spec.noScore {
 		row.LeftScore, row.RightScore = ptr(spec.scores[0]), ptr(spec.scores[1])
+	}
+	if spec.result != "" {
+		row.ResultType = spec.result
 	}
 	if err := s.create(&row); err != nil {
 		return row, err
 	}
-	if spec.status == domain.MatchScheduled || spec.noDetail || spec.left == nil || spec.right == nil {
+	if spec.status == domain.MatchScheduled || spec.noDetail || spec.noScore || spec.left == nil ||
+		spec.right == nil {
 		return row, nil
 	}
 	return row, s.progress(row, spec, players[spec.left.ID], players[spec.right.ID])
@@ -363,4 +370,21 @@ func (s *seeder) roundRobin(
 
 func finished(left, right int) matchSpec {
 	return matchSpec{status: domain.MatchFinished, scores: [2]int{left, right}}
+}
+
+// exceptional は通常以外の結果で終えた試合(閲覧ページの状況列、対戦表とブラケットの補足の確認用)。
+// 不戦勝は大会の規定スコア 15-0 を勝者の側に入れる。打切のほかは試合ページ(得点経過)が無い。
+func exceptional(result domain.ResultType, winner *domain.Side) matchSpec {
+	spec := matchSpec{status: domain.MatchFinished, result: result, winner: winner}
+	switch result {
+	case domain.ResultForfeit:
+		spec.scores, spec.noDetail = [2]int{15, 0}, true
+		if winner != nil && *winner == domain.SideRight {
+			spec.scores = [2]int{0, 15}
+		}
+	case domain.ResultDoubleForfeit, domain.ResultUnplayed, domain.ResultNoContest:
+		// 試合をしていないので試合ページ(得点経過)も無い
+		spec.noScore, spec.noDetail = true, true
+	}
+	return spec
 }

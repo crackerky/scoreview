@@ -33,6 +33,12 @@ func TestTallyByResultType(t *testing.T) {
 			domain.Tally{Games: 1, Losses: 1, GoalsAgainst: 15},
 		},
 		{
+			"forfeit without a score counts only the winner and loser",
+			withType(noScore(team, other), domain.ResultForfeit, side(domain.SideLeft)),
+			domain.Tally{Games: 1, Wins: 1},
+			domain.Tally{Games: 1, Losses: 1},
+		},
+		{
 			"double forfeit is a loss for both teams without a score",
 			withType(noScore(team, other), domain.ResultDoubleForfeit, nil),
 			domain.Tally{Games: 1, Losses: 1},
@@ -98,11 +104,11 @@ func TestDecideResult(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "forfeit without a forfeit score",
+			name: "forfeit without a forfeit score records only the winner",
 			in: domain.ExceptionalResult{
 				Type: domain.ResultForfeit, WinnerSide: side(domain.SideLeft),
 			},
-			wantErr: true,
+			want: domain.ResultOutcome{Winner: side(domain.SideLeft)},
 		},
 		{
 			name: "forfeit score must have a winner greater than the loser",

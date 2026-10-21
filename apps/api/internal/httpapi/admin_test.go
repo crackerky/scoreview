@@ -163,18 +163,70 @@ func TestAuthEndpoints(t *testing.T) {
 
 func TestLoginRateLimitResponds429(t *testing.T) {
 	f := newAdminFixture(t)
-	for range auth.MaxLoginFailures {
+	for range auth.FreeLoginFailures {
 		f.do(t, "", http.MethodPost, "/api/v1/auth/login",
 			map[string]string{"email": "staff@example.com", "password": "wrong password!"})
 	}
 	rec := f.do(t, "", http.MethodPost, "/api/v1/auth/login",
 		map[string]string{"email": "staff@example.com", "password": adminPassword})
 	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.Equal(t, "1", rec.Header().Get("Retry-After"))
 	assert.JSONEq(
 		t,
 		`{"error":{"code":"too_many_requests","message":"too many login attempts; try again later"}}`,
 		rec.Body.String(),
 	)
+	// 間隔を空ければ正しいパスワードで入れる(締め出さない)
+	f.now = f.now.Add(time.Second)
+	f.login(t, "staff@example.com")
+}
+
+// loginFrom は X-Client-IP つきでログインを送る。
+func (f *adminFixture) loginFrom(t *testing.T, ip, email, password string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := fmt.Sprintf(`{"email":%q,"password":%q}`, email, password)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+		"/api/v1/auth/login", strings.NewReader(body))
+	req.Header.Set("X-Internal-Token", testToken)
+	req.Header.Set("X-Client-IP", ip)
+	rec := httptest.NewRecorder()
+	f.srv.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestLoginLimitUsesClientIP(t *testing.T) {
+	f := newAdminFixture(t)
+	for i := range auth.MaxLoginFailuresPerIP {
+		// IPv6 は /64 の範囲で数える(範囲の中でアドレスを変えても同じ利用者)
+		ip := fmt.Sprintf("2001:db8:1:2::%x", i+1)
+		rec := f.loginFrom(t, ip, fmt.Sprintf("u%d@example.com", i), "wrong password!")
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+	}
+	rec := f.loginFrom(t, "2001:db8:1:2:ffff::1", "admin@example.com", adminPassword)
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	assert.Equal(t, "900", rec.Header().Get("Retry-After"))
+	// 別の /64 や IPv4 は数えない
+	assert.Equal(t, http.StatusOK, f.loginFrom(t, "2001:db8:1:3::1", "admin@example.com", adminPassword).Code)
+	assert.Equal(t, http.StatusOK, f.loginFrom(t, "192.0.2.1", "admin@example.com", adminPassword).Code)
+}
+
+func TestLoginRespondsUnavailableWhenPasswordChecksAreBusy(t *testing.T) {
+	db := testdb.New(t)
+	gate := auth.NewPasswordGate(1, 0)
+	srv := httpapi.NewServer(db, testToken, httpapi.WithPasswordGate(gate))
+	// 照合中の席がふさがっているうちにログインを送る
+	leave, err := gate.Enter(context.Background())
+	require.NoError(t, err)
+	defer leave()
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/login",
+		strings.NewReader(`{"email":"admin@example.com","password":"wrong password!"}`))
+	req.Header.Set("X-Internal-Token", testToken)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Equal(t, "1", rec.Header().Get("Retry-After"))
+	assert.JSONEq(t, `{"error":{"code":"unavailable","message":"server is busy; try again shortly"}}`,
+		rec.Body.String())
 }
 
 func TestSessionExpiresOverHTTP(t *testing.T) {

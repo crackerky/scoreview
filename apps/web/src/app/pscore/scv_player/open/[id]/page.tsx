@@ -15,6 +15,7 @@ export default async function PlayerPage(props: IdPageProps) {
     <>
       <title>{title}</title>
       <SiteFrame
+        heading={pickText(lang, data.player.name)}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={null}
       >

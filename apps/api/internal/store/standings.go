@@ -20,8 +20,10 @@ const (
 
 // GetDivisionStandings はディビジョン成績を返す。無ければ EVENT_DIVISION_ID の NotFound。
 //
-// 順位は teams.final_rank の値で、勝率から計算しない(clone-spec C 1.4)。行は順位の昇順
-// (未確定は末尾)、同順位は compareStandingRows の順。成績はディビジョンの終了した全試合の合算。
+// 順位は teams.final_rank の値で、勝率から計算しない(clone-spec C 1.4)。ディビジョンの順位が
+// 未公開(standings_published=false)の間は全チームの順位を nil にする(publishedRank)。行は順位の
+// 昇順(未確定は末尾)、同順位は compareStandingRows の順。未公開の間は順位で並べないので、行の順から
+// 順位は分からない。成績はディビジョンの終了した全試合の合算。
 func GetDivisionStandings(ctx context.Context, db *gorm.DB, id int64) (StandingsPage, error) {
 	division, err := findByID[Division](ctx, db, id, domain.ResourceDivision)
 	if err != nil {
@@ -63,7 +65,8 @@ func GetDivisionStandings(ctx context.Context, db *gorm.DB, id int64) (Standings
 	page.Standings = make([]StandingRow, 0, len(teams))
 	for _, team := range teams {
 		page.Standings = append(page.Standings, StandingRow{
-			Team: teamRef(team), Tally: domain.TallyFor(team.ID, results), Rank: team.FinalRank,
+			Team: teamRef(team), Tally: domain.TallyFor(team.ID, results),
+			Rank: publishedRank(division, team),
 		})
 	}
 	slices.SortStableFunc(page.Standings, compareStandingRows)
@@ -73,6 +76,16 @@ func GetDivisionStandings(ctx context.Context, db *gorm.DB, id int64) (Standings
 	}
 	page.Leaders, page.BlockLeaders = buildLeaders(teams, players, aggs, teamGames)
 	return page, nil
+}
+
+// publishedRank はチームの最終順位を、ディビジョンの順位を公開している(standings_published)ときだけ
+// 返す。ページ自体は参照サイトと同じく ID で直接開けるが、本部が確定させて公開する前の順位は
+// 閲覧用に出さない(docs/requirements.md「権限モデル」。セキュリティ点検 L-6)。
+func publishedRank(division Division, team Team) *int {
+	if !division.StandingsPublished {
+		return nil
+	}
+	return team.FinalRank
 }
 
 // compareStandingRows はディビジョン成績の行の順。順位の昇順(未確定は末尾)、同順位は勝ち数の降順、

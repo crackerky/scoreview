@@ -94,6 +94,34 @@ describe('監査ログの文', () => {
     assert.equal(auditUser(result), '削除された利用者 #9')
   })
 
+  test('得点のチームの訂正は、1 行でチームとスコアの変化を出す', () => {
+    const [moved] = auditListSchema.parse({
+      entries: [
+        {
+          id: 4,
+          at: '2026-10-25T01:03:00Z',
+          user: { id: 2, name: '記録係 山田', role: 'staff' },
+          action: 'event.side',
+          matchId: 1,
+          teamId: null,
+          before: { match: state('live', 2, 1), event: goal(null), finalRank: null },
+          after: {
+            match: state('live', 1, 2),
+            event: { ...goal(null), side: 'right' },
+            finalRank: null,
+          },
+        },
+      ],
+    }).entries
+    assert.ok(moved)
+    assert.deepEqual(describeAudit(moved, names), {
+      what: '得点のチームの訂正',
+      target: '2:05 架空A 得点',
+      before: '架空Aの得点 試合中 2-1',
+      after: '架空Bの得点 試合中 1-2',
+    })
+  })
+
   test('時刻は日本時間、操作した人は役割つき', () => {
     const [updated] = entries
     assert.ok(updated)

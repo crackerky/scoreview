@@ -43,9 +43,11 @@ type TournamentStaff struct {
 // TableName は GORM に表名を伝える。
 func (TournamentStaff) TableName() string { return "tournament_staff" }
 
-// LoginFailure は login_failures の行。Email は小文字に正規化した値。
+// LoginFailure は login_failures の行。Email は小文字に正規化した値。IP は web が渡したクライアントの
+// IP(分からなければ空文字)。
 type LoginFailure struct {
 	Email       string    `gorm:"column:email"`
+	IP          string    `gorm:"column:ip"`
 	AttemptedAt time.Time `gorm:"column:attempted_at"`
 }
 

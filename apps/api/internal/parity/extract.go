@@ -52,6 +52,9 @@ var (
 	sortOnclick = regexp.MustCompile(`AddHiddenVal\('sortkey1',\s*'([^']*)'\)`)
 )
 
+// additionSelector は本サイト独自の追記に付ける印。参照サイトに無い要素なので比較の前に取り除く。
+const additionSelector = "[data-scoreview-addition]"
+
 // refreshAnchors は再読み込みボタン。参照サイトは JavaScript(Action('search') など)で動き、
 // 本サイトは JavaScript なしでも動くよう href を持つ。画面上の違いはないのでリンクとして比べない。
 const refreshAnchors = "#Refresh_OK, #Refresh_NG"
@@ -145,6 +148,8 @@ func Extract(doc *goquery.Document) Page {
 	var page Page
 	// <noscript> は JavaScript が有効なブラウザには出ない(本サイトの JavaScript なし用の検索ボタン)
 	doc.Find("noscript").Remove()
+	// 本サイト独自の追記(読み上げ用の補足、次の試合など。docs/requirements.md「意図的な差分」)は比べない
+	doc.Find(additionSelector).Remove()
 	page.Title = NormalizeText(titlePrefix.ReplaceAllString(NormalizeText(doc.Find("title").Text()), ""))
 
 	doc.Find("#score_navi li").Each(func(_ int, li *goquery.Selection) {

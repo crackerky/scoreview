@@ -92,6 +92,7 @@ function headerColumns(data: ScheduleResponse, lang: Lang, target: Target): TblC
 
 /**
  * 検索フォーム。参照サイトは POST だが本サイトは GET(requirements「意図的な差分」)。
+ * 本サイト独自: 見出しの文字を select の label にする(支援技術向け。見た目は同じ)。
  * 並べ替え(sortkey1)はフォームに含めないので、select を変えると並べ替えが外れる(clone-spec B 2)。
  */
 function SearchForm({
@@ -112,7 +113,7 @@ function SearchForm({
           <tbody>
             <tr>
               <td className="NINI CM BOLD" width="40px">
-                {msg(lang, 'colDate')}
+                <label htmlFor="ymd">{msg(lang, 'colDate')}</label>
               </td>
               <td className="" width="120px">
                 <AutoSubmitSelect
@@ -131,7 +132,7 @@ function SearchForm({
               </td>
               <td className="NINI" width="10px" />
               <td className="NINI CM BOLD" width="60px">
-                {msg(lang, 'colTeam')}
+                <label htmlFor="team">{msg(lang, 'colTeam')}</label>
               </td>
               <td className="" width="180px">
                 <AutoSubmitSelect
@@ -150,7 +151,7 @@ function SearchForm({
               </td>
               <td className="NINI" width="10px" />
               <td className="NINI CM BOLD" width="60px">
-                {msg(lang, 'colField')}
+                <label htmlFor="field">{msg(lang, 'colField')}</label>
               </td>
               <td className="" width="100px">
                 <AutoSubmitSelect

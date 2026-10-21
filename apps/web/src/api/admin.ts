@@ -27,6 +27,8 @@ import {
   matchDetailSchema,
   meResponseSchema,
   noContentSchema,
+  type PasswordChangeInput,
+  scorerResultSchema,
   type TournamentCopyInput,
   userListSchema,
 } from './admin.types'
@@ -50,10 +52,22 @@ function call<T>(
   return apiFetch(path, schema, { method, body, sessionToken: token })
 }
 
-export function login(email: string, password: string) {
+/** clientIp は利用者の IP(api の IP 単位の試行制限に使う。分からなければ空文字) */
+export function login(email: string, password: string, clientIp: string) {
   return apiFetch(`${base}/auth/login`, loginResponseSchema, {
     method: 'POST',
     body: { email, password },
+    clientIp,
+  })
+}
+
+/** 本人がパスワードを変える。このセッションは残り、他の端末のセッションは消える */
+export function changePassword(token: string, body: PasswordChangeInput, clientIp: string) {
+  return apiFetch(`${base}/auth/password`, noContentSchema, {
+    method: 'POST',
+    body,
+    sessionToken: token,
+    clientIp,
   })
 }
 
@@ -186,6 +200,25 @@ export const matches = {
       `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}`,
       matchDetailSchema,
       body,
+    ),
+  /** 得点を相手チームの得点に付け替える(eventRef は得点経過の id か clientId) */
+  moveGoal: (token: string, id: number, eventRef: string, body: unknown) =>
+    call(
+      token,
+      'PUT',
+      `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}/side`,
+      matchDetailSchema,
+      body,
+    ),
+  /** 試合の記録担当を引き受ける・延長する。takeover なら他の端末から引き継ぐ */
+  claimScorer: (token: string, id: number, body: { deviceId: string; takeover: boolean }) =>
+    call(token, 'POST', `${admin}/matches/${id}/scorer`, scorerResultSchema, body),
+  releaseScorer: (token: string, id: number, deviceId: string) =>
+    call(
+      token,
+      'DELETE',
+      `${admin}/matches/${id}/scorer?deviceId=${encodeURIComponent(deviceId)}`,
+      noContentSchema,
     ),
   audit: (token: string, id: number) =>
     call(token, 'GET', `${admin}/matches/${id}/audit`, auditListSchema),

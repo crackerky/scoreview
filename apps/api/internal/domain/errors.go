@@ -4,6 +4,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Sentinel errors。errors.Is で判定し、HTTP ステータスへの変換は httpapi の 1 か所で行う。
@@ -15,7 +16,27 @@ var (
 	ErrConflict     = errors.New("conflict")
 	// ErrTooManyRequests はログイン試行の制限を超えたことを表す
 	ErrTooManyRequests = errors.New("too_many_requests")
+	// ErrUnavailable は混雑で今は処理できないことを表す(パスワード照合の同時実行数の上限など)
+	ErrUnavailable = errors.New("unavailable")
 )
+
+// RetryAfterError は、待てば受け付ける拒否を表す。After は次に試してよいまでの時間。
+// errors.Is は Err(ErrTooManyRequests か ErrUnavailable)で判定する。
+type RetryAfterError struct {
+	Err   error
+	After time.Duration
+}
+
+func (e *RetryAfterError) Error() string {
+	return fmt.Sprintf("%s (retry after %s)", e.Err.Error(), e.After)
+}
+
+func (e *RetryAfterError) Unwrap() error { return e.Err }
+
+// RetryAfter は RetryAfterError を作る。
+func RetryAfter(err error, after time.Duration) error {
+	return &RetryAfterError{Err: err, After: after}
+}
 
 // Resource は存在しない ID を報告するときの種別名。参照サイトのエラー画面の文面
 // ("TOURNAMENT_ID [999999]での操作に失敗しました。") に合わせた識別子を使う。

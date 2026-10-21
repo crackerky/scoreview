@@ -184,6 +184,24 @@ export type PlayerStat = z.infer<typeof playerStatSchema>
 export const forfeitScoreSchema = z.object({ winner: z.number().int(), loser: z.number().int() })
 export type ForfeitScore = z.infer<typeof forfeitScoreSchema>
 
+export const scorerClaimSchema = z.object({
+  userId: id,
+  name: z.string(),
+  deviceId: z.string(),
+  expiresAt: z.iso.datetime(),
+})
+export type ScorerClaim = z.infer<typeof scorerClaimSchema>
+
+export const concurrentRecordSchema = z.object({
+  kind: z.enum(['goal', 'pull']),
+  firstClientId: z.string(),
+  secondClientId: z.string(),
+  firstUser: z.string(),
+  secondUser: z.string(),
+  secondsApart: z.number().int().min(0),
+})
+export type ConcurrentRecord = z.infer<typeof concurrentRecordSchema>
+
 export const matchDetailSchema = z.object({
   match: adminMatchSchema,
   context: z.object({
@@ -198,8 +216,18 @@ export const matchDetailSchema = z.object({
   events: z.array(adminEventSchema),
   playerStats: z.array(playerStatSchema),
   rosters: z.object({ left: z.array(adminPlayerSchema), right: z.array(adminPlayerSchema) }),
+  /** 試合の記録担当(いま記録している端末。期限内のもの) */
+  scorer: scorerClaimSchema.nullable(),
+  /** 別の記録係がほぼ同時に入れた同じ種類の記録の組(二重記録の疑い) */
+  concurrentRecords: z.array(concurrentRecordSchema),
+  /** ディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ null */
+  matchMinutes: z.number().int().positive().nullable(),
 })
 export type MatchDetail = z.infer<typeof matchDetailSchema>
+
+/** POST /api/v1/admin/matches/{id}/scorer の応答 */
+export const scorerResultSchema = z.object({ scorer: scorerClaimSchema, mine: z.boolean() })
+export type ScorerResult = z.infer<typeof scorerResultSchema>
 
 const auditMatchStateSchema = z.object({
   status: matchStatusSchema,
@@ -234,6 +262,7 @@ export const auditEntrySchema = z.object({
     'event.add',
     'event.remove',
     'event.update',
+    'event.side',
     'match.status',
     'match.result',
     'team.final_rank',
@@ -306,6 +335,18 @@ const optionalInt = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : null),
   z.number().int().nullable(),
 )
+// 記録の数値の上限(api の internal/domain/limits.go と同じ値。DB の integer を超えさせない)
+/** 得点経過の経過秒の上限(1 日) */
+export const MAX_ELAPSED_SEC = 24 * 60 * 60
+/** 試合のスコアと不戦勝の規定スコアの上限 */
+export const MAX_SCORE = 999
+/** 1 試合の選手のブロック数とグレイテスト数の上限 */
+export const MAX_PLAYER_STAT = 999
+
+/** 空欄なら null のスコア(0 以上 MAX_SCORE 以下) */
+const optionalScore = optionalInt.pipe(
+  z.number().int().min(0).max(MAX_SCORE, `${MAX_SCORE} 以下で入力してください`).nullable(),
+)
 /** 空欄なら 0 の整数 */
 const intOrZero = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : 0),
@@ -346,8 +387,8 @@ export const tournamentFormSchema = z
     teamListLabel: z.enum(['teams', 'entries']),
     groupLabel: z.enum(['groups', 'results']),
     showSchedule: checkbox,
-    forfeitWinner: optionalInt,
-    forfeitLoser: optionalInt,
+    forfeitWinner: optionalScore,
+    forfeitLoser: optionalScore,
   })
   .refine((form) => (form.forfeitWinner === null) === (form.forfeitLoser === null), {
     path: ['forfeitLoser'],
@@ -656,8 +697,8 @@ export const statusFormSchema = z
   .object({
     status: matchStatusSchema,
     winnerSide: optionalSide,
-    leftScore: optionalInt,
-    rightScore: optionalInt,
+    leftScore: optionalScore,
+    rightScore: optionalScore,
   })
   .refine((form) => (form.leftScore === null) === (form.rightScore === null), {
     path: ['rightScore'],
@@ -679,7 +720,11 @@ export const statusFormSchema = z
 export function playerStatsFromForm(form: Record<string, unknown>) {
   const count = z.preprocess(
     (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : 0),
-    z.number().int().min(0, '0 以上で入力してください'),
+    z
+      .number()
+      .int()
+      .min(0, '0 以上で入力してください')
+      .max(MAX_PLAYER_STAT, `${MAX_PLAYER_STAT} 以下で入力してください`),
   )
   const stats: PlayerStat[] = []
   const seen = new Set<string>()
@@ -711,6 +756,20 @@ export const userFormSchema = z.object({
     z.string().min(12, 'パスワードは 12 文字以上にしてください').max(256).optional(),
   ),
 })
+
+/** 本人によるパスワードの変更。新しいパスワードは確認の欄と一致すること(打ち間違いで締め出されない) */
+export const passwordChangeFormSchema = z
+  .object({
+    currentPassword: z.string().min(1, '今のパスワードを入力してください'),
+    newPassword: z.string().min(12, 'パスワードは 12 文字以上にしてください').max(256),
+    newPasswordConfirm: z.string(),
+  })
+  .refine((form) => form.newPassword === form.newPasswordConfirm, {
+    path: ['newPasswordConfirm'],
+    message: '新しいパスワードと確認が一致しません',
+  })
+  .transform((form) => ({ currentPassword: form.currentPassword, newPassword: form.newPassword }))
+export type PasswordChangeInput = z.output<typeof passwordChangeFormSchema>
 
 /** ユーザーの作成(パスワードは必須) */
 export const userCreateFormSchema = userFormSchema.extend({

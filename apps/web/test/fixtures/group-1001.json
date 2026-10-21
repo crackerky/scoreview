@@ -86,7 +86,10 @@
         "goalsAgainst": 9
       }
     ],
-    "notes": { "reasons": [], "conditions": [] }
+    "notes": {
+      "reasons": [],
+      "conditions": []
+    }
   },
   "bracket": null,
   "image": null,
@@ -95,6 +98,7 @@
       "matchId": 9001,
       "hasDetail": true,
       "resultType": "normal",
+      "winnerSide": "left",
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",

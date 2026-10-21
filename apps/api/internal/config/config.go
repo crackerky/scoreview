@@ -5,11 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // minInternalTokenLen は内部トークンの最小長(バイト)。推測で突破されない長さとして
 // 32 文字(16 進で 128 bit 相当)を下限にする。
 const minInternalTokenLen = 32
+
+// placeholderMarker は以前の .env.example にあった内部トークンの例の目印。リポジトリを読んだ人が
+// 知っている値なので、手元の開発でも使わせない(.env.example は空にし、生成の手順を書いた)。
+const placeholderMarker = "change-me"
 
 // API は api サーバーの設定。
 type API struct {
@@ -35,6 +40,12 @@ func LoadAPI() (API, error) {
 		return API{}, fmt.Errorf(
 			"%w: INTERNAL_API_TOKEN must be at least %d characters",
 			ErrMissingEnv, minInternalTokenLen,
+		)
+	}
+	if strings.Contains(strings.ToLower(cfg.InternalToken), placeholderMarker) {
+		return API{}, fmt.Errorf(
+			"%w: INTERNAL_API_TOKEN is the placeholder from .env.example; generate a random value",
+			ErrMissingEnv,
 		)
 	}
 	if cfg.Port == "" {

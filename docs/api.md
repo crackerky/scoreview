@@ -26,8 +26,10 @@ Go の DTO(`apps/api/internal/httpapi/dto*.go`)と TypeScript の zod スキー�
 | `forbidden` | 403 | 権限がない |
 | `not_found` | 404 | ID が存在しない。`message` は参照サイトのエラー画面に出す `{種別}_ID [{id}]`(`TOURNAMENT_ID`、`ENTRY_TEAM_ID`、`ENTRY_PLAYER_ID`、`MATCH_ID`、`EVENT_DIVISION_ID`、`GROUP_ID`、`TGALLERY_ID`) |
 | `conflict` | 409 | 一意制約違反、状態遷移の不正 |
-| `too_many_requests` | 429 | ログイン試行の制限を超えた(同じメールアドレスで 15 分に 10 回失敗) |
+| `score_mismatch` | 409 | 試合終了などで記録係が確認したスコア(`expectedScore`)が現在のスコアと違う。`message` に現在のスコアを書く |
+| `too_many_requests` | 429 | ログイン試行の制限に掛かった(「認証」のログイン試行の制限)。`Retry-After`(秒)を付ける |
 | `internal` | 500 | それ以外 |
+| `unavailable` | 503 | 混雑で今は処理できない(パスワード照合の同時実行数の上限)。`Retry-After`(秒)を付ける |
 
 ## 共通の型
 
@@ -92,6 +94,9 @@ type MatchRow = {
   status: MatchStatus
   // 結果の種類。通常以外は閲覧ページの状況列に種類を出す(本サイト独自。requirements の意図的な差分)
   resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
+  // 終了した試合の勝った側(勝者の指定があればスコアより優先)。引き分け、未終了、両者不戦敗、未消化は null。
+  // 状況列の「BREEZE の不戦勝」のように、結果の種類と勝ったチームを合わせて出すのに使う(本サイト独自)
+  winnerSide: Side | null
   left: MatchSide
   right: MatchSide
 }
@@ -198,7 +203,8 @@ type Tally = {
 {
   frame: TournamentFrame
   division: { id: number; name: I18nText }
-  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順
+  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順。
+  // ディビジョンの順位が未公開(standings_published=false)の間は全行の rank が null
   standings: Array<Tally & { team: TeamRef; rank: number | null }>
   leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
     team: TeamRef; player: PlayerRef
@@ -211,6 +217,7 @@ type Tally = {
 ### `GET /api/v1/groups/{id}`
 
 グループ成績。`kind` に応じて `pool`、`bracket`、`image` のどれか 1 つが非 null になる。
+非公開(`published=false`)のグループは 404(`GROUP_ID`)。ナビに出さないものを ID の直接指定でも出さない。
 
 ```ts
 {
@@ -264,7 +271,7 @@ type BracketCell = {
     comment: I18nText
     layout: 'standard' | 'roster_only'     // roster_only はディスクゴルフ団体戦(成績表と対戦一覧を出さない)
   }
-  record: Tally & { rank: number | null }
+  record: Tally & { rank: number | null }  // rank はディビジョンの順位が未公開の間は null
   matches: MatchRow[]                      // 日付、時刻の昇順
   players: Array<{
     player: PlayerRef
@@ -275,6 +282,12 @@ type BracketCell = {
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
                                            // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
   showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
+  // 以下はチーム名の下の本サイト独自の追記(requirements.md「意図的な差分」)
+  // 次の試合。matches のうち最初の試合中、なければ最初の未試合(結果の種類が normal)。大会が終了していれば null
+  nextMatchId: number | null
+  // 所属グループ(公開中のもの)のうち、いま見るべきもの。次の試合のグループ → 最後に終えた試合のグループ
+  // → group_teams の登録(ナビの並びで最初)の順に選ぶ。無ければ null
+  currentGroup: { id: number; name: I18nText; linked: boolean } | null
 }
 ```
 
@@ -298,6 +311,8 @@ type BracketCell = {
     note: string                             // スコアボード下の行の中央の備考。多くは空
     hideBlocks: boolean                      // 出場選手表に Block 列を出さない
     hideStats: boolean                       // 統計表を出さない
+    resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'  // 本サイト独自
+    winnerSide: Side | null      // 終了した試合の勝った側(引き分け、両者不戦敗、未消化は null)
     breadcrumb: { divisionId: number; divisionName: I18nText; groupId: number | null }
   }
   // 時系列の昇順(古い順)。画面では web が逆順にして新しい順で出す
@@ -378,8 +393,8 @@ type BracketCell = {
 - `PATCH` のボディは作成と同じ形で、**ボディにあるキーだけ**を変える。入れ子のオブジェクト(`name` など)もキーごとに変える(`{"name":{"en":"X"}}` は `name.ja` を変えない)。
   キーに `null` を入れるとその値を消す。
 - 作成でボディに無いキーは、各型の「既定」の値になる。
-- URL の項目(ロゴ、バナー、写真、グループの画像)は `http(s)://` の絶対 URL か `/` で始まるサイト内のパスだけを受け付ける(`javascript:` などは 400)。
-- 自由記述 HTML(`topHtml`)は**保存時に**無害化する。応答と閲覧用の `topHtml` は無害化後の値になる。
+- URL の項目(ロゴ、バナー、写真、グループの画像)は `http(s)://` の絶対 URL か `/` で始まるサイト内のパスだけを受け付ける(`javascript:` などは 400)。`//` で始まるもの、バックスラッシュ、空白、制御文字を含むものも 400(ブラウザが `/\host` や `/<TAB>/host` を他のサイトの `//host` と読むため。空白は `%20` で書く)。
+- 自由記述 HTML(`topHtml`)は**保存時に**無害化する。応答と閲覧用の `topHtml` は無害化後の値になる。許可するクラスは見出しの `SCV_MIDA_L` / `SCV_MIDA_M` / `SCV_MIDA_S` だけ。寸法の style(width、height、font-size、line-height、letter-spacing、padding、margin、border-radius)は負の値と上限を超える値を落とす。`href` と `src` の `//host`、`/\host` は落とす(`internal/sanitize`)。
 
 ### 認証
 
@@ -395,10 +410,17 @@ type AdminUser = {
 | `POST /api/v1/auth/login` | `{ email, password }` | `{ token, expiresAt, user: AdminUser }`。`expiresAt` は RFC 3339(UTC)。失敗は 401 で、メールアドレスの有無を区別しない文面。試行の制限を超えたら 429 |
 | `POST /api/v1/auth/logout` | なし | 204 |
 | `GET /api/v1/auth/me` | なし | `{ user: AdminUser }` |
+| `POST /api/v1/auth/password` | `{ currentPassword, newPassword }` | 204。本人のパスワードを変える(管理者も記録係も)。このセッションは残し、同じユーザーの他のセッションを消す。今のパスワードが違えば 400(`currentPassword: is incorrect`)。照合はログインと同じ試行の制限に数える |
 
 - メールアドレスは前後の空白を除いた小文字で比べる。
 - セッションの有効期間はログインから 24 時間(延長しない)。トークンは 32 バイトの乱数の base64url で、api は SHA-256 だけを保存する。
-- ログイン試行の制限: 同じメールアドレスで 15 分に 10 回失敗すると、古い失敗が 15 分の窓から外れるまで照合せずに 429 を返す。存在しないアドレスへの試行も同じく数える。成功すると失敗の記録を消す。
+- `POST /api/v1/auth/login` には、web が利用者の IP を `X-Client-IP` ヘッダーで付ける(Vercel では `x-forwarded-for` の先頭、手元では接続元)。無いか IP として読めなければ IP 単位の制限を掛けない。IPv6 は /64 の範囲を 1 つの利用者として数える。
+- ログイン試行の制限(定数は `internal/auth/session.go`)。どちらも照合の前に判定し、429 と `Retry-After` を返す。
+  - アカウント単位: 同じメールアドレスへの失敗が直近 15 分に 5 回になったら、以後は最後の失敗から 1 秒、2 秒、4 秒…(上限 60 秒)空けないと照合しない。一定時間締め出す方式にしないのは、他人がわざと間違えて正しい利用者を締め出せないようにするため。存在しないアドレスへの試行も同じく数える。成功すると失敗の記録を消す。
+  - IP 単位: 同じ IP からの失敗が直近 15 分に 30 回になったら、古い失敗が 15 分の窓から外れるまで照合しない(多くのアドレスへ試す攻撃の対策)。
+  - 確認と記録は同じメールアドレスについて直列にする(advisory lock)。並行に送っても照合の回数は増えない。
+  - web も IP 単位で試行の数を制限する(`apps/web/src/admin/loginLimit.utils.ts`。関数のインスタンスごとの数え方なので、DB で数える api の制限と併用する)。
+- パスワードの照合(argon2id、1 回 19 MiB)は同時に 8 回までにし、空きを 2 秒待っても入れなければ 503 を返す。
 
 ### 大会とバナー
 
@@ -563,6 +585,14 @@ type MatchDetail = {
   }>
   playerStats: Array<{ playerId: number; side: Side; blocks: number; greatests: number }>
   rosters: { left: AdminPlayer[]; right: AdminPlayer[] }   // 左右のチームの選手とスタッフ
+  scorer: ScorerClaim | null         // 試合の記録担当(期限内のもの。下記「試合の記録担当」)
+  concurrentRecords: Array<{         // 別の利用者がほぼ同時(5 秒以内)に入れた同じ種類の記録の組(二重記録の疑い)
+    kind: 'goal' | 'pull'
+    firstClientId: string; secondClientId: string   // 得点経過の clientId。second が後
+    firstUser: string; secondUser: string           // 記録した利用者の表示名
+    secondsApart: number
+  }>
+  matchMinutes: number | null        // ディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ null
 }
 ```
 
@@ -576,6 +606,9 @@ type MatchDetail = {
 | `POST /admin/matches/{id}/events` | 下記 | 201 と `MatchDetail` |
 | `DELETE /admin/matches/{id}/events/{eventId}` | なし(クエリ `clientId` で操作 ID) | 200 と `MatchDetail`(取り消し後の状態を返す) |
 | `PATCH /admin/matches/{id}/events/{eventId}` | `{ clientId?, scorerId, assistId, callahan }` | `MatchDetail`。goal の得点者、アシスト、キャラハンを付け直す。終了した試合でも可 |
+| `PUT /admin/matches/{id}/events/{eventId}/side` | `{ clientId?, side: Side }` | `MatchDetail`。goal を相手チームの得点に付け替える(得点者、アシスト、キャラハンは外す)。既に `side` の得点か、終了した試合なら 409。監査ログは `event.side` の 1 行 |
+| `POST /admin/matches/{id}/scorer` | `{ deviceId: string; takeover?: boolean }` | `{ scorer: ScorerClaim; mine: boolean }`。下記「試合の記録担当」 |
+| `DELETE /admin/matches/{id}/scorer` | なし(クエリ `deviceId`) | 204。その端末が記録担当なら外す |
 | `PUT /admin/matches/{id}/player-stats` | `{ stats: Array<{ playerId; side; blocks; greatests }> }` | `MatchDetail` |
 | `POST /admin/matches/{id}/status` | 下記 | `MatchDetail` |
 | `POST /admin/matches/{id}/result` | 下記 | `MatchDetail`。通常以外の結果で試合を終える |
@@ -583,10 +616,12 @@ type MatchDetail = {
 
 `{eventId}` は得点経過の `id`(正の整数)か `clientId`(UUID)。通信が切れている間に記録した得点経過は、端末が api の `id` を知らないので `clientId` で指す。
 
+**数値の上限**: `elapsedSec` は 0〜86400(1 日)、スコア(`score.left` / `score.right`、`forfeitScore.winner`)は 0〜999、選手記録の `blocks` / `greatests` は 0〜999。超えたら 400(DB の integer を超える値で 500 にしない)。
+
 **操作 ID(`clientId`)と冪等性**: 試合を変える操作(得点経過の追加・取り消し・付け直し、状態の変更、結果の種類)には、端末が UUID の `clientId` を付けられる。
 同じ `clientId` の操作が既に適用済みなら、2 回目は何もせずに現在の `MatchDetail` を返す(得点経過の追加なら 201、他は 200)。
 端末は通信が切れている間の操作を溜め、つながったら順に送り直す。応答が届かずに送り直しても二重に登録されない。
-UUID の形でない `clientId` は 400。得点経過の追加では `clientId` がその得点経過の `clientId` になる。
+UUID の形でない `clientId` は 400。同じ `clientId` が別の試合の操作に使われていれば 409(適用済みとして捨てない)。得点経過の追加では `clientId` がその得点経過の `clientId` になる。
 
 得点経過の追加のボディ:
 
@@ -600,6 +635,8 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
   assistId?: number | null           // goal だけ。得点者と別の選手。キャラハンなら null
   callahan?: boolean                 // goal だけ
   winnerSide?: Side | null           // end だけ。同点のトーナメントの試合では必須
+  expectedScore?: { left: number; right: number } | null
+                                     // end だけ。記録係が確認したスコア。現在のスコアと違えば 409(score_mismatch)
 }
 ```
 
@@ -611,6 +648,7 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
   status: MatchStatus
   winnerSide?: Side | null           // finished にするときだけ。同点のトーナメントの試合では必須
   score?: { left: number; right: number } | null  // 得点経過の無い試合(詳細なし)の結果。経過がある試合では指定不可
+  expectedScore?: { left: number; right: number } | null  // finished にするときだけ。end と同じ
   downstream?: 'keep' | 'reset' | null  // 結果のある下流の試合の対戦が変わるときの承認(下記「大会の形と進行」)
 }
 ```
@@ -624,14 +662,15 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
   winnerSide?: Side | null           // forfeit と no_contest は必須。abandoned は同点のトーナメントの試合で必須。
                                      // double_forfeit と unplayed は指定不可
   forfeitScore?: { winner: number; loser: number } | null
-                                     // forfeit だけ。規定スコア(大会、無ければ大会の形の設定)が無いときに必須。
-                                     // あるときは省略するか同じ値
+                                     // forfeit だけ。規定スコア(大会、無ければ大会の形の設定)があるときは
+                                     // 省略するか同じ値。どちらも無く省略すれば勝者だけを記録する
+  expectedScore?: { left: number; right: number } | null  // 記録係が確認したスコア。end と同じ
 }
 ```
 
 | 種類 | 記録する値 | 成績の集計(チーム、プール、勝ち点) |
 |---|---|---|
-| `forfeit`(不戦勝) | 規定スコア(大会、無ければ大会の形の設定)を勝者の側に。`winnerSide` | 記録したスコアで勝ち・負け |
+| `forfeit`(不戦勝) | 規定スコア(大会、無ければ大会の形の設定。どちらも無ければ `forfeitScore`)を勝者の側に。それも無ければスコアなし(本部が後で決める)。`winnerSide` | 記録したスコアで勝ち・負け。スコアが無ければ勝ち・負けだけ |
 | `double_forfeit`(両チーム不戦敗) | スコアなし(`null`) | 両チームとも負け。得失点なし |
 | `no_contest`(不成立) | スコアなし。`winnerSide` | 勝ち・負けだけ。得失点なし |
 | `abandoned`(途中打ち切り) | その時点の得点経過のスコア | 通常の試合と同じ |
@@ -649,6 +688,25 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
 - 終了した試合には得点経過を足せない(409)。取り消せるのは `end` だけ。
 - 終了時、スコアに差があれば勝者はスコアで決まり、`winnerSide` は保存しない(スコアと矛盾する指定は 400)。同点なら `winnerSide` を保存し、トーナメントの試合で指定が無ければ 400。
 - 試合が終わると、同じディビジョンで、この試合の CD を `placeholder` で参照する未試合の試合のチームを、勝者または敗者で埋める。終了を取り消すと空に戻す(既に始まった後続試合は変えない)。トーナメント表の格子のチーム名も同時に書き直す。
+
+#### 試合の記録担当
+
+同じ試合を 2 台で記録すると得点が二重に入るので、記録画面を開いた端末を「記録担当」にして、他の端末には引き継ぎを確かめさせる。
+
+```ts
+type ScorerClaim = {
+  userId: number; name: string       // 記録担当の利用者と表示名(未登録ならメールアドレス)
+  deviceId: string                   // 端末が作った UUID
+  expiresAt: string                  // RFC 3339(UTC)。この時刻までに延長が無ければ空く
+}
+```
+
+- `POST /admin/matches/{id}/scorer` は、記録担当がいない、期限切れ、または同じ利用者の同じ端末なら、この端末を記録担当にして期限を 30 秒後に延ばす(`mine: true`)。
+  他の端末が期限内の記録担当なら、`takeover: true` のときだけ引き継ぐ。`false` なら変えずに今の記録担当を返す(`mine: false`)。
+- 記録画面は開いている間 10 秒ごとに延長し、閉じるときに `DELETE` で外す。期限が切れた記録担当は `MatchDetail.scorer` に出ない。
+- 記録担当は画面の案内のための仕組みで、得点経過の追加などの操作は記録担当でなくても受け付ける(通信が切れている間に溜めた操作を捨てないため)。
+  同じ種類の記録がほぼ同時に別の利用者から入ったら `concurrentRecords` に出す。
+- 権限は得点経過の追加と同じ(記録係は割り当てが覆う試合だけ)。`deviceId` が UUID でなければ 400。
 
 ### 監査ログ
 
@@ -669,7 +727,7 @@ type AuditEntry = {
   id: number
   at: string                         // RFC 3339(UTC)
   user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
-  action: 'event.add' | 'event.remove' | 'event.update' | 'match.status' | 'match.result' | 'team.final_rank'
+  action: 'event.add' | 'event.remove' | 'event.update' | 'event.side' | 'match.status' | 'match.result' | 'team.final_rank'
     | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
   matchId: number | null; teamId: number | null
   // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
@@ -807,7 +865,7 @@ type Impact = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明 |
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400。`schedule` の上限は別に、日数 1〜7、枠 1〜240 分、昼休み 0〜240 分、休み 0〜6 枠) |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
 | `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null; inherited: SavedFormat \| null }`。`inherited` は大会のコピーで作った部門(形がまだ無い)のコピー元の形で、`seeds` はコピー元のシード順のチームをこの部門の同じ正式名のチームに置き換えたもの |
@@ -856,10 +914,12 @@ type AdminGallery = {
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
 | `GET /admin/users` | なし | `{ users: AdminUser[] }`(役割、メールアドレス順) |
-| `POST /admin/users` | `{ email, displayName, role, password }`(role の既定 'staff'。password は 12〜256 文字で必須) | `AdminUser` |
+| `POST /admin/users` | `{ email, displayName, role, password }`(role の既定 'staff'。password は必須で、下の「パスワードの規則」を満たす) | `AdminUser` |
 | `GET` / `PATCH` / `DELETE /admin/users/{id}` | `PATCH` は `{ email, displayName, role, password }` の一部 | `AdminUser` / 204 |
 | `PUT /admin/users/{id}/tournaments` | `{ tournamentIds: number[] }`(担当大会を置き換える) | `AdminUser` |
 
 - パスワードは応答に含めない。`PATCH` で `password` を変えると、そのユーザーの全セッションを消す。
+- パスワードの規則(作成、`PATCH`、`POST /api/v1/auth/password` で共通。違反は 400): 12〜256 文字。同じ文字や 4 文字以下の並びの繰り返し(`aaaaaaaaaaaa`、`abcabcabcabc`)と、よく使われるパスワード(NCSC の上位 10 万件のうち 12 文字以上の 1,193 件。大文字小文字を区別しない。`internal/auth/common_passwords.txt`)は使えない。漏洩の照合に外部のサービスは使わない。
+- 多要素認証(MFA)は未対応。
 - 自分自身の役割の変更と削除は 409(管理者がいなくなるのを防ぐ)。
 - 最初の管理者は `go run ./cmd/createadmin -email ...` で作る(パスワードは環境変数 `SCOREVIEW_ADMIN_PASSWORD` か標準入力)。

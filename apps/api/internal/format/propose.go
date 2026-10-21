@@ -71,6 +71,27 @@ const (
 	maxRoundRobin = 8
 )
 
+// 提案の入力の上限。コート数の分だけ配列を作り、チーム数の分だけ試合を作るので、上限が無いと
+// 巨大な値で計算とメモリを使い切らせられる(セキュリティ点検 L-3)。どれも実際の大会を十分に超える値。
+const (
+	// maxProposalTeams はチーム数の上限。参照サイトの最大のディビジョンでも数十チーム
+	maxProposalTeams = 128
+	// maxProposalCourts はコート数の上限。大きな会場でも十数面
+	maxProposalCourts = 64
+	// maxProposalSlotMinutes は 1 試合の枠(分)の上限。1 日
+	maxProposalSlotMinutes = 24 * 60
+)
+
+func checkProposalSize(in ProposalInput) error {
+	if err := domain.CheckRange("teams", in.Teams, 2, maxProposalTeams); err != nil {
+		return err
+	}
+	if err := domain.CheckRange("courts", in.Courts, 1, maxProposalCourts); err != nil {
+		return err
+	}
+	return domain.CheckRange("slotMinutes", in.SlotMinutes, 1, maxProposalSlotMinutes)
+}
+
 // Propose はチーム数、コート数、競技から形の候補を返す。運営会社の頻出形(R3 8 節)を先に、
 // 会場の時間に収まる候補を収まらない候補より前に並べ、収まる最初の候補を Recommended にする。
 // 作れない組み合わせは候補にしない。
@@ -80,6 +101,9 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 	}
 	if in.Teams < 2 || in.Courts < 1 || in.SlotMinutes <= 0 {
 		return nil, domain.Invalid("proposal", "teams (2+), courts (1+) and slot minutes are required")
+	}
+	if err := checkProposalSize(in); err != nil {
+		return nil, err
 	}
 	switch in.Sport {
 	case SportSeven, SportFour, SportBeach:

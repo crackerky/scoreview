@@ -15,6 +15,9 @@ func TestCheckURL(t *testing.T) {
 	for _, bad := range []string{
 		"javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>", "//evil.example",
 		"logo.png", "ftp://example.com/a", "https://", "",
+		// ブラウザが "//evil.example" と読むもの(セキュリティ点検 L-1)
+		"/\\evil.example/x", "/\t/evil.example", "/\n/evil.example", "\\\\evil.example",
+		" https://ok.example", "https://evil.example\\@good.example", "/a b",
 	} {
 		assert.ErrorIs(t, domain.CheckURL("url", bad), domain.ErrBadRequest, bad)
 	}
@@ -34,4 +37,12 @@ func TestCheckRequiredAndClock(t *testing.T) {
 	day, err := domain.ParseDay("date", "2026-10-18")
 	assert.NoError(t, err)
 	assert.Equal(t, 18, day.Day())
+}
+
+func TestCheckRangeAndForfeitScoreLimit(t *testing.T) {
+	assert.NoError(t, domain.CheckRange("n", domain.MaxScore, 0, domain.MaxScore))
+	assert.ErrorIs(t, domain.CheckRange("n", domain.MaxScore+1, 0, domain.MaxScore), domain.ErrBadRequest)
+	assert.ErrorIs(t, domain.CheckRange("n", -1, 0, domain.MaxScore), domain.ErrBadRequest)
+	assert.NoError(t, domain.ForfeitScore{Winner: domain.MaxScore}.Validate("f"))
+	assert.ErrorIs(t, domain.ForfeitScore{Winner: domain.MaxScore + 1}.Validate("f"), domain.ErrBadRequest)
 }

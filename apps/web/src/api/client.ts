@@ -34,6 +34,8 @@ type RequestOptions = {
   query?: Record<string, string | undefined>
   body?: unknown
   sessionToken?: string
+  /** 利用者の IP。X-Client-IP で api に渡す(docs/api.md「認証」。ログインの試行制限に使う) */
+  clientIp?: string
 }
 
 /**
@@ -58,6 +60,9 @@ export async function apiFetch<T>(
   }
   if (options.sessionToken) {
     headers.Authorization = `Bearer ${options.sessionToken}`
+  }
+  if (options.clientIp) {
+    headers['X-Client-IP'] = options.clientIp
   }
   const res = await fetch(url, {
     method: options.method ?? 'GET',
