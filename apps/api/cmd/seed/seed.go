@@ -373,7 +373,7 @@ func finished(left, right int) matchSpec {
 }
 
 // exceptional は通常以外の結果で終えた試合(閲覧ページの状況列、対戦表とブラケットの補足の確認用)。
-// 不戦勝は大会の規定スコア 15-0 を勝者の側に入れ、試合ページ(得点経過)は無い。
+// 不戦勝は大会の規定スコア 15-0 を勝者の側に入れる。打切のほかは試合ページ(得点経過)が無い。
 func exceptional(result domain.ResultType, winner *domain.Side) matchSpec {
 	spec := matchSpec{status: domain.MatchFinished, result: result, winner: winner}
 	switch result {
@@ -383,7 +383,8 @@ func exceptional(result domain.ResultType, winner *domain.Side) matchSpec {
 			spec.scores = [2]int{0, 15}
 		}
 	case domain.ResultDoubleForfeit, domain.ResultUnplayed, domain.ResultNoContest:
-		spec.noScore = true
+		// 試合をしていないので試合ページ(得点経過)も無い
+		spec.noScore, spec.noDetail = true, true
 	}
 	return spec
 }
