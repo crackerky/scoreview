@@ -53,7 +53,7 @@ func TestPropose4on4TwelveTeams(t *testing.T) {
 	require.NotEmpty(t, got)
 	first := got[0]
 	assert.True(t, first.Recommended)
-	assert.Equal(t, "4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)", first.Title)
+	assert.Equal(t, "4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)", first.Title)
 	assert.Equal(t, 24, first.Matches)
 	assert.Equal(t, 12, first.Ranked)
 	assert.Equal(t, 12, first.Unique)
@@ -107,7 +107,7 @@ func TestDescribeRuleAndAdvancement(t *testing.T) {
 
 	lines := format.DescribeAdvancement(plan916(t))
 	require.Len(t, lines, 4)
-	assert.Equal(t, "各プールの 1 位(A1、B1、C1、D1)は 1st placement tournament に進み、1〜4 位を決めます。"+
-		"1 回戦は A1 対 B1、C1 対 D1。", lines[0])
+	assert.Equal(t, "各プールの 1 位(A1、B1、C1、D1)は 1〜4 位を決めるトーナメント(1st placement tournament)"+
+		"に進みます。1 回戦は A1 対 B1、C1 対 D1。", lines[0])
 	assert.Contains(t, lines[2], "9〜12 位")
 }

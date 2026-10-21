@@ -92,8 +92,8 @@ func DescribeRule(rule Rule) []string {
 }
 
 // DescribeAdvancement は勝ち上がりの規則を、参加チームへの案内に使える日本語の文にする
-// (「各プールの 1 位(A1、B1、C1、D1)は 1st placement tournament に進み、1〜4 位を決めます。
-// 1 回戦は A1 対 B1、C1 対 D1」)。最初の段のグループは対象にしない。
+// (「各プールの 1 位(A1、B1、C1、D1)は 1〜4 位を決めるトーナメント(1st placement tournament)に
+// 進みます。1 回戦は A1 対 B1、C1 対 D1」)。最初の段のグループは対象にしない。
 func DescribeAdvancement(plan *Plan) []string {
 	var out []string
 	usesGroupRank := false
@@ -103,27 +103,33 @@ func DescribeAdvancement(plan *Plan) []string {
 		}
 		var labels []string
 		for _, slot := range g.Slots {
-			labels = append(labels, slot.Source.Label(plan))
+			labels = append(labels, guideLabel(plan, slot.Source))
 			if slot.Source.Kind == SourceGroupRank {
 				usesGroupRank = true
 			}
 		}
-		text := fmt.Sprintf("%s(%s)は %s に進み", entrantsPhrase(plan, g), strings.Join(labels, "、"), g.Name)
+		kind := "トーナメント"
+		if g.Kind == domain.GroupPool {
+			kind = "総当たり"
+		}
+		var text string
 		if first, last, ok := groupPlaces(g); ok && g.Final {
+			places := fmt.Sprintf("%d〜%d 位", first, last)
 			if first == last {
-				text += fmt.Sprintf("、%d 位を決めます。", first)
-			} else {
-				text += fmt.Sprintf("、%d〜%d 位を決めます。", first, last)
+				places = fmt.Sprintf("%d 位", first)
 			}
+			text = fmt.Sprintf("%s(%s)は %sを決める%s(%s)に進みます。", entrantsPhrase(plan, g),
+				strings.Join(labels, "、"), places, kind, g.Name)
 		} else {
-			text += "ます。"
+			text = fmt.Sprintf("%s(%s)は%s(%s)に進みます。", entrantsPhrase(plan, g),
+				strings.Join(labels, "、"), kind, g.Name)
 		}
 		if g.Kind == domain.GroupBracket {
 			var pairs []string
 			for _, m := range plan.GroupMatches(g.Index) {
 				if m.Left.From == nil && m.Right.From == nil {
 					pairs = append(pairs, fmt.Sprintf("%s 対 %s",
-						g.Slots[m.Left.Slot-1].Source.Label(plan), g.Slots[m.Right.Slot-1].Source.Label(plan)))
+						guideLabel(plan, g.Slots[m.Left.Slot-1].Source), guideLabel(plan, g.Slots[m.Right.Slot-1].Source)))
 				}
 			}
 			if len(pairs) > 0 {
@@ -138,6 +144,18 @@ func DescribeAdvancement(plan *Plan) []string {
 		out = append(out, "「A1」はプール A の 1 位を表します。プールの順位は、本部がプールの結果を確定してから次の組み合わせに反映します。")
 	}
 	return out
+}
+
+// guideLabel は案内文での出どころの書き方。試合の勝者・敗者は参照サイトの記号([E4-負け])ではなく
+// 「E4 の負けチーム」と書く(運営者レビュー M1)。プールの順位は「A1」のまま(後の行で説明する)。
+func guideLabel(plan *Plan, src Source) string {
+	if src.Kind == SourceMatch {
+		if src.Match.Outcome == domain.OutcomeWin {
+			return src.Match.Code + " の勝者"
+		}
+		return src.Match.Code + " の負けチーム"
+	}
+	return src.Label(plan)
 }
 
 // entrantsPhrase は「各プールの 1 位」「各プールの 1・2 位」のような言い方。出どころが揃わなければ

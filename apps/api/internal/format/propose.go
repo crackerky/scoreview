@@ -1,6 +1,7 @@
 package format
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -26,6 +27,9 @@ type ProposalInput struct {
 	SlotMinutes int
 	Start       time.Time
 	Sport       Sport
+	// Schedule は時間割の条件(日数、各日の時間、昼休み、休み、段の日分け)。nil なら Courts、
+	// SlotMinutes、Start と競技の既定の休みで終わりのない 1 日として組む
+	Schedule *ScheduleConfig
 }
 
 // Proposal は形の候補 1 つ。Matches と End は Spec から作った時間割(BuildSchedule)の値。
@@ -39,6 +43,11 @@ type Proposal struct {
 	Matches    int
 	End        time.Time
 	Violations int
+	// EndDay は最後の試合が何日目か(0 から)
+	EndDay int
+	// Overflow は会場の時間に収まらない試合の数、FitNote はその説明(収まれば空)
+	Overflow int
+	FitNote  string
 	// Ranked は最終順位が付くチーム数、Unique はそのうち同順位でないチーム数
 	Ranked int
 	Unique int
@@ -63,8 +72,12 @@ const (
 )
 
 // Propose はチーム数、コート数、競技から形の候補を返す。運営会社の頻出形(R3 8 節)を先に、
-// 競技に合う最初の候補を Recommended にする。作れない組み合わせは候補にしない。
+// 会場の時間に収まる候補を収まらない候補より前に並べ、収まる最初の候補を Recommended にする。
+// 作れない組み合わせは候補にしない。
 func Propose(in ProposalInput) ([]Proposal, error) {
+	if in.Schedule != nil {
+		in.Courts, in.SlotMinutes = len(in.Schedule.Courts), in.Schedule.SlotMinutes
+	}
 	if in.Teams < 2 || in.Courts < 1 || in.SlotMinutes <= 0 {
 		return nil, domain.Invalid("proposal", "teams (2+), courts (1+) and slot minutes are required")
 	}
@@ -80,6 +93,9 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 	}
 	cfg := ScheduleConfig{Start: in.Start, SlotMinutes: in.SlotMinutes, Courts: courts,
 		TeamRestSlots: RestSlotsFor(in.Sport)}
+	if in.Schedule != nil {
+		cfg = *in.Schedule
+	}
 
 	var out []Proposal
 	seen := map[string]bool{}
@@ -97,12 +113,8 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 		}
 		seen[id] = true
 		p := Proposal{ID: id, Title: Title(plan), Spec: spec, Note: note, Matches: len(plan.Matches),
-			Violations: len(sched.Violations)}
-		for _, a := range sched.Assignments {
-			if end := a.Start.Add(time.Duration(in.SlotMinutes) * time.Minute); end.After(p.End) {
-				p.End = end
-			}
-		}
+			Violations: len(sched.Violations), Overflow: sched.Overflow, FitNote: OverflowNote(cfg, sched)}
+		p.End, p.EndDay = EndOf(cfg, sched)
 		p.Ranked, p.Unique = FinalPlaces(plan)
 		out = append(out, p)
 	}
@@ -142,8 +154,11 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 				Spec{Template: TemplateBlocks, Params: BlocksParams{Teams: in.Teams, Bands: bands}})
 		}
 	}
-	// 頻出形(競技とチーム数で選んだもの)が先頭に来るので、先頭を勧める
-	if len(out) > 0 {
+	// 収まる候補を先に(頻出形の順は保つ)。収まる候補の先頭を勧める
+	slices.SortStableFunc(out, func(a, b Proposal) int {
+		return cmp.Compare(min(a.Overflow, 1), min(b.Overflow, 1))
+	})
+	if len(out) > 0 && out[0].Overflow == 0 {
 		out[0].Recommended = true
 	}
 	return out, nil
@@ -164,16 +179,16 @@ func frequentShapes(teams int, sport Sport) []shapeCandidate {
 	one := func(rank int, shape Shape) Band { return Band{Ranks: []int{rank}, Shape: shape} }
 	switch {
 	case sport == SportFour && teams == 12:
-		out = append(out, shapeCandidate{"pb4", "4on4 で最も多い形(直近の大会の 22%)。プール 12 試合 + T4 × 3 の 12 試合",
+		out = append(out, shapeCandidate{"pb4", "4on4 で最も多い形(直近の大会の 22%)。プール 12 試合 + 4 チームのトーナメント 3 つで 12 試合",
 			pool(4, one(1, ShapeT4), one(2, ShapeT4), one(3, ShapeT4))})
 	case sport == SportBeach && teams == 32:
-		out = append(out, shapeCandidate{"blocks4-525", "ビーチの主流(4 ブロック → 1st T4、5th・13th は 1 回戦のみ、21st は T12)",
+		out = append(out, shapeCandidate{"blocks4-525", "ビーチの主流(4 ブロック → 1〜4 位のトーナメント、5〜12 位と 13〜20 位は 1 回戦のみ、21 位以下は 12 チーム)",
 			Spec{Template: TemplateBlocks, Params: BlocksParams{Teams: 32, Bands: []Band{
 				{Ranks: []int{1}, Shape: ShapeT4}, {Ranks: []int{2, 3}, Shape: ShapeT8R1},
 				{Ranks: []int{4, 5}, Shape: ShapeT8R1}, {Ranks: []int{6, 7, 8}, Shape: ShapeT12},
 			}}}})
 	case teams == 16:
-		out = append(out, shapeCandidate{"pb4-t8", "4 プール(4 チーム)→ 1・2 位で 1st T8、3・4 位で 9th T8(たすき掛け)",
+		out = append(out, shapeCandidate{"pb4-t8", "4 プール(4 チーム)→ 各組の 1・2 位で 1〜8 位、3・4 位で 9〜16 位を決めるトーナメント(1 回戦は A組1位 対 C組2位 のたすき掛け)",
 			pool(4, Band{Ranks: []int{1, 2}, Shape: ShapeT8}, Band{Ranks: []int{3, 4}, Shape: ShapeT8})})
 	case sport == SportSeven && teams == 8:
 		out = append(out, shapeCandidate{"rr2", "2 プール + 決勝プール(7 人制で多い形)",
@@ -238,7 +253,7 @@ func shapeForCount(count int) (Shape, bool) {
 	return "", false
 }
 
-// Title は形を一行で表す(「4 プール(各 3 チーム)→ T4 × 3(1st / 5th / 9th)」)。
+// Title は形を一行で表す(「4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)」)。
 func Title(plan *Plan) string {
 	if len(plan.Stages) == 0 {
 		return ""
@@ -272,20 +287,22 @@ func Title(plan *Plan) string {
 	if len(plan.Stages) < 2 {
 		return head
 	}
+	// 後の段は「8 チームのトーナメント × 2(1〜8 位、9〜16 位)」のように、型の記号(T8、1st)ではなく
+	// 運営の言葉で書く(運営者レビュー M1)
 	counts := map[string]int{}
 	var kinds []string
 	var places []string
 	for _, g := range plan.StageGroups(1) {
 		group := plan.Groups[g]
-		kind := string(group.Bracket)
+		kind := fmt.Sprintf("%d チームのトーナメント", group.Size())
 		if group.Kind == domain.GroupPool {
-			kind = "総当たり"
+			kind = fmt.Sprintf("%d チームの総当たり", group.Size())
 		}
 		if counts[kind] == 0 {
 			kinds = append(kinds, kind)
 		}
 		counts[kind]++
-		places = append(places, ordinal(group.RankOffset+1))
+		places = append(places, fmt.Sprintf("%d〜%d 位", group.RankOffset+1, group.RankOffset+group.Size()))
 	}
 	var tail []string
 	for _, kind := range kinds {
@@ -295,7 +312,7 @@ func Title(plan *Plan) string {
 			tail = append(tail, kind)
 		}
 	}
-	return fmt.Sprintf("%s → %s(%s)", head, strings.Join(tail, "、"), strings.Join(places, " / "))
+	return fmt.Sprintf("%s → %s(%s)", head, strings.Join(tail, "、"), strings.Join(places, "、"))
 }
 
 // FinalPlaces は全試合を終えたときに最終順位が付くチーム数と、そのうち同順位でないチーム数を返す。
