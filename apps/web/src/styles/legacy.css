@@ -889,6 +889,14 @@ body:has(> #top) > #footer_ue {
   font-size: 123.1%;
 }
 
+/* 本サイト独自(docs/requirements.md「意図的な差分」): 参照サイトは .tnmt_play_now と .RM_NOW_Link に
+   赤を指定しているが、#main a(ID の詳細度)に負けて試合中も通常のリンク色になる。試合中を目立たせる
+   という CSS の意図のほうを実現する */
+#main a.tnmt_play_now,
+#main a.RM_NOW_Link {
+  color: #f00;
+}
+
 .teamimg_big img {
   margin: 0 10px 3px 0;
   vertical-align: bottom;
