@@ -34,6 +34,22 @@ type Result struct {
 	// Winner はスコアより優先する勝者。同点のトーナメントの試合(サドンデス等。clone-spec C 2.3 の 4-4)、
 	// 没収、不成立で使う
 	Winner *domain.Side
+	// Played はこの結果を記録したときの対戦チーム(試合の行の左右。未登録の側は 0)。勝者と敗者は
+	// このチームで決まる。計算上の対戦チームと食い違えば、結果を下流へ流さない(MatchTeams.Mismatch)。
+	// nil なら照合しない(エンジン単体で使うとき)
+	Played *PlayedTeams
+}
+
+// PlayedTeams は試合の左右のチーム ID(0 は未登録)。
+type PlayedTeams struct {
+	Left  int64
+	Right int64
+}
+
+// started は試合が始まったか、結果が入ったか(対戦チームの照合の対象)。
+func (r *Result) started() bool {
+	return r != nil && (r.Status == domain.MatchLive || r.Status == domain.MatchFinished ||
+		r.Type == ResultUnplayed)
 }
 
 // ForfeitScore は没収試合の規定スコア。
@@ -105,9 +121,11 @@ func (r *Result) decide() (resultState, domain.Side) {
 	return resultDraw, ""
 }
 
-// Game はプールの順位計算に使う 1 試合。Left と Right はチーム ID。
+// Game はプールの順位計算に使う 1 試合。Left と Right はチーム ID。Round はプールの中のラウンド
+// (時刻の順。勝ち上がり条件の「次の試合」に使う。0 なら並びの順)。
 type Game struct {
 	Code   string
+	Round  int
 	Left   int64
 	Right  int64
 	Result *Result

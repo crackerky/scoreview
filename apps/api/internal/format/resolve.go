@@ -81,6 +81,9 @@ const (
 	PendingTie               PendingReason = "tie_unresolved"
 	PendingRankMissing       PendingReason = "rank_missing"
 	PendingUpstream          PendingReason = "upstream_pending"
+	// PendingMismatch は待っている試合の記録した対戦チームが、計算上の対戦チームと食い違っている
+	// (確定後の訂正で順位が変わった)。運営者が食い違いを解消するまで結果を下流へ流さない
+	PendingMismatch PendingReason = "teams_mismatch"
 )
 
 // TeamStatus は枠や試合の片側の解決結果。TeamID が 0 なら未確定で、Pending と Waiting
@@ -98,13 +101,17 @@ func pending(reason PendingReason, waiting string) TeamStatus {
 	return TeamStatus{Pending: reason, Waiting: waiting}
 }
 
-// MatchTeams は試合の左右のチームと、決まっていれば勝者と敗者。
+// MatchTeams は試合の左右のチーム(計算上の対戦チーム)と、決まっていれば勝者と敗者。勝者と敗者は
+// 結果を記録したときの対戦チーム(Result.Played)で決める。Mismatch は、始まった試合の記録した
+// 対戦チームが計算上の対戦チームと食い違うこと。食い違う試合の結果は数えず、勝者と敗者を
+// 出どころにする枠と最終順位は埋めない。
 type MatchTeams struct {
-	Code   string
-	Left   TeamStatus
-	Right  TeamStatus
-	Winner int64
-	Loser  int64
+	Code     string
+	Left     TeamStatus
+	Right    TeamStatus
+	Winner   int64
+	Loser    int64
+	Mismatch bool
 }
 
 // GroupState はグループの進み具合。
@@ -120,11 +127,15 @@ const (
 	GroupFinished  GroupState = "finished"  // 全試合が終わった(トーナメント。確定の操作は要らない)
 )
 
-// GroupStatus はグループの状態。Ranking はプールの枠がすべて埋まっていれば入る。
+// GroupStatus はグループの状態。Ranking はプールの枠がすべて埋まっていれば入る。Done は全試合が
+// 終わった(結果が数えられる。食い違いの試合は終わっていないとみなす)こと、Mismatches は対戦チームが
+// 食い違っている試合の CD。食い違いのあるグループの順位は、出どころの枠と最終順位に使わない。
 type GroupStatus struct {
-	Group   int
-	State   GroupState
-	Ranking *Ranking
+	Group      int
+	State      GroupState
+	Ranking    *Ranking
+	Done       bool
+	Mismatches []string
 }
 
 // FinalRank は最終順位の 1 行。Tied は同順位(トーナメントの同順位、プールの未決)。
@@ -228,6 +239,9 @@ func (r *resolver) groupRank(g, rank int, needConfirm bool) TeamStatus {
 	if needConfirm && !r.st.ConfirmedGroups[g] {
 		return pending(PendingGroupConfirmation, group.Letter)
 	}
+	if len(r.out.Groups) > g && len(r.out.Groups[g].Mismatches) > 0 {
+		return pending(PendingMismatch, group.Letter)
+	}
 	ranking := r.rankings[g]
 	if ranking == nil {
 		return pending(PendingUpstream, group.Letter)
@@ -284,9 +298,14 @@ func (r *resolver) matchTeams(code string) MatchTeams {
 	}
 	m := r.matches[code]
 	mt := MatchTeams{Code: code, Left: r.side(m, m.Left), Right: r.side(m, m.Right)}
-	if mt.Left.Resolved() && mt.Right.Resolved() {
-		if state, winner := r.result(code).decide(); state == resultDecided {
+	res := r.result(code)
+	mt.Mismatch = res.started() && !agrees(mt, res)
+	if mt.Left.Resolved() && mt.Right.Resolved() && !mt.Mismatch {
+		if state, winner := res.decide(); state == resultDecided {
 			mt.Winner, mt.Loser = mt.Left.TeamID, mt.Right.TeamID
+			if res.Played != nil {
+				mt.Winner, mt.Loser = res.Played.Left, res.Played.Right
+			}
 			if winner == domain.SideRight {
 				mt.Winner, mt.Loser = mt.Loser, mt.Winner
 			}
@@ -294,6 +313,19 @@ func (r *resolver) matchTeams(code string) MatchTeams {
 	}
 	r.out.Matches[code] = mt
 	return mt
+}
+
+// agrees は結果を記録したときの対戦チームが、計算上の対戦チームと同じかどうか。計算上まだ決まらない
+// 側は比べない(上流の結果待ちで、その試合の結果はどのみち数えない)。記録が無い(Played が nil)
+// なら照合しない。
+func agrees(mt MatchTeams, res *Result) bool {
+	if res == nil || res.Played == nil {
+		return true
+	}
+	same := func(side TeamStatus, played int64) bool {
+		return !side.Resolved() || side.TeamID == played
+	}
+	return same(mt.Left, res.Played.Left) && same(mt.Right, res.Played.Right)
 }
 
 func (r *resolver) result(code string) *Result {
@@ -306,6 +338,9 @@ func (r *resolver) result(code string) *Result {
 // outcomeTeam は試合 ref の勝者か敗者。
 func (r *resolver) outcomeTeam(ref MatchRef) TeamStatus {
 	mt := r.matchTeams(ref.Code)
+	if mt.Mismatch {
+		return pending(PendingMismatch, ref.Code)
+	}
 	if !mt.Left.Resolved() || !mt.Right.Resolved() {
 		return pending(PendingUpstream, ref.Code)
 	}
@@ -342,8 +377,12 @@ func (r *resolver) poolGames(g int) ([]int64, []Game, bool) {
 	var games []Game
 	for _, m := range r.plan.GroupMatches(g) {
 		mt := r.out.Matches[m.Code]
-		games = append(games, Game{Code: m.Code, Left: mt.Left.TeamID, Right: mt.Right.TeamID,
-			Result: r.result(m.Code)})
+		game := Game{Code: m.Code, Round: m.Round, Left: mt.Left.TeamID, Right: mt.Right.TeamID}
+		if !mt.Mismatch {
+			// 食い違う試合の結果は、計算上のチームのものとして数えない
+			game.Result = r.result(m.Code)
+		}
+		games = append(games, game)
 	}
 	return teams, games, true
 }
@@ -356,12 +395,18 @@ func (r *resolver) groupStatus(g Group) GroupStatus {
 		if mt.Left.Resolved() && mt.Right.Resolved() {
 			playable = true
 		}
+		if mt.Mismatch {
+			status.Mismatches = append(status.Mismatches, m.Code)
+			done = false
+			continue
+		}
 		state, _ := r.result(m.Code).decide()
 		draw := state == resultDraw && g.Kind == domain.GroupPool
 		if state != resultDecided && state != resultUnplayed && state != resultNoWinner && !draw {
 			done = false
 		}
 	}
+	status.Done = done
 	if g.Kind == domain.GroupBracket {
 		switch {
 		case done:
@@ -404,7 +449,7 @@ func (r *resolver) finalRanks() []FinalRank {
 		}
 		if g.Kind == domain.GroupPool {
 			ranking := r.rankings[g.Index]
-			if ranking == nil || !r.st.ConfirmedGroups[g.Index] {
+			if ranking == nil || !r.st.ConfirmedGroups[g.Index] || len(r.out.Groups[g.Index].Mismatches) > 0 {
 				continue
 			}
 			for _, row := range ranking.Rows {

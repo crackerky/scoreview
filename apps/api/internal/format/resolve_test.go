@@ -216,3 +216,37 @@ func TestResolveRejectsUnknownCode(t *testing.T) {
 	_, err := format.Resolve(plan, format.DefaultConfig(), st)
 	assert.ErrorIs(t, err, domain.ErrBadRequest)
 }
+
+// 結果を記録したときの対戦チーム(Played)が計算上の対戦チームと食い違う試合は、勝者と敗者を下流へ
+// 流さず、最終順位にも使わない。残る最終順位は、食い違いの前と同じものだけになる。
+func TestResolveMismatchWithholdsDownstream(t *testing.T) {
+	plan := plan435(t)
+	st := newState(16)
+	res := playAll(t, plan, st)
+	before := map[int64]int{}
+	for _, f := range res.Final {
+		before[f.TeamID] = f.Rank
+	}
+	require.Len(t, before, 16)
+	for code, result := range st.Results {
+		mt := res.Matches[code]
+		result.Played = &format.PlayedTeams{Left: mt.Left.TeamID, Right: mt.Right.TeamID}
+		st.Results[code] = result
+	}
+	assert.Equal(t, res.Final, resolve(t, plan, st).Final, "記録と計算が合っていれば同じ")
+
+	// プール A の 1 位と 2 位が入れ替わる訂正(A1 はシード 1 対 8)
+	st.Results["A1"] = format.Result{Status: domain.MatchFinished, LeftScore: intp(1), RightScore: intp(3),
+		Played: &format.PlayedTeams{Left: 1, Right: 8}}
+	res = resolve(t, plan, st)
+	e4 := res.Matches["E4"]
+	assert.True(t, e4.Mismatch, "E4 は 1 対 6 で記録したが、計算上は 8 対 6")
+	assert.Zero(t, e4.Winner)
+	assert.Equal(t, format.PendingMismatch, res.Matches["E2"].Left.Pending)
+	assert.Contains(t, res.Groups[4].Mismatches, "E4")
+	assert.False(t, res.Groups[4].Done)
+	assert.Less(t, len(res.Final), 16)
+	for _, f := range res.Final {
+		assert.Equal(t, before[f.TeamID], f.Rank, "残る最終順位は食い違いの前と同じ(チーム %d)", f.TeamID)
+	}
+}
