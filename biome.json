@@ -36,6 +36,9 @@
       },
       "security": {
         "noDangerouslySetInnerHtml": "error"
+      },
+      "performance": {
+        "noImgElement": "off"
       }
     }
   },
