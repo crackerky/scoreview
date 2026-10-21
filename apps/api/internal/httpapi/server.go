@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/sanitize"
 )
 
 // Server は api の HTTP ハンドラ一式。
@@ -19,6 +20,7 @@ type Server struct {
 	internalToken string
 	log           *slog.Logger
 	mux           *http.ServeMux
+	sanitizer     *sanitize.Sanitizer
 }
 
 // Option は Server の構成を変える Functional Option。
@@ -32,7 +34,10 @@ func WithLogger(log *slog.Logger) Option {
 // NewServer はルートを登録した Server を返す。internalToken は web との共有秘密で、
 // 全リクエストの X-Internal-Token と定数時間で比較する。
 func NewServer(db *gorm.DB, internalToken string, opts ...Option) *Server {
-	s := &Server{db: db, internalToken: internalToken, log: slog.Default(), mux: http.NewServeMux()}
+	s := &Server{
+		db: db, internalToken: internalToken, log: slog.Default(), mux: http.NewServeMux(),
+		sanitizer: sanitize.New(),
+	}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -44,6 +49,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	s.browseRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。

@@ -1,0 +1,245 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "division": {
+    "id": 1,
+    "name": {
+      "ja": "ビーチミックス",
+      "en": "Beach Mixed"
+    }
+  },
+  "standings": [
+    {
+      "games": 1,
+      "wins": 0,
+      "draws": 0,
+      "losses": 1,
+      "goalsFor": 3,
+      "goalsAgainst": 9,
+      "team": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "rank": 1
+    },
+    {
+      "games": 2,
+      "wins": 1,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 14,
+      "goalsAgainst": 8,
+      "team": {
+        "id": 1,
+        "name": {
+          "ja": "アルファ",
+          "en": "Alpha"
+        }
+      },
+      "rank": 2
+    },
+    {
+      "games": 1,
+      "wins": 0,
+      "draws": 1,
+      "losses": 0,
+      "goalsFor": 5,
+      "goalsAgainst": 5,
+      "team": {
+        "id": 3,
+        "name": {
+          "ja": "チャーリー",
+          "en": "Charlie"
+        }
+      },
+      "rank": 3
+    },
+    {
+      "games": 0,
+      "wins": 0,
+      "draws": 0,
+      "losses": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0,
+      "team": {
+        "id": 4,
+        "name": {
+          "ja": "デルタ",
+          "en": ""
+        }
+      },
+      "rank": null
+    }
+  ],
+  "leaders": [
+    {
+      "team": {
+        "id": 1,
+        "name": {
+          "ja": "アルファ",
+          "en": "Alpha"
+        }
+      },
+      "player": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "games": 1,
+      "assists": 0,
+      "goals": 2
+    },
+    {
+      "team": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "player": {
+        "id": 4,
+        "number": "1",
+        "name": {
+          "ja": "架空 一太",
+          "en": "Ichita KAKU"
+        },
+        "gender": null
+      },
+      "games": 1,
+      "assists": 0,
+      "goals": 1
+    },
+    {
+      "team": {
+        "id": 1,
+        "name": {
+          "ja": "アルファ",
+          "en": "Alpha"
+        }
+      },
+      "player": {
+        "id": 2,
+        "number": "10",
+        "name": {
+          "ja": "架空 十子",
+          "en": ""
+        },
+        "gender": "F"
+      },
+      "games": 1,
+      "assists": 1,
+      "goals": 0
+    }
+  ],
+  "blockLeaders": [
+    {
+      "team": {
+        "id": 1,
+        "name": {
+          "ja": "アルファ",
+          "en": "Alpha"
+        }
+      },
+      "player": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "games": 1,
+      "blocks": 2
+    },
+    {
+      "team": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "player": {
+        "id": 4,
+        "number": "1",
+        "name": {
+          "ja": "架空 一太",
+          "en": "Ichita KAKU"
+        },
+        "gender": null
+      },
+      "games": 1,
+      "blocks": 1
+    }
+  ]
+}
