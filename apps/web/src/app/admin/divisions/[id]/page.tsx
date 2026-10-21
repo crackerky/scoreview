@@ -35,6 +35,10 @@ export default async function AdminDivisionPage(props: IdPageProps) {
     <AdminShell user={user} title={division.name.ja} notice={notice} crumbs={crumbs}>
       <h2>試合</h2>
       <p className="adm-actions">
+        <a href={`/admin/divisions/${id}/progress`}>本部の進行画面</a>
+        {user.role === 'admin' ? (
+          <a href={`/admin/divisions/${id}/format`}>大会の形を決める(プールと順位決定戦)</a>
+        ) : null}
         <a href={`/admin/divisions/${id}/sheets`}>スコアシートをまとめて印刷</a>
         <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
       </p>

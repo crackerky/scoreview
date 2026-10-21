@@ -245,6 +245,18 @@ type poolDTO struct {
 	Teams   []teamRefDTO      `json:"teams"`
 	Matrix  [][]matrixCellDTO `json:"matrix"`
 	Results []poolResultDTO   `json:"results"`
+	Notes   poolNotesDTO      `json:"notes"`
+}
+
+// poolNotesDTO は本サイト独自の補足(順位の根拠と、進行中のプールの勝ち上がり条件)。
+type poolNotesDTO struct {
+	Reasons    []teamNoteDTO `json:"reasons"`
+	Conditions []teamNoteDTO `json:"conditions"`
+}
+
+type teamNoteDTO struct {
+	Team teamRefDTO `json:"team"`
+	Text string     `json:"text"`
 }
 
 // matrixCellDTO は api.md の union 型 { kind: 'self'|'lower'|'empty' } | { kind: 'match', ... }。

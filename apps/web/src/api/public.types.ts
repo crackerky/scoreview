@@ -149,6 +149,11 @@ export const groupResponseSchema = z.object({
           rank: z.number().int().nullable(),
         }),
       ),
+      // 本サイト独自の補足(docs/requirements.md「意図的な差分」)。順位の根拠と、進行中の勝ち上がり条件
+      notes: z.object({
+        reasons: z.array(z.object({ team: teamRefSchema, text: z.string() })),
+        conditions: z.array(z.object({ team: teamRefSchema, text: z.string() })),
+      }),
     })
     .nullable(),
   bracket: z

@@ -85,7 +85,8 @@
         "goalsFor": 3,
         "goalsAgainst": 9
       }
-    ]
+    ],
+    "notes": { "reasons": [], "conditions": [] }
   },
   "bracket": null,
   "image": null,

@@ -4,6 +4,7 @@ import { type Lang, pickText } from '@/i18n/lang'
 import { angleHeading, msg } from '@/i18n/messages'
 import { BracketTable } from './BracketTable'
 import { MatchListRows } from './MatchRowLine'
+import { PoolNotes } from './PoolNotes'
 import { PoolMatrix, PoolResults } from './PoolTables'
 import { ScvMidaM } from './ScvMidaM'
 import { Tbl } from './Tbl'
@@ -49,6 +50,7 @@ function GroupBody({ data, lang }: { data: GroupResponse; lang: Lang }) {
           <ScvMidaM>{angleHeading(lang, msg(lang, 'leagueResult'))}</ScvMidaM>
           <br />
           <PoolResults pool={data.pool} lang={lang} />
+          <PoolNotes notes={data.pool.notes} lang={lang} />
           <hr />
           <GameList matches={data.matches} lang={lang} />
         </>

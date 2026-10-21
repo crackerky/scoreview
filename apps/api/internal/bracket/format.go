@@ -27,8 +27,18 @@ func FormatTemplate(id string, kind format.BracketType, name domain.I18nText) (T
 	}, nil
 }
 
+// mustFormatTemplate は FormatTemplate を呼ぶ。
+func mustFormatTemplate(id string, kind format.BracketType, name domain.I18nText) Template {
+	t, err := FormatTemplate(id, kind, name)
+	if err != nil {
+		// 型はこのパッケージの定数で、format が必ず持つ。作れないならプログラムの誤り
+		panic(err)
+	}
+	return t
+}
+
 // WithFormatTypes は大会形式エンジンの型のうち、単独で使える表(T7、T8 全順位型、T16)を登録する。
-// 既定の Registry(Default)には入れていない。single4/8/16 を置き換えるかは管理画面の担当と決める。
+// 既定の Registry(Default)の single4/8/16 も同じ型で作る(試合番号は参照サイトと同じく決勝が 1)。
 func WithFormatTypes() Option {
 	return func(r *Registry) {
 		for _, spec := range []struct {

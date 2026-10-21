@@ -773,7 +773,7 @@ func TestGroupsAndBracketGeneration(t *testing.T) {
 	)
 	assert.Equal(
 		t,
-		map[string]any{"pattern": "T4", "ptnName": "4 Teams =Final="},
+		map[string]any{"pattern": "T4", "ptnName": "T4 =Final="},
 		generated["bracket"],
 	)
 
@@ -803,9 +803,9 @@ func TestGroupsAndBracketGeneration(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &page))
 	assert.Equal(t, "T4", page.Bracket.Pattern)
 	assert.Equal(t, 3, page.Bracket.Columns)
-	assert.Equal(t, "team", page.Bracket.Rows[1][0].Kind)
-	assert.Equal(t, seeds[0]["teamId"], page.Bracket.Rows[1][0].Team.ID)
-	assert.Equal(t, "F1", page.Bracket.Rows[2][0].Text)
+	assert.Equal(t, "team", page.Bracket.Rows[2][0].Kind)
+	assert.Equal(t, seeds[0]["teamId"], page.Bracket.Rows[2][0].Team.ID)
+	assert.Equal(t, "F2", page.Bracket.Rows[3][0].Text, "1 回戦の上は F2(決勝が F1。参照サイトと同じ)")
 	assert.Len(t, page.Matches, 4)
 
 	f.call(

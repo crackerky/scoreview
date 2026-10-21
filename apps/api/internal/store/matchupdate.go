@@ -663,7 +663,7 @@ func advanceFromResult(ctx context.Context, tx *gorm.DB, match Match) ([]int64, 
 		}
 		changed = append(changed, dep.ID)
 	}
-	return changed, nil
+	return withFormatProgress(ctx, tx, match.DivisionID, changed)
 }
 
 func sameID(a, b *int64) bool {

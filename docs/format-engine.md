@@ -193,6 +193,55 @@
 閲覧ページと API の形は変えない。
 エンジンが作るのは、閲覧ページが既に表示できるグループ、試合、トーナメントの格子、未確定チーム表記である。
 
+### 保存の形(00005_division_formats.sql)
+
+上の表を次のように実装した。`matches.result_type` と `audit_log` は記録係画面の担当が 00004 で足す。
+
+| 表・列 | 実装 |
+|---|---|
+| `division_formats` | 主キーはディビジョン。`template`、`params`(下の JSON)、`start_letter`(最初のグループ文字)、`tiebreak`(`current` / `current_no_h2h` / `jfda`)、`band_rule`(`per_game` だけ)、`forfeit_winner_score` / `forfeit_loser_score`(初期値 15-0)、`schedule`(時間割の設定)、`version`(適用のたびに 1 増える) |
+| `stages` | `stage_index`、`name`、`confirmed_at`、`confirmed_unplayed`(未消化のまま確定)。状態は保存せず、結果から毎回計算する |
+| `groups` | `stage_id`、`format_index`(Plan の中のグループの序数)、`confirmed_at`、`confirmed_unplayed`(プールの確定) |
+| `group_slots` | `position`、`source`(出どころの JSON)、`team_id`(確定したチーム) |
+| `matches` | `left_slot_id` / `right_slot_id` |
+| `group_rank_decisions` | グループの順位(`group_id`)か段の全体順位(`stage_id` と `band_rank`)の指定。`team_ids` は上位から並べた JSON 配列、`reason` は決め方 |
+
+段、グループ、試合の対応は保存せず、`template` と `params` から Plan を作り直して試合 CD とグループの序数で引く(Generate は決定的)。
+プールの間のチームの入れ替えは、シード順の入れ替えとして扱う(蛇行の配置は変えない)。
+
+### 形の指定の JSON
+
+`division_formats.params` と管理 API の `params` は同じ形で、キーは camelCase(`format.DecodeParams` / `EncodeParams`)。
+
+```jsonc
+// pool_bands(プール → 順位帯)
+{ "teams": 12, "pools": 4, "bands": [
+  { "ranks": [1], "shape": "T4", "pairing": null, "name": null },   // pairing: cross / same_rank / seeded、null は既定
+  { "ranks": [2], "shape": "T4", "pairing": null, "name": null },
+  { "ranks": [3], "shape": "T4", "pairing": null, "name": null } ] }
+// blocks(ノックアウトブロック → 順位ごとの集約)。ranks はブロック内の順位
+{ "teams": 32, "bands": [{ "ranks": [2, 3], "shape": "T8R1", "pairing": null, "name": null }] }
+// round_robin(総当たり 1 段)。pools は 1 か 2、finalPoolRanks は 2 プールのとき決勝プールに進む順位
+{ "teams": 8, "pools": 2, "finalPoolRanks": [1, 2] }
+```
+
+`shape` は `pool`、`T2`、`T4`、`T7`、`T8`、`T8R1`、`T12`、`T16`。
+枠の出どころ(`group_slots.source`)は `{"kind":"seed","seed":3}`、`{"kind":"group_rank","group":0,"rank":1}`、`{"kind":"match","match":"E2","outcome":"win"}`、`{"kind":"band_rank","stage":0,"rank":2,"order":1}`、`{"kind":"manual"}`(`group` と `stage` は形の中の序数)。
+
+時間割の設定(`division_formats.schedule`):
+
+```jsonc
+{ "date": "2026-10-18", "start": "09:00", "slotMinutes": 20, "courts": ["1", "2", "3", "4"],
+  "teamRestSlots": 0, "stageGapSlots": 0, "end": null }
+```
+
+### 進行の反映(store/format_progress.go)
+
+- 試合の結果が変わるたびに(`advanceFromResult` の最後)、ディビジョンの形を解決し直して、枠のチーム、未試合の試合の左右、グループのチーム、最終順位(`teams.final_rank`)を書く。既に始まった試合の左右は変えない。
+- プールの順位は `group_teams.rank_override` にも書き、閲覧ページの順位表にエンジンの順位(タイブレークの設定と運営者の指定を反映したもの)を出す。
+- 確定後の訂正で順位が変わり、既に始まった下流の試合の対戦が食い違ったときは、自動では直さず進行画面に「食い違い」として出す。運営者は「順位どおりに差し替える」を選べる。
+- 形の適用は、結果の入った試合が 1 つでもあれば断る(大会が始まった後に作り直さない)。
+
 ## 実装の置き場所
 
 - `apps/api/internal/format`:純粋な Go のパッケージ。テンプレートからの生成、タイブレーク、出どころの解決、影響の計算、日程の生成。GORM と HTTP を知らない。

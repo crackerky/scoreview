@@ -1,24 +1,16 @@
 package bracket
 
-import "scoreview/api/internal/domain"
+import (
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/format"
+)
 
-// EightTeams は 8 チームのトーナメント(1 回戦 4、準決勝 2、決勝、3 位決定戦の 8 試合)。
-// 列は参照サイトの T8A と同じ 4 列(1 回戦 / 準決勝 / 決勝 / Placement。clone-spec C 2.3)。
+// EightTeams は 8 チームで 1〜8 位を決めるトーナメント(参照サイトの T8 全順位型、12 試合)。
+// 試合番号は決勝が 1、準決勝が 2 と 3、1 回戦が 4〜7、3 位決定戦が 8、5 位決定戦が 9、
+// 敗者戦が 10 と 11、7 位決定戦が 12(R3 6 章)。
 func EightTeams() Template {
-	spec := singleSpec{
-		pattern:    "T8",
-		name:       "8 Teams",
-		teams:      8,
-		roundNames: []string{"1st Round", "Semifinals", "FINAL"},
-		thirdPlace: true,
-	}
-	return Template{
-		ID: "single8",
-		Name: domain.I18nText{
-			Ja: "8 チーム(1 回戦、準決勝、決勝、3 位決定戦)",
-			En: "8 teams (1st round, semifinals, final, 3rd place)",
-		},
-		Teams: spec.teams,
-		plan:  func() domain.BracketPlan { return singleElimination(spec) },
-	}
+	return mustFormatTemplate("single8", format.BracketT8, domain.I18nText{
+		Ja: "8 チーム全順位(1 回戦、準決勝、決勝、3・5・7 位決定戦。1〜8 位)",
+		En: "8 teams (1st-8th)",
+	})
 }

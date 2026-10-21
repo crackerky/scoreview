@@ -87,6 +87,9 @@ func GetGroup(ctx context.Context, db *gorm.DB, id int64) (GroupPage, error) {
 		if err != nil {
 			return GroupPage{}, fmt.Errorf("group %d: %w", id, err)
 		}
+		if pool.Notes, err = poolNotes(ctx, db, group, members, matches, teams); err != nil {
+			return GroupPage{}, err
+		}
 		page.Pool = &pool
 	case domain.GroupBracket:
 		bracket, err := buildBracket(group, layout, matchesByID, teams)

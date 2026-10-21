@@ -269,7 +269,7 @@ func newBracketFixture(t *testing.T) bracketFixture {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, "T8", record.Bracket.Pattern)
-	assert.Equal(t, "8 Teams =Tounament A=", record.Bracket.PtnName)
+	assert.Equal(t, "T8 =Tounament A=", record.Bracket.PtnName)
 	assert.Len(t, record.Teams, 8)
 	group := store.Group{ID: created.ID, DivisionID: division.ID}
 	return bracketFixture{
@@ -304,34 +304,35 @@ func (f bracketFixture) cellTeam(t *testing.T, row, col int) *int64 {
 
 func TestApplyBracketPlanCreatesMatchesAndPlaceholders(t *testing.T) {
 	f := newBracketFixture(t)
-	require.Len(t, f.matches, 8)
-	b1 := f.matches["B1"]
-	assert.Equal(t, f.teams[0].ID, b1.Left.Team.ID)
-	assert.Equal(t, f.teams[1].ID, b1.Right.Team.ID)
+	// 参照サイトの T8 全順位型(決勝が 1、1 回戦が 4〜7、3 位決定戦が 8)
+	require.Len(t, f.matches, 12)
+	b4 := f.matches["B4"]
+	assert.Equal(t, f.teams[0].ID, b4.Left.Team.ID)
+	assert.Equal(t, f.teams[1].ID, b4.Right.Team.ID)
 	assert.Equal(
 		t,
-		&domain.Placeholder{Code: "B1", Outcome: domain.OutcomeWin},
-		f.matches["B5"].Left.Placeholder,
+		&domain.Placeholder{Code: "B4", Outcome: domain.OutcomeWin},
+		f.matches["B2"].Left.Placeholder,
 	)
 	assert.Equal(
 		t,
-		&domain.Placeholder{Code: "B6", Outcome: domain.OutcomeWin},
-		f.matches["B7"].Right.Placeholder,
+		&domain.Placeholder{Code: "B3", Outcome: domain.OutcomeWin},
+		f.matches["B1"].Right.Placeholder,
 	)
 	assert.Equal(
 		t,
-		&domain.Placeholder{Code: "B5", Outcome: domain.OutcomeLose},
+		&domain.Placeholder{Code: "B2", Outcome: domain.OutcomeLose},
 		f.matches["B8"].Left.Placeholder,
 	)
-	assert.Nil(t, f.matches["B5"].Left.Team)
+	assert.Nil(t, f.matches["B2"].Left.Team)
 
 	// 格子: 1 回戦のチーム名と、未試合の game セルの試合 CD
-	assert.Equal(t, f.teams[0].ID, *f.cellTeam(t, 1, 0))
+	assert.Equal(t, f.teams[0].ID, *f.cellTeam(t, 2, 0))
 	page, err := store.GetGroup(context.Background(), f.db, f.group.ID)
 	require.NoError(t, err)
-	assert.Equal(t, "B1", page.Bracket.Rows[2][0].Text)
-	assert.Equal(t, b1.ID, *page.Bracket.Rows[2][0].MatchID)
-	assert.Len(t, page.Matches, 8)
+	assert.Equal(t, "B4", page.Bracket.Rows[3][0].Text)
+	assert.Equal(t, b4.ID, *page.Bracket.Rows[3][0].MatchID)
+	assert.Len(t, page.Matches, 12)
 
 	// 試合があるグループには作り直せない
 	seeds := make([]store.MatchSideFields, 8)
@@ -378,7 +379,7 @@ func TestApplyBracketPlanAcceptsPlaceholderSeeds(t *testing.T) {
 	assert.Equal(
 		t,
 		&domain.Placeholder{Code: "A9", Outcome: domain.OutcomeWin},
-		matches["S1"].Right.Placeholder,
+		matches["S2"].Right.Placeholder,
 	)
 
 	_, err = store.ApplyBracketPlan(
@@ -417,33 +418,33 @@ func finish(
 func TestFinishingAMatchAdvancesWinnerAndLoser(t *testing.T) {
 	f := newBracketFixture(t)
 	ctx := context.Background()
-	finish(t, f.db, f.matches["B1"].ID, 3, 5, nil)
-	finish(t, f.db, f.matches["B2"].ID, 6, 2, nil)
+	finish(t, f.db, f.matches["B4"].ID, 3, 5, nil)
+	finish(t, f.db, f.matches["B5"].ID, 6, 2, nil)
 
 	got := matchesByCode(t, f.db, f.group.DivisionID)
-	assert.Equal(t, f.teams[1].ID, got["B5"].Left.Team.ID, "B1 の勝者(右)")
-	assert.Equal(t, f.teams[2].ID, got["B5"].Right.Team.ID, "B2 の勝者(左)")
-	// 格子: B1 の勝者のセル(準決勝の上のチーム)に勝者が入る
-	assert.Equal(t, f.teams[1].ID, *f.cellTeam(t, 2, 1))
+	assert.Equal(t, f.teams[1].ID, got["B2"].Left.Team.ID, "B4 の勝者(右)")
+	assert.Equal(t, f.teams[2].ID, got["B2"].Right.Team.ID, "B5 の勝者(左)")
+	// 格子: B4 の勝者のセル(準決勝の上のチーム)に勝者が入る
+	assert.Equal(t, f.teams[1].ID, *f.cellTeam(t, 3, 1))
 
 	// 準決勝が終わると決勝と 3 位決定戦が埋まる
-	finish(t, f.db, f.matches["B3"].ID, 1, 0, nil)
-	finish(t, f.db, f.matches["B4"].ID, 0, 1, nil)
+	finish(t, f.db, f.matches["B6"].ID, 1, 0, nil)
+	finish(t, f.db, f.matches["B7"].ID, 0, 1, nil)
 	// 同点のトーナメントの試合は勝者の指定が必要(clone-spec C 2.3 の 4-4)
-	b5 := f.matches["B5"].ID
+	b2 := f.matches["B2"].ID
 	for range 4 {
-		_, err := store.AddMatchEvent(ctx, f.db, staff, b5, goal(domain.SideLeft, nil, nil), t0)
+		_, err := store.AddMatchEvent(ctx, f.db, staff, b2, goal(domain.SideLeft, nil, nil), t0)
 		require.NoError(t, err)
-		_, err = store.AddMatchEvent(ctx, f.db, staff, b5, goal(domain.SideRight, nil, nil), t0)
+		_, err = store.AddMatchEvent(ctx, f.db, staff, b2, goal(domain.SideRight, nil, nil), t0)
 		require.NoError(t, err)
 	}
-	_, err := store.AddMatchEvent(ctx, f.db, staff, b5, endEvent(nil), t0)
+	_, err := store.AddMatchEvent(ctx, f.db, staff, b2, endEvent(nil), t0)
 	assert.ErrorIs(t, err, domain.ErrBadRequest)
 	detail, err := store.AddMatchEvent(
 		ctx,
 		f.db,
 		staff,
-		b5,
+		b2,
 		endEvent(sidePtr(domain.SideRight)),
 		t0,
 	)
@@ -451,34 +452,36 @@ func TestFinishingAMatchAdvancesWinnerAndLoser(t *testing.T) {
 	assert.Equal(t, domain.SideRight, *detail.Match.WinnerSide)
 
 	got = matchesByCode(t, f.db, f.group.DivisionID)
-	assert.Equal(t, f.teams[2].ID, got["B7"].Left.Team.ID, "B5 の勝者(4-4 で右)")
-	assert.Equal(t, f.teams[1].ID, got["B8"].Left.Team.ID, "B5 の敗者は 3 位決定戦へ")
+	assert.Equal(t, f.teams[2].ID, got["B1"].Left.Team.ID, "B2 の勝者(4-4 で右)")
+	assert.Equal(t, f.teams[1].ID, got["B8"].Left.Team.ID, "B2 の敗者は 3 位決定戦へ")
+	assert.Equal(t, f.teams[0].ID, got["B10"].Left.Team.ID, "B4 の敗者は 5〜8 位の敗者戦へ")
 
 	// 終了を取り消す(admin)と、まだ始まっていない後続試合のチームは空に戻る
-	b1 := matchesByCode(t, f.db, f.group.DivisionID)["B1"]
-	b1Detail, err := store.GetMatchDetail(ctx, f.db, b1.ID)
+	b4 := matchesByCode(t, f.db, f.group.DivisionID)["B4"]
+	b4Detail, err := store.GetMatchDetail(ctx, f.db, b4.ID)
 	require.NoError(t, err)
-	endID := b1Detail.Events[len(b1Detail.Events)-1].ID
-	_, err = store.RemoveMatchEvent(ctx, f.db, admin, b1.ID, endID)
+	endID := b4Detail.Events[len(b4Detail.Events)-1].ID
+	_, err = store.RemoveMatchEvent(ctx, f.db, admin, b4.ID, endID)
 	require.NoError(t, err)
 	got = matchesByCode(t, f.db, f.group.DivisionID)
-	assert.Equal(t, f.teams[1].ID, got["B5"].Left.Team.ID, "B5 は終了済みなので変えない")
+	assert.Equal(t, f.teams[1].ID, got["B2"].Left.Team.ID, "B2 は終了済みなので変えない")
+	assert.Nil(t, got["B10"].Left.Team, "未試合の B10 は B4 の敗者が未確定に戻る")
 
-	b6 := got["B6"]
-	require.NotNil(t, b6.Left.Team)
-	b3Detail, err := store.GetMatchDetail(ctx, f.db, got["B3"].ID)
+	b3 := got["B3"]
+	require.NotNil(t, b3.Left.Team)
+	b6Detail, err := store.GetMatchDetail(ctx, f.db, got["B6"].ID)
 	require.NoError(t, err)
 	_, err = store.RemoveMatchEvent(
 		ctx,
 		f.db,
 		admin,
-		got["B3"].ID,
-		b3Detail.Events[len(b3Detail.Events)-1].ID,
+		got["B6"].ID,
+		b6Detail.Events[len(b6Detail.Events)-1].ID,
 	)
 	require.NoError(t, err)
 	got = matchesByCode(t, f.db, f.group.DivisionID)
-	assert.Nil(t, got["B6"].Left.Team, "未試合の B6 は B3 の勝者が未確定に戻る")
-	assert.Nil(t, f.cellTeam(t, 10, 1))
+	assert.Nil(t, got["B3"].Left.Team, "未試合の B3 は B6 の勝者が未確定に戻る")
+	assert.Nil(t, f.cellTeam(t, 11, 1))
 }
 
 func TestUpdateMatchKeepsScoreAndStatus(t *testing.T) {

@@ -1,20 +1,15 @@
 package bracket
 
-import "scoreview/api/internal/domain"
+import (
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/format"
+)
 
-// SixteenTeams は 16 チームのシングルエリミネーション(1 回戦 8、準々決勝 4、準決勝 2、決勝の 15 試合)。
-// 列は参照サイトの T16A と同じ 5 列(clone-spec C 2.3)。3 位決定戦は付けない。
+// SixteenTeams は 16 チームで 1〜8 位を決めるトーナメント(大会形式エンジンの T16、20 試合)。
+// 1 回戦の敗者には順位を付けない(別の順位決定戦へ送る型。R3 4 章)。試合番号は決勝が 1。
 func SixteenTeams() Template {
-	spec := singleSpec{
-		pattern:    "T16",
-		name:       "16 Teams",
-		teams:      16,
-		roundNames: []string{"1st Round", "Quarterfinals", "Semifinals", "FINAL"},
-	}
-	return Template{
-		ID:    "single16",
-		Name:  domain.I18nText{Ja: "16 チーム(シングルエリミネーション)", En: "16 teams (single elimination)"},
-		Teams: spec.teams,
-		plan:  func() domain.BracketPlan { return singleElimination(spec) },
-	}
+	return mustFormatTemplate("single16", format.BracketT16, domain.I18nText{
+		Ja: "16 チーム(1〜8 位。1 回戦の敗者は順位なし)",
+		En: "16 teams (1st-8th)",
+	})
 }

@@ -62,6 +62,7 @@ type AuditSnapshot struct {
 	Match     *AuditMatchState `json:"match,omitempty"`
 	Event     *AuditEvent      `json:"event,omitempty"`
 	FinalRank *int             `json:"finalRank,omitempty"`
+	Format    *AuditFormat     `json:"format,omitempty"`
 }
 
 // AuditRecord は監査ログの 1 行。UserName と UserRole は操作した利用者(消された利用者なら空)。
