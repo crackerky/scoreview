@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
 
+	"scoreview/api/internal/auth"
 	"scoreview/api/internal/bracket"
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/sanitize"
@@ -24,6 +27,7 @@ type Server struct {
 	mux           *http.ServeMux
 	sanitizer     *sanitize.Sanitizer
 	brackets      *bracket.Registry
+	passwords     *auth.PasswordGate
 	now           func() time.Time
 }
 
@@ -45,12 +49,18 @@ func WithBracketTemplates(registry *bracket.Registry) Option {
 	return func(s *Server) { s.brackets = registry }
 }
 
+// WithPasswordGate はパスワード照合の同時実行数の制限を差し替える(混雑時の 503 のテスト用)。
+func WithPasswordGate(gate *auth.PasswordGate) Option {
+	return func(s *Server) { s.passwords = gate }
+}
+
 // NewServer はルートを登録した Server を返す。internalToken は web との共有秘密で、
 // 全リクエストの X-Internal-Token と定数時間で比較する。
 func NewServer(db *gorm.DB, internalToken string, opts ...Option) *Server {
 	s := &Server{
 		db: db, internalToken: internalToken, log: slog.Default(), mux: http.NewServeMux(),
 		sanitizer: sanitize.New(), brackets: bracket.Default(), now: time.Now,
+		passwords: auth.NewPasswordGate(auth.MaxConcurrentPasswordChecks, auth.PasswordCheckWait),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -103,6 +113,10 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 
 	var notFound *domain.NotFoundError
 	var invalid *domain.ValidationError
+	var retry *domain.RetryAfterError
+	if errors.As(err, &retry) {
+		w.Header().Set("Retry-After", retryAfterSeconds(retry.After))
+	}
 	switch {
 	case errors.As(err, &notFound):
 		status, body.Error.Code, body.Error.Message = http.StatusNotFound, "not_found", notFound.Error()
@@ -119,11 +133,19 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 	case errors.Is(err, domain.ErrTooManyRequests):
 		status, body.Error.Code, body.Error.Message = http.StatusTooManyRequests, "too_many_requests",
 			"too many login attempts; try again later"
+	case errors.Is(err, domain.ErrUnavailable):
+		status, body.Error.Code, body.Error.Message = http.StatusServiceUnavailable, "unavailable",
+			"server is busy; try again shortly"
 	default:
 		// 内部エラーの詳細はログにだけ出し、応答には載せない
 		log.Error("internal error", "err", err)
 	}
 	writeJSON(w, status, body)
+}
+
+// retryAfterSeconds は Retry-After の値(整数の秒。RFC 9110 10.2.3)。端数は切り上げ、1 秒以上にする。
+func retryAfterSeconds(after time.Duration) string {
+	return strconv.Itoa(max(1, int(math.Ceil(after.Seconds()))))
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

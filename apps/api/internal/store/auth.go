@@ -14,13 +14,15 @@ import (
 // ここは行の出し入れだけをする。
 
 const (
-	sqlByEmail           = "email = ?"
-	sqlByTokenHash       = "token_hash = ?" //nolint:gosec // SQL の条件で、資格情報ではない
-	sqlLiveSession       = "token_hash = ? AND expires_at > ?"
-	sqlExpiredOfUser     = "user_id = ? AND expires_at <= ?"
-	sqlByUser            = "user_id = ?"
-	sqlFailuresSince     = "email = ? AND attempted_at > ?"
-	sqlFailuresOlderThan = "email = ? AND attempted_at <= ?"
+	sqlByEmail             = "email = ?"
+	sqlByTokenHash         = "token_hash = ?" //nolint:gosec // SQL の条件で、資格情報ではない
+	sqlLiveSession         = "token_hash = ? AND expires_at > ?"
+	sqlExpiredOfUser       = "user_id = ? AND expires_at <= ?"
+	sqlByUser              = "user_id = ?"
+	sqlFailuresSince       = "email = ? AND attempted_at > ?"
+	sqlFailuresFromIPSince = "ip = ? AND attempted_at > ?"
+	sqlFailuresOlderThan   = "attempted_at <= ?"
+	sqlOrderAttemptedAt    = "attempted_at"
 )
 
 // Credential はパスワードでの本人確認に要るユーザーの値。
@@ -123,48 +125,109 @@ func DeleteExpiredSessions(ctx context.Context, db *gorm.DB, userID int64, now t
 	return nil
 }
 
-// CountLoginFailures は since より後の、メールアドレスのログイン失敗の数を返す。
-func CountLoginFailures(
-	ctx context.Context,
-	db *gorm.DB,
-	email string,
-	since time.Time,
-) (int64, error) {
-	var count int64
-	err := db.WithContext(ctx).
-		Model(&LoginFailure{}).
-		Where(sqlFailuresSince, email, since).
-		Count(&count).
-		Error
-	if err != nil {
-		return 0, fmt.Errorf("count login failures: %w", err)
-	}
-	return count, nil
+// LoginFailureStats は、ある試行の前の時点の直近の失敗(窓の中だけ)。
+type LoginFailureStats struct {
+	// AccountFailures と AccountLast は同じメールアドレスへの失敗の数と、最後の失敗の時刻
+	// (無ければゼロ値)
+	AccountFailures int64
+	AccountLast     time.Time
+	// IPFailures と IPOldest は同じ IP からの(どのアドレスへの)失敗の数と、最も古い失敗の時刻。
+	// IP が分からない(空文字)ときは数えない
+	IPFailures int64
+	IPOldest   time.Time
 }
 
-// RecordLoginFailure はログイン失敗を 1 件記録し、window より古い同じアドレスの記録を消す
-// (表が際限なく伸びないように)。
-func RecordLoginFailure(
+// loginLockClass は advisory lock の 2 引数形式の 1 つ目の鍵。ログイン試行の lock であることを表し、
+// 他の用途の lock と鍵が重ならないようにする。
+const loginLockClass = 1
+
+// sqlLockLoginAttempts は同じメールアドレスの試行を、トランザクションの終わりまで直列にする。
+const sqlLockLoginAttempts = "SELECT pg_advisory_xact_lock(?, hashtext(?))"
+
+// BeginLoginAttempt はログイン試行の確認と記録を、同じメールアドレスについて直列に行う。
+//
+// トランザクションの中で email の advisory lock を取り、窓より古い記録を消してから直近の失敗を
+// 数えて decide に渡す。decide がエラーを返したらそれを返し、何も記録しない。nil なら、この試行を
+// 照合の前に失敗として記録する(照合に成功したら呼び出し側が ClearLoginFailures で消す)。
+// 照合の前に記録するので、並行する試行が「数える → 照合 → 記録」の間をすり抜けられない
+// (セキュリティ点検 M-1)。
+func BeginLoginAttempt(
 	ctx context.Context,
 	db *gorm.DB,
-	email string,
-	at time.Time,
+	email, ip string,
+	now time.Time,
 	window time.Duration,
+	decide func(LoginFailureStats) error,
 ) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where(sqlFailuresOlderThan, email, at.Add(-window)).
-			Delete(&LoginFailure{}).
-			Error; err != nil {
+		if err := lockLoginAttempts(tx, email); err != nil {
+			return err
+		}
+		since := now.Add(-window)
+		if err := tx.Where(sqlFailuresOlderThan, since).Delete(&LoginFailure{}).Error; err != nil {
 			return fmt.Errorf("prune login failures: %w", err)
 		}
-		if err := tx.Create(&LoginFailure{Email: email, AttemptedAt: at}).Error; err != nil {
-			return fmt.Errorf("record login failure: %w", err)
+		stats, err := loginFailureStats(tx, email, ip, since)
+		if err != nil {
+			return err
+		}
+		if err := decide(stats); err != nil {
+			return err
+		}
+		row := LoginFailure{Email: email, IP: ip, AttemptedAt: now}
+		if err := tx.Create(&row).Error; err != nil {
+			return fmt.Errorf("record login attempt: %w", err)
 		}
 		return nil
 	})
 }
 
+func lockLoginAttempts(tx *gorm.DB, email string) error {
+	// SQL は定数で、値はプレースホルダで渡す
+	//nolint:forbidigo // pg_advisory_xact_lock は void を返し、クエリビルダ(Select + Scan)で呼べない
+	err := tx.Exec(sqlLockLoginAttempts, loginLockClass, email).Error
+	if err != nil {
+		return fmt.Errorf("lock login attempts: %w", err)
+	}
+	return nil
+}
+
+func loginFailureStats(
+	tx *gorm.DB,
+	email, ip string,
+	since time.Time,
+) (LoginFailureStats, error) {
+	var stats LoginFailureStats
+	var account []LoginFailure
+	err := tx.Where(sqlFailuresSince, email, since).Order(sqlOrderAttemptedAt).Find(&account).Error
+	if err != nil {
+		return LoginFailureStats{}, fmt.Errorf("load login failures: %w", err)
+	}
+	stats.AccountFailures = int64(len(account))
+	if len(account) > 0 {
+		stats.AccountLast = account[len(account)-1].AttemptedAt
+	}
+	if ip == "" {
+		return stats, nil
+	}
+	var fromIP []LoginFailure
+	err = tx.Select("attempted_at").
+		Where(sqlFailuresFromIPSince, ip, since).
+		Order(sqlOrderAttemptedAt).
+		Find(&fromIP).
+		Error
+	if err != nil {
+		return LoginFailureStats{}, fmt.Errorf("load login failures from ip: %w", err)
+	}
+	stats.IPFailures = int64(len(fromIP))
+	if len(fromIP) > 0 {
+		stats.IPOldest = fromIP[0].AttemptedAt
+	}
+	return stats, nil
+}
+
 // ClearLoginFailures はメールアドレスのログイン失敗の記録を消す(ログインに成功したとき)。
+// 照合の前に記録したこの試行の分も消える。
 func ClearLoginFailures(ctx context.Context, db *gorm.DB, email string) error {
 	if err := db.WithContext(ctx).
 		Where(sqlByEmail, email).

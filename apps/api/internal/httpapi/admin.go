@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"scoreview/api/internal/auth"
@@ -204,10 +205,15 @@ func (s *Server) login(r *http.Request) (any, error) {
 	if len(body.Password) > 4*auth.MaxPasswordLen {
 		return nil, auth.ErrInvalidCredentials
 	}
-	session, err := auth.Login(r.Context(), s.db, body.Email, body.Password, s.now())
+	attempt := auth.Attempt{
+		Email:    body.Email,
+		Password: body.Password,
+		ClientIP: clientIP(r),
+	}
+	session, err := auth.Login(r.Context(), s.db, s.passwords, attempt, s.now())
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			s.log.Info("login failed")
+			s.log.Info("login failed", "clientIp", attempt.ClientIP)
 		}
 		return nil, err
 	}
@@ -220,6 +226,32 @@ func (s *Server) login(r *http.Request) (any, error) {
 		ExpiresAt: formatInstant(session.ExpiresAt),
 		User:      toAdminUser(session.User, ids),
 	}, nil
+}
+
+// clientIPHeader は web が利用者の IP を入れて渡すヘッダー(docs/api.md「認証」)。api は web からしか
+// 呼ばれない(内部トークンで確かめ済み)ので、この値を信じる。
+const clientIPHeader = "X-Client-IP"
+
+// ipv6PrefixBits は IPv6 の利用者を同じ人として数える範囲。家庭や携帯の回線には /64 がまとめて
+// 割り当てられ、その中のアドレスは自由に変えられるので、アドレス単位では数えない。
+const ipv6PrefixBits = 64
+
+// clientIP は X-Client-IP の IP を正規化して返す(IPv4 はそのまま、IPv6 は /64 の範囲)。
+// 無いか IP として読めなければ空文字(IP 単位の制限を掛けない)。
+func clientIP(r *http.Request) string {
+	addr, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get(clientIPHeader)))
+	if err != nil {
+		return ""
+	}
+	addr = addr.Unmap().WithZone("")
+	if addr.Is4() {
+		return addr.String()
+	}
+	prefix, err := addr.Prefix(ipv6PrefixBits)
+	if err != nil {
+		return "" // Is4 でない有効なアドレスは IPv6 なので /64 は必ず取れる
+	}
+	return prefix.String()
 }
 
 func (s *Server) logout(r *http.Request, _ domain.User) (any, error) {
