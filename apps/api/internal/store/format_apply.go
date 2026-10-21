@@ -492,7 +492,8 @@ func (d *formatDraft) saveGroup(
 	slotIDs map[format.SlotKey]int64,
 ) (int64, error) {
 	db := tx.WithContext(ctx)
-	row := Group{DivisionID: division.ID, Name: g.Name, Kind: g.Kind, SortOrder: g.Index,
+	// 英語名は日本語名と同じにする(英語のメニューとチームページの組の名前。domain/english.go)
+	row := Group{DivisionID: division.ID, Name: g.Name, NameEn: g.Name, Kind: g.Kind, SortOrder: g.Index,
 		Linked: true, Published: true}
 	if g.Kind == domain.GroupBracket {
 		layout, err := emptyBracketLayout()

@@ -9,7 +9,7 @@ import (
 )
 
 // 大会の準備の管理用エンドポイント(docs/api.md「大会の準備」): 大会のコピーと、試合の無い部門の
-// チームの一括削除。管理者だけ。
+// チームの一括削除と、英語名が空のチーム、選手、組に日本語名を入れる操作。管理者だけ。
 
 func (s *Server) setupRoutes() {
 	const base = "/api/v1/admin"
@@ -17,6 +17,14 @@ func (s *Server) setupRoutes() {
 		withPathID(s.copyTournament))
 	s.admin("DELETE "+base+"/divisions/{id}/teams", adminOnly(), http.StatusOK,
 		withPathID(s.deleteDivisionTeams))
+	s.admin("POST "+base+"/divisions/{id}/english-names", adminOnly(), http.StatusOK,
+		withPathID(s.fillEnglishNames))
+}
+
+type filledEnglishNamesDTO struct {
+	Teams   int `json:"teams"`
+	Players int `json:"players"`
+	Groups  int `json:"groups"`
 }
 
 type tournamentCopyInputDTO struct {
@@ -63,4 +71,12 @@ func (s *Server) deleteDivisionTeams(ctx context.Context, id int64, _ *http.Requ
 		return nil, err
 	}
 	return deletedTeamsDTO{Deleted: deleted}, nil
+}
+
+func (s *Server) fillEnglishNames(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
+	filled, err := store.FillDivisionEnglishNames(ctx, s.db, id)
+	if err != nil {
+		return nil, err
+	}
+	return filledEnglishNamesDTO{Teams: filled.Teams, Players: filled.Players, Groups: filled.Groups}, nil
 }

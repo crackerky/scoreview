@@ -92,6 +92,11 @@ func emptyBracketLayout() ([]byte, error) {
 }
 
 func (f GroupFields) apply(row *Group) error {
+	// 管理画面には組の英語名の欄が無いので、英語名は日本語名に合わせる(英語の閲覧ページで組の名前が
+	// 空にならないように。domain/english.go)。取込ツールの組のように英語名が別の値ならそのまま
+	if row.NameEn == "" || row.NameEn == row.Name {
+		row.NameEn = f.Name
+	}
 	row.Name, row.Kind, row.SortOrder = f.Name, f.Kind, f.SortOrder
 	row.Linked, row.Published = f.Linked, f.Published
 	row.ImageURL, row.ImageWidth, row.ImageHeight = nil, nil, nil

@@ -23,8 +23,8 @@ func (divisionCopyRow) TableName() string { return "divisions" }
 
 // CopyTournament は大会 sourceID を fields(名前、開催日など。TopHTML は無害化済み)の新しい大会として
 // コピーする。引き継ぐのはバナーと部門(コピー元を覚え、形はその部門で決めるときの初期値になる)、
-// withTeams ならチームと選手(最終順位は消す)。試合、組、結果、ギャラリー、記録係の割り当ては
-// 引き継がない。
+// withTeams ならチームと選手(最終順位は消す。英語名が空なら CreateTeam と同じく日本語名を入れる)。
+// 試合、組、結果、ギャラリー、記録係の割り当ては引き継がない。
 func CopyTournament(
 	ctx context.Context,
 	db *gorm.DB,
@@ -113,6 +113,7 @@ func copyTeams(ctx context.Context, tx *gorm.DB, sourceDivision int64, target Di
 		team.ID, team.TournamentID, team.DivisionID = 0, target.TournamentID, target.ID
 		team.FinalRank = nil
 		team.CreatedAt, team.UpdatedAt = now, now
+		fillTeamEnglish(&team)
 		if err := db.Create(&team).Error; err != nil {
 			return writeError("copy team", err)
 		}
@@ -123,6 +124,7 @@ func copyTeams(ctx context.Context, tx *gorm.DB, sourceDivision int64, target Di
 		for _, player := range players {
 			player.ID, player.TeamID = 0, team.ID
 			player.CreatedAt, player.UpdatedAt = now, now
+			player.NameEn = i18n(player.NameJa, player.NameEn).WithEnglish().En
 			if err := db.Create(&player).Error; err != nil {
 				return writeError("copy player", err)
 			}
