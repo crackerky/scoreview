@@ -431,6 +431,10 @@ type correctionInputDTO struct {
 	// Downstream は結果のある下流の試合の対戦が変わるときの承認と下流の扱い(keep / reset)。
 	// null は承認しない
 	Downstream *string `json:"downstream"`
+	// ExpectedScore は本部が画面を開いたときのスコア(違えば 409 score_mismatch)。null は確かめない
+	ExpectedScore *scoreDTO `json:"expectedScore"`
+	// KeepEvents は得点経過のある試合を、得点経過を残したまま score で確定する
+	KeepEvents bool `json:"keepEvents"`
 }
 
 func (in correctionInputDTO) toInput() (store.CorrectionInput, error) {
@@ -441,7 +445,7 @@ func (in correctionInputDTO) toInput() (store.CorrectionInput, error) {
 		return store.CorrectionInput{}, domain.Invalid("winnerSide", "must be left or right")
 	}
 	return store.CorrectionInput{Score: domain.Score{Left: in.Score.Left, Right: in.Score.Right},
-		WinnerSide: in.WinnerSide}, nil
+		WinnerSide: in.WinnerSide, ExpectedScore: in.ExpectedScore.toDomain(), KeepEvents: in.KeepEvents}, nil
 }
 
 type impactMatchDTO struct {

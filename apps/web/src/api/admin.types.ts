@@ -251,6 +251,8 @@ const auditSnapshotSchema = z.object({
     })
     .nullable(),
   finalRank: z.number().int().nullable(),
+  /** 操作の補足(「得点経過(9-8)と違う最終スコア(11-9)で本部が確定」) */
+  note: z.string().nullable(),
 })
 export type AuditSnapshot = z.infer<typeof auditSnapshotSchema>
 

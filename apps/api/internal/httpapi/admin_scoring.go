@@ -103,6 +103,7 @@ type auditSnapshotDTO struct {
 	Match     *auditMatchStateDTO `json:"match"`
 	Event     *auditEventDTO      `json:"event"`
 	FinalRank *int                `json:"finalRank"`
+	Note      *string             `json:"note"`
 }
 
 type auditEntryDTO struct {
@@ -135,6 +136,10 @@ func toAuditPlayer(player *store.AuditPlayer) *auditPlayerDTO {
 
 func toAuditSnapshot(snapshot store.AuditSnapshot) auditSnapshotDTO {
 	out := auditSnapshotDTO{FinalRank: snapshot.FinalRank}
+	if snapshot.Note != "" {
+		note := snapshot.Note
+		out.Note = &note
+	}
 	if state := snapshot.Match; state != nil {
 		out.Match = &auditMatchStateDTO{
 			Status: string(state.Status), ResultType: resultTypeString(state.ResultType),

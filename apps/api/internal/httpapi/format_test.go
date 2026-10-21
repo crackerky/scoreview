@@ -97,3 +97,23 @@ func TestDownstreamChoiceIsValidated(t *testing.T) {
 	f.call(t, http.StatusConflict, http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/status", undecided.ID),
 		map[string]any{"status": "live"})
 }
+
+// TestCorrectionScoreMismatch は本部の結果入力の楽観的ロック。確かめたスコアと今のスコアが違えば
+// 409(score_mismatch)で、記録係の試合終了の照合と同じエラーコードにする。
+func TestCorrectionScoreMismatch(t *testing.T) {
+	f := newAdminFixture(t)
+	b := storetest.New(t, f.db)
+	division := b.Division(b.Tournament().ID)
+	left, right := b.Team(division), b.Team(division)
+	match := b.Match(division, &left, &right)
+	path := fmt.Sprintf("/api/v1/admin/matches/%d/correction", match.ID)
+	opened := map[string]any{"left": 0, "right": 0}
+	f.call(t, http.StatusOK, http.MethodPost, path, map[string]any{"score": map[string]any{"left": 11, "right": 9},
+		"winnerSide": nil, "downstream": nil, "expectedScore": opened})
+	body := f.call(t, http.StatusConflict, http.MethodPost, path, map[string]any{
+		"score": map[string]any{"left": 9, "right": 11}, "winnerSide": nil, "downstream": nil, "expectedScore": opened})
+	errBody, ok := body["error"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "score_mismatch", errBody["code"])
+	assert.Contains(t, errBody["message"], "11-9")
+}

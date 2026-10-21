@@ -14,9 +14,14 @@ import (
 // 結果の訂正と、その影響の事前表示(docs/format-engine.md「訂正の影響を先に見せる」)。
 
 // CorrectionInput は試合の結果(得点経過の無い試合のスコアと、同点のときの勝者)。
+// ExpectedScore は本部が画面を開いたときに見ていたスコア(楽観的ロック。現在のスコアと違えば
+// domain.ScoreMismatchError。nil なら確かめない)。KeepEvents は得点経過のある試合を、得点経過を
+// 残したまま Score で確定する(記録係の記録が途中で止まった試合を本部が締める)。
 type CorrectionInput struct {
-	Score      domain.Score
-	WinnerSide *domain.Side
+	Score         domain.Score
+	WinnerSide    *domain.Side
+	ExpectedScore *domain.Score
+	KeepEvents    bool
 }
 
 // CorrectionImpact は訂正で変わるもの。Lines は運営者向けの文、Matches は対戦が変わる試合。
@@ -59,6 +64,18 @@ func PreviewCorrection(
 	}
 	match, err := findByID[Match](ctx, db, matchID, domain.ResourceMatch)
 	if err != nil {
+		return CorrectionImpact{}, err
+	}
+	// 保存のときに断る入力は、影響を確かめる段階で先に知らせる(保存を押してから断らない)
+	if match.LeftTeamID == nil || match.RightTeamID == nil {
+		return CorrectionImpact{}, fmt.Errorf("%w: 対戦チームが決まっていない試合の結果は入れられません",
+			domain.ErrConflict)
+	}
+	bracket, err := inBracket(ctx, db, match)
+	if err != nil {
+		return CorrectionImpact{}, err
+	}
+	if _, err := domain.DecideWinner(input.Score, bracket, input.WinnerSide); err != nil {
 		return CorrectionImpact{}, err
 	}
 	return correctionImpact(ctx, db, match, input)
@@ -157,7 +174,9 @@ func (v progressBuilder) describeImpact(impact *format.Impact) CorrectionImpact 
 }
 
 // ApplyCorrection は得点経過の無い試合の結果を input にする(未試合や試合中なら終了にし、終了済みなら
-// 結果を直す)。既に結果のある下流の試合の対戦が変わるなら、downstream で下流の扱いを選んだときだけ
+// 結果を直す)。得点経過のある試合は input.KeepEvents のときだけ、得点経過を残したまま input.Score で
+// 終了にする(得点経過の合計と違えば監査ログにその旨を残す。閲覧ページは試合の行の最終スコアを出す)。
+// input.ExpectedScore が現在のスコアと違えば保存しない(別の人がこの間に結果を変えた)。既に結果のある下流の試合の対戦が変わるなら、downstream で下流の扱いを選んだときだけ
 // 保存する(DownstreamNone なら ErrConflict。format_guard.go)。下流の試合のうち未試合のものは対戦が
 // 自動で変わる。戻り値は保存前に計算した影響。
 func ApplyCorrection(
@@ -174,16 +193,22 @@ func ApplyCorrection(
 	var impact CorrectionImpact
 	_, err := runApprovedMatchOp(ctx, db, actor, matchID, nil, AuditMatchStatus, downstream,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			events, err := loadEvents(ctx, tx, matchID)
 			if err != nil {
 				return matchOpChange{}, err
 			}
-			if len(events) > 0 {
+			if len(events) > 0 && !input.KeepEvents {
 				return matchOpChange{}, domain.Invalid("score",
 					"得点経過のある試合は、スコア入力画面で得点経過を直してください")
 			}
 			if impact, err = correctionImpact(ctx, tx, match, input); err != nil {
 				return matchOpChange{}, err
+			}
+			if len(events) > 0 {
+				return finishKeepingEvents(ctx, tx, match, events, input)
 			}
 			current := match
 			if match.Status == domain.MatchFinished {

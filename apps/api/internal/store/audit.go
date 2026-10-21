@@ -63,6 +63,8 @@ type AuditSnapshot struct {
 	Event     *AuditEvent      `json:"event,omitempty"`
 	FinalRank *int             `json:"finalRank,omitempty"`
 	Format    *AuditFormat     `json:"format,omitempty"`
+	// Note は操作の補足(「得点経過(9-8)と違う最終スコアで確定」「棄権の一括処理」)。無ければ空
+	Note string `json:"note,omitempty"`
 }
 
 // AuditRecord は監査ログの 1 行。UserName と UserRole は操作した利用者(消された利用者なら空)。

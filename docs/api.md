@@ -706,8 +706,9 @@ type AuditEntry = {
     | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
   matchId: number | null; teamId: number | null
   // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
-  before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
-  after: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
+  // note は操作の補足(「得点経過(9-8)と違う最終スコア(11-9)で本部が確定」「棄権の一括処理」)。無ければ null
+  before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null; note: string | null }
+  after: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null; note: string | null }
 }
 ```
 
@@ -847,8 +848,8 @@ type Impact = {
 | `POST /admin/stages/{id}/confirm` | `{ unplayed: boolean }` | 204。段の全プールを確定し、段の全体順位を使えるようにする |
 | `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須)。プールの全試合が終わる前は 409。指定はその時点の成績に結び付き、訂正で成績が変われば未決に戻る |
 | `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決。段の全プールの試合が終わる前は 409 |
-| `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
-| `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は 400 |
+| `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない)。保存のときに断る入力(トーナメントの同点で `winnerSide` が無い、対戦チームが決まっていない)は、ここで同じ 400 / 409 を返す |
+| `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null`、`expectedScore?: { left; right } \| null`、`keepEvents?: boolean` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は `keepEvents: true` のときだけ、得点経過を残したまま `score` で終了にする(得点経過の合計と違えば監査ログの `note` に残す。閲覧ページは試合の最終スコアを出す)。無ければ 400。`expectedScore` は本部が画面を開いたときのスコアで、今のスコア(スコアなしは 0-0)と違えば 409 `score_mismatch`(記録係の試合終了の照合と同じ。`message` に今のスコア) |
 | `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |
 | `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }`。同じ大会の他のディビジョンの試合とのコートの重なりも `court_conflict`(`codes` の 2 つ目が相手の試合 CD)。形の適用で作る時間割は、他のディビジョンの試合のコートと時刻を避ける |
 | `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |

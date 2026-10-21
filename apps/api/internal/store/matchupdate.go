@@ -108,6 +108,8 @@ func lockMatch(ctx context.Context, tx *gorm.DB, id int64) (Match, error) {
 type matchOpChange struct {
 	before *AuditEvent
 	after  *AuditEvent
+	// note は監査ログの変更後に残す補足(AuditSnapshot.Note)
+	note string
 }
 
 // runMatchOp は試合を変える 1 回の操作を、ディビジョンと試合の行の lock(locks.go の順序)、送り直しの
@@ -174,7 +176,7 @@ func runApprovedMatchOp(
 			actor:        actor,
 			action:       action,
 			before:       AuditSnapshot{Match: auditMatchState(match), Event: change.before},
-			after:        AuditSnapshot{Match: auditMatchState(after), Event: change.after},
+			after:        AuditSnapshot{Match: auditMatchState(after), Event: change.after, Note: change.note},
 			clientID:     clientID,
 		})
 	})
@@ -612,6 +614,31 @@ func setMatchState(
 	return writeMatchState(ctx, tx, before, matchState{
 		status: status, score: &score, winner: winner, resultType: domain.ResultNormal,
 	})
+}
+
+// finishKeepingEvents は得点経過のある試合を、得点経過を残したまま本部の最終スコアで終了にする
+// (記録係の記録が途中で止まった試合を本部が締める。ApplyCorrection の KeepEvents)。得点経過の
+// 合計と違うときは、その旨を監査ログの補足に残す。終了済みの試合は end の得点経過を残したまま
+// スコアだけを書き直す。
+func finishKeepingEvents(
+	ctx context.Context,
+	tx *gorm.DB,
+	match Match,
+	events []MatchEvent,
+	input CorrectionInput,
+) (matchOpChange, error) {
+	if match.Status != domain.MatchFinished {
+		if err := domain.ValidTransition(match.Status, domain.MatchFinished, domain.RoleAdmin); err != nil {
+			return matchOpChange{}, err
+		}
+	}
+	recorded := domain.FinalScore(toDomainEvents(events))
+	change := matchOpChange{}
+	if recorded != input.Score {
+		change.note = fmt.Sprintf("得点経過(%d-%d)と違う最終スコア(%d-%d)で本部が確定", recorded.Left,
+			recorded.Right, input.Score.Left, input.Score.Right)
+	}
+	return change, setMatchState(ctx, tx, match, domain.MatchFinished, input.Score, input.WinnerSide)
 }
 
 // matchState は試合に書くスコア、状態、勝者、結果の種類。score が nil ならスコアを記録しない。

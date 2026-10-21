@@ -46,6 +46,10 @@ export type CorrectionBody = {
   score: { left: number; right: number }
   winnerSide: 'left' | 'right' | null
   downstream: Downstream
+  /** 画面を開いたときのスコア(楽観的ロック。違えば 409 score_mismatch) */
+  expectedScore?: { left: number; right: number } | null
+  /** 得点経過を残したまま score で確定する */
+  keepEvents?: boolean
 }
 
 export const formats = {
