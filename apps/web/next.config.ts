@@ -5,12 +5,13 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
-  // 使わない端末の機能を、このサイトと埋め込まれたものに使わせない(セキュリティ点検 L-4)
+  // 使わない端末の機能を、このサイトと埋め込まれたものに使わせない(セキュリティ点検 L-4)。
+  // Chromium が認識しない機能名(bluetooth)はコンソールに警告が出るので書かない
   {
     key: 'Permissions-Policy',
     value:
       'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), hid=(), ' +
-      'bluetooth=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), ' +
+      'midi=(), magnetometer=(), gyroscope=(), accelerometer=(), ' +
       'browsing-topics=()',
   },
   // HTTPS だけで開かせる。Vercel が独自ドメインに付ける既定と同じ 2 年(63072000 秒)を明示する。
