@@ -7,7 +7,7 @@ import { browserStore, requestSend, sendFinishedEvent } from '@/admin/scoreSende
 
 // 管理画面のどの画面にも置く、端末全体の仕事(docs/operations/operator-experience.md
 // 「紙を上回ることが前提」2)。
-// - 記録係の画面を通信の無いところでも開けるよう、Service Worker(public/sw.js)を /admin/ に登録する
+// - 記録係の画面を通信の無いところでも開けるよう、Service Worker(public/sw.js)を /admin に登録する
 // - 端末に溜まった全試合の未送信の操作を、つながっている間は送り続ける(記録画面を開かなくても送る)
 // - ログイン画面では、前の利用者が保存したページを端末から消す
 
@@ -34,8 +34,12 @@ export function DeviceSync() {
     if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) {
       return
     }
+    // scope は末尾の / を付けない('/admin/' だと担当試合の一覧 /admin が外れ、保存も制御もされない)
     navigator.serviceWorker
-      .register('/sw.js', { scope: '/admin/', updateViaCache: 'none' })
+      .register('/sw.js', { scope: '/admin', updateViaCache: 'none' })
+      // 初めて開いたページは Service Worker より先に読み込まれて保存されないので、保存させる
+      // (保存するのは記録画面と担当試合の一覧だけ。sw.js が選ぶ)
+      .then(() => precacheScorePages([window.location.pathname]))
       .catch((error: unknown) => {
         // 登録できなくても(古い端末、プライベートブラウズ)、通信がある間の記録はできる
         console.warn('service worker registration failed', error)

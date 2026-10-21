@@ -201,7 +201,7 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
             checking: false,
             step: 'pick',
             winnerSide: null,
-            notice: `確認した後に別の端末で記録が入り、スコアが変わっていました(${failure.message})。試合は終わっていません。最新のスコアで確認し直してください。`,
+            notice: `確認した後に別の端末で記録が入り、スコアが変わっていました。試合は終わっていません。最新のスコアで確認し直してください。`,
           }),
         )
         return
@@ -581,7 +581,15 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
             {authLost ? (
               <p className="sk-banner error" role="alert">
                 ログインが切れました。未送信の記録はこの端末に残っています。
-                <a href={loginHref}>ログインし直す</a>
+                {/* 未送信の記録は端末に残り、ログインし直した後に送るので、離れる確認を出さない */}
+                <a
+                  href={loginHref}
+                  onClick={() => {
+                    leaving.current = true
+                  }}
+                >
+                  ログインし直す
+                </a>
               </p>
             ) : null}
             {storageBroken ? (

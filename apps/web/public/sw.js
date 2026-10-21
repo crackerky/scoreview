@@ -1,6 +1,6 @@
 // 記録係の画面を通信の無いところでも開けるようにする Service Worker
 // (docs/operations/operator-experience.md「紙を上回ることが前提」2)。
-// 登録は管理画面の DeviceSync.tsx が scope '/admin/' で行う。閲覧ページは scope の外なので、
+// 登録は管理画面の DeviceSync.tsx が scope '/admin' で行う。閲覧ページは scope の外なので、
 // このファイルの処理は閲覧ページの読み込みに一切かからない。
 //
 // - 記録画面と担当試合の一覧のページ(HTML): ネットワーク優先。届かなければ端末に保存した最後のページ
