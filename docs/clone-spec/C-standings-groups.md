@@ -111,7 +111,8 @@
 見出し: `< {ディビジョン名} - {グループ名} >`。EN: `<4 on 4 - Qualifying pool A>` / `<Reague Result>`(原文 typo) / `<GameList for the Group>`。
 
 #### (a) 対戦マトリクス(星取表): あり
-- 1 行目 `<tr class=''>`: `<td class='RM_MD1 CM' width='22%' >- MATRIX -</td>` + 各チーム列見出し `<td class='RM_MD1 CM' width='{78/N}%' >`(3 チーム=26%、4 チーム=19.5%、5 チーム=15.6%)。中身 `<span class='teamimg_rnk'><a … scv_team/open/{id}>名前</a></span>`。
+- 1 行目 `<tr class=''>`: `<td class='RM_MD1 CM' width='22%' >- MATRIX -</td>` + 各チーム列見出し `<td class='RM_MD1 CM' width='{78/N}%' >`(3 チーム=26%、4 チーム=19.5%、5 チーム=15.6%)。中身 `<span class='teamimg_rnk'><a … scv_team/open/{id}>名前</a></span>`。**5 チーム以上**(2182、2188、3272 の 5 チーム、6631 の 6 チーム)では見出しはリンクのない素の文字で、名前を表示幅 4(全角 2 文字、半角 4 文字)で切り詰める(`慶應` `VORT` `くら`)。
+- 未試合の上三角のセルは試合の CD を素の文字で出す(`<td class='RM_ARI  CM'>A1</td>`、527 の 6631)。
 - 以降 N 行。第 1 セル `<td class='RM_MD1'>`(チーム名リンク)+ N セル。セルの種別:
   - 対角: `<td class='RM_AIDA CM'>` 空(背景 #ffa000)
   - 下三角: `<td class='RM_NASI CM'>` 空(背景 #fff3b1)

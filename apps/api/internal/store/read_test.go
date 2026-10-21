@@ -415,8 +415,9 @@ func TestGetGroupPool(t *testing.T) {
 	}, pool.Matrix[0][1])
 	// C が左の試合も記録の左右順のまま出す
 	assert.Equal(t, "5-5", pool.Matrix[0][2].Text)
+	// 未試合は試合の CD
 	assert.Equal(t, store.MatrixCell{
-		Kind: store.MatrixMatch, MatchID: sc.MatchBC.ID, Status: domain.MatchScheduled, Text: "",
+		Kind: store.MatrixMatch, MatchID: sc.MatchBC.ID, Status: domain.MatchScheduled, Text: "A3",
 	}, pool.Matrix[1][2])
 
 	var ranks []int

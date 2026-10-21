@@ -216,7 +216,8 @@ type Tally = {
     // teams と同じ順の N×N。対角 self、下三角 lower、上三角は試合があれば match、なければ empty
     matrix: Array<Array<
       | { kind: 'self' | 'lower' | 'empty' }
-      | { kind: 'match'; matchId: number; status: MatchStatus; text: string }  // text は "9-3"(試合記録の左右順)
+      // text は "9-3"(試合記録の左右順)。スコアのない未試合は試合の CD("A1")
+      | { kind: 'match'; matchId: number; status: MatchStatus; text: string }
     >>
     results: Array<Tally & { team: TeamRef; points: number; rank: number | null }>  // teams と同じ順
   } | null
