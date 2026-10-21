@@ -99,6 +99,28 @@ export function scorerStateOf(
   return { kind: 'other', name: scorer.name, sameUser: scorer.userId === userId }
 }
 
+/**
+ * api が断った操作の知らせ。記録係がそのまま次の行動を決められる言葉にする。reason は api の
+ * エラーの message。
+ */
+export function failureMessage(op: ScoreOp, status: number, reason: string): string {
+  if (status === 409 && op.type === 'status' && op.status === 'live') {
+    // 終了の取り消しで、結果のある後続の試合の対戦が変わる(api は下流の扱いの承認を求める)。
+    // 記録画面では承認させず、影響を見られる本部の画面で訂正してもらう
+    return `試合終了を取り消せませんでした: ${reason}。本部の訂正の画面から訂正してください。`
+  }
+  switch (status) {
+    case 403:
+      return '記録できませんでした: この試合の担当ではありません。担当を本部に確認してください。'
+    case 409:
+      return `記録できませんでした: 試合の記録が別の端末で変わっています(${reason})。画面を最新にしました。`
+    case 404:
+      return '記録できませんでした: 試合か得点経過が見つかりません(削除された可能性があります)。'
+    default:
+      return `記録できませんでした: 入力を確かめてください(${reason})。`
+  }
+}
+
 /** コートの表示。「コート1」のように既に「コート」が付いた値に重ねて付けない(レビュー L1) */
 export function courtLabel(field: string | null): string {
   if (field === null || field === '') {

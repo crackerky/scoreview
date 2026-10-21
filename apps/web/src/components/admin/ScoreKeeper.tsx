@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { formatElapsed } from '@/admin/labels.utils'
 import {
   courtLabel,
+  failureMessage,
   isLongElapsed,
   restoreOp,
   type ScorerState,
@@ -208,7 +209,7 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
       }
       setErrors((current) => [
         ...current,
-        { id: op.opId, message: failureMessage(failure.status, failure.message) },
+        { id: op.opId, message: failureMessage(op, failure.status, failure.message) },
       ])
       void refresh()
     }
@@ -782,20 +783,6 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
 
 function isAbort(error: DOMException): boolean {
   return error.name === 'AbortError' || error.name === 'TimeoutError'
-}
-
-/** 記録できなかった操作の知らせ。記録係がそのまま次の行動を決められる言葉にする */
-function failureMessage(status: number, reason: string): string {
-  switch (status) {
-    case 403:
-      return '記録できませんでした: この試合の担当ではありません。担当を本部に確認してください。'
-    case 409:
-      return `記録できませんでした: 試合の記録が別の端末で変わっています(${reason})。画面を最新にしました。`
-    case 404:
-      return '記録できませんでした: 試合か得点経過が見つかりません(削除された可能性があります)。'
-    default:
-      return `記録できませんでした: 入力を確かめてください(${reason})。`
-  }
 }
 
 function undoText(

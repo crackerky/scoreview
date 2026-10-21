@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   courtLabel,
+  failureMessage,
   isLongElapsed,
   restoreOp,
   scorerStateOf,
@@ -172,6 +173,23 @@ describe('画面の細部', () => {
     assert.equal(isLongElapsed(135 * 60, null), false)
     assert.equal(isLongElapsed(135 * 60 + 1, null), true)
     assert.equal(isLongElapsed(46 * 60, 30), true)
+  })
+
+  test('結果のある後続の試合が変わる終了の取り消しは、本部での訂正を案内する', () => {
+    const reopen: ScoreOp = {
+      type: 'status',
+      opId: uuid(1),
+      status: 'live',
+      winnerSide: null,
+      expectedScore: null,
+    }
+    const reason = '既に結果のある試合(B1)の対戦が変わります'
+    assert.equal(
+      failureMessage(reopen, 409, reason),
+      `試合終了を取り消せませんでした: ${reason}。本部の訂正の画面から訂正してください。`,
+    )
+    assert.match(failureMessage(goal(2, 'left'), 409, 'x'), /別の端末で変わっています/)
+    assert.match(failureMessage(goal(2, 'left'), 403, 'forbidden'), /担当ではありません/)
   })
 
   test('コートの値に「コート」が付いていれば重ねない', () => {

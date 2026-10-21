@@ -89,7 +89,7 @@ func DecideResult(in ExceptionalResult, inBracket bool) (ResultOutcome, error) {
 		}
 		winner := *in.WinnerSide
 		if in.Forfeit == nil {
-			// 大会に規定スコアが無ければ、記録係は勝者だけを記録し、スコアは本部が後で決める
+			// 規定スコア(大会、無ければ大会の形)が無ければ、勝者だけを記録し、スコアは本部が後で決める
 			// (記録係にその場で点数を決めさせない)
 			return ResultOutcome{Winner: &winner}, nil
 		}
