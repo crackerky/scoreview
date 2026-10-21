@@ -17,22 +17,92 @@ func TestHTMLRemovesXSSVectors(t *testing.T) {
 		forbidden []string // 出力に残ってはいけない文字列(小文字で比較)
 		kept      string   // 残るべき文字列
 	}{
-		{"script element", `<p>ok</p><script>alert(1)</script>`, []string{"<script", "alert"}, "<p>ok</p>"},
-		{"onerror attribute", `<img src="x.png" onerror="alert(1)">`, []string{"onerror", "alert"}, `src="x.png"`},
-		{"onclick on span", `<span class="SCV_MIDA_M" onclick="steal()">badge</span>`, []string{"onclick", "steal"}, "badge"},
-		{"javascript URL", `<a href="javascript:alert(1)">link</a>`, []string{"javascript:", "href"}, "link"},
-		{"javascript URL with entities", `<a href="jav&#x09;ascript:alert(1)">link</a>`, []string{"ascript:", "href"}, "link"},
+		{
+			"script element",
+			`<p>ok</p><script>alert(1)</script>`,
+			[]string{"<script", "alert"},
+			"<p>ok</p>",
+		},
+		{
+			"onerror attribute",
+			`<img src="x.png" onerror="alert(1)">`,
+			[]string{"onerror", "alert"},
+			`src="x.png"`,
+		},
+		{
+			"onclick on span",
+			`<span class="SCV_MIDA_M" onclick="steal()">badge</span>`,
+			[]string{"onclick", "steal"},
+			"badge",
+		},
+		{
+			"javascript URL",
+			`<a href="javascript:alert(1)">link</a>`,
+			[]string{"javascript:", "href"},
+			"link",
+		},
+		{
+			"javascript URL with entities",
+			`<a href="jav&#x09;ascript:alert(1)">link</a>`,
+			[]string{"ascript:", "href"},
+			"link",
+		},
 		{"data URL image", `<img src="data:text/html;base64,PHNjcmlwdD4=">`, []string{"data:"}, ""},
-		{"style expression", `<span style="width: expression(alert(1)); color: red">x</span>`, []string{"expression"}, "color: red"},
-		{"style url()", `<span style="background-color: url(javascript:alert(1))">x</span>`, []string{"url(", "javascript"}, "x"},
+		{
+			"style expression",
+			`<span style="width: expression(alert(1)); color: red">x</span>`,
+			[]string{"expression"},
+			"color: red",
+		},
+		{
+			"style url()",
+			`<span style="background-color: url(javascript:alert(1))">x</span>`,
+			[]string{"url(", "javascript"},
+			"x",
+		},
 		{"font-family with url()", `<span style="font-family: url(x)">x</span>`, []string{"url("}, "x"},
-		{"svg onload", `<svg onload="alert(1)"><circle r="1"/></svg>`, []string{"<svg", "onload", "alert"}, ""},
-		{"iframe", `<iframe src="https://evil.example/"></iframe>after`, []string{"<iframe", "evil"}, "after"},
-		{"style element", `<style>body{display:none}</style><p>x</p>`, []string{"<style", "display"}, "<p>x</p>"},
-		{"object and embed", `<object data="x.swf"></object><embed src="x.swf">`, []string{"<object", "<embed"}, ""},
-		{"form", `<form action="https://evil.example/"><input name="pw"></form>`, []string{"<form", "<input"}, ""},
-		{"meta refresh", `<meta http-equiv="refresh" content="0;url=https://evil.example/">`, []string{"<meta", "refresh"}, ""},
-		{"class injection", `<span class="x&quot; onmouseover=&quot;alert(1)">x</span>`, []string{"onmouseover"}, "x"},
+		{
+			"svg onload",
+			`<svg onload="alert(1)"><circle r="1"/></svg>`,
+			[]string{"<svg", "onload", "alert"},
+			"",
+		},
+		{
+			"iframe",
+			`<iframe src="https://evil.example/"></iframe>after`,
+			[]string{"<iframe", "evil"},
+			"after",
+		},
+		{
+			"style element",
+			`<style>body{display:none}</style><p>x</p>`,
+			[]string{"<style", "display"},
+			"<p>x</p>",
+		},
+		{
+			"object and embed",
+			`<object data="x.swf"></object><embed src="x.swf">`,
+			[]string{"<object", "<embed"},
+			"",
+		},
+		{
+			"form",
+			`<form action="https://evil.example/"><input name="pw"></form>`,
+			[]string{"<form", "<input"},
+			"",
+		},
+		{
+			"meta refresh",
+			`<meta http-equiv="refresh" content="0;url=https://evil.example/">`,
+			[]string{"<meta", "refresh"},
+			"",
+		},
+		{
+			"class injection",
+			`<span class="x&quot; onmouseover=&quot;alert(1)">x</span>`,
+			[]string{"onmouseover"},
+			"x",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

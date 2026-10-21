@@ -24,8 +24,16 @@ func TestBracketLayoutRoundTrip(t *testing.T) {
 				{},
 			},
 			{
-				{Kind: domain.BracketGame, MatchID: id(99), Borders: domain.BracketBorders{Top: true, Right: true}},
-				{Kind: domain.BracketWin, TeamID: id(10), Borders: domain.BracketBorders{Left: true, Bottom: true}},
+				{
+					Kind:    domain.BracketGame,
+					MatchID: id(99),
+					Borders: domain.BracketBorders{Top: true, Right: true},
+				},
+				{
+					Kind:    domain.BracketWin,
+					TeamID:  id(10),
+					Borders: domain.BracketBorders{Left: true, Bottom: true},
+				},
 			},
 		},
 	}
@@ -65,6 +73,8 @@ func TestParseBracketLayoutRejectsBadInput(t *testing.T) {
 }
 
 func TestMarshalBracketLayoutValidates(t *testing.T) {
-	_, err := domain.MarshalBracketLayout(domain.BracketLayout{Columns: 1, Rows: [][]domain.BracketCell{{}, {{}, {}}}})
+	_, err := domain.MarshalBracketLayout(
+		domain.BracketLayout{Columns: 1, Rows: [][]domain.BracketCell{{}, {{}, {}}}},
+	)
 	assert.ErrorIs(t, err, domain.ErrInvalidBracketLayout)
 }

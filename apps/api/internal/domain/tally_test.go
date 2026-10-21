@@ -50,7 +50,13 @@ func TestTallyFor(t *testing.T) {
 			"scheduled and live matches are not counted",
 			[]domain.Result{
 				{LeftTeamID: team, RightTeamID: 2, Status: domain.MatchScheduled},
-				{LeftTeamID: team, RightTeamID: 2, LeftScore: score(3), RightScore: score(1), Status: domain.MatchLive},
+				{
+					LeftTeamID:  team,
+					RightTeamID: 2,
+					LeftScore:   score(3),
+					RightScore:  score(1),
+					Status:      domain.MatchLive,
+				},
 			},
 			domain.Tally{},
 		},

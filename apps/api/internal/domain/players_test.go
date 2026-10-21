@@ -33,9 +33,15 @@ func TestSortPlayers(t *testing.T) {
 			want: []string{"0", "3", "6", "9", "51", "90"},
 		},
 		{
-			name:  "non-numeric numbers go last in string order",
-			input: []domain.PlayerSortKey{{Number: "B"}, {Number: "12"}, {Number: ""}, {Number: "A"}, {Number: "2"}},
-			want:  []string{"2", "12", "", "A", "B"},
+			name: "non-numeric numbers go last in string order",
+			input: []domain.PlayerSortKey{
+				{Number: "B"},
+				{Number: "12"},
+				{Number: ""},
+				{Number: "A"},
+				{Number: "2"},
+			},
+			want: []string{"2", "12", "", "A", "B"},
 		},
 		{
 			name:  "same numeric value falls back to string order",
