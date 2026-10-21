@@ -343,6 +343,12 @@ type MatchDetail struct {
 	Events         []EventRecord
 	PlayerStats    []PlayerStatFields
 	Rosters        struct{ Left, Right []PlayerRecord }
+	// Scorer は試合の記録担当(期限内のもの。いなければ nil)
+	Scorer *ScorerClaim
+	// ConcurrentRecords は別の記録係がほぼ同時に入れた同じ種類の記録の組(二重記録の疑い)
+	ConcurrentRecords []ConcurrentRecordView
+	// MatchMinutes はディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ nil
+	MatchMinutes *int
 }
 
 // GetMatchDetail はスコア入力画面のデータを返す。無ければ MATCH_ID の NotFound。得点経過は時系列順。
@@ -411,6 +417,9 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 	if len(events) > 0 {
 		started := events[0].CreatedAt.Add(-time.Duration(events[0].ElapsedSec) * time.Second)
 		detail.StartedAt = &started
+	}
+	if err := fillScoringState(ctx, db, match, events, &detail); err != nil {
+		return MatchDetail{}, err
 	}
 	detail.Rosters.Left, detail.Rosters.Right = []PlayerRecord{}, []PlayerRecord{}
 	if match.LeftTeamID != nil {

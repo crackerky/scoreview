@@ -21,6 +21,15 @@ import {
 
 const opId = z.uuid()
 const nullableId = z.number().int().positive().nullable()
+/**
+ * 記録係が確認シートで見たスコア(試合終了と途中打ち切り)。api は現在のスコアと違えば 409
+ * (score_mismatch)を返す。この項目の無い古い形式で端末に残った操作は、確かめずに送る(null)
+ */
+const expectedScore = z
+  .object({ left: z.number().int().min(0), right: z.number().int().min(0) })
+  .nullable()
+  .default(null)
+export type ConfirmedScore = { left: number; right: number }
 
 const eventAddSchema = z.object({
   type: z.literal('event.add'),
@@ -32,6 +41,7 @@ const eventAddSchema = z.object({
   assistId: nullableId,
   callahan: z.boolean(),
   winnerSide: sideSchema.nullable(),
+  expectedScore,
 })
 
 /** 端末に溜めて api へ送る 1 回の操作。eventRef は得点経過の clientId(または api の id の文字列) */
@@ -47,10 +57,17 @@ export const scoreOpSchema = z.discriminatedUnion('type', [
     callahan: z.boolean(),
   }),
   z.object({
+    type: z.literal('event.side'),
+    opId,
+    eventRef: z.string().min(1),
+    side: sideSchema,
+  }),
+  z.object({
     type: z.literal('status'),
     opId,
     status: z.enum(['live', 'finished']),
     winnerSide: sideSchema.nullable(),
+    expectedScore,
   }),
   z.object({
     type: z.literal('result'),
@@ -58,9 +75,12 @@ export const scoreOpSchema = z.discriminatedUnion('type', [
     resultType: resultTypeSchema.exclude(['normal']),
     winnerSide: sideSchema.nullable(),
     forfeitScore: forfeitScoreSchema.nullable(),
+    expectedScore,
   }),
 ])
 export type ScoreOp = z.infer<typeof scoreOpSchema>
+/** 操作を作る側の型(既定値のある項目を省略できる) */
+export type ScoreOpInput = z.input<typeof scoreOpSchema>
 export type ExceptionalResult = Exclude<ResultType, 'normal'>
 
 /** 端末に保存する未送信の操作。startedAt は経過時間 0 秒の時刻(ミリ秒。端末の時計) */
@@ -161,6 +181,10 @@ function sameRef(event: AdminEvent, ref: string): boolean {
 export function applyOp(detail: MatchDetail, op: ScoreOp): MatchDetail {
   switch (op.type) {
     case 'event.add': {
+      if (detail.events.some((event) => event.clientId === op.opId)) {
+        // api に届いた後の取り直しの応答に既に入っている(応答を受け取る前に画面を取り直した)
+        return detail
+      }
       const seq = Math.max(0, ...detail.events.map((event) => event.seq)) + 1
       const roster = op.side === null ? [] : detail.rosters[op.side]
       const added: AdminEvent = {
@@ -211,6 +235,17 @@ export function applyOp(detail: MatchDetail, op: ScoreOp): MatchDetail {
       })
       return { ...detail, events }
     }
+    case 'event.side': {
+      // 相手チームの得点に付け替える。元のチームの得点者とアシストは外す(api と同じ)
+      const events = withRunningScores(
+        detail.events.map((event) =>
+          sameRef(event, op.eventRef) && event.kind === 'goal'
+            ? { ...event, side: op.side, scorer: null, assist: null, callahan: false }
+            : event,
+        ),
+      )
+      return withScore({ ...detail, events }, finalScore(events), {})
+    }
     case 'status': {
       const events =
         op.status === 'live' ? detail.events.filter((event) => event.kind !== 'end') : detail.events
@@ -235,7 +270,11 @@ function applyResult(
   const patch = { status: 'finished' as const, resultType, winnerSide }
   switch (resultType) {
     case 'forfeit': {
-      const score = forfeit ?? detail.forfeitScore ?? { winner: 0, loser: 0 }
+      const score = forfeit ?? detail.forfeitScore
+      if (score === null) {
+        // 大会に規定スコアが無ければ勝者だけを記録し、スコアは本部が後で決める(api と同じ)
+        return withScore(detail, null, patch)
+      }
       return withScore(
         detail,
         winnerSide === 'right'

@@ -28,3 +28,23 @@ export function sessionCookieOptions(expiresAt: string, production: boolean): Se
   }
   return { httpOnly: true, secure: production, sameSite: 'lax', path: SESSION_COOKIE_PATH, expires }
 }
+
+/**
+ * ログインの後に戻る管理画面のパス。/admin 以下の、英数字と / - _ だけのパスに限る(他サイトや
+ * ログイン画面そのものへ飛ばさない。オープンリダイレクトを作らない)。それ以外は /admin。
+ */
+export function safeNext(value: unknown): string {
+  if (typeof value !== 'string' || !/^\/admin(\/[A-Za-z0-9/_-]*)?$/.test(value)) {
+    return '/admin'
+  }
+  if (value.includes('//') || value.startsWith('/admin/login')) {
+    return '/admin'
+  }
+  return value
+}
+
+/** ログイン画面のパス。next があればログインの後にそこへ戻る(記録画面でセッションが切れたとき) */
+export function loginPath(next?: string): string {
+  const back = safeNext(next)
+  return back === '/admin' ? '/admin/login' : `/admin/login?${new URLSearchParams({ next: back })}`
+}

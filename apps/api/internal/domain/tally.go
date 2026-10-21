@@ -44,6 +44,9 @@ func (r Result) counted() bool {
 		return true
 	case ResultNoContest:
 		return r.WinnerSide != nil
+	case ResultForfeit:
+		// 規定スコアが無い大会の不戦勝はスコアが無く、勝者だけで数える
+		return r.WinnerSide != nil || (r.LeftScore != nil && r.RightScore != nil)
 	}
 	return r.LeftScore != nil && r.RightScore != nil
 }
@@ -99,8 +102,12 @@ func (t *Tally) add(teamID int64, r Result) {
 		t.Games++
 		t.Losses++
 		return
-	case ResultNoContest:
-		// 勝敗だけを数え、得点と失点には入れない(JFDA 規程)
+	case ResultNoContest, ResultForfeit:
+		if r.ResultType == ResultForfeit && r.LeftScore != nil && r.RightScore != nil {
+			break
+		}
+		// 勝敗だけを数え、得点と失点には入れない(不成立は JFDA 規程。スコアの無い不戦勝は、
+		// 本部がスコアを決めるまで得失点に数えない)
 		t.Games++
 		if *r.WinnerSide == side {
 			t.Wins++
