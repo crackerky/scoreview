@@ -2,10 +2,6 @@ package parity
 
 import "fmt"
 
-// maxDiffsPerPage は 1 ページあたりに記録する差分の上限。同じ原因の差分が表の全行に出るので、
-// 先頭の数件で原因を特定できる。
-const maxDiffsPerPage = 8
-
 // Result は 1 ページの比較結果。Cells* は本文の表のセル単位の一致数。
 type Result struct {
 	Path         string
@@ -14,7 +10,8 @@ type Result struct {
 	CellsText    int
 	CellsClasses int
 	CellsLink    int
-	Diffs        []string
+	// Diffs は見つかった差分のすべて。レポートに何件まで書くかは呼び出し側が決める
+	Diffs []string
 	// StructureOK は表の数、各表の行数と列数、見出し、ナビ、メニューがすべて一致したか
 	StructureOK bool
 }
@@ -29,9 +26,7 @@ func (r Result) FullMatch() bool {
 func Compare(path, kind string, ref, ours Page) Result {
 	res := Result{Path: path, Kind: kind, StructureOK: true}
 	note := func(format string, args ...any) {
-		if len(res.Diffs) < maxDiffsPerPage {
-			res.Diffs = append(res.Diffs, fmt.Sprintf(format, args...))
-		}
+		res.Diffs = append(res.Diffs, fmt.Sprintf(format, args...))
 	}
 
 	if ref.Title != ours.Title {

@@ -55,6 +55,33 @@ func TestDifferencesAreReported(t *testing.T) {
 	assert.Len(t, res.Diffs, 2)
 }
 
+// 日程の検索フォームと列見出し: 参照サイトは JavaScript(AddHiddenVal、Action)、本サイトは href と
+// <noscript> のボタンで同じことをする。選択肢の間の改行の有無も差にしない。
+func TestScheduleFormAndSortLinksMatch(t *testing.T) {
+	ref := `<div id="score_view"><table><tr>
+<td><select name="team">
+<option value="">	</option>
+<option value="1">架空A</option>
+<option value="2">架空 B</option>
+</select></td>
+<td class="RM"><a id='Refresh_OK' href="#" onclick="Action('search'); return false;">r</a></td>
+</tr></table>
+<table><tr><td class='MD1 CM'><a href="#" class="MD1"
+ onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_DATE') ;  Action(&quot;sort&quot;)  ; return false; ">日付</a></td></tr></table>
+</div>`
+	ours := `<div id="score_view"><table><tr>
+<td><select name="team"><option value=""></option><option value="1">架空A</option><option value="2">架空 B</option></select></td>
+<td class="RM"><a id="Refresh_OK" href="/pscore/scv_search_div/open/1?lang=jp">r</a><noscript><input type="submit" value="検索"/></noscript></td>
+</tr></table>
+<table><tr><td class="MD1 CM"><a class="MD1" href="/pscore/scv_search_div/open/1?lang=jp&amp;sortkey1=ASC_mat.MATCH_DATE">日付</a></td></tr></table>
+</div>`
+	refPage, ourPage := extract(t, ref), extract(t, ours)
+	res := parity.Compare("/x", "scv_search_div", refPage, ourPage)
+	assert.True(t, res.FullMatch(), res.Diffs)
+	assert.Equal(t, "架空A 架空 B", ourPage.Tables[0].Rows[0][0].Text)
+	assert.Equal(t, "sort:ASC_mat.MATCH_DATE", refPage.Tables[1].Rows[0][0].Href)
+}
+
 func TestNormalizeHref(t *testing.T) {
 	cases := map[string]string{
 		"https://score.clubjr.com/pscore/scv_team/open/5?lang=en": "/pscore/scv_team/open/5?lang=en",
