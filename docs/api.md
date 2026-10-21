@@ -78,7 +78,7 @@ type MatchRow = {
   code: string
   date: string | null
   time: string | null
-  field: number | null
+  field: string | null               // コート。数字とは限らない("A" など)
   status: MatchStatus
   left: MatchSide
   right: MatchSide
@@ -152,11 +152,11 @@ type Tally = {
 |---|---|
 | `ymd` | `YYYYMMDD`。**キー自体がない**とき、大会全体は最終日、ディビジョン別は全日程を既定にする。`ymd=`(空)は全日程 |
 | `team` | 大会全体ではチームの正式名(日本語)、ディビジョン別ではチーム ID。左右どちらかがそのチームの試合 |
-| `field` | コート番号 |
+| `field` | コート。文字列の完全一致(数字とは限らない) |
 | `sort` | `division`、`date`、`time`、`field`、`code`、`leftTeam`、`rightTeam` |
 | `dir` | `asc` か `desc`。`sort` があるときだけ有効 |
 
-既定の並びは日付、時刻、コート番号の昇順。
+既定の並びは日付、時刻、コートの昇順(コートは自然順: 数字のコートを数値順で先に、それ以外を文字列順で後に)。
 `sort` を指定したときも、同じ値の中ではこの既定順を保つ(安定ソート)。
 `leftTeam` と `rightTeam` は短縮名で、大文字小文字を区別しない。
 
@@ -170,7 +170,7 @@ type Tally = {
     // 大会全体: 大会の全チーム。value は正式名(日本語)
     // ディビジョン別: そのディビジョンのチーム。value はチーム ID の文字列
     teams: Array<{ value: string; name: I18nText }>    // name は正式名
-    fieldMax: number                                   // コート番号の最大値。試合がなければ 0
+    fields: string[]                                   // 範囲内の試合で使われたコートの異なり値(自然順)
     selected: { ymd: string; team: string; field: string }  // 実際に適用した値(既定値を含む)
   }
   sort: { key: string; dir: 'asc' | 'desc' } | null
@@ -187,7 +187,7 @@ type Tally = {
   frame: TournamentFrame
   division: { id: number; name: I18nText }
   standings: Array<Tally & { team: TeamRef; rank: number | null }>  // rank 昇順(NULL は末尾)、同順位は sort_order 順
-  leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件
+  leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
     team: TeamRef; player: PlayerRef
     games: number; assists: number; goals: number
   }>
@@ -262,10 +262,11 @@ type BracketCell = {
   frame: TournamentFrame
   match: {
     id: number; code: string; groupName: string | null
-    date: string | null; time: string | null; field: number | null
+    date: string | null; time: string | null; field: string | null
     status: MatchStatus
-    left: { team: TeamRef | null; score: number | null }
-    right: { team: TeamRef | null; score: number | null }
+    // fullName は正式名(ページの title 用)。team が null なら null
+    left: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
+    right: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
     breadcrumb: { divisionId: number; divisionName: I18nText; groupId: number | null }
   }
   // 時系列の昇順(古い順)。画面では web が逆順にして新しい順で出す
@@ -274,12 +275,15 @@ type BracketCell = {
     kind: 'goal' | 'timeout' | 'pull' | 'end'
     side: Side | null
     scorer: PlayerRef | null; assist: PlayerRef | null
+    callahan: boolean                        // キャラハンゴール(kind=goal のときだけ true になりうる)
     leftScore: number; rightScore: number   // そのイベント時点の累計
   }>
   lineups: {
     left: Array<{ player: PlayerRef; assists: number; goals: number; blocks: number }>
     right: Array<{ player: PlayerRef; assists: number; goals: number; blocks: number }>
   }                                          // (得点+アシスト)降順、得点降順、背番号の数値昇順
+  // fromTurnover は fromDefense と同じ値(ディフェンス開始で得点するにはターンオーバーが要る。
+  // 参照サイトの実データ 12 試合すべてで一致)。保存せずプルの向きから計算する
   stats: {
     left: { goals: number; fromOffense: number; fromDefense: number; fromTurnover: number; timeouts: number }
     right: { goals: number; fromOffense: number; fromDefense: number; fromTurnover: number; timeouts: number }
@@ -299,6 +303,7 @@ type BracketCell = {
   prev: PlayerRef & { role: I18nText | null }      // 同じチーム内の ID 順で 1 つ前(先頭なら末尾へ循環)
   next: PlayerRef & { role: I18nText | null }
   statsKind: StatsKind
+  // callahans は本人が得点者のキャラハンゴールの数
   stats: { games: number; assists: number; goals: number; callahans: number; greatests: number; blocks: number }
   // 本人が得点かアシストをしたイベント。試合の日時順、試合内は経過時間順
   events: Array<{
