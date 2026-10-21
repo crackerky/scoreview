@@ -176,8 +176,8 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}})
 	require.NoError(t, err)
 	assert.False(t, impact.NeedsApproval)
-	assert.Contains(t, strings.Join(impact.Lines, "\n"), "Qualifying pool A の 2 位と 3 位が入れ替わります")
-	assert.Contains(t, strings.Join(impact.Lines, "\n"), "5th placement tournament の F2")
+	assert.Contains(t, strings.Join(impact.Lines, "\n"), "予選 A 組の 2 位と 3 位が入れ替わります")
+	assert.Contains(t, strings.Join(impact.Lines, "\n"), "5〜8 位を決めるトーナメントの F2")
 
 	// T4 を全部進める(上の枠が勝つ)
 	for _, letter := range []string{"E", "F", "G"} {

@@ -198,3 +198,51 @@ func groupPlaces(g Group) (int, int, bool) {
 	}
 	return g.RankOffset + low, g.RankOffset + high, true
 }
+
+// OperatorName は管理画面(本部)に出すグループの名前。エンジンが作った英語の名前
+// ("Qualifying pool A"、"1st placement tournament")を運営の言葉(「予選 A 組」「1〜4 位を決める
+// トーナメント」)にする。運営者が付けた名前はそのまま返す。閲覧ページはグループ名のデータを
+// 出すので、ここは管理画面だけに使う(グループ名のデータは変えない)。
+func OperatorName(g Group) string {
+	first, last, placed := groupPlaces(g)
+	places := fmt.Sprintf("%d〜%d 位", first, last)
+	if first == last {
+		places = fmt.Sprintf("%d 位", first)
+	}
+	switch {
+	case g.Name == "Qualifying pool "+g.Letter:
+		if g.Final && placed {
+			return "総当たり(" + places + "を決める)"
+		}
+		return "予選 " + g.Letter + " 組"
+	case g.Name == "Tournament "+g.Letter:
+		return g.Letter + " ブロック"
+	case g.Name == "Championship pool" && placed:
+		return "決勝リーグ(" + places + "を決める)"
+	case strings.HasSuffix(g.Name, "placement tournament") && placed:
+		return places + "を決めるトーナメント"
+	}
+	return g.Name
+}
+
+// OperatorLabel は枠の出どころの管理画面の表記(「A 組 1 位」「E4 の負けチーム」「シード 3」)。
+func (s Source) OperatorLabel(plan *Plan) string {
+	switch s.Kind {
+	case SourceSeed:
+		return fmt.Sprintf("シード %d", s.Seed)
+	case SourceGroupRank:
+		return fmt.Sprintf("%s 組 %d 位", plan.Groups[s.Group].Letter, s.Rank)
+	case SourceMatch:
+		return s.Match.OperatorLabel()
+	}
+	return s.Label(plan)
+}
+
+// OperatorLabel は試合の勝者・敗者の管理画面の表記(「E4 の勝ちチーム」)。閲覧ページは参照サイトの
+// "[E4-勝ち]"(Label)のまま。
+func (r MatchRef) OperatorLabel() string {
+	if r.Outcome == domain.OutcomeWin {
+		return r.Code + " の勝ちチーム"
+	}
+	return r.Code + " の負けチーム"
+}

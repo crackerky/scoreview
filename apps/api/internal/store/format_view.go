@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -35,6 +36,7 @@ const (
 	TodoOverdue      TodoKind = "overdue"       // 予定時刻を過ぎて結果がない試合
 	TodoCourtDelay   TodoKind = "court_delay"   // 遅れているコート
 	TodoMismatch     TodoKind = "mismatch"      // 対戦チームが順位と食い違っている試合
+	TodoOverlap      TodoKind = "overlap"       // 同じチームの試合の時刻が重なっている
 )
 
 // TodoItem は「いまやること」の 1 件。対象の ID は種類に応じて入る。
@@ -77,11 +79,12 @@ type StageProgress struct {
 }
 
 // GroupProgress はグループの状態。Rows はプールの順位(全枠が埋まっているとき)、Ties は未決の
-// 同順位の組、Conditions は勝ち上がり条件。
+// 同順位の組、Conditions は勝ち上がり条件。Label は運営の言葉の名前(format.OperatorName)。
 type GroupProgress struct {
 	ID                int64
 	Letter            string
 	Name              string
+	Label             string
 	Kind              domain.GroupKind
 	Stage             int
 	State             format.GroupState
@@ -116,17 +119,18 @@ type ProgressSide struct {
 	Score *int
 }
 
-// ProgressMatch は進行画面の試合。
+// ProgressMatch は進行画面の試合。GroupLabel はグループの運営の言葉の名前。
 type ProgressMatch struct {
-	ID        int64
-	Code      string
-	GroupName string
-	Date      *string
-	Time      *string
-	Field     *string
-	Status    domain.MatchStatus
-	Left      ProgressSide
-	Right     ProgressSide
+	ID         int64
+	Code       string
+	GroupName  string
+	GroupLabel string
+	Date       *string
+	Time       *string
+	Field      *string
+	Status     domain.MatchStatus
+	Left       ProgressSide
+	Right      ProgressSide
 }
 
 // FinalRankRow は最終順位の 1 行。
@@ -221,11 +225,11 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 	fs := v.fs
 	row := fs.groups[g.Index]
 	status := fs.res.Groups[g.Index]
-	gp := GroupProgress{ID: row.ID, Letter: g.Letter, Name: g.Name, Kind: g.Kind, Stage: g.Stage,
-		State: status.State, ConfirmedUnplayed: row.ConfirmedUnplayed}
+	gp := GroupProgress{ID: row.ID, Letter: g.Letter, Name: g.Name, Label: format.OperatorName(g), Kind: g.Kind,
+		Stage: g.Stage, State: status.State, ConfirmedUnplayed: row.ConfirmedUnplayed}
 	for _, slot := range g.Slots {
 		st := fs.res.Slots[format.SlotKey{Group: g.Index, Position: slot.Position}]
-		side := ProgressSide{Label: slot.Source.Label(fs.plan)}
+		side := ProgressSide{Label: slot.Source.OperatorLabel(fs.plan)}
 		if st.Resolved() {
 			side.Team = v.refPtr(&st.TeamID)
 		}
@@ -373,8 +377,14 @@ func matchStart(m Match) (time.Time, bool) {
 		venueZone()), true
 }
 
+// todo は「いまやること」を緊急度の順に並べる: 時刻を過ぎて結果のない試合 → 同じチームの時刻の
+// 重なりと対戦チームの食い違い(このまま試合を始めると取り返しがつかない)→ 確定待ち → 未決の
+// 同順位 → コートの遅れ。
 func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []TodoItem {
-	var out []TodoItem
+	out := v.overdue()
+	out = append(out, v.overlaps()...)
+	out = append(out, v.mismatches()...)
+	var ties []TodoItem
 	for _, g := range groups {
 		id := g.ID
 		for _, tie := range g.Ties {
@@ -382,13 +392,13 @@ func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []
 			for i, t := range tie {
 				names[i] = t.Name.Ja
 			}
-			out = append(out, TodoItem{Kind: TodoTie, GroupID: &id,
-				Text: fmt.Sprintf("%s で %s が全基準で並んでいます。順位を指定してください", g.Name,
+			ties = append(ties, TodoItem{Kind: TodoTie, GroupID: &id,
+				Text: fmt.Sprintf("%sで %s が全基準で並んでいます。順位を指定してください", spaced(g.Label),
 					joinNames(names))})
 		}
 		if g.State == format.GroupReady {
 			out = append(out, TodoItem{Kind: TodoConfirmGroup, GroupID: &id,
-				Text: fmt.Sprintf("%s の全試合が終わりました。順位を確かめて確定してください", g.Name)})
+				Text: fmt.Sprintf("%sの全試合が終わりました。順位を確かめて確定してください", spaced(g.Label))})
 		}
 	}
 	for _, s := range stages {
@@ -408,10 +418,68 @@ func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []
 				Text: fmt.Sprintf("%s の全プールが終わりました。段を確定すると全体順位で次の組み合わせが決まります", s.Name)})
 		}
 	}
-	out = append(out, v.overdue()...)
-	out = append(out, v.courtDelays()...)
-	out = append(out, v.mismatches()...)
+	out = append(out, ties...)
+	return append(out, v.courtDelays()...)
+}
+
+// overlaps は、同じチームが時刻の重なる 2 試合に入っているもの(訂正で対戦チームが入れ替わった、
+// 時刻を手で動かした)。両方とも終わっていれば過去のことなので出さない。
+func (v progressBuilder) overlaps() []TodoItem {
+	slot := time.Duration(max(v.slotMinutes(), 1)) * time.Minute
+	type entry struct {
+		match Match
+		start time.Time
+	}
+	byTeam := map[int64][]entry{}
+	var teams []int64
+	for _, m := range v.sortedMatches() {
+		start, ok := matchStart(m)
+		if !ok {
+			continue
+		}
+		for _, team := range []*int64{m.LeftTeamID, m.RightTeamID} {
+			if team == nil {
+				continue
+			}
+			if _, seen := byTeam[*team]; !seen {
+				teams = append(teams, *team)
+			}
+			byTeam[*team] = append(byTeam[*team], entry{match: m, start: start})
+		}
+	}
+	var out []TodoItem
+	for _, team := range teams {
+		list := byTeam[team]
+		for i := 1; i < len(list); i++ {
+			prev, cur := list[i-1], list[i]
+			if !cur.start.Before(prev.start.Add(slot)) {
+				continue
+			}
+			if prev.match.Status == domain.MatchFinished && cur.match.Status == domain.MatchFinished {
+				continue
+			}
+			id := cur.match.ID
+			out = append(out, TodoItem{Kind: TodoOverlap, MatchID: &id,
+				Text: fmt.Sprintf("%s が %s の %s(%s)と %s の %s(%s)の両方に入っています。チームか時刻を直してください",
+					v.ref(team).Name.Ja, clockOf(prev.match), prev.match.Code, courtLabel(prev.match.Field),
+					clockOf(cur.match), cur.match.Code, courtLabel(cur.match.Field))})
+		}
+	}
 	return out
+}
+
+// spaced は名前の後ろに助詞を続けるときの区切り。英数字で終わる名前("Pool A")だけ空白を挟む
+// (日本語の名前「予選 A 組」には「予選 A 組の」と続ける)。
+func spaced(name string) string {
+	if r, _ := utf8.DecodeLastRuneInString(name); r < utf8.RuneSelf {
+		return name + " "
+	}
+	return name
+}
+
+// clockOf は試合の開始時刻 "HH:MM"(無ければ空)。
+func clockOf(m Match) string {
+	return deref(m.StartTime)[:min(5, len(deref(m.StartTime)))]
 }
 
 func joinNames(names []string) string {
@@ -531,6 +599,7 @@ func (v progressBuilder) match(m Match) ProgressMatch {
 	}
 	if g, ok := v.fs.plan.MatchByCode(m.Code); ok {
 		pm.GroupName = v.fs.plan.Groups[g.Group].Name
+		pm.GroupLabel = format.OperatorName(v.fs.plan.Groups[g.Group])
 		pm.Left = v.side(g, g.Left, m.LeftTeamID, m.LeftScore)
 		pm.Right = v.side(g, g.Right, m.RightTeamID, m.RightScore)
 	}
@@ -540,9 +609,9 @@ func (v progressBuilder) match(m Match) ProgressMatch {
 func (v progressBuilder) side(m format.Match, side format.SideRef, team *int64, score *int) ProgressSide {
 	out := ProgressSide{Team: v.refPtr(team), Score: score}
 	if side.From != nil {
-		out.Label = side.From.Label()
+		out.Label = side.From.OperatorLabel()
 	} else {
-		out.Label = v.fs.plan.SlotSource(format.SlotKey{Group: m.Group, Position: side.Slot}).Label(v.fs.plan)
+		out.Label = v.fs.plan.SlotSource(format.SlotKey{Group: m.Group, Position: side.Slot}).OperatorLabel(v.fs.plan)
 	}
 	return out
 }

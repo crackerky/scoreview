@@ -288,6 +288,7 @@ type groupProgressDTO struct {
 	ID                int64                `json:"id"`
 	Letter            string               `json:"letter"`
 	Name              string               `json:"name"`
+	Label             string               `json:"label"`
 	Kind              string               `json:"kind"`
 	Stage             int                  `json:"stage"`
 	State             string               `json:"state"`
@@ -300,15 +301,16 @@ type groupProgressDTO struct {
 }
 
 type progressMatchDTO struct {
-	ID        int64           `json:"id"`
-	Code      string          `json:"code"`
-	GroupName string          `json:"groupName"`
-	Date      *string         `json:"date"`
-	Time      *string         `json:"time"`
-	Field     *string         `json:"field"`
-	Status    string          `json:"status"`
-	Left      progressSideDTO `json:"left"`
-	Right     progressSideDTO `json:"right"`
+	ID         int64           `json:"id"`
+	Code       string          `json:"code"`
+	GroupName  string          `json:"groupName"`
+	GroupLabel string          `json:"groupLabel"`
+	Date       *string         `json:"date"`
+	Time       *string         `json:"time"`
+	Field      *string         `json:"field"`
+	Status     string          `json:"status"`
+	Left       progressSideDTO `json:"left"`
+	Right      progressSideDTO `json:"right"`
 }
 
 type progressFinalDTO struct {
@@ -344,7 +346,8 @@ func toProgressSide(side store.ProgressSide) progressSideDTO {
 }
 
 func toProgressMatch(m store.ProgressMatch) progressMatchDTO {
-	return progressMatchDTO{ID: m.ID, Code: m.Code, GroupName: m.GroupName, Date: m.Date, Time: m.Time,
+	return progressMatchDTO{ID: m.ID, Code: m.Code, GroupName: m.GroupName, GroupLabel: m.GroupLabel,
+		Date: m.Date, Time: m.Time,
 		Field: m.Field, Status: string(m.Status), Left: toProgressSide(m.Left), Right: toProgressSide(m.Right)}
 }
 
@@ -370,7 +373,8 @@ func toProgress(p store.FormatProgress, now time.Time) progressDTO {
 		out.Stages = append(out.Stages, stageProgressDTO(s))
 	}
 	for _, g := range p.Groups {
-		dto := groupProgressDTO{ID: g.ID, Letter: g.Letter, Name: g.Name, Kind: string(g.Kind), Stage: g.Stage,
+		dto := groupProgressDTO{ID: g.ID, Letter: g.Letter, Name: g.Name, Label: g.Label, Kind: string(g.Kind),
+			Stage: g.Stage,
 			State: string(g.State), ConfirmedUnplayed: g.ConfirmedUnplayed, Remaining: g.Remaining,
 			Slots: []progressSideDTO{}, Rows: []progressRankRowDTO{}, Ties: [][]teamRefDTO{},
 			Conditions: []teamConditionDTO{}}

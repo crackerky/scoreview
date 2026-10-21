@@ -196,6 +196,12 @@ function TodoAction({
           <button type="submit">このコートを遅らせる</button>
         </form>
       )
+    case 'overlap':
+      return (
+        <p className="adm-actions">
+          <a href={`/admin/matches/${todo.matchId ?? 0}`}>試合のチームと時刻を直す</a>
+        </p>
+      )
     case 'mismatch':
       return (
         <form action={alignTeamsAction}>

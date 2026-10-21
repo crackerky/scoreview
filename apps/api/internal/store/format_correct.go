@@ -122,10 +122,10 @@ func (v progressBuilder) describeImpact(impact *format.Impact) CorrectionImpact 
 	}
 	for _, g := range order {
 		changes := byGroup[g]
-		name := fs.plan.Groups[g].Name
+		name := format.OperatorName(fs.plan.Groups[g])
 		if len(changes) == 2 && changes[0].Before == changes[1].After && changes[0].After == changes[1].Before {
 			low, high := min(changes[0].Before, changes[0].After), max(changes[0].Before, changes[0].After)
-			out.Lines = append(out.Lines, fmt.Sprintf("%s の %d 位と %d 位が入れ替わります(%s と %s)", name, low,
+			out.Lines = append(out.Lines, fmt.Sprintf("%sの %d 位と %d 位が入れ替わります(%s と %s)", spaced(name), low,
 				high, v.teamName(changes[0].TeamID), v.teamName(changes[1].TeamID)))
 			continue
 		}
@@ -133,13 +133,14 @@ func (v progressBuilder) describeImpact(impact *format.Impact) CorrectionImpact 
 		for _, c := range changes {
 			parts = append(parts, fmt.Sprintf("%s が %d 位 → %d 位", v.teamName(c.TeamID), c.Before, c.After))
 		}
-		out.Lines = append(out.Lines, fmt.Sprintf("%s の順位が変わります(%s)", name, strings.Join(parts, "、")))
+		out.Lines = append(out.Lines, fmt.Sprintf("%sの順位が変わります(%s)", spaced(name), strings.Join(parts, "、")))
 	}
 	for _, a := range impact.AffectedMatches {
 		m, _ := fs.plan.MatchByCode(a.Code)
 		group := fs.plan.Groups[m.Group]
 		stored := fs.matches[a.Code]
-		line := fmt.Sprintf("%s の %s の対戦が「%s 対 %s」から「%s 対 %s」に変わります", group.Name, a.Code,
+		line := fmt.Sprintf("%sの %s の対戦が「%s 対 %s」から「%s 対 %s」に変わります",
+			spaced(format.OperatorName(group)), a.Code,
 			v.teamName(a.BeforeLeft), v.teamName(a.BeforeRight), v.teamName(a.AfterLeft), v.teamName(a.AfterRight))
 		if a.HasResult {
 			line += "(この試合は既に結果があります)"

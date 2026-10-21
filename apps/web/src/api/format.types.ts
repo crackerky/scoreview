@@ -175,6 +175,8 @@ export const progressMatchSchema = z.object({
   id,
   code: z.string(),
   groupName: z.string(),
+  /** 管理画面に出すグループ名(「予選 A 組」「1〜4 位を決めるトーナメント」) */
+  groupLabel: z.string(),
   date: z.string().nullable(),
   time: z.string().nullable(),
   field: z.string().nullable(),
@@ -185,7 +187,15 @@ export const progressMatchSchema = z.object({
 export type ProgressMatch = z.infer<typeof progressMatchSchema>
 
 export const todoSchema = z.object({
-  kind: z.enum(['tie', 'confirm_group', 'confirm_stage', 'overdue', 'court_delay', 'mismatch']),
+  kind: z.enum([
+    'tie',
+    'confirm_group',
+    'confirm_stage',
+    'overdue',
+    'court_delay',
+    'mismatch',
+    'overlap',
+  ]),
   text: z.string(),
   groupId: id.nullable(),
   stageId: id.nullable(),
@@ -199,6 +209,8 @@ export const groupProgressSchema = z.object({
   id,
   letter: z.string(),
   name: z.string(),
+  /** 管理画面に出すグループ名 */
+  label: z.string(),
   kind: groupKindSchema,
   stage: z.number().int(),
   state: groupStateSchema,

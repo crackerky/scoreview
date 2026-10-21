@@ -793,17 +793,21 @@ type SavedFormat = {
   forfeit: { winner: number; loser: number }; schedule: ScheduleSetting | null
   seeds: number[]                                   // 一覧(GET /admin/formats)では空
 }
+// label は管理画面の表記(「A 組 1 位」「E2 の勝ちチーム」「シード 3」)。閲覧ページの "[E2-勝ち]" とは別
 type ProgressSide = { label: string; team: TeamRef | null; score: number | null }
 type ProgressMatch = {
   id: number; code: string; groupName: string; date: string | null; time: string | null; field: string | null
+  groupLabel: string                                // 管理画面のグループ名(「予選 A 組」「1〜4 位を決めるトーナメント」)
   status: MatchStatus; left: ProgressSide; right: ProgressSide
 }
 type Progress = {
   divisionId: number; title: string; version: number; tiebreak: Tiebreak
   ruleText: string[]; advancement: string[]; slotMinutes: number; courts: string[]
   now: string                                       // 判定に使った現在時刻(ISO 8601)
-  todo: Array<{                                     // いまやること(この順に出す)
-    kind: 'tie' | 'confirm_group' | 'confirm_stage' | 'overdue' | 'court_delay' | 'mismatch'
+  // いまやること。緊急度の順(overdue → overlap と mismatch → confirm_group と confirm_stage → tie →
+  // court_delay)に並べて返す。overlap は同じチームが時刻の重なる 2 試合に入っている(両方終わったものは除く)
+  todo: Array<{
+    kind: 'tie' | 'confirm_group' | 'confirm_stage' | 'overdue' | 'court_delay' | 'mismatch' | 'overlap'
     text: string                                    // 運営者向けの文
     groupId: number | null; stageId: number | null; matchId: number | null; court: string | null
     minutes: number                                 // overdue と court_delay の遅れ(分)
@@ -811,6 +815,7 @@ type Progress = {
   stages: Array<{ id; index; name; confirmed: boolean; confirmedUnplayed: boolean; needsConfirm: boolean }>
   groups: Array<{
     id: number; letter: string; name: string; kind: GroupKind; stage: number
+    label: string                                   // 管理画面のグループ名(name のデータは変えない)
     state: 'waiting' | 'playing' | 'tied' | 'ready' | 'confirmed' | 'finished'
     confirmedUnplayed: boolean; remaining: number   // remaining は終わっていない試合の数
     slots: ProgressSide[]
