@@ -1,7 +1,9 @@
 package format
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 
 	"scoreview/api/internal/domain"
 )
@@ -72,8 +74,10 @@ func Qualify(teams []int64, games []Game, rule Rule) (*Qualification, error) {
 	for _, i := range remaining {
 		out.Remaining = append(out.Remaining, games[i].Code)
 	}
-	next := map[int64]int{} // チームの次の試合(games の添字)
-	for _, i := range remaining {
+	next := map[int64]int{} // チームの次の試合(games の添字)。試合番号ではなくラウンド(時刻)の順
+	byRound := slices.Clone(remaining)
+	slices.SortStableFunc(byRound, func(a, b int) int { return cmp.Compare(games[a].Round, games[b].Round) })
+	for _, i := range byRound {
 		for _, team := range []int64{games[i].Left, games[i].Right} {
 			if _, ok := next[team]; !ok {
 				next[team] = i

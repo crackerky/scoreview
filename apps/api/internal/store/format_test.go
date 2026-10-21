@@ -76,7 +76,7 @@ func (f formatFixture) match(t *testing.T, code string) store.Match {
 func (f formatFixture) finish(t *testing.T, code string, left, right int) {
 	t.Helper()
 	_, err := store.ApplyCorrection(context.Background(), f.db, f.actor, f.match(t, code).ID,
-		store.CorrectionInput{Score: domain.Score{Left: left, Right: right}}, true)
+		store.CorrectionInput{Score: domain.Score{Left: left, Right: right}}, store.DownstreamNone)
 	require.NoError(t, err, code)
 }
 
@@ -122,7 +122,7 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	e2 := f.match(t, "E2")
 	assert.Nil(t, e2.LeftTeamID, "プールの確定前は 1st placement の 1 回戦は空")
 	_, err := store.ApplyCorrection(ctx, f.db, f.actor, e2.ID,
-		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 0}}, false)
+		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 0}}, store.DownstreamNone)
 	require.ErrorIs(t, err, domain.ErrConflict, "対戦チームが決まる前の試合には結果を入れない")
 
 	f.finishPools(t)
@@ -200,10 +200,10 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, impact.NeedsApproval)
 	_, err = store.ApplyCorrection(ctx, f.db, f.actor, f.match(t, "A3").ID,
-		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}}, false)
+		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}}, store.DownstreamNone)
 	require.ErrorIs(t, err, domain.ErrConflict)
 	_, err = store.ApplyCorrection(ctx, f.db, f.actor, f.match(t, "A3").ID,
-		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}}, true)
+		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}}, store.DownstreamKeep)
 	require.NoError(t, err)
 	progress, err = store.GetFormatProgress(ctx, f.db, f.division.ID, now)
 	require.NoError(t, err)

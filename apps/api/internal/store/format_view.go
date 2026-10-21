@@ -240,9 +240,16 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 		return gp
 	}
 	for _, r := range status.Ranking.Rows {
-		gp.Rows = append(gp.Rows, ProgressRankRow{Team: v.ref(r.TeamID), Rank: r.Rank,
-			Tally: tallyOf(r.Stats), Points: r.Stats.Points(), Reason: r.Reason.Text(),
-			Unresolved: r.Reason.Unresolved})
+		row := ProgressRankRow{Team: v.ref(r.TeamID), Rank: r.Rank, Tally: tallyOf(r.Stats),
+			Points: r.Stats.Points(), Reason: r.Reason.Text(), Unresolved: r.Reason.Unresolved}
+		if !status.Done && row.Unresolved {
+			// 試合の途中で並んでいるだけで、未決(運営者が決める同順位)ではない
+			row.Reason, row.Unresolved = "", false
+		}
+		gp.Rows = append(gp.Rows, row)
+	}
+	if !status.Done {
+		return v.withConditions(gp, g.Index, status)
 	}
 	for _, tie := range status.Ranking.Unresolved {
 		refs := make([]domain.TeamRef, len(tie))
@@ -251,8 +258,12 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 		}
 		gp.Ties = append(gp.Ties, refs)
 	}
+	return v.withConditions(gp, g.Index, status)
+}
+
+func (v progressBuilder) withConditions(gp GroupProgress, index int, status format.GroupStatus) GroupProgress {
 	if status.State == format.GroupPlaying {
-		gp.Conditions = v.conditions(g.Index)
+		gp.Conditions = v.conditions(index)
 	}
 	return gp
 }
@@ -276,8 +287,8 @@ func (fs *formatState) poolGames(index int) ([]int64, []format.Game, bool) {
 	var games []format.Game
 	for _, m := range fs.plan.GroupMatches(index) {
 		mt := fs.res.Matches[m.Code]
-		game := format.Game{Code: m.Code, Left: mt.Left.TeamID, Right: mt.Right.TeamID}
-		if res, ok := fs.state.Results[m.Code]; ok {
+		game := format.Game{Code: m.Code, Round: m.Round, Left: mt.Left.TeamID, Right: mt.Right.TeamID}
+		if res, ok := fs.state.Results[m.Code]; ok && !mt.Mismatch {
 			game.Result = &res
 		}
 		games = append(games, game)
@@ -491,21 +502,18 @@ func (v progressBuilder) courtDelays() []TodoItem {
 	return out
 }
 
-// mismatches は、既に始まった試合で、左右のチームが枠の解決したチームと食い違うもの(確定後の訂正で
-// 順位が変わった)。
+// mismatches は、既に始まった試合で、記録した左右のチームが計算上のチーム(枠のチーム、前の試合の
+// 勝者・敗者)と食い違うもの(確定後の訂正で順位が変わった)。結果は下流と最終順位に使っていない。
 func (v progressBuilder) mismatches() []TodoItem {
 	var out []TodoItem
 	for _, m := range v.sortedMatches() {
-		if m.Status == domain.MatchScheduled {
+		if !v.fs.res.Matches[m.Code].Mismatch {
 			continue
 		}
-		left, right, hasLeft, hasRight := v.fs.sideTeams(m)
-		if (hasLeft && left != nil && !sameID(left, m.LeftTeamID)) ||
-			(hasRight && right != nil && !sameID(right, m.RightTeamID)) {
-			id := m.ID
-			out = append(out, TodoItem{Kind: TodoMismatch, MatchID: &id,
-				Text: fmt.Sprintf("%s の対戦チームが、訂正後の順位と食い違っています(結果は入ったまま)", m.Code)})
-		}
+		id := m.ID
+		out = append(out, TodoItem{Kind: TodoMismatch, MatchID: &id,
+			Text: fmt.Sprintf("%s の対戦チームが、訂正後の順位と食い違っています。結果は次の試合と最終順位に"+
+				"使っていません。チームを差し替えるか、結果を入れ直してください", m.Code)})
 	}
 	return out
 }

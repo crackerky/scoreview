@@ -39,10 +39,13 @@ export type ProposalInput = {
   sport: string
 }
 
+/** 結果のある下流の試合の対戦が変わるときの承認と下流の扱い。null は承認しない */
+export type Downstream = 'keep' | 'reset' | null
+
 export type CorrectionBody = {
   score: { left: number; right: number }
   winnerSide: 'left' | 'right' | null
-  approved: boolean
+  downstream: Downstream
 }
 
 export const formats = {

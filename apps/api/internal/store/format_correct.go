@@ -76,8 +76,9 @@ func correctionImpact(ctx context.Context, db *gorm.DB, match Match, input Corre
 		return CorrectionImpact{Lines: []string{"この試合は大会の形の外の試合です"}}, nil
 	}
 	left, right := input.Score.Left, input.Score.Right
-	result := format.Result{Status: domain.MatchFinished, Type: format.ResultNormal, LeftScore: &left,
-		RightScore: &right, Winner: input.WinnerSide}
+	result := formatResultOf(match)
+	result.Status, result.Type, result.LeftScore, result.RightScore, result.Winner =
+		domain.MatchFinished, format.ResultNormal, &left, &right, input.WinnerSide
 	impact, err := format.ImpactOfResult(fs.plan, fs.cfg, fs.state, match.Code, result)
 	if err != nil {
 		return CorrectionImpact{}, err
@@ -155,53 +156,46 @@ func (v progressBuilder) describeImpact(impact *format.Impact) CorrectionImpact 
 }
 
 // ApplyCorrection は得点経過の無い試合の結果を input にする(未試合や試合中なら終了にし、終了済みなら
-// 結果を直す)。既に結果のある下流の試合に影響するなら、approved が真のときだけ保存する
-// (偽なら ErrConflict)。下流の試合のうち未試合のものは対戦が自動で変わり、既に始まったものは変えず
-// 進行画面に「食い違い」として出す。
+// 結果を直す)。既に結果のある下流の試合の対戦が変わるなら、downstream で下流の扱いを選んだときだけ
+// 保存する(DownstreamNone なら ErrConflict。format_guard.go)。下流の試合のうち未試合のものは対戦が
+// 自動で変わる。戻り値は保存前に計算した影響。
 func ApplyCorrection(
 	ctx context.Context,
 	db *gorm.DB,
 	actor domain.Actor,
 	matchID int64,
 	input CorrectionInput,
-	approved bool,
+	downstream Downstream,
 ) (CorrectionImpact, error) {
 	if err := input.validate(); err != nil {
 		return CorrectionImpact{}, err
 	}
 	var impact CorrectionImpact
-	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		match, err := lockMatch(ctx, tx, matchID)
-		if err != nil {
-			return err
-		}
-		events, err := loadEvents(ctx, tx, matchID)
-		if err != nil {
-			return err
-		}
-		if len(events) > 0 {
-			return domain.Invalid("score", "得点経過のある試合は、スコア入力画面で得点経過を直してください")
-		}
-		if match.LeftTeamID == nil || match.RightTeamID == nil {
-			return fmt.Errorf("%w: 対戦チームが決まっていない試合の結果は入れられません", domain.ErrConflict)
-		}
-		if impact, err = correctionImpact(ctx, tx, match, input); err != nil {
-			return err
-		}
-		if impact.NeedsApproval && !approved {
-			return fmt.Errorf("%w: 既に結果のある試合の対戦が変わります。影響を確かめて承認してください",
-				domain.ErrConflict)
-		}
-		if match.Status == domain.MatchFinished {
-			if _, err := ChangeMatchStatus(ctx, tx, actor, matchID,
-				StatusInput{Status: domain.MatchLive}); err != nil {
-				return err
+	_, err := runApprovedMatchOp(ctx, db, actor, matchID, nil, AuditMatchStatus, downstream,
+		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			events, err := loadEvents(ctx, tx, matchID)
+			if err != nil {
+				return matchOpChange{}, err
 			}
-		}
-		score := input.Score
-		_, err = ChangeMatchStatus(ctx, tx, actor, matchID,
-			StatusInput{Status: domain.MatchFinished, WinnerSide: input.WinnerSide, Score: &score})
-		return err
-	})
+			if len(events) > 0 {
+				return matchOpChange{}, domain.Invalid("score",
+					"得点経過のある試合は、スコア入力画面で得点経過を直してください")
+			}
+			if impact, err = correctionImpact(ctx, tx, match, input); err != nil {
+				return matchOpChange{}, err
+			}
+			current := match
+			if match.Status == domain.MatchFinished {
+				if err := changeStatus(ctx, tx, actor, match, StatusInput{Status: domain.MatchLive}); err != nil {
+					return matchOpChange{}, err
+				}
+				if current, err = findInternal[Match](ctx, tx, matchID, "match"); err != nil {
+					return matchOpChange{}, err
+				}
+			}
+			score := input.Score
+			return matchOpChange{}, changeStatus(ctx, tx, actor, current,
+				StatusInput{Status: domain.MatchFinished, WinnerSide: input.WinnerSide, Score: &score})
+		})
 	return impact, err
 }

@@ -54,13 +54,15 @@ type GroupSlot struct {
 // TableName は GORM に表名を伝える。
 func (GroupSlot) TableName() string { return "group_slots" }
 
-// GroupRankDecision は group_rank_decisions の行。TeamIDs は上位から並べたチーム ID の JSON 配列。
+// GroupRankDecision は group_rank_decisions の行。TeamIDs は上位から並べたチーム ID の JSON 配列、
+// Basis は指定した時点の並んだチームの各基準の値(format.TeamValues の JSON 配列。00015)。
 type GroupRankDecision struct {
 	ID        int64     `gorm:"column:id;primaryKey"`
 	GroupID   *int64    `gorm:"column:group_id"`
 	StageID   *int64    `gorm:"column:stage_id"`
 	BandRank  *int      `gorm:"column:band_rank"`
 	TeamIDs   []byte    `gorm:"column:team_ids;type:jsonb"`
+	Basis     []byte    `gorm:"column:basis;type:jsonb"`
 	Reason    string    `gorm:"column:reason"`
 	DecidedBy *int64    `gorm:"column:decided_by"`
 	CreatedAt time.Time `gorm:"column:created_at"`

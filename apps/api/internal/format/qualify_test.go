@@ -60,3 +60,36 @@ func TestQualifyTooManyRemaining(t *testing.T) {
 	_, err := format.Qualify([]int64{1, 2, 3, 4, 5}, games, format.JFDARule())
 	assert.ErrorIs(t, err, domain.ErrBadRequest)
 }
+
+// TestQualifyNextGameIsByRound は「次の試合」がラウンド(時刻)の順であることを確かめる。4 チームの
+// プールの試合番号は組み合わせ順((1-2)=1、(1-3)=2、(1-4)=3)で、ラウンドは (1-4, 2-3) → (1-3, 2-4)
+// → (1-2, 3-4)。ラウンド 1 の後のチーム 1 の次は、番号の若い (1-2) ではなくラウンド 2 の (1-3)。
+func TestQualifyNextGameIsByRound(t *testing.T) {
+	plan, err := format.NewEngine().Generate(format.Spec{Template: format.TemplateRoundRobin,
+		Params: format.RoundRobinParams{Teams: 4, Pools: 1}})
+	require.NoError(t, err)
+	var games []format.Game
+	rounds := map[string]int{}
+	for _, m := range plan.GroupMatches(0) {
+		g := format.Game{Code: m.Code, Round: m.Round, Left: int64(m.Left.Slot), Right: int64(m.Right.Slot)}
+		if m.Round == 1 {
+			r := score(3, 1)
+			g.Result = &r
+		}
+		rounds[m.Code] = m.Round
+		games = append(games, g)
+	}
+	q, err := format.Qualify([]int64{1, 2, 3, 4}, games, format.CurrentRule(true))
+	require.NoError(t, err)
+	found := false
+	for _, look := range q.Teams {
+		for _, c := range look.Conditions {
+			if c.Match == "" {
+				continue
+			}
+			found = true
+			assert.Equal(t, 2, rounds[c.Match], "チーム %d の次の試合 %s", look.TeamID, c.Match)
+		}
+	}
+	assert.True(t, found, "条件のあるチームがいる")
+}

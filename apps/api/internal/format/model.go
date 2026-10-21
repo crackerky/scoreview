@@ -177,7 +177,13 @@ type Match struct {
 	LoserPlace  int
 }
 
-// SlotSource は枠の出どころを返す。
+// HasSlot は key の枠が Plan にあるかどうか。
+func (p *Plan) HasSlot(key SlotKey) bool {
+	return key.Group >= 0 && key.Group < len(p.Groups) && key.Position >= 1 &&
+		key.Position <= len(p.Groups[key.Group].Slots)
+}
+
+// SlotSource は枠の出どころを返す。key は Plan にある枠(HasSlot)であること。
 func (p *Plan) SlotSource(key SlotKey) Source {
 	return p.Groups[key.Group].Slots[key.Position-1].Source
 }

@@ -579,6 +579,8 @@ type statusBodyDTO struct {
 	Status     string    `json:"status"`
 	WinnerSide *string   `json:"winnerSide"`
 	Score      *scoreDTO `json:"score"`
+	// Downstream は結果のある下流の試合の対戦が変わるときの承認(keep / reset。null は承認しない)
+	Downstream *string `json:"downstream"`
 }
 
 type eventPlayersBodyDTO struct {

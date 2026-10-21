@@ -22,15 +22,18 @@ type SlotChange struct {
 	After  int64
 }
 
-// AffectedMatch は対戦チームが変わる試合。HasResult は既に結果(試合中を含む)がある試合で、
-// この訂正は運営者の明示的な承認なしに保存しない。
+// AffectedMatch は対戦チームが変わる試合。HasResult は既に結果(試合中を含む)がある試合。
+// NeedsApproval は、変える前は記録した対戦チームと計算上の対戦チームが合っていた結果のある試合で、
+// この変更で食い違いになる(既に食い違っていた試合は、前の承認で扱いが決まっているので数えない)。
+// 運営者の明示的な承認なしに保存しない。
 type AffectedMatch struct {
-	Code        string
-	BeforeLeft  int64
-	BeforeRight int64
-	AfterLeft   int64
-	AfterRight  int64
-	HasResult   bool
+	Code          string
+	BeforeLeft    int64
+	BeforeRight   int64
+	AfterLeft     int64
+	AfterRight    int64
+	HasResult     bool
+	NeedsApproval bool
 }
 
 // Impact は状態を変えたときに変わるもの(docs/format-engine.md「訂正の影響を先に見せる」)。
@@ -72,11 +75,14 @@ func ComputeImpact(plan *Plan, cfg Config, before, after State) (*Impact, error)
 		}
 		res, ok := after.Results[m.Code]
 		hasResult := ok && (res.Status == domain.MatchLive || res.Status == domain.MatchFinished)
+		prev, hadResult := before.Results[m.Code]
+		approval := hasResult && (!hadResult || settled(a, &prev))
 		out.AffectedMatches = append(out.AffectedMatches, AffectedMatch{
 			Code: m.Code, BeforeLeft: a.Left.TeamID, BeforeRight: a.Right.TeamID,
 			AfterLeft: b.Left.TeamID, AfterRight: b.Right.TeamID, HasResult: hasResult,
+			NeedsApproval: approval,
 		})
-		if hasResult {
+		if approval {
 			out.NeedsApproval = true
 		}
 	}
@@ -85,9 +91,25 @@ func ComputeImpact(plan *Plan, cfg Config, before, after State) (*Impact, error)
 
 // ImpactOfResult は試合 code の結果を result に変えたときの差分を返す。st は変えない。
 func ImpactOfResult(plan *Plan, cfg Config, st State, code string, result Result) (*Impact, error) {
-	after := st.clone()
-	after.Results[code] = result
-	return ComputeImpact(plan, cfg, st, after)
+	return ComputeImpact(plan, cfg, st, st.WithResult(code, &result))
+}
+
+// WithResult は試合 code の結果を result(nil なら結果なし)にした State の複製を返す。st は変えない。
+func (s State) WithResult(code string, result *Result) State {
+	out := s.clone()
+	if result == nil {
+		delete(out.Results, code)
+	} else {
+		out.Results[code] = *result
+	}
+	return out
+}
+
+// settled は試合の左右が計算上どちらも決まっていて、記録した対戦チームと同じかどうか(記録が無ければ
+// 左右が決まっていること)。試合中へ戻した上流を待つ間の試合は、既に承認で扱いを決めた状態なので
+// 含めない。
+func settled(mt MatchTeams, res *Result) bool {
+	return mt.Left.Resolved() && mt.Right.Resolved() && agrees(mt, res)
 }
 
 func rankChanges(group int, before, after *Ranking) []RankChange {

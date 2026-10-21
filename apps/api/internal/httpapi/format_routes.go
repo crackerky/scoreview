@@ -198,13 +198,28 @@ func (s *Server) decideBandRank(ctx context.Context, id int64, r *http.Request, 
 		store.RankDecisionInput{Teams: in.TeamIDs, Reason: in.Reason})
 }
 
-func readCorrection(r *http.Request) (store.CorrectionInput, bool, error) {
+func readCorrection(r *http.Request) (store.CorrectionInput, store.Downstream, error) {
 	var in correctionInputDTO
 	if err := decodeBody(r, &in); err != nil {
-		return store.CorrectionInput{}, false, err
+		return store.CorrectionInput{}, store.DownstreamNone, err
 	}
 	input, err := in.toInput()
-	return input, in.Approved, err
+	if err != nil {
+		return store.CorrectionInput{}, store.DownstreamNone, err
+	}
+	downstream, err := parseDownstream(in.Downstream)
+	return input, downstream, err
+}
+
+// parseDownstream は API の downstream(null、"keep"、"reset")を読む。
+func parseDownstream(value *string) (store.Downstream, error) {
+	if value == nil {
+		return store.DownstreamNone, nil
+	}
+	if *value == "" {
+		return store.DownstreamNone, domain.Invalid("downstream", "must be keep, reset or null")
+	}
+	return store.ParseDownstream("downstream", *value)
 }
 
 func (s *Server) correctionImpact(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
@@ -220,11 +235,11 @@ func (s *Server) correctionImpact(ctx context.Context, id int64, r *http.Request
 }
 
 func (s *Server) applyCorrection(ctx context.Context, id int64, r *http.Request, user domain.User) (any, error) {
-	input, approved, err := readCorrection(r)
+	input, downstream, err := readCorrection(r)
 	if err != nil {
 		return nil, err
 	}
-	impact, err := store.ApplyCorrection(ctx, s.db, actorOf(user), id, input, approved)
+	impact, err := store.ApplyCorrection(ctx, s.db, actorOf(user), id, input, downstream)
 	if err != nil {
 		return nil, err
 	}
