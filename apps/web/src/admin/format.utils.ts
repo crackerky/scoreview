@@ -14,29 +14,6 @@ export const tiebreakOptions = [
   { value: 'jfda', label: 'JFDA 競技規則(勝利数 → 該当チーム間 → 棄権数 …)' },
 ] as const
 
-/** 名簿の 1 行。短縮名は画面の表で使う名前(省略すると正式名と同じ) */
-export type RosterLine = { fullName: string; shortName: string }
-
-/**
- * 名簿の貼り付けを読む。1 行 1 チームで、「正式名」か「正式名<タブ or ,>短縮名」。空行は飛ばす。
- * 表計算からの貼り付け(タブ区切り)とメモ帳からの貼り付け(カンマ区切り)の両方を受ける。
- */
-export function parseRoster(text: string): RosterLine[] {
-  const out: RosterLine[] = []
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim()
-    if (line === '') {
-      continue
-    }
-    const [full = '', short = ''] = line.split(/\t|,|、/).map((part) => part.trim())
-    if (full === '') {
-      continue
-    }
-    out.push({ fullName: full, shortName: short === '' ? full : short })
-  }
-  return out
-}
-
 /** 候補の要約「この形で 24 試合、12:40 終了、全 12 位まで決まります」(2 日目なら「2 日目の 15:00 終了」) */
 export function proposalSentence(proposal: Proposal, teams: number): string {
   const day = proposal.endDay > 1 ? `${proposal.endDay} 日目の ` : ''

@@ -359,3 +359,22 @@
   border-color: var(--adm-danger);
   background: #fff5f5;
 }
+
+/* 名簿の貼り付けのプレビュー。注意のある行は赤で目立たせる */
+.adm .roster-preview {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--adm-line);
+  border-radius: 8px;
+  background: var(--adm-bg);
+}
+
+.adm .roster-preview h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.adm .roster-table tr.warn td {
+  color: var(--adm-danger);
+  background: #fff5f5;
+}

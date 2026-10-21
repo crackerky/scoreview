@@ -1,12 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import {
-  moveTo,
-  parseRoster,
-  proposalSentence,
-  roundUpToFive,
-  swapAt,
-} from '../src/admin/format.utils.ts'
+import { moveTo, proposalSentence, roundUpToFive, swapAt } from '../src/admin/format.utils.ts'
 import type { Proposal } from '../src/api/format.types.ts'
 
 const proposal: Proposal = {
@@ -27,17 +21,6 @@ const proposal: Proposal = {
 }
 
 describe('大会の形のウィザードの整形', () => {
-  test('名簿の貼り付け: タブ、カンマ、読点で正式名と短縮名を分け、空行を飛ばす', () => {
-    assert.deepEqual(
-      parseRoster('架空クラブ東京\tトウキョウ\n\n 架空クラブ大阪 , オオサカ\n架空A'),
-      [
-        { fullName: '架空クラブ東京', shortName: 'トウキョウ' },
-        { fullName: '架空クラブ大阪', shortName: 'オオサカ' },
-        { fullName: '架空A', shortName: '架空A' },
-      ],
-    )
-  })
-
   test('候補の要約', () => {
     assert.equal(
       proposalSentence(proposal, 12),
