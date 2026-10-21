@@ -143,6 +143,9 @@ const jp = {
   dgCleanCatch: 'ｸﾘｰﾝｷｬｯﾁ',
   dgFollowCatch: 'ﾌｫﾛｰｷｬｯﾁ',
   dgFootFault: 'ﾌｯﾄﾌｧｰﾙ',
+
+  // スケジュールの検索フォームの送信ボタン。JavaScript がないとき(noscript)だけ出す本サイト独自の文言
+  scheduleSearchSubmit: '検索',
 } as const
 
 export type MessageKey = keyof typeof jp
@@ -279,6 +282,8 @@ const en: Record<MessageKey, string> = {
   dgCleanCatch: 'Clean Catch',
   dgFollowCatch: 'Follow Catch',
   dgFootFault: 'Foot Fault',
+
+  scheduleSearchSubmit: 'Search',
 }
 
 const dictionaries: Record<Lang, Record<MessageKey, string>> = { jp, en }
