@@ -5,9 +5,9 @@ import { ZodError } from 'zod'
 import { field, idField, runAction } from '@/admin/action'
 import { parseRoster } from '@/admin/format.utils'
 import { readSessionToken } from '@/admin/session'
-import { teams } from '@/api/admin'
+import { matches, teams } from '@/api/admin'
 import { ApiError } from '@/api/client'
-import { type CorrectionBody, formats, type ProposalInput } from '@/api/format'
+import { type CorrectionBody, type Downstream, formats, type ProposalInput } from '@/api/format'
 import type { FormatInput, FormatPreview, Proposal } from '@/api/format.types'
 
 // 大会の形(ウィザード)と本部の進行画面の Server Actions。ウィザードは画面を遷移せずに結果を
@@ -161,12 +161,32 @@ export async function correctMatchAction(formData: FormData): Promise<never> {
       const body: CorrectionBody = {
         score: { left: Number(field(form, 'left')), right: Number(field(form, 'right')) },
         winnerSide: winner === 'left' || winner === 'right' ? winner : null,
-        approved: form.approved === 'on',
+        downstream: downstreamOf(field(form, 'downstream')),
       }
       await formats.correct(token, idField(form, 'matchId'), body)
       const next = field(form, 'next')
       return next.startsWith('/admin/') ? next : undefined
     },
     '結果を保存しました',
+  )
+}
+
+function downstreamOf(value: string): Downstream {
+  return value === 'keep' || value === 'reset' ? value : null
+}
+
+/** 得点経過のある終了した試合を試合中へ戻す(訂正の画面から。下流の扱いを選んで承認する) */
+export async function reopenMatchAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      const id = idField(form, 'matchId')
+      await matches.setStatus(token, id, {
+        status: 'live',
+        downstream: downstreamOf(field(form, 'downstream')),
+      })
+      return `/admin/matches/${id}/score`
+    },
+    '試合中に戻しました。得点経過を直して試合を終えてください',
   )
 }

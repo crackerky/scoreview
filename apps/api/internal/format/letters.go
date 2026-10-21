@@ -45,6 +45,22 @@ type sourceJSON struct {
 	Order   int        `json:"order,omitempty"`
 }
 
+// SourceEquals は保存した出どころ(group_slots.source の JSON)が s と同じかどうか。JSON の
+// キーの順や空白は問わない(PostgreSQL の jsonb は並べ替えて返す)。読めない JSON は違うとみなす。
+func SourceEquals(s Source, stored []byte) bool {
+	want, err := EncodeSource(s)
+	if err != nil {
+		return false
+	}
+	var a, b sourceJSON
+	if json.Unmarshal(want, &a) != nil || json.Unmarshal(stored, &b) != nil {
+		return false
+	}
+	same := func(x, y *int) bool { return (x == nil) == (y == nil) && (x == nil || *x == *y) }
+	return a.Kind == b.Kind && a.Seed == b.Seed && same(a.Group, b.Group) && a.Rank == b.Rank &&
+		a.Match == b.Match && a.Outcome == b.Outcome && same(a.Stage, b.Stage) && a.Order == b.Order
+}
+
 // EncodeSource は出どころを group_slots.source の JSON にする
 // ({"kind":"group_rank","group":0,"rank":1} など)。
 func EncodeSource(s Source) ([]byte, error) {

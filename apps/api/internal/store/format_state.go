@@ -69,6 +69,10 @@ func (s ScheduleSetting) config() (format.ScheduleConfig, error) {
 		if err != nil {
 			return format.ScheduleConfig{}, err
 		}
+		if !end.After(start) {
+			// 終了が開始より前だと、置ける枠の数が負になり「制限なし」と区別できない
+			return format.ScheduleConfig{}, domain.Invalid("schedule.end", "must be after schedule.start")
+		}
 		cfg.End = end
 	}
 	return cfg, nil
@@ -102,9 +106,7 @@ type formatState struct {
 	groupIndex map[int64]int
 	stages     map[int]Stage
 	slots      map[format.SlotKey]GroupSlot
-	slotKeys   map[int64]format.SlotKey
 	matches    map[string]Match
-	matchSlots map[int64]matchSlotRow
 	decisions  []GroupRankDecision
 	state      format.State
 	res        *format.Resolution
@@ -117,7 +119,7 @@ func configFor(row DivisionFormat) (format.Config, error) {
 		return format.Config{}, err
 	}
 	return format.Config{Tiebreak: rule, Band: format.BandRule(),
-		Forfeit: format.ForfeitScore{Winner: row.ForfeitWinnerScore, Loser: row.ForfeitLoserScore}}, nil
+		Forfeit: &format.ForfeitScore{Winner: row.ForfeitWinnerScore, Loser: row.ForfeitLoserScore}}, nil
 }
 
 // specOf は division_formats の行から Spec を作る。
@@ -150,8 +152,7 @@ func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*forma
 		return nil, ok, err
 	}
 	fs := &formatState{row: row, groups: map[int]formatGroupRow{}, groupIndex: map[int64]int{},
-		stages: map[int]Stage{}, slots: map[format.SlotKey]GroupSlot{}, slotKeys: map[int64]format.SlotKey{},
-		matches: map[string]Match{}, matchSlots: map[int64]matchSlotRow{}}
+		stages: map[int]Stage{}, slots: map[format.SlotKey]GroupSlot{}, matches: map[string]Match{}}
 	if fs.division, err = findInternal[Division](ctx, db, divisionID, "division"); err != nil {
 		return nil, false, err
 	}
@@ -161,14 +162,15 @@ func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*forma
 	if fs.cfg, err = configFor(row); err != nil {
 		return nil, false, err
 	}
-	// 不戦勝の規定スコアは、大会の設定(記録係が不戦勝を記録するときに使う値)があればそれを使い、
-	// 無ければ形の指定の値を使う(順位計算と記録したスコアが食い違わないように)
-	tournament, err := findInternal[Tournament](ctx, db, fs.division.TournamentID, "tournament")
+	// 不戦勝は記録したスコアで数え、スコアの無い不戦勝だけに規定スコア(記録と同じ値。
+	// regulationForfeitScore)を使う
+	setting, err := regulationForfeitScore(ctx, db, fs.division)
 	if err != nil {
 		return nil, false, err
 	}
-	if setting := tournamentForfeitScore(tournament); setting != nil {
-		fs.cfg.Forfeit = format.ForfeitScore{Winner: setting.Winner, Loser: setting.Loser}
+	fs.cfg.Forfeit = nil
+	if setting != nil {
+		fs.cfg.Forfeit = &format.ForfeitScore{Winner: setting.Winner, Loser: setting.Loser}
 	}
 	if fs.plan, err = format.NewEngine().Generate(fs.spec); err != nil {
 		return nil, false, fmt.Errorf("regenerate format of division %d: %w", divisionID, err)
@@ -218,8 +220,13 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 	}
 	for _, s := range slots {
 		key := format.SlotKey{Group: fs.groupIndex[s.GroupID], Position: s.Position}
+		// Plan は保存したテンプレートとパラメータから毎回作り直すので、エンジンの生成が変わると進行中の
+		// 大会の形が黙って変わる。保存した出どころと照合し、食い違えば進めない
+		if !fs.plan.HasSlot(key) || !format.SourceEquals(fs.plan.SlotSource(key), s.Source) {
+			return fmt.Errorf("%w: 保存した大会の形(グループ %d の枠 %d)が、今のエンジンが作る形と食い違います。"+
+				"形を適用し直してください", domain.ErrConflict, key.Group, key.Position)
+		}
 		fs.slots[key] = s
-		fs.slotKeys[s.ID] = key
 	}
 	var matches []Match
 	if err := tx.Where(sqlByDivision, id).Order(sqlOrderID).Find(&matches).Error; err != nil {
@@ -230,13 +237,6 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 			fs.matches[m.Code] = m
 		}
 	}
-	var sides []matchSlotRow
-	if err := tx.Where(sqlByDivision, id).Find(&sides).Error; err != nil {
-		return fmt.Errorf("load match slots of division %d: %w", id, err)
-	}
-	for _, s := range sides {
-		fs.matchSlots[s.ID] = s
-	}
 	if err := tx.Where(sqlDecisionsOf, groupIDs, stageIDs).Order(sqlOrderID).
 		Find(&fs.decisions).Error; err != nil {
 		return fmt.Errorf("load rank decisions of division %d: %w", id, err)
@@ -245,7 +245,8 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 }
 
 // formatResultOf は試合の行を順位計算の結果にする。結果の種類(matches.result_type)は format の
-// 種類に対応させる(不成立 no_contest は format の void)。
+// 種類に対応させる(不成立 no_contest は format の void)。Played は行の左右のチームで、勝者と敗者は
+// このチームで決まる(計算上の対戦チームと食い違えば、エンジンは結果を下流へ流さない)。
 func formatResultOf(m Match) format.Result {
 	kind := format.ResultNormal
 	switch m.ResultType {
@@ -260,8 +261,15 @@ func formatResultOf(m Match) format.Result {
 	case domain.ResultUnplayed:
 		kind = format.ResultUnplayed
 	}
+	played := format.PlayedTeams{}
+	if m.LeftTeamID != nil {
+		played.Left = *m.LeftTeamID
+	}
+	if m.RightTeamID != nil {
+		played.Right = *m.RightTeamID
+	}
 	return format.Result{Status: m.Status, Type: kind, LeftScore: m.LeftScore,
-		RightScore: m.RightScore, Winner: m.WinnerSide}
+		RightScore: m.RightScore, Winner: m.WinnerSide, Played: &played}
 }
 
 func (fs *formatState) buildState() format.State {
@@ -271,8 +279,8 @@ func (fs *formatState) buildState() format.State {
 		ConfirmedGroups: map[int]bool{},
 		ConfirmedStages: map[int]bool{},
 		Manual:          map[format.SlotKey]int64{},
-		RankDecisions:   map[int][]int64{},
-		BandDecisions:   map[format.BandKey][]int64{},
+		RankDecisions:   map[int][]format.Decision{},
+		BandDecisions:   map[format.BandKey][]format.Decision{},
 	}
 	for key, slot := range fs.slots {
 		src := fs.plan.SlotSource(key)
@@ -306,36 +314,32 @@ func (fs *formatState) buildState() format.State {
 		}
 	}
 	for _, d := range fs.decisions {
-		var teams []int64
-		if err := json.Unmarshal(d.TeamIDs, &teams); err != nil {
-			continue // 書き込みは DecideRank だけで、配列以外は入らない
+		decision, ok := decodeDecision(d)
+		if !ok {
+			continue
 		}
 		switch {
 		case d.GroupID != nil:
 			index := fs.groupIndex[*d.GroupID]
-			st.RankDecisions[index] = mergeDecision(st.RankDecisions[index], teams)
+			st.RankDecisions[index] = append(st.RankDecisions[index], decision)
 		case d.StageID != nil && d.BandRank != nil:
 			key := format.BandKey{Stage: stageIndex[*d.StageID], Rank: *d.BandRank}
-			st.BandDecisions[key] = mergeDecision(st.BandDecisions[key], teams)
+			st.BandDecisions[key] = append(st.BandDecisions[key], decision)
 		}
 	}
 	return st
 }
 
-// mergeDecision は後の指定を前の指定に重ねる。同じチームは後の指定の位置になる
-// (format.State.RankDecisions は 1 つの並びで、未決の組ごとに相対順だけを使う)。
-func mergeDecision(prev, next []int64) []int64 {
-	out := make([]int64, 0, len(prev)+len(next))
-	for _, team := range prev {
-		keep := true
-		for _, n := range next {
-			if n == team {
-				keep = false
-			}
-		}
-		if keep {
-			out = append(out, team)
-		}
+// decodeDecision は順位の指定の行を format.Decision にする。basis の無い行(00015 より前の指定)は、
+// どの成績に対する指定か分からないので使わない(ok=false。運営者が決め直す)。
+func decodeDecision(row GroupRankDecision) (format.Decision, bool) {
+	var d format.Decision
+	if row.Basis == nil {
+		return d, false
 	}
-	return append(out, next...)
+	// 書き込みは saveDecision だけで、JSON の形は決まっている
+	if json.Unmarshal(row.TeamIDs, &d.Order) != nil || json.Unmarshal(row.Basis, &d.Basis) != nil {
+		return d, false
+	}
+	return d, true
 }

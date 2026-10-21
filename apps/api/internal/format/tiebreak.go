@@ -138,13 +138,29 @@ func BandRule() Rule {
 
 // RankInput はプール順位の計算の入力。Teams はグループの枠の順。
 type RankInput struct {
-	Teams   []int64
-	Games   []Game
-	Rule    Rule
-	Forfeit ForfeitScore
-	// Decision は運営者が決めた順(group_rank_decisions)。未決の同順位のチームが全員ここに
-	// あれば、この並びで順位を決める
-	Decision []int64
+	Teams []int64
+	Games []Game
+	Rule  Rule
+	// Forfeit は不戦勝の規定スコア(スコアを記録していない不戦勝に使う)。nil は規定なし
+	Forfeit *ForfeitScore
+	// Decisions は運営者の指定(group_rank_decisions。古い順)。未決の組と同じチームで、指定した
+	// 時点と同じ成績(Basis)の指定のうち最後のものの並びで順位を決める
+	Decisions []Decision
+}
+
+// Decision は未決の同順位への運営者の指定(ブリックマーク投げなど)。Order は並んだチームを上位から
+// 並べたもの。Basis は指定した時点の並んだチームの各基準の値(Ranking.UnresolvedBasis)で、結果が
+// 変わって並んだチームか値が変われば、この指定は使わない(再び未決に戻り、運営者が決め直す)。
+type Decision struct {
+	Order []int64
+	Basis []TeamValues
+}
+
+// TeamValues はチームの基準ごとの値(Rule.Criteria の順。分数を "分子/分母" で表す)。保存する
+// ので JSON のキーを決めておく。
+type TeamValues struct {
+	TeamID int64    `json:"team"`
+	Values []string `json:"values"`
 }
 
 // Ranking は順位の計算結果。
@@ -153,6 +169,8 @@ type Ranking struct {
 	Rows []RankRow
 	// Unresolved は未決のまま残った同順位の組
 	Unresolved [][]int64
+	// UnresolvedBasis は Unresolved の組ごとの、並んだチームの各基準の値(Decision.Basis に使う)
+	UnresolvedBasis [][]TeamValues
 }
 
 // RankRow は順位表の 1 行。
@@ -226,7 +244,7 @@ func RankPool(in RankInput) Ranking {
 		stats[team] = statsFor(team, in.Games, in.Forfeit)
 	}
 	ev := poolEvaluator{games: in.Games, forfeit: in.Forfeit, stats: stats}
-	return rankWith(in.Teams, stats, in.Rule, ev.value, in.Decision)
+	return rankWith(in.Teams, stats, in.Rule, ev.value, in.Decisions)
 }
 
 // rankWith は value で基準の値を出して順位をつける共通部分(プールと段の全体順位)。
@@ -235,7 +253,7 @@ func rankWith(
 	stats map[int64]Stats,
 	rule Rule,
 	value func(CriterionKind, []int64) map[int64]ratio,
-	decision []int64,
+	decisions []Decision,
 ) Ranking {
 	s := &splitter{rule: rule, value: value, decidedBy: map[int64]CriterionKind{}}
 	tiers := s.split(teams, 0)
@@ -254,13 +272,16 @@ func rankWith(
 	for _, tier := range tiers {
 		resolved := tier
 		manual := false
+		var basis []TeamValues
 		if len(tier) > 1 {
-			if ordered, ok := applyDecision(tier, decision); ok {
+			basis = tieBasis(rule, value, tier)
+			if ordered, ok := applyDecision(tier, basis, decisions); ok {
 				resolved, manual = ordered, true
 			}
 		}
 		if len(resolved) > 1 && !manual {
 			out.Unresolved = append(out.Unresolved, slices.Clone(tier))
+			out.UnresolvedBasis = append(out.UnresolvedBasis, basis)
 		}
 		for i, team := range resolved {
 			rank := position
@@ -291,19 +312,71 @@ func rankWith(
 	return out
 }
 
-func applyDecision(tier, decision []int64) ([]int64, bool) {
-	index := map[int64]int{}
-	for i, team := range decision {
-		index[team] = i
+// tieBasis は並んだチームの各基準の値(並んだチームの間で計算した値)。
+func tieBasis(rule Rule, value func(CriterionKind, []int64) map[int64]ratio, tier []int64) []TeamValues {
+	out := make([]TeamValues, len(tier))
+	for i, team := range tier {
+		out[i] = TeamValues{TeamID: team, Values: make([]string, 0, len(rule.Criteria))}
 	}
-	for _, team := range tier {
-		if _, ok := index[team]; !ok {
-			return nil, false
+	for _, c := range rule.Criteria {
+		values := value(c.Kind, tier)
+		for i, team := range tier {
+			v := values[team]
+			out[i].Values = append(out[i].Values, fmt.Sprintf("%d/%d", v.num, v.den))
 		}
 	}
-	ordered := slices.Clone(tier)
-	slices.SortFunc(ordered, func(a, b int64) int { return index[a] - index[b] })
-	return ordered, true
+	return out
+}
+
+// applyDecision は tier と同じチームで、指定した時点の値が basis と同じ指定のうち最後のものの並びを
+// 返す。無ければ ok=false(未決のまま)。
+func applyDecision(tier []int64, basis []TeamValues, decisions []Decision) ([]int64, bool) {
+	for i := len(decisions) - 1; i >= 0; i-- {
+		d := decisions[i]
+		if !sameTeams(tier, d.Order) || !sameBasis(basis, d.Basis) {
+			continue
+		}
+		index := map[int64]int{}
+		for pos, team := range d.Order {
+			index[team] = pos
+		}
+		ordered := slices.Clone(tier)
+		slices.SortFunc(ordered, func(a, b int64) int { return index[a] - index[b] })
+		return ordered, true
+	}
+	return nil, false
+}
+
+// sameTeams は a と b が重複なく同じチームの集まりかどうか。
+func sameTeams(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := map[int64]bool{}
+	for _, team := range b {
+		if seen[team] || !slices.Contains(a, team) {
+			return false
+		}
+		seen[team] = true
+	}
+	return true
+}
+
+func sameBasis(a, b []TeamValues) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	byTeam := map[int64][]string{}
+	for _, v := range b {
+		byTeam[v.TeamID] = v.Values
+	}
+	for _, v := range a {
+		other, ok := byTeam[v.TeamID]
+		if !ok || !slices.Equal(v.Values, other) {
+			return false
+		}
+	}
+	return true
 }
 
 func without(set []int64, team int64) []int64 {
@@ -391,7 +464,7 @@ func (r ratio) cmp(o ratio) int {
 // poolEvaluator はプールの基準の値を出す。
 type poolEvaluator struct {
 	games   []Game
-	forfeit ForfeitScore
+	forfeit *ForfeitScore
 	stats   map[int64]Stats
 }
 

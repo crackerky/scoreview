@@ -28,6 +28,29 @@ type ScheduleConfig struct {
 	GroupsInParallel int
 	// End はすべての試合が終わっていなければならない時刻。ゼロ値なら制限なし
 	End time.Time
+	// Busy は他のディビジョンの試合でふさがっているコートと時間(コートは大会で共有する)。生成は
+	// 重ならないように置き、検査は重なりを court_conflict として出す
+	Busy []Busy
+}
+
+// Busy はコートがふさがっている時間 [Start, End)。Label は画面に出す名前(他のディビジョンの試合 CD)。
+type Busy struct {
+	Court string
+	Start time.Time
+	End   time.Time
+	Label string
+}
+
+// overlapMinutes は [aStart, aEnd) と [bStart, bEnd) の重なり(分)。重ならなければ 0 以下。
+func overlapMinutes(aStart, aEnd, bStart, bEnd time.Time) int {
+	start, end := aStart, aEnd
+	if bStart.After(start) {
+		start = bStart
+	}
+	if bEnd.Before(end) {
+		end = bEnd
+	}
+	return int(end.Sub(start) / time.Minute)
 }
 
 // Assignment は試合の時刻とコート。
@@ -119,6 +142,10 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	if cfg.TeamRestSlots < 0 || cfg.StageGapSlots < 0 || cfg.GroupsInParallel < 0 {
 		return nil, domain.Invalid("schedule", "slot counts must not be negative")
 	}
+	if !cfg.End.IsZero() && !cfg.End.After(cfg.Start) {
+		// 置ける枠の数が負になり、「制限なし」(maxSlot = -1)と区別できなくなる
+		return nil, domain.Invalid("schedule", "end must be after start")
+	}
 	parallel := cfg.GroupsInParallel
 	if parallel == 0 {
 		parallel = DefaultGroupsInParallel
@@ -148,10 +175,24 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 		}
 		return t
 	}
+	slotLength := time.Duration(cfg.SlotMinutes) * time.Minute
+	// takenElsewhere はスロット t のコート c が他のディビジョンの試合と重なるか
+	takenElsewhere := func(t, c int) bool {
+		start := cfg.Start.Add(time.Duration(t) * slotLength)
+		for _, b := range cfg.Busy {
+			if b.Court == cfg.Courts[c] && overlapMinutes(start, start.Add(slotLength), b.Start, b.End) > 0 {
+				return true
+			}
+		}
+		return false
+	}
 	freeAt := func(from, limit int) (int, int, bool) {
 		for t := from; limit < 0 || t <= limit; t++ {
 			if busy[t] == nil {
 				busy[t] = make([]bool, len(cfg.Courts))
+				for c := range cfg.Courts {
+					busy[t][c] = takenElsewhere(t, c)
+				}
 			}
 			if c := slices.Index(busy[t], false); c >= 0 {
 				return t, c, true
@@ -243,6 +284,22 @@ func CheckSchedule(plan *Plan, cfg ScheduleConfig, assignments []Assignment) []V
 				out = append(out, Violation{
 					Kind: ViolationCourtConflict, Codes: []string{a.Code, b.Code}, ShortMinutes: overlap,
 					Detail: fmt.Sprintf("コート %s で %s と %s が重なる", a.Court, a.Code, b.Code),
+				})
+			}
+		}
+	}
+
+	// 他のディビジョンの試合との重なり(コートは大会で共有する)
+	for _, a := range sorted {
+		end := a.Start.Add(time.Duration(cfg.SlotMinutes) * time.Minute)
+		for _, b := range cfg.Busy {
+			if b.Court != a.Court {
+				continue
+			}
+			if overlap := overlapMinutes(a.Start, end, b.Start, b.End); overlap > 0 {
+				out = append(out, Violation{
+					Kind: ViolationCourtConflict, Codes: []string{a.Code, b.Label}, ShortMinutes: overlap,
+					Detail: fmt.Sprintf("コート %s で %s と他の部門の %s が重なる", a.Court, a.Code, b.Label),
 				})
 			}
 		}

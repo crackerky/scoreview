@@ -25,6 +25,7 @@ const actionLabels: Record<AuditEntry['action'], string> = {
   'match.status': '試合の進行',
   'match.result': '結果の種類',
   'team.final_rank': '最終順位',
+  'match.align_teams': '対戦チームの差し替え(本部)',
 }
 
 const kindLabels = { goal: '得点', timeout: 'タイムアウト', pull: 'プル', end: '試合終了' } as const
@@ -90,6 +91,9 @@ export function describeAudit(entry: AuditEntry, names: Names): AuditLine {
         before: scorerText(entry.before),
         after: scorerText(entry.after),
       }
+    case 'match.align_teams':
+      // 差し替えは試合のスコアと状態を変えない(差し替えたチームは試合の画面に出ている)
+      return { what, target: '', before: '', after: '' }
     case 'match.status':
     case 'match.result':
       return {
