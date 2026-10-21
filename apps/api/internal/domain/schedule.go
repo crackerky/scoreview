@@ -56,7 +56,7 @@ func scheduleComparators() map[ScheduleSortKey]func(a, b ScheduleRow) int {
 		SortByDivision: func(a, b ScheduleRow) int { return cmp.Compare(a.Division.Order, b.Division.Order) },
 		SortByDate:     func(a, b ScheduleRow) int { return compareNullable(a.Date, b.Date) },
 		SortByTime:     func(a, b ScheduleRow) int { return compareNullable(a.Time, b.Time) },
-		SortByField:    func(a, b ScheduleRow) int { return compareNullable(a.Field, b.Field) },
+		SortByField:    func(a, b ScheduleRow) int { return compareFieldPtr(a.Field, b.Field) },
 		SortByCode:     func(a, b ScheduleRow) int { return cmp.Compare(a.Code, b.Code) },
 		SortByLeftTeam: func(a, b ScheduleRow) int {
 			return cmp.Compare(teamSortName(a.Left), teamSortName(b.Left))
@@ -94,19 +94,48 @@ func compareNullable[T cmp.Ordered](a, b *T) int {
 	return cmp.Compare(*a, *b)
 }
 
-// compareScheduleDefault は既定の並び(日付、時刻、コート番号の昇順。clone-spec B 3)。
-// 最後に試合 ID で比べて順序を決定的にする。
-func compareScheduleDefault(a, b ScheduleRow) int {
+// CompareFields はコートの自然順で a が先なら負を返す。数字のコートを数値順で先に、
+// 数字でないコート("A" など)をその後に文字列順で並べる。
+func CompareFields(a, b string) int { return compareNatural(a, b) }
+
+// compareFieldPtr は CompareFields の nullable 版。コート未定は昇順で後ろ。
+func compareFieldPtr(a, b *string) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	return CompareFields(*a, *b)
+}
+
+// CompareMatchRows は試合の既定の並び(日付、時刻、コートの昇順。未定は後ろ。clone-spec B 3)で
+// a が先なら負を返す。最後に試合 ID で比べて順序を決定的にする。
+func CompareMatchRows(a, b MatchRow) int {
 	if c := compareNullable(a.Date, b.Date); c != 0 {
 		return c
 	}
 	if c := compareNullable(a.Time, b.Time); c != 0 {
 		return c
 	}
-	if c := compareNullable(a.Field, b.Field); c != 0 {
+	if c := compareFieldPtr(a.Field, b.Field); c != 0 {
 		return c
 	}
 	return cmp.Compare(a.ID, b.ID)
+}
+
+func compareScheduleDefault(
+	a, b ScheduleRow,
+) int {
+	return CompareMatchRows(a.MatchRow, b.MatchRow)
+}
+
+// SortMatchRows は試合の行を既定の並び(日付、時刻、コートの昇順、未定は後ろ)にする。
+// コートは文字列なので SQL の ORDER BY では自然順にならず、ここで並べる。
+func SortMatchRows(rows []MatchRow) {
+	slices.SortFunc(rows, CompareMatchRows)
 }
 
 // SortSchedule は rows を既定の並びにし、sort があればその列で安定ソートする

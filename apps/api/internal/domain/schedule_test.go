@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,8 +11,10 @@ import (
 
 func str(v string) *string { return &v }
 
-func row(matchID int64, date, clock string, field int, left string) domain.ScheduleRow {
-	r := domain.ScheduleRow{MatchRow: domain.MatchRow{ID: matchID, Date: str(date), Time: str(clock), Field: score(field)}}
+func row(matchID int64, date, clock, field, left string) domain.ScheduleRow {
+	r := domain.ScheduleRow{
+		MatchRow: domain.MatchRow{ID: matchID, Date: str(date), Time: str(clock), Field: str(field)},
+	}
 	if left != "" {
 		r.Left.Team = &domain.TeamRef{ID: matchID, Name: domain.I18nText{Ja: left}}
 	}
@@ -29,10 +32,10 @@ func ids(rows []domain.ScheduleRow) []int64 {
 func TestSortSchedule(t *testing.T) {
 	base := func() []domain.ScheduleRow {
 		return []domain.ScheduleRow{
-			row(1, "2026-10-18", "10:00", 2, "beta"),
-			row(2, "2026-10-17", "09:00", 1, "Alpha"),
-			row(3, "2026-10-18", "09:00", 2, ""),
-			row(4, "2026-10-18", "09:00", 1, "ARROWS"),
+			row(1, "2026-10-18", "10:00", "2", "beta"),
+			row(2, "2026-10-17", "09:00", "1", "Alpha"),
+			row(3, "2026-10-18", "09:00", "2", ""),
+			row(4, "2026-10-18", "09:00", "1", "ARROWS"),
 			{MatchRow: domain.MatchRow{ID: 5}}, // 日時未定
 		}
 	}
@@ -62,6 +65,24 @@ func TestSortSchedule(t *testing.T) {
 			assert.Equal(t, tc.want, ids(rows))
 		})
 	}
+}
+
+func TestCompareFields(t *testing.T) {
+	fields := []string{"B", "10", "A", "2", "01", "1"}
+	slices.SortFunc(fields, domain.CompareFields)
+	assert.Equal(t, []string{"01", "1", "2", "10", "A", "B"}, fields)
+}
+
+func TestSortMatchRowsUsesNaturalFieldOrder(t *testing.T) {
+	rows := []domain.MatchRow{
+		{ID: 1, Field: str("10")}, {ID: 2, Field: str("B")}, {ID: 3}, {ID: 4, Field: str("9")},
+	}
+	domain.SortMatchRows(rows)
+	var got []int64
+	for _, r := range rows {
+		got = append(got, r.ID)
+	}
+	assert.Equal(t, []int64{4, 1, 2, 3}, got)
 }
 
 func TestIsScheduleSortKey(t *testing.T) {

@@ -12,12 +12,6 @@ func ev(kind domain.EventKind, s domain.Side) domain.Event {
 	return domain.Event{Kind: kind, Side: side(s)}
 }
 
-func turnoverGoal(s domain.Side) domain.Event {
-	e := ev(domain.EventGoal, s)
-	e.FromTurnover = true
-	return e
-}
-
 const (
 	leftSide  = domain.SideLeft
 	rightSide = domain.SideRight
@@ -50,13 +44,13 @@ func TestComputeMatchStats(t *testing.T) {
 		},
 		{
 			// 左がプル → 右がオフェンスで始めて得点(右 O)。右が次にプル → 左が得点(左 O)。
-			// 左が次にプル → 左が得点(ブレイク、左 D、ターンオーバーから)。
+			// 左が次にプル → 左が得点(ブレイク、左 D。ターンオーバーからの得点も D と同じ数)。
 			name: "pull side starts on defense and scorer pulls next",
 			events: []domain.Event{
 				ev(domain.EventPull, leftSide),
 				ev(domain.EventGoal, rightSide),
 				ev(domain.EventGoal, leftSide),
-				turnoverGoal(leftSide),
+				ev(domain.EventGoal, leftSide),
 				ev(domain.EventTimeout, rightSide),
 				ev(domain.EventTimeout, rightSide),
 				{Kind: domain.EventEnd},
@@ -85,7 +79,7 @@ func TestComputeMatchStats(t *testing.T) {
 				ev(domain.EventGoal, leftSide),
 				ev(domain.EventGoal, leftSide), // 左が得点後にプルしているので左 D
 			},
-			want: domain.MatchStats{Left: domain.SideStats{Goals: 2, FromDefense: 1}},
+			want: domain.MatchStats{Left: domain.SideStats{Goals: 2, FromDefense: 1, FromTurnover: 1}},
 		},
 	}
 	for _, tc := range cases {

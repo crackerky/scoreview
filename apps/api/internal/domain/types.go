@@ -141,13 +141,14 @@ type MatchSide struct {
 }
 
 // MatchRow は日程や結果一覧の 1 行。Date は "YYYY-MM-DD"、Time は "HH:MM"。
+// Field はコート。数字とは限らない("A" など。大会 224)。
 type MatchRow struct {
 	ID        int64
 	HasDetail bool
 	Code      string
 	Date      *string
 	Time      *string
-	Field     *int
+	Field     *string
 	Status    MatchStatus
 	Left      MatchSide
 	Right     MatchSide

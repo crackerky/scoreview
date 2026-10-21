@@ -16,7 +16,6 @@ type PlayerSortKey struct {
 // ComparePlayers は選手の表示順で a が先なら負を返す。
 // (得点+アシスト)降順 → 得点降順 → 背番号の数値昇順(clone-spec D 1.1 の 7、D 2.4 で機械検証済み)。
 // 背番号が数値でなければ数値の後ろに文字列順で並べる(参照サイトに例が無く推測)。
-// "0" と "00" のように数値が同じなら文字列順にして、順序を決定的にする。
 func ComparePlayers(a, b PlayerSortKey) int {
 	if c := cmp.Compare(b.Goals+b.Assists, a.Goals+a.Assists); c != 0 {
 		return c
@@ -24,8 +23,14 @@ func ComparePlayers(a, b PlayerSortKey) int {
 	if c := cmp.Compare(b.Goals, a.Goals); c != 0 {
 		return c
 	}
-	an, aErr := strconv.Atoi(a.Number)
-	bn, bErr := strconv.Atoi(b.Number)
+	return compareNatural(a.Number, b.Number)
+}
+
+// compareNatural は数字の文字列を数値順で先に、数字でない文字列をその後に文字列順で並べる。
+// 数値が同じ("0" と "00")なら文字列順にして、順序を決定的にする。背番号とコートで共用する。
+func compareNatural(a, b string) int {
+	an, aErr := strconv.Atoi(a)
+	bn, bErr := strconv.Atoi(b)
 	aNumeric, bNumeric := aErr == nil, bErr == nil
 	switch {
 	case aNumeric && !bNumeric:
@@ -35,7 +40,7 @@ func ComparePlayers(a, b PlayerSortKey) int {
 	case aNumeric && bNumeric && an != bn:
 		return cmp.Compare(an, bn)
 	}
-	return cmp.Compare(a.Number, b.Number)
+	return cmp.Compare(a, b)
 }
 
 // SortPlayers は items を ComparePlayers の順に安定ソートする。

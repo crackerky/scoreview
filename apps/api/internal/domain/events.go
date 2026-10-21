@@ -1,14 +1,14 @@
 package domain
 
 // Event は試合の得点経過の 1 行。Side は goal なら得点した側、timeout なら取った側、
-// pull ならプルした側。end は nil。
+// pull ならプルした側。end は nil。Callahan はキャラハンゴール(goal のときだけ true になりうる)。
 type Event struct {
-	ElapsedSec   int
-	Kind         EventKind
-	Side         *Side
-	FromTurnover bool
-	ScorerID     *int64
-	AssistID     *int64
+	ElapsedSec int
+	Kind       EventKind
+	Side       *Side
+	Callahan   bool
+	ScorerID   *int64
+	AssistID   *int64
 }
 
 // Score はある時点の累計スコア。
@@ -64,8 +64,12 @@ func (m *MatchStats) side(s Side) *SideStats {
 // 受けた側がオフェンスで始める。最初のプルの side がディフェンス開始で、得点の後は得点した側が
 // 次にプルする(= 次のポイントはディフェンス開始)。途中に pull イベントがあれば(後半開始など)
 // その向きで置き換える。最初のプルより前の得点は開始側が分からないので、オフェンスにも
-// ディフェンスにも数えない(推測)。ターンオーバーからの得点はプルから計算できないので
-// イベントの FromTurnover を数える。
+// ディフェンスにも数えない(推測)。
+//
+// ターンオーバーからの得点はディフェンス開始からの得点と同じ値にする。ディフェンスで始めた
+// ポイントで得点するには必ず一度ターンオーバーで攻撃権を得ているためで、参照サイトの実データ
+// 12 試合すべてで「ターンオーバーからの得点数 = ディフェンス開始からの得点数」だった
+// (取込パーサ担当の解析)。そのため保存せず計算する(migrations/00002)。
 func ComputeMatchStats(events []Event) MatchStats {
 	var stats MatchStats
 	// defenseStart は現在のポイントをディフェンスで始めた側(= プルした側)。nil は不明
@@ -83,12 +87,10 @@ func ComputeMatchStats(events []Event) MatchStats {
 		case EventGoal:
 			st := stats.side(evSide)
 			st.Goals++
-			if ev.FromTurnover {
-				st.FromTurnover++
-			}
 			if defenseStart != nil {
 				if *defenseStart == evSide {
 					st.FromDefense++
+					st.FromTurnover++
 				} else {
 					st.FromOffense++
 				}
