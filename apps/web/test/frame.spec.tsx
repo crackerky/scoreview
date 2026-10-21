@@ -93,6 +93,27 @@ describe('外枠', () => {
     assert.doesNotMatch(html, /clubjr/)
   })
 
+  test('asOf を渡すと本文の上に「HH:MM 時点」(日本時間)を出す。渡さなければ出さない', () => {
+    // 2026-10-21 15:04 UTC は日本時間の 10-22 00:04
+    const at = new Date('2026-10-21T15:04:59Z')
+    const jp = renderHtml(
+      <SiteFrame variant={{ kind: 'tournament', frame, lang: 'jp' }} asOf={at} year={2026}>
+        <p>本文</p>
+      </SiteFrame>,
+    )
+    assert.match(
+      jp,
+      /<div id="score_view"><p class="sv_as_of" data-scoreview-addition="">00:04 時点<\/p><p>本文<\/p><\/div>/,
+    )
+    const en = renderHtml(
+      <SiteFrame variant={{ kind: 'tournament', frame, lang: 'en' }} asOf={at} year={2026}>
+        {null}
+      </SiteFrame>,
+    )
+    assert.match(en, />As of 00:04 JST<\/p>/)
+    assert.doesNotMatch(renderTournament(), /sv_as_of/)
+  })
+
   test('バナー 0 枚でも枠は出る', () => {
     const empty = { ...frame, banners: [] }
     const html = renderHtml(

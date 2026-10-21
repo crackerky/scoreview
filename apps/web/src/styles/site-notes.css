@@ -43,3 +43,12 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* 日程、グループ、チーム、試合のページの本文の上の「HH:MM 時点」。右寄せの小さい灰色の文字 */
+#main p.sv_as_of {
+  margin: 0 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #555;
+  text-align: right;
+}

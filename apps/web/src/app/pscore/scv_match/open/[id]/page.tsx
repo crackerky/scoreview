@@ -17,18 +17,21 @@ function fullName(side: MatchSide, lang: Lang): string {
 export default async function MatchPage(props: IdPageProps) {
   const [{ id, lang }, query] = await Promise.all([readIdPage(props), props.searchParams])
   const data = await loadPageData(id, getMatch)
+  // 本文の上の「HH:MM 時点」(api から読み終えた時刻)
+  const now = new Date()
   const { left, right } = data.match
   const suffix = `-[${fullName(left, lang)} VS ${fullName(right, lang)}]-`
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang, suffix)}</title>
       <SiteFrame
+        asOf={now}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={
           <MatchTopMenu matchId={data.match.id} lang={lang} scrollToNavi={query.refpos === '1'} />
         }
       >
-        <MatchView data={data} now={new Date()} lang={lang} />
+        <MatchView data={data} now={now} lang={lang} />
       </SiteFrame>
     </>
   )

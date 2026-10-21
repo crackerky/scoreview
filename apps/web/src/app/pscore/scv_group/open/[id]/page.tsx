@@ -9,10 +9,13 @@ import { tournamentPageTitle } from '@/components/title.utils'
 export default async function GroupPage(props: IdPageProps) {
   const { id, lang } = await readIdPage(props)
   const data = await loadPageData(id, getGroup)
+  // 本文の上の「HH:MM 時点」(api から読み終えた時刻)
+  const now = new Date()
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang, `-${data.group.name}-`)}</title>
       <SiteFrame
+        asOf={now}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={null}
       >

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { TournamentFrame } from '@/api/common.types'
 import { brand } from '@/brand/brand.config'
+import { formatAsOf } from '@/format/format.utils'
 import type { Lang } from '@/i18n/lang'
 import { ScoreNavi } from './ScoreNavi'
 import { Sidebar } from './Sidebar'
@@ -29,6 +30,11 @@ type SiteFrameProps = {
   topMenu?: ReactNode
   /** フッターの著作権表記の年。省略時は表示時の西暦 */
   year?: number
+  /**
+   * 本文の上に「HH:MM 時点」を小さく出す(本サイト独自。速報の新しさを示す)。日程、グループ、チーム、
+   * 試合のページで渡す。省略時は出さない
+   */
+  asOf?: Date
   children: ReactNode
 }
 
@@ -37,7 +43,7 @@ const bodyStyles = {
   tournament: 'body {background: var(--brand-body-color) var(--brand-body-bg) repeat top;}',
 } as const
 
-export function SiteFrame({ variant, topMenu, year, children }: SiteFrameProps) {
+export function SiteFrame({ variant, topMenu, year, asOf, children }: SiteFrameProps) {
   const copyrightYear = year ?? new Date().getFullYear()
   return (
     <>
@@ -61,7 +67,14 @@ export function SiteFrame({ variant, topMenu, year, children }: SiteFrameProps) 
             <div id="main">
               <div id="score_parts">
                 {topMenu !== undefined && <div id="score_topmenu">{topMenu}</div>}
-                <div id="score_view">{children}</div>
+                <div id="score_view">
+                  {asOf !== undefined && variant.kind === 'tournament' && (
+                    <p className="sv_as_of" data-scoreview-addition="">
+                      {formatAsOf(asOf, variant.lang)}
+                    </p>
+                  )}
+                  {children}
+                </div>
               </div>
               <br />
             </div>

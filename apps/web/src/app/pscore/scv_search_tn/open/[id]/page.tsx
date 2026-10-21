@@ -12,10 +12,16 @@ export default async function TournamentSchedulePage(props: IdPageProps) {
   const { id, lang } = await readIdPage(props)
   const query = scheduleQueryFromSearchParams(await props.searchParams)
   const data = await loadPageData(id, (tournamentId) => getTournamentSchedule(tournamentId, query))
+  // 本文の上の「HH:MM 時点」(api から読み終えた時刻)
+  const now = new Date()
   return (
     <>
       <title>{tournamentPageTitle(data.frame, lang, msg(lang, 'titleAllSchedule'))}</title>
-      <SiteFrame variant={{ kind: 'tournament', frame: data.frame, lang }} topMenu={null}>
+      <SiteFrame
+        asOf={now}
+        variant={{ kind: 'tournament', frame: data.frame, lang }}
+        topMenu={null}
+      >
         <ScheduleView data={data} lang={lang} />
       </SiteFrame>
     </>

@@ -172,3 +172,17 @@ const jstClock = new Intl.DateTimeFormat('en-GB', {
 export function formatClockJst(now: Date): string {
   return `${jstClock.format(now)} JST`
 }
+
+// 本サイト独自の「HH:MM 時点」(日本時間。docs/requirements.md「意図的な差分」)
+const jstHourMinute = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Tokyo',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** 速報の新しさの表示 "12:34 時点" / "As of 12:34 JST"(表示した時点の日本時間)。 */
+export function formatAsOf(now: Date, lang: 'jp' | 'en'): string {
+  const clock = jstHourMinute.format(now)
+  return lang === 'en' ? `As of ${clock} JST` : `${clock} 時点`
+}
