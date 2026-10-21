@@ -1,0 +1,113 @@
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+import { teamResponseSchema } from '../src/api/public.types.ts'
+import { TeamView } from '../src/components/TeamView.tsx'
+import { loadFixture } from './fixtures/load.ts'
+import { renderHtml } from './render.ts'
+
+const team = teamResponseSchema.parse(loadFixture('team-5001'))
+const rosterOnly = teamResponseSchema.parse(loadFixture('team-5003'))
+
+describe('チームページ(clone-spec D 1.1)', () => {
+  const html = renderHtml(<TeamView data={team} lang="jp" />)
+
+  test('見出しは正式名 + <br>、紹介コメントは見出しの直後', () => {
+    assert.match(
+      html,
+      /^<span class="SCV_MIDA_M">架空チームA フライングクラブ<br\/><\/span><div class="SCV_TEAM_COMM">架空のチーム紹介です。<\/div><div class="TBL">/,
+    )
+  })
+
+  test('紹介コメントが空なら div ごと出さない', () => {
+    const en = renderHtml(<TeamView data={team} lang="en" />)
+    assert.doesNotMatch(en, /SCV_TEAM_COMM/)
+  })
+
+  test('成績表: 9 列 9.444%、得点・失点・得失差・順位の後ろに空白 2 つ、勝率', () => {
+    assert.match(html, /<td class="MD1 CM" width="9.444%">試合数<\/td>/)
+    assert.match(
+      html,
+      /<tr><td class="CM">5<\/td><td class="CM">3<\/td><td class="CM">0<\/td><td class="CM">2<\/td><td class="CM">27 {2}<\/td><td class="CM">28 {2}<\/td><td class="CM">-1 {2}<\/td><td class="CM">60%<\/td><td class="CM">4 {2}<\/td><\/tr>/,
+    )
+  })
+
+  test('試合 0 なら勝率 --%、順位なしは空白 2 つだけ', () => {
+    const empty = {
+      ...team,
+      record: { ...team.record, games: 0, wins: 0, losses: 0, rank: null },
+    }
+    const out = renderHtml(<TeamView data={empty} lang="jp" />)
+    assert.match(out, /<td class="CM">--%<\/td><td class="CM"> {2}<\/td><\/tr>/)
+  })
+
+  test('チーム対戦一覧: 見出しの後に <br />、終了はリンク、未試合はリンクなしで得点空', () => {
+    assert.match(
+      html,
+      /<span class="SCV_MIDA_M">&lt; チーム対戦一覧 &gt;<\/span><br\/><div class="TBL">/,
+    )
+    assert.match(
+      html,
+      /<a class="Select_Link" href="\/pscore\/scv_match\/open\/9001\?lang=jp">\[対戦結果\]<\/a>/,
+    )
+    assert.match(
+      html,
+      /<td class="MC_MAE CM"><\/td><td class="MC_MAE CM">Ｘ<\/td><td class="MC_MAE CM"><\/td>/,
+    )
+    assert.match(html, /<td class="MC_MAE CM">未試合<\/td>/)
+    assert.doesNotMatch(html, /scv_match\/open\/9003/)
+  })
+
+  test('選手一覧: api の順のまま、トータルに空白 2 つ、ブロック 0 は空白だけ、-- 列は空', () => {
+    const numbers = [...html.matchAll(/<tr><td class="CM">([0-9]+)<\/td><td class="LM">/g)].map(
+      (match) => match[1],
+    )
+    assert.deepEqual(numbers, ['7', '4', '10', '00'])
+    assert.match(
+      html,
+      /<td class="CM">7<\/td><td class="LM"><a class="playerLinkM" href="\/pscore\/scv_player\/open\/70001\?lang=jp">架空 太郎<\/a><\/td><td class="CM">5<\/td><td class="CM">6<\/td><td class="CM">4<\/td><td class="CM">10 {2}<\/td><td class="CM"> {2}<\/td><td class="CM"><\/td><\/tr>/,
+    )
+    assert.match(html, /class="playerLinkF" href="\/pscore\/scv_player\/open\/70003\?lang=jp"/)
+    assert.match(html, /<td class="CM">4 {2}<\/td><td class="CM">2 {2}<\/td>/)
+  })
+
+  test('スタッフ一覧は表 70%、役割と名前のリンク、その後 <hr /> と <br /> 3 つで終わる', () => {
+    assert.match(
+      html,
+      /<span class="SCV_MIDA_M">&lt; スタッフ一覧 &gt;<\/span><div class="TBL"><table style="width:70%"><tbody><tr><td class="MD1 CM" width="30%">役割<\/td><td class="MD1 CM" width="70%">スタッフ<\/td><\/tr><tr><td class="CM">マネージャ<\/td><td class="LM"><a class="playerLinkM" href="\/pscore\/scv_player\/open\/70009\?lang=jp">見本 次郎<\/a><\/td><\/tr><\/tbody><\/table><\/div><hr\/><br\/><br\/><br\/>$/,
+    )
+  })
+
+  test('スタッフがいなければ選手一覧の <hr /> の後に <br /> 3 つ', () => {
+    const out = renderHtml(<TeamView data={{ ...team, staff: [] }} lang="jp" />)
+    assert.doesNotMatch(out, /スタッフ一覧/)
+    assert.match(out, /<\/table><\/div><hr\/><br\/><br\/><br\/>$/)
+  })
+
+  test('lang=en: 見出し、Goals<br />for、Tot. と小文字の block、英語名が空なら空', () => {
+    const en = renderHtml(<TeamView data={team} lang="en" />)
+    assert.match(en, /^<span class="SCV_MIDA_M">Fictional A Flying Club<br\/><\/span>/)
+    assert.match(en, />Goals<br\/>for</)
+    assert.match(en, /&lt;GameList for the Team&gt;/)
+    assert.match(en, /&lt;Players List&gt;/)
+    assert.match(en, />Tot\.<\/td><td class="MD1 CM" width="10%">block<\/td>/)
+    assert.match(en, /&lt;Staffs List&gt;/)
+    assert.match(en, />Task<\/td><td class="MD1 CM" width="70%">Staff</)
+    assert.match(en, /href="\/pscore\/scv_player\/open\/70004\?lang=en"><\/a>/)
+  })
+})
+
+describe('チームページ: ディスクゴルフ団体戦(clone-spec D 1.2)', () => {
+  test('選手一覧(# と名前の 2 列、表 70%)だけを出し、<br /> 3 つで終わる', () => {
+    const html = renderHtml(<TeamView data={rosterOnly} lang="jp" />)
+    assert.equal(
+      html,
+      '<span class="SCV_MIDA_M">架空ディスクゴルフ部<br/></span>' +
+        '<span class="SCV_MIDA_M">&lt; 選手一覧 &gt;</span>' +
+        '<div class="TBL"><table style="width:70%"><tbody>' +
+        '<tr><td class="MD1 CM" width="10%">#</td><td class="MD1 CM" width="90%">選手</td></tr>' +
+        '<tr><td class="CM">1</td><td class="LM"><a class="playerLinkM" href="/pscore/scv_player/open/70101?lang=jp">仮名 一</a></td></tr>' +
+        '<tr><td class="CM">2</td><td class="LM"><a class="playerLinkF" href="/pscore/scv_player/open/70102?lang=jp">仮名 二</a></td></tr>' +
+        '</tbody></table></div><br/><br/><br/>',
+    )
+  })
+})
