@@ -73,7 +73,7 @@ URL: `https://score.clubjr.com/pscore/{scv_team|scv_match|scv_player}/open/{ID}?
    - クラス `playerLinkM`=男(色 #000080)/ `playerLinkF`=女(色 #cf143c)(性別データのある大会。2017年の試合ページでは `playerLink` のみ=性別なし)。
    - **並び順**: トータル降順 → ゴール降順 → 背番号昇順(17031 の同点 3名が背番号順、17322 で確認)。0点のみの場合は背番号昇順(17461: #0,#3,#6,#9,#51,#90)。
    - 背番号は文字列として出る(`0`, `00` もあり得る — 選手ページで `#00` を確認)。
-8. (任意) `<hr />` + `<span class='SCV_MIDA_M'>&lt; スタッフ一覧 &gt;</span>`(en `&lt;Staffs List&gt;`) + `table style='width: 70%'`: 列 `役割`(30%)/`スタッフ`(70%)(en `Task`/`Staff`)。行: `td.CM`(役割。例 `マネージャ`/en `Manager`) + `td.LM > a.playerLinkM|F`(→ **scv_player/open/{ID}**。スタッフも選手IDと同じID空間)。スタッフ無しの大会(500 の 17031 等)ではセクションごと出ない。
+8. (任意) `<hr />` + `<span class='SCV_MIDA_M'>&lt; スタッフ一覧 &gt;</span>`(en `&lt;Staffs List&gt;`) + `table style='width: 70%'`: 列 `役割`(30%)/`スタッフ`(70%)(en `Task`/`Staff`)。行: `td.CM`(役割。例 `マネージャ`/en `Manager`) + `td.LM > a.playerLinkM|F`(→ **scv_player/open/{ID}**。スタッフも選手IDと同じID空間)。スタッフ無しの大会(500 の 17031 等)ではセクションごと出ない。並びは役割の順 `監督` → `コーチ` → `トレーナー` → `マネージャ`(五十音順ではない)、同じ役割の中は ID 順(代表 16 大会のスタッフのいるチームページ 101 件すべて)。
 9. `<hr />` + `<br /><br /><br />` で終了。
 
 ### 1.2 ディスクゴルフ団体 (536) のチームページ — 別レイアウト

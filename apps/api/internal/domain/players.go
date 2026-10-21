@@ -43,6 +43,32 @@ func compareNatural(a, b string) int {
 	return cmp.Compare(a, b)
 }
 
+// staffRoleRank はスタッフ一覧での役割(日本語名)の順位。参照サイトのチームページ 101 件で、
+// 役割は 監督 → コーチ → トレーナー → マネージャ の順に並び(五十音順ではない)、同じ役割の中は
+// 選手 ID の昇順だった。知らない役割はその後ろ(参照サイトに例がなく推測)。
+func staffRoleRank(role string) int {
+	switch role {
+	case "監督":
+		return 0
+	case "コーチ":
+		return 1
+	case "トレーナー":
+		return 2
+	case "マネージャ":
+		return 3
+	}
+	return 4
+}
+
+// CompareStaffRoles はスタッフ一覧で役割 a が b より先なら負を返す。順位が同じ(知らない役割
+// どうし)なら文字列順。
+func CompareStaffRoles(a, b string) int {
+	if c := cmp.Compare(staffRoleRank(a), staffRoleRank(b)); c != 0 {
+		return c
+	}
+	return cmp.Compare(a, b)
+}
+
 // SortPlayers は items を ComparePlayers の順に安定ソートする。
 func SortPlayers[T any](items []T, key func(T) PlayerSortKey) {
 	slices.SortStableFunc(items, func(a, b T) int { return ComparePlayers(key(a), key(b)) })

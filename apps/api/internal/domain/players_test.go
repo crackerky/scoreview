@@ -1,12 +1,19 @@
 package domain_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"scoreview/api/internal/domain"
 )
+
+func TestCompareStaffRoles(t *testing.T) {
+	roles := []string{"マネージャ", "架空係", "トレーナー", "監督", "コーチ", "マネージャ"}
+	slices.SortStableFunc(roles, domain.CompareStaffRoles)
+	assert.Equal(t, []string{"監督", "コーチ", "トレーナー", "マネージャ", "マネージャ", "架空係"}, roles)
+}
 
 func TestSortPlayers(t *testing.T) {
 	cases := []struct {

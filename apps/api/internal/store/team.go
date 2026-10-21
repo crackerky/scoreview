@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"gorm.io/gorm"
 
@@ -15,7 +16,7 @@ const sqlMatchesOfTeam = "left_team_id = ? OR right_team_id = ?"
 //
 // 成績はディビジョンでの通算(終了した試合だけ)、順位は teams.final_rank(clone-spec D 1.1 の 3)。
 // 対戦一覧は試合記録の左右のまま日付、時刻の昇順。選手はスタッフを除き domain.ComparePlayers の順、
-// スタッフは ID 順。選手の試合数はチームの試合数。ディスクゴルフ(stats_kind=discgolf)のディビジョンは roster_only にする
+// スタッフは役割の順(domain.CompareStaffRoles)、同じ役割は ID 順。選手の試合数はチームの試合数。ディスクゴルフ(stats_kind=discgolf)のディビジョンは roster_only にする
 // (clone-spec D 1.2)。
 func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 	team, err := findByID[Team](ctx, db, id, domain.ResourceTeam)
@@ -105,6 +106,10 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 	}
 	domain.SortPlayers(page.Players, func(line PlayerLine) domain.PlayerSortKey {
 		return domain.PlayerSortKey{Goals: line.Goals, Assists: line.Assists, Number: line.Player.Number}
+	})
+	// members は ID 順なので、安定ソートで同じ役割の中は ID 順のまま
+	slices.SortStableFunc(page.Staff, func(a, b StaffLine) int {
+		return domain.CompareStaffRoles(a.Role.Ja, b.Role.Ja)
 	})
 	return page, nil
 }
