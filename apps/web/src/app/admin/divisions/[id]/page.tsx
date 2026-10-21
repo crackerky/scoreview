@@ -121,6 +121,16 @@ function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin
                 <a href={`/admin/matches/${match.id}/score`}>スコア入力</a>
                 <a href={`/admin/matches/${match.id}/sheet`}>印刷</a>
                 {isAdmin ? <a href={`/admin/matches/${match.id}`}>編集</a> : null}
+                {isAdmin && match.status === 'finished' ? (
+                  // 確定後の訂正は影響の表示と下流の扱い(keep / reset)のある画面で行う
+                  <a
+                    href={`/admin/matches/${match.id}/result?next=${encodeURIComponent(
+                      `/admin/divisions/${match.divisionId}`,
+                    )}`}
+                  >
+                    結果を直す
+                  </a>
+                ) : null}
               </td>
             </tr>
           ))}
