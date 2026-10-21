@@ -27,6 +27,7 @@ import {
   meResponseSchema,
   noContentSchema,
   type PasswordChangeInput,
+  scorerResultSchema,
   userListSchema,
 } from './admin.types'
 import { apiFetch } from './client'
@@ -191,6 +192,25 @@ export const matches = {
       `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}`,
       matchDetailSchema,
       body,
+    ),
+  /** 得点を相手チームの得点に付け替える(eventRef は得点経過の id か clientId) */
+  moveGoal: (token: string, id: number, eventRef: string, body: unknown) =>
+    call(
+      token,
+      'PUT',
+      `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}/side`,
+      matchDetailSchema,
+      body,
+    ),
+  /** 試合の記録担当を引き受ける・延長する。takeover なら他の端末から引き継ぐ */
+  claimScorer: (token: string, id: number, body: { deviceId: string; takeover: boolean }) =>
+    call(token, 'POST', `${admin}/matches/${id}/scorer`, scorerResultSchema, body),
+  releaseScorer: (token: string, id: number, deviceId: string) =>
+    call(
+      token,
+      'DELETE',
+      `${admin}/matches/${id}/scorer?deviceId=${encodeURIComponent(deviceId)}`,
+      noContentSchema,
     ),
   audit: (token: string, id: number) =>
     call(token, 'GET', `${admin}/matches/${id}/audit`, auditListSchema),

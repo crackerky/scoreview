@@ -10,7 +10,7 @@ type BandEntry struct {
 // RankBand は段の全プールの同順位を並べる(プールの大きさが不揃いなときの全体順位)。
 // rule は通常 BandRule()。該当チーム間・共通の相手の基準は値がつかず分けない。
 // entries の順(プール順)を同順位の組の中の並びに使う。
-func RankBand(entries []BandEntry, rule Rule, decision []int64) Ranking {
+func RankBand(entries []BandEntry, rule Rule, decisions []Decision) Ranking {
 	teams := make([]int64, len(entries))
 	stats := map[int64]Stats{}
 	for i, e := range entries {
@@ -28,7 +28,7 @@ func RankBand(entries []BandEntry, rule Rule, decision []int64) Ranking {
 		}
 		return out
 	}
-	return rankWith(teams, stats, rule, value, decision)
+	return rankWith(teams, stats, rule, value, decisions)
 }
 
 func (k CriterionKind) headToHead() bool {

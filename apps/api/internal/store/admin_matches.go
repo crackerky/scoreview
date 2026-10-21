@@ -252,7 +252,7 @@ func UpdateMatch(
 	var row Match
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		row, err = findByID[Match](ctx, tx, id, domain.ResourceMatch)
+		row, err = lockMatchInDivision(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -343,6 +343,12 @@ type MatchDetail struct {
 	Events         []EventRecord
 	PlayerStats    []PlayerStatFields
 	Rosters        struct{ Left, Right []PlayerRecord }
+	// Scorer は試合の記録担当(期限内のもの。いなければ nil)
+	Scorer *ScorerClaim
+	// ConcurrentRecords は別の記録係がほぼ同時に入れた同じ種類の記録の組(二重記録の疑い)
+	ConcurrentRecords []ConcurrentRecordView
+	// MatchMinutes はディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ nil
+	MatchMinutes *int
 }
 
 // GetMatchDetail はスコア入力画面のデータを返す。無ければ MATCH_ID の NotFound。得点経過は時系列順。
@@ -412,6 +418,9 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 		started := events[0].CreatedAt.Add(-time.Duration(events[0].ElapsedSec) * time.Second)
 		detail.StartedAt = &started
 	}
+	if err := fillScoringState(ctx, db, match, events, &detail); err != nil {
+		return MatchDetail{}, err
+	}
 	detail.Rosters.Left, detail.Rosters.Right = []PlayerRecord{}, []PlayerRecord{}
 	if match.LeftTeamID != nil {
 		if detail.Rosters.Left, err = listPlayersOf(ctx, db, *match.LeftTeamID); err != nil {
@@ -426,8 +435,8 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 	return detail, nil
 }
 
-// fillMatchContext は試合の大会、ディビジョン、グループの名前と、大会の不戦勝の規定スコアを入れる
-// (スコア入力画面とスコアシートの見出しに出す)。
+// fillMatchContext は試合の大会、ディビジョン、グループの名前と、不戦勝の規定スコア(大会、無ければ
+// 大会の形の設定。regulationForfeitScore)を入れる(スコア入力画面とスコアシートの見出しに出す)。
 func fillMatchContext(ctx context.Context, db *gorm.DB, match Match, detail *MatchDetail) error {
 	division, err := findInternal[Division](ctx, db, match.DivisionID, "division")
 	if err != nil {
@@ -438,7 +447,10 @@ func fillMatchContext(ctx context.Context, db *gorm.DB, match Match, detail *Mat
 		return err
 	}
 	detail.TournamentID, detail.TournamentName = tournament.ID, tournament.NameJa
-	detail.DivisionName, detail.ForfeitScore = division.NameJa, tournamentForfeitScore(tournament)
+	detail.DivisionName = division.NameJa
+	if detail.ForfeitScore, err = regulationForfeitScore(ctx, db, division); err != nil {
+		return err
+	}
 	if match.GroupID != nil {
 		group, err := findInternal[Group](ctx, db, *match.GroupID, "group")
 		if err != nil {

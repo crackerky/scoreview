@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"scoreview/api/internal/domain"
 )
 
 const (
 	sqlTeamsInDivision = "id IN ? AND division_id = ?"
+	sqlTeamsOfGroup    = "group_id = ? AND team_id IN ?"
 	sqlCodesInDivision = "division_id = ? AND code IN ?"
 	// maxCodePrefixLen は試合 CD の接頭辞の長さの上限(参照サイトの CD は "A4" "B12" のような短い文字列)
 	maxCodePrefixLen = 8
@@ -250,6 +252,9 @@ func ReplaceGroupTeams(
 		if err != nil {
 			return err
 		}
+		if err := lockDivision(ctx, tx, group.DivisionID); err != nil {
+			return err
+		}
 		ids := make([]int64, len(teams))
 		for i, team := range teams {
 			if team.RankOverride != nil && *team.RankOverride < 0 {
@@ -268,34 +273,65 @@ func ReplaceGroupTeams(
 	return GetAdminGroup(ctx, db, id)
 }
 
+// replaceGroupTeams はグループのチームを teams にする。消して作り直すのではなく、差分だけを
+// 消す、足す、書き換える(同じプールの結果が同時に入ったときに主キーの重複で失敗しないように。
+// 行の順序は sort_order が持つ)。
 func replaceGroupTeams(
 	ctx context.Context,
 	tx *gorm.DB,
 	groupID int64,
 	teams []GroupTeamFields,
 ) error {
-	if err := tx.WithContext(ctx).
-		Where(sqlByGroup, groupID).
-		Delete(&GroupTeam{}).
-		Error; err != nil {
-		return fmt.Errorf("clear teams of group %d: %w", groupID, err)
+	current, err := groupMembers(ctx, tx, groupID)
+	if err != nil {
+		return err
 	}
-	if len(teams) == 0 {
-		return nil
-	}
-	rows := make([]GroupTeam, len(teams))
+	want := map[int64]GroupTeam{}
 	for i, team := range teams {
-		rows[i] = GroupTeam{
-			GroupID:      groupID,
-			TeamID:       team.TeamID,
-			SortOrder:    i,
-			RankOverride: team.RankOverride,
+		want[team.TeamID] = GroupTeam{GroupID: groupID, TeamID: team.TeamID, SortOrder: i,
+			RankOverride: team.RankOverride}
+	}
+	have := map[int64]GroupTeam{}
+	var gone []int64
+	for _, member := range current {
+		have[member.TeamID] = member
+		if _, keep := want[member.TeamID]; !keep {
+			gone = append(gone, member.TeamID)
 		}
 	}
-	if err := tx.WithContext(ctx).Create(&rows).Error; err != nil {
+	if len(gone) > 0 {
+		if err := tx.WithContext(ctx).Where(sqlTeamsOfGroup, groupID, gone).
+			Delete(&GroupTeam{}).Error; err != nil {
+			return fmt.Errorf("remove teams of group %d: %w", groupID, err)
+		}
+	}
+	var rows []GroupTeam
+	for _, team := range teams {
+		row := want[team.TeamID]
+		if prev, ok := have[team.TeamID]; ok && prev.SortOrder == row.SortOrder &&
+			sameIntPtr(prev.RankOverride, row.RankOverride) {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	err = tx.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "group_id"}, {Name: "team_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"sort_order", "rank_override"}),
+	}).Create(&rows).Error
+	if err != nil {
 		return writeError("set teams of group", err)
 	}
 	return nil
+}
+
+func sameIntPtr(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // checkTeamsInDivision は ids が重複なく、すべて divisionID のチームであることを確かめる。

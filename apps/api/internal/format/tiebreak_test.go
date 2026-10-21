@@ -42,7 +42,7 @@ func TestCurrentRuleGoalsFor6537(t *testing.T) {
 		game("A4", 2, 3, 2, 0), game("A5", 2, 4, 1, 2), game("A6", 3, 4, 5, 0),
 	}
 	in := format.RankInput{Teams: []int64{1, 2, 3, 4}, Games: games, Rule: format.CurrentRule(true),
-		Forfeit: format.DefaultForfeitScore()}
+		Forfeit: new(format.DefaultForfeitScore())}
 	got := format.RankPool(in)
 	assert.Equal(t, []int64{4, 1, 2, 3}, order(got))
 	assert.Equal(t, map[int64]int{4: 1, 1: 2, 2: 3, 3: 4}, rankMap(got))
@@ -89,7 +89,7 @@ func jfdaGames() []format.Game {
 // 再適用せず次の基準(該当チーム間の得失点差)へ進むと B(+9)が A(+1)の上になる。
 func TestJFDARestart(t *testing.T) {
 	in := format.RankInput{Teams: []int64{1, 2, 3, 4}, Games: jfdaGames(), Rule: format.JFDARule(),
-		Forfeit: format.DefaultForfeitScore()}
+		Forfeit: new(format.DefaultForfeitScore())}
 	got := format.RankPool(in)
 	assert.Equal(t, []int64{1, 2, 3, 4}, order(got))
 	assert.Equal(t, "勝利数同数、該当チーム間の勝利数で決定", reasonText(t, got, 1))
@@ -118,15 +118,26 @@ func TestCycleUnresolvedAndDecision(t *testing.T) {
 			assert.False(t, ok)
 			assert.Contains(t, reasonText(t, got, 1), "全基準で並び未決")
 
-			in.Decision = []int64{2, 3, 1}
+			require.Len(t, got.UnresolvedBasis, 1)
+			basis := got.UnresolvedBasis[0]
+			in.Decisions = []format.Decision{{Order: []int64{2, 3, 1}, Basis: basis}}
 			decided := format.RankPool(in)
 			assert.Empty(t, decided.Unresolved)
 			assert.Equal(t, []int64{2, 3, 1}, order(decided))
 			assert.Equal(t, map[int64]int{2: 1, 3: 2, 1: 3}, rankMap(decided))
 			assert.Contains(t, reasonText(t, decided, 2), "運営者の指定で")
 
-			in.Decision = []int64{2, 3} // 一部だけの指定では決めない
+			in.Decisions = []format.Decision{{Order: []int64{2, 3}, Basis: basis}} // 一部だけの指定では決めない
 			assert.Len(t, format.RankPool(in).Unresolved, 1)
+			in.Decisions = []format.Decision{{Order: []int64{2, 2, 3}, Basis: basis}} // 重複も決めない
+			assert.Len(t, format.RankPool(in).Unresolved, 1)
+
+			// 結果が変わって値が変われば(並びは同じでも)指定は使わず未決に戻る
+			changed := []format.Game{game("A1", 1, 2, 6, 5), game("A2", 2, 3, 6, 5), game("A3", 3, 1, 6, 5)}
+			in.Games = changed
+			in.Decisions = []format.Decision{{Order: []int64{2, 3, 1}, Basis: basis}}
+			assert.Len(t, format.RankPool(in).Unresolved, 1, "指定した時点の成績と違う")
+			in.Games = games
 		})
 	}
 }
@@ -154,7 +165,7 @@ func TestResultTypes(t *testing.T) {
 		{Code: "A6", Left: 3, Right: 4, Result: &format.Result{Status: domain.MatchFinished}},
 	}
 	got := format.RankPool(format.RankInput{Teams: []int64{1, 2, 3, 4}, Games: games,
-		Rule: format.CurrentRule(true), Forfeit: format.ForfeitScore{Winner: 13, Loser: 0}})
+		Rule: format.CurrentRule(true), Forfeit: &format.ForfeitScore{Winner: 13, Loser: 0}})
 	stats := map[int64]format.Stats{}
 	for _, row := range got.Rows {
 		stats[row.TeamID] = row.Stats
@@ -163,6 +174,36 @@ func TestResultTypes(t *testing.T) {
 	assert.Equal(t, format.Stats{Games: 3, Losses: 3, GoalsFor: 4, GoalsAgainst: 19, Forfeits: 2}, stats[2])
 	assert.Equal(t, format.Stats{Games: 2, Losses: 2, Forfeits: 1}, stats[3])
 	assert.Equal(t, format.Stats{Games: 1, Wins: 1, GoalsFor: 6, GoalsAgainst: 4}, stats[4])
+}
+
+// TestForfeitScoreSources は不戦勝の得失点の出どころ: 記録したスコアがあればそれ(閲覧ページの
+// 成績表と同じ値)、無ければ規定スコア、どちらも無ければ得失点に数えず勝敗と棄権だけを数える。
+func TestForfeitScoreSources(t *testing.T) {
+	left := domain.SideLeft
+	recorded := format.Result{Status: domain.MatchFinished, Type: format.ResultForfeit, Winner: &left,
+		LeftScore: intp(7), RightScore: intp(0)}
+	unrecorded := format.Result{Status: domain.MatchFinished, Type: format.ResultForfeit, Winner: &left}
+	regulation := &format.ForfeitScore{Winner: 15, Loser: 0}
+	cases := []struct {
+		name    string
+		result  format.Result
+		forfeit *format.ForfeitScore
+		want    format.Stats
+	}{
+		{"記録したスコア", recorded, regulation, format.Stats{Games: 1, Losses: 1, GoalsAgainst: 7, Forfeits: 1}},
+		{"規定スコア", unrecorded, regulation, format.Stats{Games: 1, Losses: 1, GoalsAgainst: 15, Forfeits: 1}},
+		{"どちらも無い", unrecorded, nil, format.Stats{Games: 1, Losses: 1, Forfeits: 1}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := format.RankPool(format.RankInput{Teams: []int64{1, 2}, Rule: format.CurrentRule(true),
+				Games: []format.Game{{Code: "A1", Left: 1, Right: 2, Result: &c.result}}, Forfeit: c.forfeit})
+			row, ok := got.RankOf(2)
+			require.True(t, ok)
+			assert.Equal(t, c.want, row.Stats)
+			assert.Equal(t, []int64{1, 2}, order(got))
+		})
+	}
 }
 
 // TestCurrentRuleMatchesDomain は現行方式が既存の domain.RankPool と同じ順位を出すことを、
@@ -213,6 +254,7 @@ func TestRankBand(t *testing.T) {
 	// 1 試合あたりの勝ち点: 1 は 6/3=2、他は 4/2=2。得失点差 10/3 < 5/2? 1 は 3.33、2〜4 は 2.5
 	assert.Equal(t, []int64{1, 3, 4, 2}, order(got))
 	assert.Equal(t, [][]int64{{3, 4}}, got.Unresolved)
-	decided := format.RankBand(entries, format.BandRule(), []int64{4, 3})
+	decided := format.RankBand(entries, format.BandRule(),
+		[]format.Decision{{Order: []int64{4, 3}, Basis: got.UnresolvedBasis[0]}})
 	assert.Equal(t, []int64{1, 4, 3, 2}, order(decided))
 }

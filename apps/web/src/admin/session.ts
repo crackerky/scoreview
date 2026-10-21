@@ -6,7 +6,12 @@ import type { AdminUser } from '@/api/admin.types'
 import { ApiError } from '@/api/client'
 import { decideAccess, type Requirement } from './access.utils'
 import { withNotice } from './form.utils'
-import { SESSION_COOKIE, SESSION_COOKIE_PATH, sessionCookieOptions } from './session.utils'
+import {
+  loginPath,
+  SESSION_COOKIE,
+  SESSION_COOKIE_PATH,
+  sessionCookieOptions,
+} from './session.utils'
 
 // 管理画面のページと Server Actions が使う、セッション Cookie の読み書きと権限の確認。
 
@@ -41,14 +46,16 @@ async function currentUser(token: string | null): Promise<AdminUser | null> {
 /**
  * ページを出す前に auth/me で権限を確かめる。未ログインならログイン画面へ、権限が足りなければ
  * 管理画面のトップへリダイレクトする。web 側の確認は表示のためで、最終的な認可は api が行う。
+ * from はこのページのパスで、ログインの後にここへ戻す(記録画面で記録を続けられるように)。
  */
 export async function requireUser(
   requirement: Requirement,
+  from?: string,
 ): Promise<{ user: AdminUser; token: string }> {
   const token = await readSessionToken()
   const decision = decideAccess(await currentUser(token), requirement)
   if (decision.kind === 'login' || token === null) {
-    redirect('/admin/login')
+    redirect(loginPath(from))
   }
   if (decision.kind === 'forbidden') {
     redirect(withNotice('/admin', 'error', '権限がありません'))

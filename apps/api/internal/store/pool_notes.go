@@ -69,8 +69,8 @@ func poolNotes(
 	ref := func(id int64) domain.TeamRef { return teamRef(teams[id]) }
 	var out PoolNotes
 	rule := format.CurrentRule(true)
-	ranking := format.RankPool(format.RankInput{Teams: ids, Games: games, Rule: rule,
-		Forfeit: format.DefaultForfeitScore()})
+	// 形の無いディビジョンの不戦勝は記録したスコアだけで数える(規定スコアで補わない)
+	ranking := format.RankPool(format.RankInput{Teams: ids, Games: games, Rule: rule})
 	if played > 0 {
 		for _, r := range ranking.Rows {
 			if text := r.Reason.Text(); text != "" {

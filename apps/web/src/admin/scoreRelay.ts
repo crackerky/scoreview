@@ -1,5 +1,5 @@
 import 'server-only'
-import { ZodError } from 'zod'
+import { ZodError, z } from 'zod'
 import { matches } from '@/api/admin'
 import type { MatchDetail } from '@/api/admin.types'
 import { ApiError } from '@/api/client'
@@ -29,6 +29,7 @@ function applyToApi(token: string, matchId: number, op: ScoreOp): Promise<MatchD
         assistId: op.assistId,
         callahan: op.callahan,
         winnerSide: op.winnerSide,
+        expectedScore: op.expectedScore,
       })
     case 'event.remove':
       return matches.removeEventByRef(token, matchId, op.eventRef, op.opId)
@@ -39,11 +40,14 @@ function applyToApi(token: string, matchId: number, op: ScoreOp): Promise<MatchD
         assistId: op.assistId,
         callahan: op.callahan,
       })
+    case 'event.side':
+      return matches.moveGoal(token, matchId, op.eventRef, { clientId: op.opId, side: op.side })
     case 'status':
       return matches.setStatus(token, matchId, {
         clientId: op.opId,
         status: op.status,
         winnerSide: op.winnerSide,
+        expectedScore: op.expectedScore,
       })
     case 'result':
       return matches.setResult(token, matchId, {
@@ -51,6 +55,7 @@ function applyToApi(token: string, matchId: number, op: ScoreOp): Promise<MatchD
         resultType: op.resultType,
         winnerSide: op.winnerSide,
         forfeitScore: op.forfeitScore,
+        expectedScore: op.expectedScore,
       })
   }
 }
@@ -87,8 +92,11 @@ export async function relayDetail(matchIdText: string): Promise<Response> {
   }
 }
 
-/** POST: 操作 1 つを api へ送る */
-export async function relayOp(request: Request, matchIdText: string): Promise<Response> {
+/** 同じサイトからの JSON の要求を読む。読めなければ返す応答(エラー)を返す */
+async function readJsonRelay(
+  request: Request,
+  matchIdText: string,
+): Promise<{ token: string; matchId: number; body: unknown } | Response> {
   const site = siteOrigins({
     PUBLIC_SITE_URL: process.env.PUBLIC_SITE_URL,
     VERCEL_URL: process.env.VERCEL_URL,
@@ -104,21 +112,61 @@ export async function relayOp(request: Request, matchIdText: string): Promise<Re
   if (token === null) {
     return errorResponse(401, 'unauthorized', 'login required')
   }
-  let body: unknown
   try {
-    body = await request.json()
+    return { token, matchId, body: await request.json() }
   } catch (error) {
     if (error instanceof SyntaxError) {
       return errorResponse(400, 'bad_request', 'body must be JSON')
     }
     throw error
   }
-  const parsed = scoreOpSchema.safeParse(body)
+}
+
+/** POST: 操作 1 つを api へ送る */
+export async function relayOp(request: Request, matchIdText: string): Promise<Response> {
+  const relay = await readJsonRelay(request, matchIdText)
+  if (relay instanceof Response) {
+    return relay
+  }
+  const parsed = scoreOpSchema.safeParse(relay.body)
   if (!parsed.success) {
     return errorResponse(400, 'bad_request', describeZodError(parsed.error))
   }
   try {
-    return Response.json({ detail: await applyToApi(token, matchId, parsed.data) })
+    return Response.json({ detail: await applyToApi(relay.token, relay.matchId, parsed.data) })
+  } catch (error) {
+    return relayFailure(error)
+  }
+}
+
+const scorerRequestSchema = z.object({
+  deviceId: z.uuid(),
+  takeover: z.boolean().default(false),
+  release: z.boolean().default(false),
+})
+
+/**
+ * POST: 試合の記録担当を引き受ける・延長する・引き継ぐ。release なら外す(記録画面を閉じたとき。
+ * ページを離れる間際に keepalive で送るので、DELETE ではなく同じ POST の形にする)
+ */
+export async function relayScorer(request: Request, matchIdText: string): Promise<Response> {
+  const relay = await readJsonRelay(request, matchIdText)
+  if (relay instanceof Response) {
+    return relay
+  }
+  const parsed = scorerRequestSchema.safeParse(relay.body)
+  if (!parsed.success) {
+    return errorResponse(400, 'bad_request', describeZodError(parsed.error))
+  }
+  const { deviceId, takeover, release } = parsed.data
+  try {
+    if (release) {
+      await matches.releaseScorer(relay.token, relay.matchId, deviceId)
+      return new Response(null, { status: 204 })
+    }
+    return Response.json(
+      await matches.claimScorer(relay.token, relay.matchId, { deviceId, takeover }),
+    )
   } catch (error) {
     return relayFailure(error)
   }

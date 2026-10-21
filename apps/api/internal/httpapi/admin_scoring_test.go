@@ -83,14 +83,19 @@ func TestResultTypesOverHTTP(t *testing.T) {
 	s := f.setupScoring(t)
 	path := fmt.Sprintf("/api/v1/admin/matches/%d", s.match)
 
-	// 大会に規定スコアが無ければ、不戦勝にはスコアの入力が要る
-	f.callAs(t, f.staffToken, http.StatusBadRequest, http.MethodPost, path+"/result",
-		map[string]any{"resultType": "forfeit", "winnerSide": "right"})
-	f.call(t, http.StatusOK, http.MethodPatch, fmt.Sprintf("/api/v1/admin/tournaments/%d", s.own),
-		map[string]any{"forfeitScore": map[string]int{"winner": 15, "loser": 0}})
+	// 大会に規定スコアが無ければ、記録係は勝者だけを記録する(スコアは本部が後で決める)
 	detail := f.callAs(t, f.staffToken, http.StatusOK, http.MethodPost, path+"/result",
 		map[string]any{"resultType": "forfeit", "winnerSide": "right"})
 	match := detail["match"].(map[string]any)
+	assert.Equal(t, "right", match["winnerSide"])
+	assert.Nil(t, match["left"].(map[string]any)["score"])
+	f.call(t, http.StatusOK, http.MethodPost, path+"/status", map[string]any{"status": "live"})
+
+	f.call(t, http.StatusOK, http.MethodPatch, fmt.Sprintf("/api/v1/admin/tournaments/%d", s.own),
+		map[string]any{"forfeitScore": map[string]int{"winner": 15, "loser": 0}})
+	detail = f.callAs(t, f.staffToken, http.StatusOK, http.MethodPost, path+"/result",
+		map[string]any{"resultType": "forfeit", "winnerSide": "right"})
+	match = detail["match"].(map[string]any)
 	assert.Equal(t, "forfeit", match["resultType"])
 	assert.Equal(t, "finished", match["status"])
 	assert.Equal(t, float64(0), match["left"].(map[string]any)["score"])

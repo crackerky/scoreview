@@ -52,6 +52,7 @@ function add(
     assistId: null,
     callahan: false,
     winnerSide,
+    expectedScore: null,
   }
 }
 
@@ -108,6 +109,7 @@ describe('見込みの状態', () => {
       opId: uuid(9),
       status: 'live',
       winnerSide: null,
+      expectedScore: null,
     })
     assert.equal(reopened.match.status, 'live')
     assert.equal(
@@ -123,6 +125,7 @@ describe('見込みの状態', () => {
       resultType: 'forfeit',
       winnerSide: 'right',
       forfeitScore: { winner: 15, loser: 0 },
+      expectedScore: null,
     })
     assert.equal(forfeit.match.status, 'finished')
     assert.equal(forfeit.match.resultType, 'forfeit')
@@ -134,6 +137,7 @@ describe('見込みの状態', () => {
       resultType: 'double_forfeit',
       winnerSide: null,
       forfeitScore: null,
+      expectedScore: null,
     })
     assert.deepEqual([both.match.left.score, both.match.right.score], [null, null])
 
@@ -143,6 +147,7 @@ describe('見込みの状態', () => {
       resultType: 'abandoned',
       winnerSide: null,
       forfeitScore: null,
+      expectedScore: null,
     })
     assert.deepEqual([abandoned.match.left.score, abandoned.match.right.score], [1, 0])
   })

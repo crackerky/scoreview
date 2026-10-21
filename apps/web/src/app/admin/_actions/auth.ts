@@ -7,6 +7,7 @@ import { formToObject } from '@/admin/form.utils'
 import { loginErrorCode, loginErrorPath } from '@/admin/login.utils'
 import { clientIpFrom, LoginFailureLimiter } from '@/admin/loginLimit.utils'
 import { clearSession, readSessionToken, saveSession } from '@/admin/session'
+import { safeNext } from '@/admin/session.utils'
 import { changePassword, login, logout } from '@/api/admin'
 import { loginFormSchema, passwordChangeFormSchema } from '@/api/admin.types'
 
@@ -14,11 +15,13 @@ import { loginFormSchema, passwordChangeFormSchema } from '@/api/admin.types'
 const loginFailures = new LoginFailureLimiter()
 
 export async function loginAction(formData: FormData): Promise<never> {
+  // ログインの前に開いていた画面(記録画面など)へ戻す
+  const next = safeNext(formData.get('next'))
   const ip = clientIpFrom(await headers())
   if (!loginFailures.allows(ip, Date.now())) {
-    redirect(loginErrorPath('limited'))
+    redirect(loginErrorPath('limited', next))
   }
-  let target = '/admin'
+  let target = next
   try {
     const input = loginFormSchema.parse(formToObject(formData))
     const session = await login(input.email, input.password, ip)
@@ -31,7 +34,7 @@ export async function loginAction(formData: FormData): Promise<never> {
     if (code === 'invalid') {
       loginFailures.recordFailure(ip, Date.now())
     }
-    target = loginErrorPath(code)
+    target = loginErrorPath(code, next)
   }
   redirect(target)
 }

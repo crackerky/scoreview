@@ -148,3 +148,74 @@ func TestScheduleConfigErrors(t *testing.T) {
 	_, err := format.BuildSchedule(plan, format.ScheduleConfig{Start: dayStart, SlotMinutes: 20})
 	assert.Error(t, err)
 }
+
+// TestScheduleAvoidsOtherDivisions は、同じ大会の他のディビジョンの試合でふさがったコートと時間を
+// 避けて置き、手で重ねたら court_conflict を出すことを確かめる(コートは大会で共有する)。
+func TestScheduleAvoidsOtherDivisions(t *testing.T) {
+	plan := plan916(t)
+	busy := []format.Busy{
+		{Court: "1", Start: at(0), End: at(40), Label: "H1"},
+		{Court: "2", Start: at(0), End: at(600), Label: "H2"},
+	}
+	cfg := format.ScheduleConfig{Start: dayStart, SlotMinutes: 20, Courts: []string{"1", "2", "3", "4"},
+		Busy: busy}
+	sched, err := format.BuildSchedule(plan, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, sched.Violations)
+	for _, a := range sched.Assignments {
+		assert.NotEqual(t, "2", a.Court, a.Code)
+		if a.Court == "1" {
+			assert.False(t, a.Start.Before(at(40)), a.Code)
+		}
+	}
+
+	moved := slices.Clone(sched.Assignments)
+	moved[0].Court, moved[0].Start = "2", at(100)
+	violations := format.CheckSchedule(plan, cfg, moved)
+	require.Contains(t, kinds(violations), format.ViolationCourtConflict)
+	for _, v := range violations {
+		if v.Kind == format.ViolationCourtConflict {
+			assert.Equal(t, []string{moved[0].Code, "H2"}, v.Codes)
+			assert.Equal(t, 20, v.ShortMinutes)
+		}
+	}
+}
+
+// TestBuildScheduleSatisfiesItsOwnCheck は、生成した時間割が自分の制約検査で違反を出さないこと
+// (性質テスト)を、型、コート数、休み、段の間の組み合わせで確かめる。
+func TestBuildScheduleSatisfiesItsOwnCheck(t *testing.T) {
+	specs := []format.Spec{
+		{Template: format.TemplatePoolBands, Params: format.PoolBandsParams{Teams: 12, Pools: 4, Bands: []format.Band{
+			{Ranks: []int{1}, Shape: format.ShapeT4}, {Ranks: []int{2}, Shape: format.ShapeT4},
+			{Ranks: []int{3}, Shape: format.ShapeT4}}}},
+		{Template: format.TemplatePoolBands, Params: format.PoolBandsParams{Teams: 16, Pools: 4, Bands: []format.Band{
+			{Ranks: []int{1, 2}, Shape: format.ShapeT8}, {Ranks: []int{3, 4}, Shape: format.ShapeT8}}}},
+		{Template: format.TemplatePoolBands, Params: format.PoolBandsParams{Teams: 7, Pools: 2, Bands: []format.Band{
+			{Ranks: []int{1, 2, 3, 4}, Shape: format.ShapeT7}}}},
+		{Template: format.TemplateBlocks, Params: format.BlocksParams{Teams: 32, Bands: []format.Band{
+			{Ranks: []int{1}, Shape: format.ShapeT4}, {Ranks: []int{2, 3}, Shape: format.ShapeT8R1}}}},
+		{Template: format.TemplateRoundRobin, Params: format.RoundRobinParams{Teams: 9, Pools: 2}},
+		{Template: format.TemplateRoundRobin, Params: format.RoundRobinParams{Teams: 6, Pools: 1}},
+	}
+	for _, spec := range specs {
+		plan, err := format.NewEngine().Generate(spec)
+		require.NoError(t, err, spec.Template)
+		for courts := 1; courts <= 6; courts++ {
+			for rest := 0; rest <= 2; rest++ {
+				for gap := 0; gap <= 1; gap++ {
+					names := make([]string, courts)
+					for i := range names {
+						names[i] = string(rune('1' + i))
+					}
+					cfg := format.ScheduleConfig{Start: dayStart, SlotMinutes: 20, Courts: names,
+						TeamRestSlots: rest, StageGapSlots: gap,
+						Busy: []format.Busy{{Court: "1", Start: at(20), End: at(60), Label: "X1"}}}
+					s, err := format.BuildSchedule(plan, cfg)
+					require.NoError(t, err)
+					assert.Empty(t, s.Violations, "%s teams=%d courts=%d rest=%d gap=%d",
+						spec.Template, plan.Teams, courts, rest, gap)
+				}
+			}
+		}
+	}
+}

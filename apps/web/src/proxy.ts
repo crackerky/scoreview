@@ -25,8 +25,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      // 静的ファイルと画像には付けない(HTML のページだけ)。先読み(prefetch)の要求は nonce を作らない
-      source: '/((?!_next/static|_next/image|favicon.ico|brand/).*)',
+      // 静的ファイルと画像には付けない(HTML のページだけ)。先読み(prefetch)の要求は nonce を作らない。
+      // Service Worker(/sw.js)は next.config.ts で専用の CSP を付ける
+      source: '/((?!_next/static|_next/image|favicon.ico|brand/|sw\\.js).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

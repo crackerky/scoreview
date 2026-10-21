@@ -26,6 +26,7 @@ Go の DTO(`apps/api/internal/httpapi/dto*.go`)と TypeScript の zod スキー�
 | `forbidden` | 403 | 権限がない |
 | `not_found` | 404 | ID が存在しない。`message` は参照サイトのエラー画面に出す `{種別}_ID [{id}]`(`TOURNAMENT_ID`、`ENTRY_TEAM_ID`、`ENTRY_PLAYER_ID`、`MATCH_ID`、`EVENT_DIVISION_ID`、`GROUP_ID`、`TGALLERY_ID`) |
 | `conflict` | 409 | 一意制約違反、状態遷移の不正 |
+| `score_mismatch` | 409 | 試合終了などで記録係が確認したスコア(`expectedScore`)が現在のスコアと違う。`message` に現在のスコアを書く |
 | `too_many_requests` | 429 | ログイン試行の制限に掛かった(「認証」のログイン試行の制限)。`Retry-After`(秒)を付ける |
 | `internal` | 500 | それ以外 |
 | `unavailable` | 503 | 混雑で今は処理できない(パスワード照合の同時実行数の上限)。`Retry-After`(秒)を付ける |
@@ -560,7 +561,7 @@ type MatchDetail = {
     tournamentId: number; tournamentName: string; divisionName: string; groupName: string | null
   }
   inBracket: boolean                 // トーナメント(bracket グループ)の試合
-  forfeitScore: { winner: number; loser: number } | null  // 大会の不戦勝の規定スコア
+  forfeitScore: { winner: number; loser: number } | null  // 不戦勝の規定スコア(大会、無ければ大会の形の設定)
   startedAt: string | null           // 経過 0 秒の時刻(RFC 3339、UTC)。得点経過が無ければ null
   events: Array<{                    // 時系列の昇順
     id: number; clientId: string     // clientId は端末が付けた UUID(無ければ api が付けた UUID)
@@ -571,6 +572,14 @@ type MatchDetail = {
   }>
   playerStats: Array<{ playerId: number; side: Side; blocks: number; greatests: number }>
   rosters: { left: AdminPlayer[]; right: AdminPlayer[] }   // 左右のチームの選手とスタッフ
+  scorer: ScorerClaim | null         // 試合の記録担当(期限内のもの。下記「試合の記録担当」)
+  concurrentRecords: Array<{         // 別の利用者がほぼ同時(5 秒以内)に入れた同じ種類の記録の組(二重記録の疑い)
+    kind: 'goal' | 'pull'
+    firstClientId: string; secondClientId: string   // 得点経過の clientId。second が後
+    firstUser: string; secondUser: string           // 記録した利用者の表示名
+    secondsApart: number
+  }>
+  matchMinutes: number | null        // ディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ null
 }
 ```
 
@@ -584,6 +593,9 @@ type MatchDetail = {
 | `POST /admin/matches/{id}/events` | 下記 | 201 と `MatchDetail` |
 | `DELETE /admin/matches/{id}/events/{eventId}` | なし(クエリ `clientId` で操作 ID) | 200 と `MatchDetail`(取り消し後の状態を返す) |
 | `PATCH /admin/matches/{id}/events/{eventId}` | `{ clientId?, scorerId, assistId, callahan }` | `MatchDetail`。goal の得点者、アシスト、キャラハンを付け直す。終了した試合でも可 |
+| `PUT /admin/matches/{id}/events/{eventId}/side` | `{ clientId?, side: Side }` | `MatchDetail`。goal を相手チームの得点に付け替える(得点者、アシスト、キャラハンは外す)。既に `side` の得点か、終了した試合なら 409。監査ログは `event.side` の 1 行 |
+| `POST /admin/matches/{id}/scorer` | `{ deviceId: string; takeover?: boolean }` | `{ scorer: ScorerClaim; mine: boolean }`。下記「試合の記録担当」 |
+| `DELETE /admin/matches/{id}/scorer` | なし(クエリ `deviceId`) | 204。その端末が記録担当なら外す |
 | `PUT /admin/matches/{id}/player-stats` | `{ stats: Array<{ playerId; side; blocks; greatests }> }` | `MatchDetail` |
 | `POST /admin/matches/{id}/status` | 下記 | `MatchDetail` |
 | `POST /admin/matches/{id}/result` | 下記 | `MatchDetail`。通常以外の結果で試合を終える |
@@ -610,6 +622,8 @@ UUID の形でない `clientId` は 400。同じ `clientId` が別の試合の�
   assistId?: number | null           // goal だけ。得点者と別の選手。キャラハンなら null
   callahan?: boolean                 // goal だけ
   winnerSide?: Side | null           // end だけ。同点のトーナメントの試合では必須
+  expectedScore?: { left: number; right: number } | null
+                                     // end だけ。記録係が確認したスコア。現在のスコアと違えば 409(score_mismatch)
 }
 ```
 
@@ -621,6 +635,8 @@ UUID の形でない `clientId` は 400。同じ `clientId` が別の試合の�
   status: MatchStatus
   winnerSide?: Side | null           // finished にするときだけ。同点のトーナメントの試合では必須
   score?: { left: number; right: number } | null  // 得点経過の無い試合(詳細なし)の結果。経過がある試合では指定不可
+  expectedScore?: { left: number; right: number } | null  // finished にするときだけ。end と同じ
+  downstream?: 'keep' | 'reset' | null  // 結果のある下流の試合の対戦が変わるときの承認(下記「大会の形と進行」)
 }
 ```
 
@@ -633,13 +649,15 @@ UUID の形でない `clientId` は 400。同じ `clientId` が別の試合の�
   winnerSide?: Side | null           // forfeit と no_contest は必須。abandoned は同点のトーナメントの試合で必須。
                                      // double_forfeit と unplayed は指定不可
   forfeitScore?: { winner: number; loser: number } | null
-                                     // forfeit だけ。大会に規定スコアが無いときに必須。あるときは省略するか同じ値
+                                     // forfeit だけ。規定スコア(大会、無ければ大会の形の設定)があるときは
+                                     // 省略するか同じ値。どちらも無く省略すれば勝者だけを記録する
+  expectedScore?: { left: number; right: number } | null  // 記録係が確認したスコア。end と同じ
 }
 ```
 
 | 種類 | 記録する値 | 成績の集計(チーム、プール、勝ち点) |
 |---|---|---|
-| `forfeit`(不戦勝) | 大会の規定スコアを勝者の側に。`winnerSide` | 規定スコアで勝ち・負け |
+| `forfeit`(不戦勝) | 規定スコア(大会、無ければ大会の形の設定。どちらも無ければ `forfeitScore`)を勝者の側に。それも無ければスコアなし(本部が後で決める)。`winnerSide` | 記録したスコアで勝ち・負け。スコアが無ければ勝ち・負けだけ |
 | `double_forfeit`(両チーム不戦敗) | スコアなし(`null`) | 両チームとも負け。得失点なし |
 | `no_contest`(不成立) | スコアなし。`winnerSide` | 勝ち・負けだけ。得失点なし |
 | `abandoned`(途中打ち切り) | その時点の得点経過のスコア | 通常の試合と同じ |
@@ -657,6 +675,25 @@ UUID の形でない `clientId` は 400。同じ `clientId` が別の試合の�
 - 終了した試合には得点経過を足せない(409)。取り消せるのは `end` だけ。
 - 終了時、スコアに差があれば勝者はスコアで決まり、`winnerSide` は保存しない(スコアと矛盾する指定は 400)。同点なら `winnerSide` を保存し、トーナメントの試合で指定が無ければ 400。
 - 試合が終わると、同じディビジョンで、この試合の CD を `placeholder` で参照する未試合の試合のチームを、勝者または敗者で埋める。終了を取り消すと空に戻す(既に始まった後続試合は変えない)。トーナメント表の格子のチーム名も同時に書き直す。
+
+#### 試合の記録担当
+
+同じ試合を 2 台で記録すると得点が二重に入るので、記録画面を開いた端末を「記録担当」にして、他の端末には引き継ぎを確かめさせる。
+
+```ts
+type ScorerClaim = {
+  userId: number; name: string       // 記録担当の利用者と表示名(未登録ならメールアドレス)
+  deviceId: string                   // 端末が作った UUID
+  expiresAt: string                  // RFC 3339(UTC)。この時刻までに延長が無ければ空く
+}
+```
+
+- `POST /admin/matches/{id}/scorer` は、記録担当がいない、期限切れ、または同じ利用者の同じ端末なら、この端末を記録担当にして期限を 30 秒後に延ばす(`mine: true`)。
+  他の端末が期限内の記録担当なら、`takeover: true` のときだけ引き継ぐ。`false` なら変えずに今の記録担当を返す(`mine: false`)。
+- 記録画面は開いている間 10 秒ごとに延長し、閉じるときに `DELETE` で外す。期限が切れた記録担当は `MatchDetail.scorer` に出ない。
+- 記録担当は画面の案内のための仕組みで、得点経過の追加などの操作は記録担当でなくても受け付ける(通信が切れている間に溜めた操作を捨てないため)。
+  同じ種類の記録がほぼ同時に別の利用者から入ったら `concurrentRecords` に出す。
+- 権限は得点経過の追加と同じ(記録係は割り当てが覆う試合だけ)。`deviceId` が UUID でなければ 400。
 
 ### 監査ログ
 
@@ -677,7 +714,8 @@ type AuditEntry = {
   id: number
   at: string                         // RFC 3339(UTC)
   user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
-  action: 'event.add' | 'event.remove' | 'event.update' | 'match.status' | 'match.result' | 'team.final_rank'
+  action: 'event.add' | 'event.remove' | 'event.update' | 'event.side' | 'match.status' | 'match.result' | 'team.final_rank'
+    | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
   matchId: number | null; teamId: number | null
   // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
   before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
@@ -789,7 +827,7 @@ type Progress = {
     confirmedUnplayed: boolean; remaining: number   // remaining は終わっていない試合の数
     slots: ProgressSide[]
     rows: Array<Tally & { team: TeamRef; rank: number; points: number; reason: string; unresolved: boolean }>  // プールの順位(枠が埋まっていれば)
-    ties: TeamRef[][]                               // 未決の同順位の組
+    ties: TeamRef[][]                               // 未決の同順位の組(プールの全試合が終わった後だけ)
     conditions: Array<{ team: TeamRef; text: string }>  // 進行中のプールの勝ち上がり条件「次の A3 に勝てば 1 位確定」
   }>
   live: ProgressMatch[]                             // 試合中
@@ -814,17 +852,22 @@ type Impact = {
 | `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |
 | `POST /admin/groups/{id}/confirm` | `{ unplayed: boolean }` | 204。プールの順位を確定し、次の段の枠を埋める。結果待ちがあれば `unplayed: true`(未消化のまま確定)のときだけ。未決の同順位があれば 409 |
 | `POST /admin/stages/{id}/confirm` | `{ unplayed: boolean }` | 204。段の全プールを確定し、段の全体順位を使えるようにする |
-| `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須) |
-| `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決 |
+| `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須)。プールの全試合が終わる前は 409。指定はその時点の成績に結び付き、訂正で成績が変われば未決に戻る |
+| `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決。段の全プールの試合が終わる前は 409 |
 | `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
-| `POST /admin/matches/{id}/correction` | 上と同じ + `approved: boolean` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `approved: false` なら 409。得点経過のある試合は 400 |
-| `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない) |
-| `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }` |
+| `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は 400 |
+| `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |
+| `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }`。同じ大会の他のディビジョンの試合とのコートの重なりも `court_conflict`(`codes` の 2 つ目が相手の試合 CD)。形の適用で作る時間割は、他のディビジョンの試合のコートと時刻を避ける |
 | `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |
 | `POST /admin/matches/{id}/swap-schedule` | `{ otherMatchId: number }` | `{ violations }`。未試合の 2 試合の日付、時刻、コートを入れ替える |
 
 - 試合の結果が変わるたび(得点経過、状態、結果の種類の変更)に、形のあるディビジョンでは枠と下流の未試合の試合の左右、グループのチーム、プールの順位(`rank_override`)、最終順位(`teams.final_rank`)を自動で書き直す。トーナメント内の勝ち上がりは自動、プールから次の段へは確定が要る。
-- 既に始まった試合の左右は自動では変えない。食い違いは `progress.todo` の `mismatch` に出る。
+- 既に始まった試合の左右は自動では変えない。食い違いは `progress.todo` の `mismatch` に出る(枠の側も、前の試合の勝者・敗者を待つ側も)。食い違う試合の結果は、勝者と敗者を次の試合へ流さず、最終順位にも使わない(結果を記録した対戦チームで勝者を決めるので、出ていないチームを勝者にしない)。食い違いのあるプールは確定できない。
+- 結果を変える全経路(得点経過の追加と取り消し、状態の変更、結果の種類、訂正)で、既に結果のある下流の試合の対戦が新たに変わるなら、`downstream` を付けない限り 409。`downstream` は状態の変更(`POST /admin/matches/{id}/status`)と訂正だけが受け付ける。得点経過の `end` の取り消しで 409 になったら、状態の変更(`status: 'live'`)に `downstream` を付けて試合中へ戻す。
+  - `reset`: 影響を受ける下流の試合の結果と得点経過を消して未試合に戻す。対戦チームは訂正後の順位で入れ直る(監査ログに `match.status` で残る)。
+  - `keep`: 下流の結果を残す。その試合は `mismatch` になり、`align-teams` で差し替えるか結果を直すまで、結果を次の試合と最終順位に使わない。
+  - 既に食い違いになっている試合は、さらに対戦が変わっても承認の対象にしない(前の承認で扱いが決まっている)。
+- 対戦チームが決まっていない試合への結果の入力は、どの経路(得点経過、状態、結果の種類、訂正)でも 409。
 - 形の適用、確定、同順位の指定、差し替えは監査ログに残る(`format.apply`、`group.confirm`、`stage.confirm`、`group.rank_decision`、`stage.rank_decision`、`match.align_teams`)。
 
 ### ギャラリー

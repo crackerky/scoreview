@@ -22,9 +22,11 @@ const actionLabels: Record<AuditEntry['action'], string> = {
   'event.add': '記録',
   'event.remove': '取り消し',
   'event.update': '得点者の変更',
+  'event.side': '得点のチームの訂正',
   'match.status': '試合の進行',
   'match.result': '結果の種類',
   'team.final_rank': '最終順位',
+  'match.align_teams': '対戦チームの差し替え(本部)',
 }
 
 const kindLabels = { goal: '得点', timeout: 'タイムアウト', pull: 'プル', end: '試合終了' } as const
@@ -90,6 +92,20 @@ export function describeAudit(entry: AuditEntry, names: Names): AuditLine {
         before: scorerText(entry.before),
         after: scorerText(entry.after),
       }
+    case 'event.side': {
+      // 得点を相手チームの得点に付け替えた 1 つの訂正。チームとスコアの変化を並べる
+      const team = (snapshot: AuditSnapshot) =>
+        snapshot.event?.side ? `${names[snapshot.event.side]}の得点` : ''
+      return {
+        what,
+        target: eventTarget(entry.before, names),
+        before: `${team(entry.before)} ${matchState(entry.before, names)}`.trim(),
+        after: `${team(entry.after)} ${matchState(entry.after, names)}`.trim(),
+      }
+    }
+    case 'match.align_teams':
+      // 差し替えは試合のスコアと状態を変えない(差し替えたチームは試合の画面に出ている)
+      return { what, target: '', before: '', after: '' }
     case 'match.status':
     case 'match.result':
       return {

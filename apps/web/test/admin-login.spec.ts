@@ -23,6 +23,10 @@ describe('ログイン画面のエラー', () => {
     assert.equal(loginErrorMessage('toString'), undefined)
     assert.equal(loginErrorMessage(undefined), undefined)
     assert.equal(loginErrorPath('busy'), '/admin/login?error=busy')
+    assert.equal(
+      loginErrorPath('invalid', '/admin/matches/3/score'),
+      '/admin/login?error=invalid&next=%2Fadmin%2Fmatches%2F3%2Fscore',
+    )
   })
 
   test('api の失敗をコードにする。500 と通信失敗は投げ直す(null)', () => {

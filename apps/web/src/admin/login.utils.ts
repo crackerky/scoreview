@@ -25,9 +25,16 @@ export function loginErrorMessage(code: string | undefined): string | undefined 
   return code !== undefined && isLoginErrorCode(code) ? loginErrorMessages[code] : undefined
 }
 
-/** エラーのコードつきのログイン画面のパス */
-export function loginErrorPath(code: LoginErrorCode): string {
-  return `/admin/login?${new URLSearchParams({ error: code }).toString()}`
+/**
+ * エラーのコードつきのログイン画面のパス。next(safeNext で確かめた戻り先)が /admin 以外なら、
+ * ログインし直した後にそこへ戻れるよう付けたままにする
+ */
+export function loginErrorPath(code: LoginErrorCode, next = '/admin'): string {
+  const query = new URLSearchParams({ error: code })
+  if (next !== '/admin') {
+    query.set('next', next)
+  }
+  return `/admin/login?${query.toString()}`
 }
 
 /**

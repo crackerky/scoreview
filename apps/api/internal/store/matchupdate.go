@@ -33,16 +33,19 @@ const (
 	sqlSlotsOfMatches     = "match_id IN ?"
 	sqlOrderSlots         = "row_index, col_index"
 	sqlDistinctSlotGroup  = "group_id"
+	sqlScheduledMatch     = "id = ? AND status = ?"
 )
 
 // EventInput は追加する得点経過。ElapsedSec が nil なら、最初のイベントを記録した時刻からの経過秒を
 // 使う(スコア入力画面で 1 タップで記録するため)。WinnerSide は kind=end で同点のトーナメントの試合を
-// 終えるときの勝者。ClientID は端末の操作 ID で、得点経過の client_id にもなる。
+// 終えるときの勝者。ClientID は端末の操作 ID で、得点経過の client_id にもなる。ExpectedScore は
+// kind=end で記録係が確認シートで見たスコア(現在のスコアと違えば ScoreMismatchError)。
 type EventInput struct {
 	domain.NewEvent
-	ElapsedSec *int
-	WinnerSide *domain.Side
-	ClientID   *string
+	ElapsedSec    *int
+	WinnerSide    *domain.Side
+	ClientID      *string
+	ExpectedScore *domain.Score
 }
 
 // EventRef は得点経過の指し方。ID(api の id)か ClientID(端末が付けた UUID)のどちらか。
@@ -60,21 +63,27 @@ type EventPlayersInput struct {
 }
 
 // StatusInput は状態の変更。Score は得点経過の無い試合(詳細なしの試合)の結果を直接入れるときだけ使い、
-// 得点経過がある試合ではスコアは経過から決まるので指定できない。
+// 得点経過がある試合ではスコアは経過から決まるので指定できない。Downstream は、結果のある下流の
+// 試合の対戦が変わるとき(終了した試合を試合中へ戻すなど)の承認と下流の扱い(format_guard.go)。
+// ExpectedScore は終了にするときに記録係が確認したスコア(現在のスコアと違えば ScoreMismatchError)。
 type StatusInput struct {
-	Status     domain.MatchStatus
-	WinnerSide *domain.Side
-	Score      *domain.Score
-	ClientID   *string
+	Status        domain.MatchStatus
+	WinnerSide    *domain.Side
+	Score         *domain.Score
+	ClientID      *string
+	Downstream    Downstream
+	ExpectedScore *domain.Score
 }
 
 // ResultInput は通常以外の結果(不戦勝、両チーム不戦敗、不成立、途中打ち切り、未消化)で試合を終える
-// 入力。ForfeitScore は大会に不戦勝の規定スコアが無いときだけ使う(あれば大会の設定に従う)。
+// 入力。ForfeitScore は大会に不戦勝の規定スコアが無いときだけ使う(あれば大会の設定に従う。どちらも
+// 無ければスコアを記録しない)。ExpectedScore は途中打ち切りで記録係が確認したスコア。
 type ResultInput struct {
-	Type         domain.ResultType
-	WinnerSide   *domain.Side
-	ForfeitScore *domain.ForfeitScore
-	ClientID     *string
+	Type          domain.ResultType
+	WinnerSide    *domain.Side
+	ForfeitScore  *domain.ForfeitScore
+	ClientID      *string
+	ExpectedScore *domain.Score
 }
 
 // lockMatch は試合の行を FOR UPDATE で読む(同じ試合への同時の入力で seq とスコアが食い違わないように)。
@@ -101,8 +110,9 @@ type matchOpChange struct {
 	after  *AuditEvent
 }
 
-// runMatchOp は試合を変える 1 回の操作を、試合の行の lock、送り直しの検出、監査ログの記録と同じ
-// トランザクションで行い、操作の後のスコア入力画面のデータを返す。
+// runMatchOp は試合を変える 1 回の操作を、ディビジョンと試合の行の lock(locks.go の順序)、送り直しの
+// 検出、監査ログの記録と同じトランザクションで行い、操作の後のスコア入力画面のデータを返す。
+// 結果のある下流の試合の対戦が変わる操作は承認なしでは保存しない(runApprovedMatchOp)。
 func runMatchOp(
 	ctx context.Context,
 	db *gorm.DB,
@@ -112,11 +122,26 @@ func runMatchOp(
 	action string,
 	apply func(tx *gorm.DB, match Match) (matchOpChange, error),
 ) (MatchDetail, error) {
+	return runApprovedMatchOp(ctx, db, actor, matchID, clientID, action, DownstreamNone, apply)
+}
+
+// runApprovedMatchOp は runMatchOp に、下流の試合への影響の承認(downstream)を付けたもの。
+// 対戦チームが決まる前の試合には、得点者の付け直し以外の操作をさせない(結果が誰のものか決まらない)。
+func runApprovedMatchOp(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	matchID int64,
+	clientID *string,
+	action string,
+	downstream Downstream,
+	apply func(tx *gorm.DB, match Match) (matchOpChange, error),
+) (MatchDetail, error) {
 	if err := domain.CheckClientID("clientId", clientID); err != nil {
 		return MatchDetail{}, err
 	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		match, err := lockMatch(ctx, tx, matchID)
+		match, err := lockMatchInDivision(ctx, tx, matchID)
 		if err != nil {
 			return err
 		}
@@ -124,12 +149,18 @@ func runMatchOp(
 		if err != nil || applied {
 			return err
 		}
+		if action != AuditEventUpdate && (match.LeftTeamID == nil || match.RightTeamID == nil) {
+			return fmt.Errorf("%w: 対戦チームが決まっていない試合の結果は入れられません", domain.ErrConflict)
+		}
 		change, err := apply(tx, match)
 		if err != nil {
 			return err
 		}
 		after, err := findInternal[Match](ctx, tx, matchID, "match")
 		if err != nil {
+			return err
+		}
+		if err := guardDownstream(ctx, tx, actor, match, after, downstream); err != nil {
 			return err
 		}
 		division, err := findInternal[Division](ctx, tx, match.DivisionID, "division")
@@ -172,8 +203,14 @@ func AddMatchEvent(
 	if input.WinnerSide != nil && input.Kind != domain.EventEnd {
 		return MatchDetail{}, domain.Invalid("winnerSide", "only for end")
 	}
+	if input.ExpectedScore != nil && input.Kind != domain.EventEnd {
+		return MatchDetail{}, domain.Invalid("expectedScore", "only for end")
+	}
 	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditEventAdd,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			next, err := domain.StatusAfterEvent(match.Status, input.Kind)
 			if err != nil {
 				return matchOpChange{}, err
@@ -403,8 +440,14 @@ func ChangeMatchStatus(
 	if input.WinnerSide != nil && input.Status != domain.MatchFinished {
 		return MatchDetail{}, domain.Invalid("winnerSide", "only when finishing")
 	}
-	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchStatus,
+	if input.ExpectedScore != nil && input.Status != domain.MatchFinished {
+		return MatchDetail{}, domain.Invalid("expectedScore", "only when finishing")
+	}
+	return runApprovedMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchStatus, input.Downstream,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			return matchOpChange{}, changeStatus(ctx, tx, actor, match, input)
 		})
 }
@@ -466,6 +509,9 @@ func SetMatchResult(
 	}
 	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchResult,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			if err := domain.ValidTransition(
 				match.Status,
 				domain.MatchFinished,
@@ -499,8 +545,9 @@ func SetMatchResult(
 		})
 }
 
-// forfeitScoreOf は不戦勝に使う規定スコア。大会の設定があればそれを使い、入力が設定と違えば
-// 検証エラー(記録係が規定と違うスコアで記録しないように)。設定が無ければ入力を使う。
+// forfeitScoreOf は不戦勝に使う規定スコア(大会、無ければ大会の形の設定。regulationForfeitScore)。
+// 規定があればそれを使い、入力が規定と違えば検証エラー(記録係が規定と違うスコアで記録しないように)。
+// 規定が無ければ入力を使う。
 func forfeitScoreOf(
 	ctx context.Context,
 	tx *gorm.DB,
@@ -511,18 +558,17 @@ func forfeitScoreOf(
 	if err != nil {
 		return nil, err
 	}
-	tournament, err := findInternal[Tournament](ctx, tx, division.TournamentID, "tournament")
+	setting, err := regulationForfeitScore(ctx, tx, division)
 	if err != nil {
 		return nil, err
 	}
-	setting := tournamentForfeitScore(tournament)
 	if setting == nil {
 		return input, nil
 	}
 	if input != nil && *input != *setting {
 		return nil, domain.Invalid(
 			"forfeitScore",
-			fmt.Sprintf("the tournament defines %d-%d", setting.Winner, setting.Loser),
+			fmt.Sprintf("the forfeit score is %d-%d", setting.Winner, setting.Loser),
 		)
 	}
 	return setting, nil
@@ -608,12 +654,43 @@ func writeMatchState(ctx context.Context, tx *gorm.DB, before Match, state match
 	return nil
 }
 
+// resetMatchResult は試合の結果と得点経過を消して未試合に戻す。上流の訂正で対戦チームが変わり、
+// 運営者が「下流の結果を未試合に戻す」を選んだときだけ使う(format_guard.go)。通常の状態遷移
+// (domain.ValidTransition)にない未試合への戻しなので、この経路に閉じ込める。対戦チームは後続の
+// 同期で訂正後の順位のチームになる。監査ログに前後の状態を残す。
+func resetMatchResult(ctx context.Context, tx *gorm.DB, actor domain.Actor, matchID int64) error {
+	match, err := lockMatch(ctx, tx, matchID)
+	if err != nil || match.Status == domain.MatchScheduled {
+		return err
+	}
+	if err := tx.WithContext(ctx).Where(sqlByMatch, matchID).Delete(&MatchEvent{}).Error; err != nil {
+		return fmt.Errorf("remove events of match %d: %w", matchID, err)
+	}
+	err = writeMatchState(ctx, tx, match, matchState{status: domain.MatchScheduled,
+		resultType: domain.ResultNormal})
+	if err != nil {
+		return err
+	}
+	after, err := findInternal[Match](ctx, tx, matchID, "match")
+	if err != nil {
+		return err
+	}
+	division, err := findInternal[Division](ctx, tx, match.DivisionID, "division")
+	if err != nil {
+		return err
+	}
+	return writeAudit(ctx, tx, auditEntry{tournamentID: division.TournamentID, matchID: &matchID,
+		actor: actor, action: AuditMatchStatus, before: AuditSnapshot{Match: auditMatchState(match)},
+		after: AuditSnapshot{Match: auditMatchState(after)}})
+}
+
 // advanceFromResult は試合の結果を、それを参照する後続試合へ反映する。勝者や敗者を次の試合へ進める
 // 処理はここに集める(後で「プール順位の確定 → 次のグループの枠を埋める」もここに足す)。
 //
 // 同じディビジョンで、左右の未確定チームの参照(placeholder_code)がこの試合の CD を指す試合の
 // チームを、この試合の勝者または敗者にする。試合が終了していなければ(終了の取り消しを含む)空に戻す。
-// 後続試合が既に始まっていれば変えない(試合中や終了した試合の対戦相手を差し替えない)。
+// 後続試合が既に始まっていれば変えない(試合中や終了した試合の対戦相手を差し替えない)。読んだ後に
+// 始まった試合も変えないよう、UPDATE に status の条件を付けて変えた行数を確かめる。
 // 戻り値はチームを変えた試合の ID。
 func advanceFromResult(ctx context.Context, tx *gorm.DB, match Match) ([]int64, error) {
 	if match.Code == "" {
@@ -654,12 +731,15 @@ func advanceFromResult(ctx context.Context, tx *gorm.DB, match Match) ([]int64, 
 		if len(updates) == 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).
+		written := tx.WithContext(ctx).
 			Model(&Match{}).
-			Where(sqlByID, dep.ID).
-			Updates(updates).
-			Error; err != nil {
-			return nil, writeError(fmt.Sprintf("advance %s to match %d", match.Code, dep.ID), err)
+			Where(sqlScheduledMatch, dep.ID, domain.MatchScheduled).
+			Updates(updates)
+		if written.Error != nil {
+			return nil, writeError(fmt.Sprintf("advance %s to match %d", match.Code, dep.ID), written.Error)
+		}
+		if written.RowsAffected == 0 {
+			continue // 読んだ後に始まった(食い違いとして進行画面に出る)
 		}
 		changed = append(changed, dep.ID)
 	}

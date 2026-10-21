@@ -113,11 +113,15 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 
 	var notFound *domain.NotFoundError
 	var invalid *domain.ValidationError
+	var mismatch *domain.ScoreMismatchError
 	var retry *domain.RetryAfterError
 	if errors.As(err, &retry) {
 		w.Header().Set("Retry-After", retryAfterSeconds(retry.After))
 	}
 	switch {
+	case errors.As(err, &mismatch):
+		// 記録係の画面が「最新のスコアで確認し直す」を出せるよう、一般の conflict と分ける
+		status, body.Error.Code, body.Error.Message = http.StatusConflict, "score_mismatch", mismatch.Error()
 	case errors.As(err, &notFound):
 		status, body.Error.Code, body.Error.Message = http.StatusNotFound, "not_found", notFound.Error()
 	case errors.As(err, &invalid):

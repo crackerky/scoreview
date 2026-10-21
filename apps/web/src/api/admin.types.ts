@@ -184,6 +184,24 @@ export type PlayerStat = z.infer<typeof playerStatSchema>
 export const forfeitScoreSchema = z.object({ winner: z.number().int(), loser: z.number().int() })
 export type ForfeitScore = z.infer<typeof forfeitScoreSchema>
 
+export const scorerClaimSchema = z.object({
+  userId: id,
+  name: z.string(),
+  deviceId: z.string(),
+  expiresAt: z.iso.datetime(),
+})
+export type ScorerClaim = z.infer<typeof scorerClaimSchema>
+
+export const concurrentRecordSchema = z.object({
+  kind: z.enum(['goal', 'pull']),
+  firstClientId: z.string(),
+  secondClientId: z.string(),
+  firstUser: z.string(),
+  secondUser: z.string(),
+  secondsApart: z.number().int().min(0),
+})
+export type ConcurrentRecord = z.infer<typeof concurrentRecordSchema>
+
 export const matchDetailSchema = z.object({
   match: adminMatchSchema,
   context: z.object({
@@ -198,8 +216,18 @@ export const matchDetailSchema = z.object({
   events: z.array(adminEventSchema),
   playerStats: z.array(playerStatSchema),
   rosters: z.object({ left: z.array(adminPlayerSchema), right: z.array(adminPlayerSchema) }),
+  /** 試合の記録担当(いま記録している端末。期限内のもの) */
+  scorer: scorerClaimSchema.nullable(),
+  /** 別の記録係がほぼ同時に入れた同じ種類の記録の組(二重記録の疑い) */
+  concurrentRecords: z.array(concurrentRecordSchema),
+  /** ディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ null */
+  matchMinutes: z.number().int().positive().nullable(),
 })
 export type MatchDetail = z.infer<typeof matchDetailSchema>
+
+/** POST /api/v1/admin/matches/{id}/scorer の応答 */
+export const scorerResultSchema = z.object({ scorer: scorerClaimSchema, mine: z.boolean() })
+export type ScorerResult = z.infer<typeof scorerResultSchema>
 
 const auditMatchStateSchema = z.object({
   status: matchStatusSchema,
@@ -234,9 +262,11 @@ export const auditEntrySchema = z.object({
     'event.add',
     'event.remove',
     'event.update',
+    'event.side',
     'match.status',
     'match.result',
     'team.final_rank',
+    'match.align_teams',
   ]),
   matchId: id.nullable(),
   teamId: id.nullable(),

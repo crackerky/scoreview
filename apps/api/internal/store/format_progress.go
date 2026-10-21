@@ -57,8 +57,21 @@ func syncFormatProgress(ctx context.Context, tx *gorm.DB, divisionID int64) ([]i
 	return changed, nil
 }
 
+// writeSlots は枠のチームを解決したチームにする。行は (グループ、位置) の順に書く(書く順序を
+// 決めておき、行ロックの取り方を毎回同じにするため)。
 func (fs *formatState) writeSlots(ctx context.Context, tx *gorm.DB) error {
-	for key, slot := range fs.slots {
+	keys := make([]format.SlotKey, 0, len(fs.slots))
+	for key := range fs.slots {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(a, b format.SlotKey) int {
+		if a.Group != b.Group {
+			return a.Group - b.Group
+		}
+		return a.Position - b.Position
+	})
+	for _, key := range keys {
+		slot := fs.slots[key]
 		var team *int64
 		if status := fs.res.Slots[key]; status.Resolved() {
 			id := status.TeamID
@@ -75,29 +88,25 @@ func (fs *formatState) writeSlots(ctx context.Context, tx *gorm.DB) error {
 	return nil
 }
 
-// sideTeams は試合の左右の枠が解決したチーム(枠でない側は nil と false)。
+// sideTeams は試合の左右の計算上のチーム(枠のチームか、前の試合の勝者・敗者。決まらなければ nil)。
+// 形の外の試合なら hasLeft と hasRight が偽。
 func (fs *formatState) sideTeams(m Match) (left, right *int64, hasLeft, hasRight bool) {
-	sides := fs.matchSlots[m.ID]
-	pick := func(slotID *int64) (*int64, bool) {
-		if slotID == nil {
-			return nil, false
-		}
-		key, ok := fs.slotKeys[*slotID]
-		if !ok {
-			return nil, false
-		}
-		if status := fs.res.Slots[key]; status.Resolved() {
-			id := status.TeamID
-			return &id, true
-		}
-		return nil, true
+	mt, ok := fs.res.Matches[m.Code]
+	if !ok {
+		return nil, nil, false, false
 	}
-	left, hasLeft = pick(sides.LeftSlotID)
-	right, hasRight = pick(sides.RightSlotID)
-	return left, right, hasLeft, hasRight
+	pick := func(status format.TeamStatus) *int64 {
+		if !status.Resolved() {
+			return nil
+		}
+		id := status.TeamID
+		return &id
+	}
+	return pick(mt.Left), pick(mt.Right), true, true
 }
 
-// writeMatchTeams は枠を左右に持つ試合のチームを枠のチームにする。force が偽なら未試合の試合だけ、
+// writeMatchTeams は試合のチームを計算上のチーム(sideTeams)にする。force が偽なら未試合の試合だけ
+// (読んだ後に始まった試合も変えないよう、UPDATE に status の条件を付けて変えた行数を確かめる)、
 // 真なら only の試合を状態によらず変える(運営者が食い違いを直すとき)。
 func (fs *formatState) writeMatchTeams(
 	ctx context.Context,
@@ -130,8 +139,18 @@ func (fs *formatState) writeMatchTeams(
 		if len(updates) == 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).Model(&Match{}).Where(sqlByID, m.ID).Updates(updates).Error; err != nil {
-			return nil, writeError(fmt.Sprintf("set teams of match %s", code), err)
+		query := tx.WithContext(ctx).Model(&Match{})
+		if force {
+			query = query.Where(sqlByID, m.ID)
+		} else {
+			query = query.Where(sqlScheduledMatch, m.ID, domain.MatchScheduled)
+		}
+		written := query.Updates(updates)
+		if written.Error != nil {
+			return nil, writeError(fmt.Sprintf("set teams of match %s", code), written.Error)
+		}
+		if written.RowsAffected == 0 {
+			continue // 読んだ後に始まった(食い違いとして進行画面に出る)
 		}
 		changed = append(changed, m.ID)
 	}
@@ -142,7 +161,11 @@ func (fs *formatState) writeMatchTeams(
 // 1 試合以上の結果があれば、エンジンの順位(タイブレークの設定と運営者の指定を反映したもの)を
 // rank_override に入れ、閲覧ページの順位表に同じ順位を出す。
 func (fs *formatState) writeGroupTeams(ctx context.Context, tx *gorm.DB) error {
-	for index, g := range fs.groups {
+	for index := range fs.plan.Groups {
+		g, ok := fs.groups[index]
+		if !ok {
+			continue
+		}
 		ranking := fs.res.Groups[index].Ranking
 		played := false
 		if ranking != nil {
@@ -205,7 +228,8 @@ func (fs *formatState) writeFinalRanks(ctx context.Context, tx *gorm.DB) error {
 		ranks[f.TeamID] = f.Rank
 	}
 	var teams []Team
-	if err := tx.WithContext(ctx).Where(sqlByDivision, fs.division.ID).Find(&teams).Error; err != nil {
+	if err := tx.WithContext(ctx).Where(sqlByDivision, fs.division.ID).Order(sqlOrderID).
+		Find(&teams).Error; err != nil {
 		return fmt.Errorf("load teams of division %d: %w", fs.division.ID, err)
 	}
 	for _, team := range teams {
@@ -225,7 +249,7 @@ func (fs *formatState) writeFinalRanks(ctx context.Context, tx *gorm.DB) error {
 }
 
 // runFormatOp は大会形式の操作を 1 つのトランザクションで行い、続けて枠と下流の試合とトーナメント表を
-// 更新する。
+// 更新する。先にディビジョンをロックする(locks.go。試合の結果の更新と直列にする)。
 func runFormatOp(
 	ctx context.Context,
 	db *gorm.DB,
@@ -233,6 +257,9 @@ func runFormatOp(
 	op func(tx *gorm.DB, fs *formatState) error,
 ) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockDivision(ctx, tx, divisionID); err != nil {
+			return err
+		}
 		fs, ok, err := loadFormatState(ctx, tx, divisionID)
 		if err != nil {
 			return err
@@ -297,6 +324,10 @@ func confirmGroupIn(
 	if group.Kind != domain.GroupPool {
 		return fmt.Errorf("%w: トーナメントは試合の終了で自動に進むので確定は要りません", domain.ErrConflict)
 	}
+	if len(status.Mismatches) > 0 && status.State != format.GroupConfirmed {
+		return fmt.Errorf("%w: %s に対戦チームが順位と食い違っている試合(%s)があります。先に差し替えてください",
+			domain.ErrConflict, group.Name, strings.Join(status.Mismatches, "、"))
+	}
 	switch status.State {
 	case format.GroupConfirmed:
 		return nil
@@ -310,8 +341,8 @@ func confirmGroupIn(
 			return fmt.Errorf("%w: %s に結果待ちの試合があります", domain.ErrConflict, group.Name)
 		}
 		if status.Ranking != nil && len(status.Ranking.Unresolved) > 0 {
-			return fmt.Errorf("%w: %s に未決の同順位があります。先に順位を指定してください",
-				domain.ErrConflict, group.Name)
+			return fmt.Errorf("%w: %s で並んだチームがあります。残りの試合を未消化にしてから順位を指定して"+
+				"ください", domain.ErrConflict, group.Name)
 		}
 	}
 	err := tx.WithContext(ctx).Model(&formatGroupRow{}).Where(sqlByID, fs.groups[index].ID).
@@ -343,7 +374,8 @@ func ConfirmStage(
 			if fs.plan.Groups[g].Kind != domain.GroupPool {
 				continue
 			}
-			if fs.res.Groups[g].State == format.GroupPlaying {
+			// 先に「未消化のまま確定」したプールも、段の未消化の印に数える
+			if fs.res.Groups[g].State == format.GroupPlaying || fs.groups[g].ConfirmedUnplayed {
 				played = true
 			}
 			if err := confirmGroupIn(ctx, tx, fs, actor, g, unplayed, now); err != nil {
@@ -367,8 +399,9 @@ type RankDecisionInput struct {
 	Reason string
 }
 
-// DecideRank はプールの未決の同順位を運営者の指定で決める。Teams が未決の組 1 つとちょうど同じ
-// チームでなければ検証エラー。
+// DecideRank はプールの未決の同順位を運営者の指定で決める。指定はプールの全試合が終わった後だけ
+// 受け付け(試合の途中の同点は未決ではない)、指定した時点の成績に結び付けて保存する(後で結果が
+// 変われば使わない)。Teams が未決の組 1 つとちょうど同じチームでなければ検証エラー。
 func DecideRank(
 	ctx context.Context,
 	db *gorm.DB,
@@ -384,11 +417,18 @@ func DecideRank(
 		return err
 	}
 	return runFormatOp(ctx, db, row.DivisionID, func(tx *gorm.DB, fs *formatState) error {
-		ranking := fs.res.Groups[*row.FormatIndex].Ranking
-		if ranking == nil || !matchesTie(ranking.Unresolved, input.Teams) {
+		status := fs.res.Groups[*row.FormatIndex]
+		if !status.Done || status.Ranking == nil {
+			return fmt.Errorf("%w: %s の全試合が終わるまで順位は指定できません(残りの試合は結果を入れるか"+
+				"未消化にしてください)", domain.ErrConflict, row.Name)
+		}
+		tie := tieIndex(status.Ranking.Unresolved, input.Teams)
+		if tie < 0 {
 			return domain.Invalid("teams", "must list exactly the teams of one unresolved tie")
 		}
-		if err := saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input); err != nil {
+		err := saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input,
+			status.Ranking.UnresolvedBasis[tie])
+		if err != nil {
 			return err
 		}
 		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditGroupRankDecision, nil,
@@ -416,11 +456,18 @@ func DecideBandRank(
 		return err
 	}
 	return runFormatOp(ctx, db, stage.DivisionID, func(tx *gorm.DB, fs *formatState) error {
-		tie := fs.bandTie(stage.StageIndex, rank)
-		if !matchesTie([][]int64{tie}, input.Teams) {
+		for _, g := range fs.plan.StageGroups(stage.StageIndex) {
+			if fs.plan.Groups[g].Kind == domain.GroupPool && !fs.res.Groups[g].Done {
+				return fmt.Errorf("%w: %s の全プールの試合が終わるまで全体順位は指定できません",
+					domain.ErrConflict, stage.Name)
+			}
+		}
+		tie, basis := fs.bandTie(stage.StageIndex, rank)
+		if tieIndex([][]int64{tie}, input.Teams) < 0 {
 			return domain.Invalid("teams", "must list exactly the tied teams of the stage rank")
 		}
-		err := saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input)
+		err := saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input,
+			basis)
 		if err != nil {
 			return err
 		}
@@ -435,10 +482,14 @@ func saveDecision(
 	row GroupRankDecision,
 	actor domain.Actor,
 	input RankDecisionInput,
+	basis []format.TeamValues,
 ) error {
 	data, err := json.Marshal(input.Teams)
 	if err != nil {
 		return fmt.Errorf("encode decision: %w", err)
+	}
+	if row.Basis, err = json.Marshal(basis); err != nil {
+		return fmt.Errorf("encode decision basis: %w", err)
 	}
 	user := actor.UserID
 	row.TeamIDs, row.Reason, row.DecidedBy = data, strings.TrimSpace(input.Reason), &user
@@ -448,26 +499,29 @@ func saveDecision(
 	return nil
 }
 
-func matchesTie(ties [][]int64, teams []int64) bool {
-	for _, tie := range ties {
+// tieIndex は teams と重複なく同じチームの未決の組の添字。無ければ -1。
+func tieIndex(ties [][]int64, teams []int64) int {
+	for i, tie := range ties {
 		if len(tie) != len(teams) {
 			continue
 		}
+		seen := map[int64]bool{}
 		all := true
 		for _, team := range teams {
-			if !slices.Contains(tie, team) {
+			if seen[team] || !slices.Contains(tie, team) {
 				all = false
 			}
+			seen[team] = true
 		}
 		if all {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
 
-// bandTie は段の全体順位で rank 位どうしを並べたときに未決のまま残るチーム。
-func (fs *formatState) bandTie(stage, rank int) []int64 {
+// bandTie は段の全体順位で rank 位どうしを並べたときに未決のまま残るチームと、その成績(指定の保存用)。
+func (fs *formatState) bandTie(stage, rank int) ([]int64, []format.TeamValues) {
 	var entries []format.BandEntry
 	for _, g := range fs.plan.StageGroups(stage) {
 		ranking := fs.res.Groups[g].Ranking
@@ -482,13 +536,14 @@ func (fs *formatState) bandTie(stage, rank int) []int64 {
 	key := format.BandKey{Stage: stage, Rank: rank}
 	ranking := format.RankBand(entries, fs.cfg.Band, fs.state.BandDecisions[key])
 	if len(ranking.Unresolved) == 0 {
-		return nil
+		return nil, nil
 	}
-	return ranking.Unresolved[0]
+	return ranking.Unresolved[0], ranking.UnresolvedBasis[0]
 }
 
-// AlignMatchTeams は既に始まった試合の左右を、枠が解決したチームに合わせる(訂正で順位が変わり、
-// 運営者が対戦チームの差し替えを選んだとき)。スコアと状態は変えない。
+// AlignMatchTeams は既に始まった試合の左右を、計算上のチームに合わせる(訂正で順位が変わり、
+// 運営者が対戦チームの差し替えを選んだとき)。スコアと状態は変えない。試合の結果は新しいチームの
+// ものになるので、勝者と敗者を次の試合へ流し直す(advanceFromResult)。
 func AlignMatchTeams(ctx context.Context, db *gorm.DB, actor domain.Actor, matchID int64) error {
 	match, err := findByID[Match](ctx, db, matchID, domain.ResourceMatch)
 	if err != nil {
@@ -499,7 +554,15 @@ func AlignMatchTeams(ctx context.Context, db *gorm.DB, actor domain.Actor, match
 		if err != nil {
 			return err
 		}
-		if err := syncBracketSlots(ctx, tx, changed); err != nil {
+		aligned, err := findInternal[Match](ctx, tx, matchID, "match")
+		if err != nil {
+			return err
+		}
+		advanced, err := advanceFromResult(ctx, tx, aligned)
+		if err != nil {
+			return err
+		}
+		if err := syncBracketSlots(ctx, tx, append(changed, advanced...)); err != nil {
 			return err
 		}
 		id := matchID

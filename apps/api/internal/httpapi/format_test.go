@@ -75,3 +75,25 @@ func TestFormatWizardAndProgress(t *testing.T) {
 	assert.NotNil(t, check["violations"])
 	f.call(t, http.StatusOK, http.MethodPost, base+"/schedule-shift", map[string]any{"court": nil, "minutes": 10})
 }
+
+// TestDownstreamChoiceIsValidated は訂正と状態の変更の downstream(下流の扱い)を検査する。
+// keep / reset / null 以外は 400、対戦チームの決まらない試合への結果は 409。
+func TestDownstreamChoiceIsValidated(t *testing.T) {
+	f := newAdminFixture(t)
+	b := storetest.New(t, f.db)
+	division := b.Division(b.Tournament().ID)
+	left, right := b.Team(division), b.Team(division)
+	match := b.Match(division, &left, &right)
+	path := fmt.Sprintf("/api/v1/admin/matches/%d", match.ID)
+	score := map[string]any{"left": 3, "right": 1}
+	f.call(t, http.StatusBadRequest, http.MethodPost, path+"/correction",
+		map[string]any{"score": score, "winnerSide": nil, "downstream": "maybe"})
+	f.call(t, http.StatusBadRequest, http.MethodPost, path+"/status",
+		map[string]any{"status": "finished", "score": score, "downstream": ""})
+	f.call(t, http.StatusOK, http.MethodPost, path+"/correction",
+		map[string]any{"score": score, "winnerSide": nil, "downstream": "keep"})
+
+	undecided := b.Match(division, &left, nil)
+	f.call(t, http.StatusConflict, http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/status", undecided.ID),
+		map[string]any{"status": "live"})
+}
