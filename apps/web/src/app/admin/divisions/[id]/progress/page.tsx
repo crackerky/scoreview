@@ -1,7 +1,14 @@
 import { operatorErrorText } from '@/admin/errorText.utils'
 import { decisionReasons, groupStateLabels, roundUpToFive } from '@/admin/format.utils'
 import { describeSide } from '@/admin/formatWizard.utils'
-import { hqTabOf, hqTabs, shiftSentence, suspendedMinutes, updatedAtText } from '@/admin/hq.utils'
+import {
+  hqTabOf,
+  hqTabs,
+  sharedRanks,
+  shiftSentence,
+  suspendedMinutes,
+  updatedAtText,
+} from '@/admin/hq.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
 import { ApiError } from '@/api/client'
@@ -45,6 +52,9 @@ export default async function ProgressPage(props: IdPageProps) {
   const isAdmin = user.role === 'admin'
   const tab = hqTabOf(pick(query, 'tab'))
   const now = new Date(progress.now)
+  const sharedFinal = sharedRanks(progress.final)
+  // 締めた部門は締めの取り消しが無いので、締めと中断の操作を出さない(中断中なら再開は出す)
+  const closed = progress.closedAt !== null
   const crumbs = [
     { href: `/admin/tournaments/${tournament.id}`, label: tournament.name.ja },
     { href: `/admin/divisions/${id}`, label: division.name.ja },
@@ -65,6 +75,7 @@ export default async function ProgressPage(props: IdPageProps) {
         back={back}
         now={now}
         isAdmin={isAdmin}
+        closed={closed}
       />
 
       <nav className="hq-tabs" aria-label="本部画面の切り替え">
@@ -117,7 +128,7 @@ export default async function ProgressPage(props: IdPageProps) {
               <ol className="adm-list">
                 {progress.final.map((row) => (
                   <li key={row.team.id}>
-                    {row.rank} 位{row.tied ? '(同順位)' : ''} {row.team.name.ja}
+                    {row.rank} 位{sharedFinal.has(row.rank) ? '(同順位)' : ''} {row.team.name.ja}
                   </li>
                 ))}
               </ol>
@@ -156,12 +167,14 @@ function SuspensionPanel({
   back,
   now,
   isAdmin,
+  closed,
 }: {
   suspension: Suspension | null
   tournamentId: number
   back: string
   now: Date
   isAdmin: boolean
+  closed: boolean
 }) {
   if (suspension !== null) {
     const since = new Date(suspension.since)
@@ -194,7 +207,7 @@ function SuspensionPanel({
       </section>
     )
   }
-  if (!isAdmin) {
+  if (!isAdmin || closed) {
     return null
   }
   return (
@@ -253,11 +266,13 @@ function ClosingLink({ progress, divisionId }: { progress: Progress; divisionId:
           時間切れで残りの試合をまとめて未消化にし、決まらない順位を同順位にして、最終順位を公開します。
         </p>
       )}
-      <p className="adm-actions">
-        <a href={`/admin/divisions/${divisionId}/close`} className="hq-button">
-          大会を締める
-        </a>
-      </p>
+      {progress.closedAt ? null : (
+        <p className="adm-actions">
+          <a href={`/admin/divisions/${divisionId}/close`} className="hq-button">
+            大会を締める
+          </a>
+        </p>
+      )}
     </section>
   )
 }

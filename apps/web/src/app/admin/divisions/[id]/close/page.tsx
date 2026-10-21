@@ -1,4 +1,5 @@
 import { describeSide } from '@/admin/formatWizard.utils'
+import { closingReason, sharedRanks } from '@/admin/hq.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions } from '@/api/admin'
 import { formats } from '@/api/format'
@@ -18,6 +19,7 @@ export default async function CloseDivisionPage(props: IdPageProps) {
     Promise.all([divisions.get(token, id), formats.closing(token, id)]),
   )
   const progress = `/admin/divisions/${id}/progress`
+  const shared = sharedRanks(closing.ranks)
   return (
     <AdminShell
       user={user}
@@ -53,7 +55,7 @@ export default async function CloseDivisionPage(props: IdPageProps) {
       </section>
 
       <section className="hq-box">
-        <h2>この最終順位にします</h2>
+        <h2>{closing.closedAt ? '最終順位' : 'この最終順位にします'}</h2>
         {closing.ties.length > 0 ? (
           <ul className="hq-ties">
             {closing.ties.map((line) => (
@@ -73,32 +75,39 @@ export default async function CloseDivisionPage(props: IdPageProps) {
             {closing.ranks.map((row) => (
               <tr key={row.team.id}>
                 <td>
-                  {row.rank} 位{row.tied ? 'タイ' : ''}
+                  {row.rank} 位{shared.has(row.rank) ? 'タイ' : ''}
                 </td>
                 <td>{row.team.name.ja}</td>
-                <td className="hq-reason">{row.proposed ? '未消化のため同順位' : '試合の結果'}</td>
+                <td className="hq-reason">{closingReason(row, shared.has(row.rank))}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </section>
 
-      <form action={closeDivisionAction} className="hq-box danger">
-        <Hidden values={{ back: `/admin/divisions/${id}/close`, divisionId: id }} />
-        {closing.remaining.map((match) => (
-          <input key={match.id} type="hidden" name="matchIds" value={match.id} />
-        ))}
-        <label className="adm-check">
-          <input type="checkbox" name="publish" defaultChecked />
-          <span>閲覧ページに最終順位を公開する</span>
-        </label>
-        <div className="adm-actions">
-          <button type="submit" className="danger">
-            {closing.remaining.length > 0 ? '未消化にして大会を締める' : 'この順位で大会を締める'}
-          </button>
-          <a href={progress}>やめる</a>
-        </div>
-      </form>
+      {closing.closedAt ? (
+        // 締めの取り消しは無いので、締めた後は締める操作を出さない
+        <p className="adm-actions">
+          <a href={progress}>本部の進行画面へ戻る</a>
+        </p>
+      ) : (
+        <form action={closeDivisionAction} className="hq-box danger">
+          <Hidden values={{ back: `/admin/divisions/${id}/close`, divisionId: id }} />
+          {closing.remaining.map((match) => (
+            <input key={match.id} type="hidden" name="matchIds" value={match.id} />
+          ))}
+          <label className="adm-check">
+            <input type="checkbox" name="publish" defaultChecked />
+            <span>閲覧ページに最終順位を公開する</span>
+          </label>
+          <div className="adm-actions">
+            <button type="submit" className="danger">
+              {closing.remaining.length > 0 ? '未消化にして大会を締める' : 'この順位で大会を締める'}
+            </button>
+            <a href={progress}>やめる</a>
+          </div>
+        </form>
+      )}
     </AdminShell>
   )
 }
