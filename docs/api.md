@@ -802,7 +802,7 @@ type Impact = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport }` | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; ranked; unique; violations }> }`(運営会社の頻出形が先頭で `recommended`) |
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport }` | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; ranked; unique; violations }> }`(運営会社の頻出形が先頭で `recommended`)。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400) |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
 | `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null }` |
