@@ -92,7 +92,7 @@ export function GalleryPhotos({ photos }: { photos: Photo[] }) {
         {photos.map((photo, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: 同じ URL の写真が並ぶことがあり、並びは固定
           <a key={index} href={photo.fullUrl} rel="photos" onClick={open(index)}>
-            <img src={photo.thumbUrl} alt="" style={{ margin: '2px' }} />
+            <img src={photo.thumbUrl} alt="" style={{ margin: '2px' }} loading="lazy" />
           </a>
         ))}
       </div>

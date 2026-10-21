@@ -29,6 +29,8 @@
 - api は全リクエストで `X-Internal-Token` を検証する。binding はネットワーク到達性を与えるだけで、呼び出し元の認証にはならないためである。
 - 管理画面の操作は、Next.js の Server Actions が受けて api の管理用エンドポイントへ中継する。ログインのセッショントークンは Next.js が httpOnly Cookie に保存し、api へは `Authorization: Bearer` で渡す。
 
+- web は全ページに Content-Security-Policy を付ける(`apps/web/src/proxy.ts`、`src/security/csp.utils.ts`)。管理画面は要求ごとの nonce でスクリプトを限り、閲覧ページは画像の読み込み先を自サイトに限る(`REFERENCE_ASSET_MODE=allow` のときだけ参照サイトの画像の置き場も許す)。どちらも埋め込み、`<base>`、他サイトへのフォーム送信を禁じる。Permissions-Policy と HSTS は `next.config.ts` で付ける。
+
 ### 環境変数
 
 例はリポジトリ直下の `.env.example`。

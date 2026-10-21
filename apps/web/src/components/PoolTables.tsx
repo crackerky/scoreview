@@ -5,6 +5,8 @@ import { matchHref, teamHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { msg } from '@/i18n/messages'
 import { matrixColumnWidth } from './group.utils'
+import { matchCellNote } from './matchResult.utils'
+import { ScreenReaderNote } from './ScreenReaderNote'
 import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
 
 // clone-spec C 2.1: 総当たり(プール)型のグループの対戦マトリクスとリーグ結果。
@@ -29,11 +31,12 @@ function TeamName({ team, lang }: { team: TeamRef; lang: Lang }) {
  */
 function MatrixCell({
   cell,
-  hasDetail,
+  rowOf,
   lang,
 }: {
   cell: PoolMatrixCell
-  hasDetail: (matchId: number) => boolean
+  /** 結果一覧の行。結果一覧に無い試合は undefined */
+  rowOf: (matchId: number) => MatchRow | undefined
   lang: Lang
 }) {
   switch (cell.kind) {
@@ -48,14 +51,25 @@ function MatrixCell({
       // 推測: 試合中(RM_NOW / RM_NOW_Link)は CSS の定義だけがあり、HTML では未観測
       const live = cell.status === 'live'
       const cellClass = live ? 'RM_NOW  CM' : 'RM_ARI  CM'
+      const row = rowOf(cell.matchId)
+      // 本サイト独自: 試合中と不戦勝などは色とスコアだけでは分からないので、title と読み上げ用の文字で補う
+      const note = matchCellNote(cell.status, row, lang)
+      const title = note ?? undefined
       // 推測: 未試合の試合はスコアが無いのでリンクにしない(未観測)
-      if (cell.status === 'scheduled' || !hasDetail(cell.matchId)) {
-        return <td className={cellClass}>{cell.text}</td>
+      // 結果一覧に無い試合は詳細ありとみなす(リンクを出す)
+      if (cell.status === 'scheduled' || !(row?.hasDetail ?? true)) {
+        return (
+          <td className={cellClass} title={title}>
+            {cell.text}
+            <ScreenReaderNote text={note} />
+          </td>
+        )
       }
       return (
-        <td className={cellClass}>
+        <td className={cellClass} title={title}>
           <a className={live ? 'RM_NOW_Link' : 'RM_ARI_Link'} href={matchHref(cell.matchId, lang)}>
             {cell.text}
+            <ScreenReaderNote text={note} />
           </a>
         </td>
       )
@@ -72,9 +86,8 @@ export function PoolMatrix({
   matches: MatchRow[]
   lang: Lang
 }) {
-  const details = new Map(matches.map((match) => [match.matchId, match.hasDetail]))
-  // 結果一覧に無い試合は詳細ありとみなす(リンクを出す)
-  const hasDetail = (matchId: number) => details.get(matchId) ?? true
+  const rows = new Map(matches.map((match) => [match.matchId, match]))
+  const rowOf = (matchId: number) => rows.get(matchId)
   // 5 チーム以上の対戦表は列見出しが狭いので、名前を表示幅 4 で切り詰めてリンクにしない
   // (2182、2188、3272 の 5 チーム、6631 の 6 チーム。4 チーム以下は短縮名のリンク)
   const narrow = pool.teams.length >= narrowMatrixTeams
@@ -102,7 +115,7 @@ export function PoolMatrix({
               // biome-ignore lint/suspicious/noArrayIndexKey: マトリクスの列はチームの並びで固定
               key={cellIndex}
               cell={cell}
-              hasDetail={hasDetail}
+              rowOf={rowOf}
               lang={lang}
             />
           ))}

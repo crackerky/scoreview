@@ -111,6 +111,8 @@ func matchInfo(
 		Note:       match.Note,
 		HideBlocks: match.HideBlocks,
 		HideStats:  match.HideStats,
+		ResultType: match.ResultType,
+		WinnerSide: toResult(match).Winner(),
 		Breadcrumb: Breadcrumb{
 			DivisionID: division.ID, DivisionName: i18n(division.NameJa, division.NameEn), GroupID: match.GroupID,
 		},

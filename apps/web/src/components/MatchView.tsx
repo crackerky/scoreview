@@ -12,6 +12,7 @@ import { type Lang, pickText } from '@/i18n/lang'
 import { type MessageKey, msg } from '@/i18n/messages'
 import { MatchRefreshButton } from './MatchRefreshButton'
 import { eventsNewestFirst } from './matchEvents.utils'
+import { resultLabel } from './matchResult.utils'
 import { PlayerLink } from './PlayerLink'
 import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
 
@@ -91,6 +92,7 @@ function Scoreboard({ match, now, lang }: { match: Match; now: Date; lang: Lang 
             {/* 備考("スクラッチのため" など)。多くの試合で空 */}
             <td className="LM TG_MD1" width="68%">
               {match.note}
+              <ResultTypeNote match={match} lang={lang} />
             </td>
             {/* clone-spec D 2.2: 試合の時刻ではなく、ページを表示した時点の時刻 */}
             <td className="CM TG_MD1" width="16%">
@@ -376,4 +378,28 @@ export function MatchView({ data, now, lang }: { data: MatchResponse; now: Date;
       {!data.match.hideStats && <StatsTable match={data.match} stats={data.stats} lang={lang} />}
     </>
   )
+}
+
+// 本サイト独自(docs/requirements.md「意図的な差分」): 不戦勝などの通常以外の結果を、スコアボード下の
+// 行の中央に出す。参照サイトのスコアボードは最終スコアしか出さず、不戦勝が通常の結果に見える
+function ResultTypeNote({ match, lang }: { match: MatchResponse['match']; lang: Lang }) {
+  const asSide = (side: MatchResponse['match']['left']) => ({
+    team: side.team,
+    placeholder: null,
+    score: side.score,
+    labelEn: '',
+  })
+  const text = resultLabel(
+    {
+      resultType: match.resultType,
+      winnerSide: match.winnerSide,
+      left: asSide(match.left),
+      right: asSide(match.right),
+    },
+    lang,
+  )
+  if (text === null) {
+    return null
+  }
+  return <span data-scoreview-addition="">{match.note === '' ? text : ` ${text}`}</span>
 }

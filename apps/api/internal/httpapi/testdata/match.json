@@ -117,6 +117,8 @@
     "note": "",
     "hideBlocks": false,
     "hideStats": false,
+    "resultType": "normal",
+    "winnerSide": "left",
     "breadcrumb": {
       "divisionId": 1,
       "divisionName": {

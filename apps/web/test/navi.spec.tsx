@@ -111,16 +111,25 @@ describe('ScoreNavi の描画', () => {
     const html = renderHtml(<ScoreNavi frame={standard} lang="jp" />)
     assert.match(html, /^<ul id="score_navi">/)
     assert.match(html, /<li><a href="\/pscore\/scv_top\/open\/1\?lang=jp">大会トップ<\/a><\/li>/)
-    assert.match(html, /<p class="ar">スケジュール<\/p><ul><li><a href="\/pscore\/scv_search_tn/)
+    assert.match(
+      html,
+      /<p class="ar" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">スケジュール<\/p><ul><li><a href="\/pscore\/scv_search_tn/,
+    )
     assert.match(html, /href="\/pscore\/scv_search_div\/open\/101\?lang=jp">ビーチミックス</)
     assert.match(html, /href="\/pscore\/scv_division\/open\/102\?lang=jp">ウィメン</)
     assert.match(
       html,
-      /<li><p>ビーチミックス<\/p><ul><li><a href="\/pscore\/scv_group\/open\/1001\?lang=jp">Qualifying pool A<\/a><\/li>/,
+      /<li><p tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">ビーチミックス<\/p><ul><li><a href="\/pscore\/scv_group\/open\/1001\?lang=jp">Qualifying pool A<\/a><\/li>/,
     )
     // グループのないディビジョンも名前と空の ul が出る
-    assert.match(html, /<li><p>ウィメン<\/p><ul><\/ul><\/li>/)
-    assert.match(html, /<li style="width:172px"><p class="ar">ギャラリー<\/p>/)
+    assert.match(
+      html,
+      /<li><p tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">ウィメン<\/p><ul><\/ul><\/li>/,
+    )
+    assert.match(
+      html,
+      /<li style="width:172px"><p class="ar" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">ギャラリー<\/p>/,
+    )
     assert.match(html, /href="\/pscore\/scv_tgallery\/open\/201\?lang=jp">Day1-AM</)
     assert.doesNotMatch(html, /&nbsp;| /)
   })
@@ -129,10 +138,13 @@ describe('ScoreNavi の描画', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
     const html = renderHtml(<ScoreNavi frame={frame} lang="jp" />)
     assert.match(html, /エントリー一覧/)
-    assert.match(html, /<p class="ar">成績<\/p>/)
     assert.match(
       html,
-      /<li><p>ＤＧシングルス（日曜日）<\/p><ul><li><p>最終結果<\/p><\/li><\/ul><\/li>/,
+      /<p class="ar" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">成績<\/p>/,
+    )
+    assert.match(
+      html,
+      /<li><p tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">ＤＧシングルス（日曜日）<\/p><ul><li><p>最終結果<\/p><\/li><\/ul><\/li>/,
     )
     assert.match(html, /<li style="width:495px"><p> <\/p><\/li><\/ul>$/)
     assert.doesNotMatch(html, /scv_search|scv_division|scv_group/)
@@ -160,6 +172,9 @@ describe('ScoreNavi の描画', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
     const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)
     assert.match(html, /href="\/pscore\/scv_team_list\/open\/2\?lang=en">Entry List</)
-    assert.match(html, /<li><p><\/p><ul><\/ul><\/li>/)
+    assert.match(
+      html,
+      /<li><p tabindex="0" role="button" aria-haspopup="true" aria-expanded="false"><\/p><ul><\/ul><\/li>/,
+    )
   })
 })

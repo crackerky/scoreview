@@ -5,6 +5,8 @@ import { adminCsp, browseCsp, IMAGE_HOSTS, isAdminPath } from '../src/security/c
 
 // CSP、Permissions-Policy、HSTS(セキュリティ点検 L-4)。
 
+const prod = { dev: false, referenceImages: false }
+
 /** CSP を指令ごとの値の一覧にする */
 function directives(policy: string): Map<string, string[]> {
   return new Map(
@@ -17,7 +19,7 @@ function directives(policy: string): Map<string, string[]> {
 
 describe('Content-Security-Policy', () => {
   test('管理画面は nonce のスクリプトだけを実行し、埋め込み、<base>、他サイトへの送信を禁じる', () => {
-    const csp = directives(adminCsp('abc123', false))
+    const csp = directives(adminCsp('abc123', prod))
     assert.deepEqual(csp.get('script-src'), ["'self'", "'nonce-abc123'", "'strict-dynamic'"])
     assert.deepEqual(csp.get('frame-ancestors'), ["'none'"])
     assert.deepEqual(csp.get('base-uri'), ["'none'"])
@@ -25,19 +27,29 @@ describe('Content-Security-Policy', () => {
     assert.deepEqual(csp.get('object-src'), ["'none'"])
     assert.ok(csp.has('upgrade-insecure-requests'))
     // next dev だけ eval を許し、https への引き上げをしない
-    const dev = directives(adminCsp('abc123', true))
+    const dev = directives(adminCsp('abc123', { dev: true, referenceImages: false }))
     assert.ok(dev.get('script-src')?.includes("'unsafe-eval'"))
     assert.ok(!dev.has('upgrade-insecure-requests'))
   })
 
-  test('閲覧ページの画像は自サイトと参照サイトの置き場だけ', () => {
-    const csp = directives(browseCsp(false))
-    assert.deepEqual(csp.get('img-src'), ["'self'", 'data:', 'blob:', ...IMAGE_HOSTS])
+  test('閲覧ページの画像は自サイトだけ。参照サイトの画像を出す設定のときだけその置き場も許す', () => {
+    const csp = directives(browseCsp(prod))
+    assert.deepEqual(csp.get('img-src'), ["'self'", 'data:', 'blob:'])
+    assert.deepEqual(directives(browseCsp({ dev: false, referenceImages: true })).get('img-src'), [
+      "'self'",
+      'data:',
+      'blob:',
+      ...IMAGE_HOSTS,
+    ])
     assert.deepEqual(csp.get('frame-ancestors'), ["'none'"])
     assert.deepEqual(csp.get('base-uri'), ["'none'"])
     assert.deepEqual(csp.get('form-action'), ["'self'"])
     assert.ok(!csp.get('img-src')?.includes('https:'), '任意の https の画像を許さない')
-    assert.ok(directives(browseCsp(true)).get('img-src')?.includes('https://placehold.co'))
+    assert.ok(
+      directives(browseCsp({ dev: true, referenceImages: false }))
+        .get('img-src')
+        ?.includes('https://placehold.co'),
+    )
   })
 
   test('管理画面のパスの判定', () => {

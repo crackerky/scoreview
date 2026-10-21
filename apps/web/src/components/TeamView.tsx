@@ -6,6 +6,7 @@ import { MatchListRows, statusClass } from './MatchRowLine'
 import { PlayerLink } from './PlayerLink'
 import { ScvMidaM } from './ScvMidaM'
 import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
+import { TeamWhereabouts } from './TeamWhereabouts'
 
 // clone-spec D 1: チームページ /pscore/scv_team/open/{id} の #score_view の中身。
 // SOTG 表(D 1.1 の 6)は参照サイトにも値がなく、表の形だけを出す(入力はフェーズ 2)。
@@ -13,16 +14,15 @@ import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
 // clone-spec D 1.1: 得点・失点・得失差・順位・トータルのセルは値の後ろに半角空白 2 つ
 const trailing = '  '
 
-type Team = TeamResponse['team']
-
-function TeamHeading({ team, lang }: { team: Team; lang: Lang }) {
-  const comment = pickText(lang, team.comment)
+function TeamHeading({ data, lang }: { data: TeamResponse; lang: Lang }) {
+  const comment = pickText(lang, data.team.comment)
   return (
     <>
       <ScvMidaM>
-        {pickText(lang, team.fullName)}
+        {pickText(lang, data.team.fullName)}
         <br />
       </ScvMidaM>
+      <TeamWhereabouts data={data} lang={lang} />
       {comment !== '' && <div className="SCV_TEAM_COMM">{comment}</div>}
     </>
   )
@@ -210,7 +210,7 @@ function SotgTables({ data, lang }: { data: TeamResponse; lang: Lang }) {
 function RosterOnlyView({ data, lang }: { data: TeamResponse; lang: Lang }) {
   return (
     <>
-      <TeamHeading team={data.team} lang={lang} />
+      <TeamHeading data={data} lang={lang} />
       <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
       <Tbl tableStyle={{ width: '70%' }}>
         <TblHeaderRow
@@ -243,7 +243,7 @@ export function TeamView({ data, lang }: { data: TeamResponse; lang: Lang }) {
   }
   return (
     <>
-      <TeamHeading team={data.team} lang={lang} />
+      <TeamHeading data={data} lang={lang} />
       <RecordTable record={data.record} lang={lang} />
       <hr />
       {/* 試合が 1 つもないチーム(237 の中止大会)は対戦一覧を見出しごと出さない */}

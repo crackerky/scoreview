@@ -3,7 +3,9 @@ import type { TournamentFrame } from '@/api/common.types'
 import { divisionHref, groupHref } from '@/i18n/href'
 import type { Lang } from '@/i18n/lang'
 import { pickText } from '@/i18n/lang'
+import { bannerAlt } from './banner.utils'
 import { groupLinkLabel } from './navi.utils'
+import { assetSrc, referenceAssetMode } from './referenceAsset.utils'
 
 // clone-spec A 1.5: 大会ページの div#sub。バナーが 0 枚でも枠だけの白い箱を出す。
 // バナーは <br /><br /> 区切りで縦に並べ、リンク先があれば <a> で囲む。
@@ -25,7 +27,8 @@ type SidebarProps = {
 
 export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
   return (
-    <div id="sub">
+    // 本サイト独自: div ではなく aside(ランドマーク)。CSS は id で当たるので見た目は同じ
+    <aside id="sub">
       <table cellPadding={0} cellSpacing={0}>
         <tbody>
           <tr>
@@ -45,7 +48,7 @@ export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
                   )}
                   <tr>
                     <td>
-                      <Banners banners={frame.banners} />
+                      <Banners banners={frame.banners} lang={lang} />
                     </td>
                   </tr>
                 </tbody>
@@ -58,7 +61,7 @@ export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
           </tr>
         </tbody>
       </table>
-    </div>
+    </aside>
   )
 }
 
@@ -103,11 +106,25 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
   )
 }
 
-function Banners({ banners }: { banners: TournamentFrame['banners'] }) {
+// 参照サイトのバナーは幅 160px で高さ 54〜64px(legacy.css の #sub .sub_banners img)。読み込み前の
+// 枠の比率に使う代表値で、実際の比率は画像を読んだ後に CSS の height: auto で決まる
+const bannerWidthPx = 160
+const bannerHeightPx = 60
+
+function Banners({ banners, lang }: { banners: TournamentFrame['banners']; lang: Lang }) {
+  const mode = referenceAssetMode()
   return (
     <div className="sub_banners">
       {banners.map((banner, index) => {
-        const image = <img src={banner.imageUrl} alt="" />
+        const image = (
+          <img
+            src={assetSrc(banner.imageUrl, mode)}
+            alt={bannerAlt(banner, lang)}
+            width={bannerWidthPx}
+            height={bannerHeightPx}
+            loading="lazy"
+          />
+        )
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: 同じ画像のバナーが並ぶことがある
           <Fragment key={index}>

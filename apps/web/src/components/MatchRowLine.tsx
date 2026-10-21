@@ -9,6 +9,7 @@ import {
 import { matchHref, teamHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { type MessageKey, msg, placeholderLabel } from '@/i18n/messages'
+import { resultLabel, sideLabel } from './matchResult.utils'
 import { type TblColumn, TblHeaderRow } from './Tbl'
 
 // 試合 1 行(tr.H24)。2 種類の列構成がある。
@@ -48,8 +49,7 @@ function TeamCell({
 }) {
   if (side.team !== null) {
     // clone-spec B 8: 英語版で英語名のないチームは、名前の代わりに決まり方の表記("[A1-Win]")を出す
-    const name =
-      lang === 'en' && side.team.name.en === '' ? side.labelEn : pickText(lang, side.team.name)
+    const name = sideLabel(side, lang)
     return (
       <td className={className}>
         <span className="teamLink">
@@ -70,19 +70,23 @@ function TeamCell({
   )
 }
 
-// 本サイト独自(requirements の意図的な差分): 通常以外の結果は状況列に種類を出す。参照サイトは
-// 不戦勝も通常の試合と同じ「[対戦結果]」で表示し、観戦者には区別がつかない
-const resultTypeLabel: Record<Exclude<MatchRow['resultType'], 'normal'>, MessageKey> = {
-  forfeit: 'resultForfeit',
-  double_forfeit: 'resultDoubleForfeit',
-  no_contest: 'resultNoContest',
-  abandoned: 'resultAbandoned',
-  unplayed: 'resultUnplayed',
-}
-
-function StatusContent({ row, lang }: { row: MatchRow; lang: Lang }) {
-  if (row.resultType !== 'normal') {
-    const text = msg(lang, resultTypeLabel[row.resultType])
+// 本サイト独自(requirements の意図的な差分): 通常以外の結果は状況列に種類を出し、不戦勝と不成立は
+// 勝ったチームの名前を入れる(「BREEZE の不戦勝」)。参照サイトは不戦勝も通常の試合と同じ
+// 「[対戦結果]」で表示し、観戦者には区別がつかない。名前は行のチーム名と同じ幅で切り詰める
+function StatusContent({
+  row,
+  lang,
+  variant,
+}: {
+  row: MatchRow
+  lang: Lang
+  variant: MatchRowVariant
+}) {
+  const text = resultLabel(row, lang, (side) => {
+    const name = sideLabel(side, lang)
+    return variant.kind === 'schedule' ? trimToWidth(name, scheduleTeamWidth) : name
+  })
+  if (text !== null) {
     return row.hasDetail && row.status === 'finished' ? (
       <a className="Select_Link" href={matchHref(row.matchId, lang)}>
         {text}
@@ -139,7 +143,7 @@ export function MatchRowLine({
       <td className={cell('CM')}>{row.right.score ?? ''}</td>
       <TeamCell side={row.right} lang={lang} variant={variant} className={cell('LM')} />
       <td className={cell('CM')}>
-        <StatusContent row={row} lang={lang} />
+        <StatusContent row={row} lang={lang} variant={variant} />
       </td>
     </tr>
   )

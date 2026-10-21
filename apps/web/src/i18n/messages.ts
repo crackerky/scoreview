@@ -155,6 +155,12 @@ const jp = {
   resultNoContest: '不成立',
   resultAbandoned: '打切',
   resultUnplayed: '未消化',
+
+  // 本サイト独自の追記(docs/requirements.md「意図的な差分」)。チームページのチーム名の下
+  noteNextMatch: '次の試合',
+  noteLiveMatch: '試合中',
+  noteField: 'コート',
+  noteGroup: '所属グループ',
 } as const
 
 export type MessageKey = keyof typeof jp
@@ -301,6 +307,11 @@ const en: Record<MessageKey, string> = {
   resultNoContest: 'No contest',
   resultAbandoned: 'Abandoned',
   resultUnplayed: 'Unplayed',
+
+  noteNextMatch: 'Next match',
+  noteLiveMatch: 'Now playing',
+  noteField: 'Field',
+  noteGroup: 'Group',
 }
 
 const dictionaries: Record<Lang, Record<MessageKey, string>> = { jp, en }

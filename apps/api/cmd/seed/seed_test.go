@@ -57,6 +57,11 @@ func TestSeedCoversVariants(t *testing.T) {
 		assert.Positive(t, count(t, db, &store.Match{}, "status = ?", status), status)
 	}
 	assert.Positive(t, count(t, db, &store.Match{}, "NOT has_detail"))
+	for _, result := range []domain.ResultType{
+		domain.ResultForfeit, domain.ResultDoubleForfeit, domain.ResultAbandoned, domain.ResultUnplayed,
+	} {
+		assert.Positive(t, count(t, db, &store.Match{}, "result_type = ?", result), result)
+	}
 	assert.Positive(
 		t,
 		count(t, db, &store.Match{}, "status = 'finished' AND left_score = right_score"),
