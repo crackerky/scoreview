@@ -121,6 +121,9 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	require.NotNil(t, a1.StartTime)
 	e2 := f.match(t, "E2")
 	assert.Nil(t, e2.LeftTeamID, "プールの確定前は 1st placement の 1 回戦は空")
+	_, err := store.ApplyCorrection(ctx, f.db, f.actor, e2.ID,
+		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 0}}, false)
+	require.ErrorIs(t, err, domain.ErrConflict, "対戦チームが決まる前の試合には結果を入れない")
 
 	f.finishPools(t)
 	progress, err := store.GetFormatProgress(ctx, f.db, f.division.ID, now)

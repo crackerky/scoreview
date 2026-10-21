@@ -463,6 +463,10 @@ func (v progressBuilder) courtDelays() []TodoItem {
 		if m.Field == nil || m.Status != domain.MatchScheduled {
 			continue
 		}
+		// 対戦相手が決まらずに待っている試合の遅れは、コートではなく確定待ちの問題(別の項目で出す)
+		if m.LeftTeamID == nil || m.RightTeamID == nil {
+			continue
+		}
 		if _, seen := first[*m.Field]; !seen {
 			first[*m.Field] = m
 			courts = append(courts, *m.Field)

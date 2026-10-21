@@ -182,6 +182,9 @@ func ApplyCorrection(
 		if len(events) > 0 {
 			return domain.Invalid("score", "得点経過のある試合は、スコア入力画面で得点経過を直してください")
 		}
+		if match.LeftTeamID == nil || match.RightTeamID == nil {
+			return fmt.Errorf("%w: 対戦チームが決まっていない試合の結果は入れられません", domain.ErrConflict)
+		}
 		if impact, err = correctionImpact(ctx, tx, match, input); err != nil {
 			return err
 		}
