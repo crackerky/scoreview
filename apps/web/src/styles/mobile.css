@@ -1,0 +1,173 @@
+/*
+ * スマートフォン幅(640px 以下)の閲覧ページ。参照サイトの固定幅(980px)の枠を画面の幅に収め、
+ * 幅の広い表はそれぞれの中で横にスクロールさせる。表の中身の組み替えはフェーズ 2
+ * (docs/requirements.md「フェーズ」)。PC の幅の見た目と HTML は変えない(比較ツールの対象外)。
+ * 管理画面(.adm)は admin.css が別に扱う。
+ */
+
+/* 外枠の幅。ナビとサイドバーを本文の前後に並べ直す(サイドバーは HTML では本文より前にある) */
+@media (max-width: 640px) {
+  /* body は縦の flex(legacy.css のフッターの押し下げ)で、#top は左右 margin が auto なので伸びずに
+     中身の幅(折り返さない大会名や表)になる。画面の幅に固定する */
+  #top {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* flex の子は既定で中身の最小幅より縮まない。表を折り返さないので、0 にしないと表の幅まで広がる */
+  #wrapper > * {
+    min-width: 0;
+  }
+
+  #wrapper > #header {
+    order: 1;
+  }
+
+  #wrapper > #contents {
+    order: 2;
+  }
+
+  #wrapper > #sub {
+    order: 3;
+  }
+
+  /* ヘッダーの table を縦に積む(ロゴ、SNS、文字リンク、4 項目のナビ)。背景画像が届かない下の段が
+     ページの地の色(黒)になり、文字リンクが読めないので白で塗る */
+  #outer1 {
+    background-color: #fff;
+  }
+
+  #outer1 table,
+  #outer1 tbody,
+  #outer1 tr,
+  #outer1 td {
+    display: block;
+    width: auto;
+  }
+
+  #outer1 td {
+    text-align: center !important;
+  }
+
+  #outer1 img.logo {
+    width: 126px;
+    height: auto;
+  }
+
+  #header_social {
+    width: auto;
+    padding: 0;
+  }
+
+  #header_bar {
+    padding: 4px 0;
+  }
+
+  #header_bar_spacer {
+    display: none !important;
+  }
+
+  #navigation {
+    width: auto;
+  }
+
+  #navigation li {
+    width: 25%;
+  }
+
+  /* 大会ナビ。項目を画面の幅で折り返す(開いたメニューは項目の下に重ねて出す) */
+  ul#score_navi {
+    display: flex;
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  ul#score_navi > li {
+    float: none;
+    flex: 1 1 33%;
+    box-sizing: border-box;
+    width: auto !important;
+    min-width: 0;
+  }
+
+  ul#score_navi > li:empty,
+  ul#score_navi > li:has(> p:only-child:empty) {
+    display: none;
+  }
+
+  /* 開いたメニュー。右の列は右端に揃えて画面からはみ出さないようにし、2 階層目(グループ成績の
+     ディビジョンの下のグループ)は右に出さず、その項目の下に並べる */
+  /* ナビが 2 段に折り返すので、開いた項目を前に出す(後ろの段の項目がメニューに重なってタップを奪う) */
+  ul#score_navi > li:is(:hover, :focus-within) {
+    z-index: 10;
+  }
+
+  ul#score_navi > li:nth-child(3n) > ul {
+    left: auto;
+    right: -1px;
+  }
+
+  ul#score_navi li ul li ul {
+    position: static;
+  }
+
+  /* 本文とサイドバー */
+  #main {
+    float: none;
+    width: auto;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  #sub {
+    float: none;
+    width: auto;
+    margin: 8px;
+  }
+
+  #sub .sub_score_title {
+    width: auto;
+  }
+
+  .text_title {
+    width: auto;
+    padding: 16px;
+    font-size: 130%;
+  }
+
+  /* 幅の広い表(日程、順位表、トーナメント表)は表の中で横にスクロールする。入れ子の表は対象外 */
+  #main table:not(table table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* 表の外側の左右の余白(大会トップのディビジョン表は 80px と 100px をインラインで指定) */
+  #main .TBL {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* 縮めると 1 文字ずつ縦に折り返して読めなくなるので、セルは折り返さず表ごと横にスクロールする */
+  #main table:not(table table) > * > tr > :is(td, th) {
+    white-space: nowrap;
+  }
+
+  /* 大会一覧の大会名の帯。参照サイトは float で中身の幅に合わせ、幅 98% をインラインで指定する。
+     画面の幅に合わせ、長い大会名は切らずに折り返す */
+  .TeamListBLOCK {
+    float: none;
+    width: auto !important;
+    white-space: normal;
+  }
+
+  #main img {
+    max-width: 100%;
+    height: auto;
+  }
+}
