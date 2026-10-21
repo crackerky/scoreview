@@ -1,0 +1,319 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/format"
+)
+
+// 保存済みの大会形式から format.Plan と format.State を組み立てて解決する。Plan は保存した
+// テンプレートとパラメータから毎回作り直す(Generate は決定的なので、試合 CD とグループの序数が
+// 保存した行と一致する)。
+
+const (
+	sqlByDivisionOrderIndex = "division_id = ? AND format_index IS NOT NULL"
+	sqlOrderStageIndex      = "stage_index"
+	sqlSlotsOfGroups        = "group_id IN ?"
+	sqlOrderSlotPosition    = "group_id, position"
+	sqlDecisionsOf          = "group_id IN ? OR stage_id IN ?"
+)
+
+// ScheduleSetting は時間割の設定(division_formats.schedule)。Start は "HH:MM"、End は終了時刻
+// (なければ nil)。Date は "YYYY-MM-DD"。
+type ScheduleSetting struct {
+	Date          string   `json:"date"`
+	Start         string   `json:"start"`
+	SlotMinutes   int      `json:"slotMinutes"`
+	Courts        []string `json:"courts"`
+	TeamRestSlots int      `json:"teamRestSlots"`
+	StageGapSlots int      `json:"stageGapSlots"`
+	End           *string  `json:"end"`
+}
+
+// config は format.ScheduleConfig にする。日付と時刻は UTC の値として扱う(試合の日付と時刻は
+// タイムゾーンを持たない現地時刻なので、比べるときも同じ扱いにする)。
+func (s ScheduleSetting) config() (format.ScheduleConfig, error) {
+	day, err := domain.ParseDay("schedule.date", s.Date)
+	if err != nil {
+		return format.ScheduleConfig{}, err
+	}
+	start, err := clockOn(day, "schedule.start", s.Start)
+	if err != nil {
+		return format.ScheduleConfig{}, err
+	}
+	if s.SlotMinutes <= 0 || s.SlotMinutes > maxSlotMinutes {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.slotMinutes",
+			fmt.Sprintf("must be 1 to %d", maxSlotMinutes))
+	}
+	if len(s.Courts) == 0 {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.courts", "at least one court is required")
+	}
+	seen := map[string]bool{}
+	for i, court := range s.Courts {
+		if court == "" || seen[court] {
+			return format.ScheduleConfig{}, domain.Invalid(fmt.Sprintf("schedule.courts[%d]", i),
+				"must be unique and not empty")
+		}
+		seen[court] = true
+	}
+	cfg := format.ScheduleConfig{Start: start, SlotMinutes: s.SlotMinutes, Courts: s.Courts,
+		TeamRestSlots: s.TeamRestSlots, StageGapSlots: s.StageGapSlots}
+	if s.End != nil {
+		end, err := clockOn(day, "schedule.end", *s.End)
+		if err != nil {
+			return format.ScheduleConfig{}, err
+		}
+		cfg.End = end
+	}
+	return cfg, nil
+}
+
+// maxSlotMinutes は 1 試合の枠の長さの上限(参照サイトの最長 90 分に余裕を持たせた値)。
+const maxSlotMinutes = 240
+
+func clockOn(day time.Time, field, clock string) (time.Time, error) {
+	if err := domain.CheckClock(field, clock); err != nil {
+		return time.Time{}, err
+	}
+	parsed, err := time.Parse("15:04", clock)
+	if err != nil {
+		return time.Time{}, domain.Invalid(field, "must be HH:MM")
+	}
+	return time.Date(day.Year(), day.Month(), day.Day(), parsed.Hour(), parsed.Minute(), 0, 0,
+		time.UTC), nil
+}
+
+// formatState は保存済みの大会形式と、それを解決した結果。
+type formatState struct {
+	division Division
+	row      DivisionFormat
+	spec     format.Spec
+	plan     *format.Plan
+	cfg      format.Config
+	schedule *ScheduleSetting
+	// groups はグループの序数ごとの行、groupIndex は groups.id から序数
+	groups     map[int]formatGroupRow
+	groupIndex map[int64]int
+	stages     map[int]Stage
+	slots      map[format.SlotKey]GroupSlot
+	slotKeys   map[int64]format.SlotKey
+	matches    map[string]Match
+	matchSlots map[int64]matchSlotRow
+	decisions  []GroupRankDecision
+	state      format.State
+	res        *format.Resolution
+}
+
+// configFor は division_formats の行から順位の設定を作る。
+func configFor(row DivisionFormat) (format.Config, error) {
+	rule, err := format.RuleFor(format.TiebreakPreset(row.Tiebreak))
+	if err != nil {
+		return format.Config{}, err
+	}
+	return format.Config{Tiebreak: rule, Band: format.BandRule(),
+		Forfeit: format.ForfeitScore{Winner: row.ForfeitWinnerScore, Loser: row.ForfeitLoserScore}}, nil
+}
+
+// specOf は division_formats の行から Spec を作る。
+func specOf(row DivisionFormat) (format.Spec, error) {
+	params, err := format.DecodeParams(row.Template, row.Params)
+	if err != nil {
+		return format.Spec{}, fmt.Errorf("division %d format: %w", row.DivisionID, err)
+	}
+	return format.Spec{Template: row.Template, StartLetter: row.StartLetter, Params: params}, nil
+}
+
+// findFormat はディビジョンの形の指定を読む。無ければ ok=false。
+func findFormat(ctx context.Context, db *gorm.DB, divisionID int64) (DivisionFormat, bool, error) {
+	var rows []DivisionFormat
+	err := db.WithContext(ctx).Where(sqlByDivision, divisionID).Limit(1).Find(&rows).Error
+	if err != nil {
+		return DivisionFormat{}, false, fmt.Errorf("load format of division %d: %w", divisionID, err)
+	}
+	if len(rows) == 0 {
+		return DivisionFormat{}, false, nil
+	}
+	return rows[0], true, nil
+}
+
+// loadFormatState は保存済みの大会形式を読み、現在の結果と確定状態で解決する。形の指定が無い
+// ディビジョンなら ok=false。
+func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*formatState, bool, error) {
+	row, ok, err := findFormat(ctx, db, divisionID)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	fs := &formatState{row: row, groups: map[int]formatGroupRow{}, groupIndex: map[int64]int{},
+		stages: map[int]Stage{}, slots: map[format.SlotKey]GroupSlot{}, slotKeys: map[int64]format.SlotKey{},
+		matches: map[string]Match{}, matchSlots: map[int64]matchSlotRow{}}
+	if fs.division, err = findInternal[Division](ctx, db, divisionID, "division"); err != nil {
+		return nil, false, err
+	}
+	if fs.spec, err = specOf(row); err != nil {
+		return nil, false, err
+	}
+	if fs.cfg, err = configFor(row); err != nil {
+		return nil, false, err
+	}
+	if fs.plan, err = format.NewEngine().Generate(fs.spec); err != nil {
+		return nil, false, fmt.Errorf("regenerate format of division %d: %w", divisionID, err)
+	}
+	if row.Schedule != nil {
+		var setting ScheduleSetting
+		if err := json.Unmarshal(row.Schedule, &setting); err != nil {
+			return nil, false, fmt.Errorf("division %d schedule: %w", divisionID, err)
+		}
+		fs.schedule = &setting
+	}
+	if err := fs.loadRows(ctx, db); err != nil {
+		return nil, false, err
+	}
+	fs.state = fs.buildState()
+	if fs.res, err = format.Resolve(fs.plan, fs.cfg, fs.state); err != nil {
+		return nil, false, fmt.Errorf("resolve division %d: %w", divisionID, err)
+	}
+	return fs, true, nil
+}
+
+func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
+	tx := db.WithContext(ctx)
+	id := fs.division.ID
+	var stages []Stage
+	if err := tx.Where(sqlByDivision, id).Order(sqlOrderStageIndex).Find(&stages).Error; err != nil {
+		return fmt.Errorf("load stages of division %d: %w", id, err)
+	}
+	stageIDs := []int64{}
+	for _, s := range stages {
+		fs.stages[s.StageIndex] = s
+		stageIDs = append(stageIDs, s.ID)
+	}
+	var groups []formatGroupRow
+	if err := tx.Where(sqlByDivisionOrderIndex, id).Order(sqlOrderID).Find(&groups).Error; err != nil {
+		return fmt.Errorf("load format groups of division %d: %w", id, err)
+	}
+	groupIDs := []int64{}
+	for _, g := range groups {
+		fs.groups[*g.FormatIndex] = g
+		fs.groupIndex[g.ID] = *g.FormatIndex
+		groupIDs = append(groupIDs, g.ID)
+	}
+	var slots []GroupSlot
+	if err := tx.Where(sqlSlotsOfGroups, groupIDs).Order(sqlOrderSlotPosition).Find(&slots).Error; err != nil {
+		return fmt.Errorf("load slots of division %d: %w", id, err)
+	}
+	for _, s := range slots {
+		key := format.SlotKey{Group: fs.groupIndex[s.GroupID], Position: s.Position}
+		fs.slots[key] = s
+		fs.slotKeys[s.ID] = key
+	}
+	var matches []Match
+	if err := tx.Where(sqlByDivision, id).Order(sqlOrderID).Find(&matches).Error; err != nil {
+		return fmt.Errorf("load matches of division %d: %w", id, err)
+	}
+	for _, m := range matches {
+		if _, ok := fs.plan.MatchByCode(m.Code); ok {
+			fs.matches[m.Code] = m
+		}
+	}
+	var sides []matchSlotRow
+	if err := tx.Where(sqlByDivision, id).Find(&sides).Error; err != nil {
+		return fmt.Errorf("load match slots of division %d: %w", id, err)
+	}
+	for _, s := range sides {
+		fs.matchSlots[s.ID] = s
+	}
+	if err := tx.Where(sqlDecisionsOf, groupIDs, stageIDs).Order(sqlOrderID).
+		Find(&fs.decisions).Error; err != nil {
+		return fmt.Errorf("load rank decisions of division %d: %w", id, err)
+	}
+	return nil
+}
+
+// formatResultOf は試合の行を順位計算の結果にする。結果の種類(没収など)の列は記録係画面の担当が
+// 足す(00004)ので、ここではスコアと勝者だけを読む(通常の試合として扱う)。
+func formatResultOf(m Match) format.Result {
+	return format.Result{Status: m.Status, Type: format.ResultNormal, LeftScore: m.LeftScore,
+		RightScore: m.RightScore, Winner: m.WinnerSide}
+}
+
+func (fs *formatState) buildState() format.State {
+	st := format.State{
+		Seeds:           make([]int64, fs.plan.Teams),
+		Results:         map[string]format.Result{},
+		ConfirmedGroups: map[int]bool{},
+		ConfirmedStages: map[int]bool{},
+		Manual:          map[format.SlotKey]int64{},
+		RankDecisions:   map[int][]int64{},
+		BandDecisions:   map[format.BandKey][]int64{},
+	}
+	for key, slot := range fs.slots {
+		src := fs.plan.SlotSource(key)
+		if slot.TeamID == nil {
+			continue
+		}
+		switch src.Kind {
+		case format.SourceSeed:
+			if src.Seed >= 1 && src.Seed <= len(st.Seeds) {
+				st.Seeds[src.Seed-1] = *slot.TeamID
+			}
+		case format.SourceManual:
+			st.Manual[key] = *slot.TeamID
+		}
+	}
+	for code, m := range fs.matches {
+		if m.Status != domain.MatchScheduled {
+			st.Results[code] = formatResultOf(m)
+		}
+	}
+	for index, g := range fs.groups {
+		if g.ConfirmedAt != nil {
+			st.ConfirmedGroups[index] = true
+		}
+	}
+	stageIndex := map[int64]int{}
+	for index, s := range fs.stages {
+		stageIndex[s.ID] = index
+		if s.ConfirmedAt != nil {
+			st.ConfirmedStages[index] = true
+		}
+	}
+	for _, d := range fs.decisions {
+		var teams []int64
+		if err := json.Unmarshal(d.TeamIDs, &teams); err != nil {
+			continue // 書き込みは DecideRank だけで、配列以外は入らない
+		}
+		switch {
+		case d.GroupID != nil:
+			index := fs.groupIndex[*d.GroupID]
+			st.RankDecisions[index] = mergeDecision(st.RankDecisions[index], teams)
+		case d.StageID != nil && d.BandRank != nil:
+			key := format.BandKey{Stage: stageIndex[*d.StageID], Rank: *d.BandRank}
+			st.BandDecisions[key] = mergeDecision(st.BandDecisions[key], teams)
+		}
+	}
+	return st
+}
+
+// mergeDecision は後の指定を前の指定に重ねる。同じチームは後の指定の位置になる
+// (format.State.RankDecisions は 1 つの並びで、未決の組ごとに相対順だけを使う)。
+func mergeDecision(prev, next []int64) []int64 {
+	out := make([]int64, 0, len(prev)+len(next))
+	for _, team := range prev {
+		keep := true
+		for _, n := range next {
+			if n == team {
+				keep = false
+			}
+		}
+		if keep {
+			out = append(out, team)
+		}
+	}
+	return append(out, next...)
+}
