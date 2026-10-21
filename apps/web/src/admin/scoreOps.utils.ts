@@ -92,8 +92,30 @@ export function parseSavedQueue(raw: string | null): SavedQueue {
   return parsed.success ? parsed.data : empty
 }
 
-export function savedQueueKey(matchId: number): string {
-  return `sv-score-queue:${matchId}`
+/** 端末に溜める未送信の操作の localStorage のキーの頭 */
+const savedQueuePrefix = 'sv-score-queue:'
+
+/**
+ * 未送信の操作の localStorage のキー。利用者ごとに分ける(同じ端末で別の人がログインしたとき、前の人の
+ * 操作を次の人のセッションで送らない。セキュリティ点検 L-9)
+ */
+export function savedQueueKey(userId: number, matchId: number): string {
+  return `${savedQueuePrefix}${userId}:${matchId}`
+}
+
+/** 端末に溜めた未送信の操作のキーと件数(ログアウトのときに数えて消す)。古い形式のキーも含める */
+export function savedQueues(storage: Pick<Storage, 'length' | 'key' | 'getItem'>): Array<{
+  key: string
+  ops: number
+}> {
+  const out: Array<{ key: string; ops: number }> = []
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index)
+    if (key?.startsWith(savedQueuePrefix)) {
+      out.push({ key, ops: parseSavedQueue(storage.getItem(key)).ops.length })
+    }
+  }
+  return out
 }
 
 /** 得点経過の指し方(clientId)。api の id は持っていても、端末の操作は clientId で指す */

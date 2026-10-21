@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { AdminUser } from '@/api/admin.types'
-import { logoutAction } from '@/app/admin/_actions/auth'
+import { LogoutButton } from './LogoutButton'
 
 // 管理画面の共通部品(外枠、通知、フォームの欄)。見た目は src/styles/admin.css。
 
@@ -33,11 +33,7 @@ export function AdminShell({ user, title, notice, crumbs, children }: ShellProps
         <span className="adm-user">
           {user.displayName || user.email}({user.role === 'admin' ? '管理者' : '記録係'})
         </span>
-        <form action={logoutAction}>
-          <button type="submit" className="secondary">
-            ログアウト
-          </button>
-        </form>
+        <LogoutButton />
       </header>
       {crumbs && crumbs.length > 0 ? (
         <p className="adm-crumbs">

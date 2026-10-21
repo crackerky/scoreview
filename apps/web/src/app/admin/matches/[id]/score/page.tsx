@@ -25,7 +25,12 @@ export default async function AdminScorePage(props: IdPageProps) {
           <a href={`/admin/matches/${id}/score/basic`}>簡易の入力画面</a>を使ってください。
         </p>
       </noscript>
-      <ScoreKeeper initial={detail} isAdmin={user.role === 'admin'} canScore={canScore} />
+      <ScoreKeeper
+        initial={detail}
+        userId={user.id}
+        isAdmin={user.role === 'admin'}
+        canScore={canScore}
+      />
     </>
   )
 }

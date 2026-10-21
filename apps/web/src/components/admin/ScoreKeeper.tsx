@@ -48,7 +48,7 @@ type Sheet =
   | null
 
 /** canScore は、この利用者がこの試合を記録できるか(記録係は割り当てが覆う試合だけ) */
-type Props = { initial: MatchDetail; isAdmin: boolean; canScore: boolean }
+type Props = { initial: MatchDetail; userId: number; isAdmin: boolean; canScore: boolean }
 
 function teamLabel(detail: MatchDetail, side: Side): string {
   return sideName(detail.match[side])
@@ -90,9 +90,9 @@ function eventText(detail: MatchDetail, event: AdminEvent): string {
   }
 }
 
-function loadQueue(matchId: number): SavedQueue {
+function loadQueue(userId: number, matchId: number): SavedQueue {
   try {
-    return parseSavedQueue(window.localStorage.getItem(savedQueueKey(matchId)))
+    return parseSavedQueue(window.localStorage.getItem(savedQueueKey(userId, matchId)))
   } catch (error) {
     // プライベートブラウズ等で localStorage が使えない。溜めずに送るだけになる
     if (error instanceof DOMException) {
@@ -102,7 +102,7 @@ function loadQueue(matchId: number): SavedQueue {
   }
 }
 
-export function ScoreKeeper({ initial, isAdmin, canScore }: Props) {
+export function ScoreKeeper({ initial, userId, isAdmin, canScore }: Props) {
   const matchId = initial.match.id
   const [base, setBase] = useState(initial)
   const [ops, setOps] = useState<ScoreOp[]>([])
@@ -122,7 +122,7 @@ export function ScoreKeeper({ initial, isAdmin, canScore }: Props) {
   const persist = useCallback(() => {
     const saved: SavedQueue = { version: 1, ops: opsRef.current, startedAt: startedAtRef.current }
     try {
-      window.localStorage.setItem(savedQueueKey(matchId), JSON.stringify(saved))
+      window.localStorage.setItem(savedQueueKey(userId, matchId), JSON.stringify(saved))
       setStorageBroken(false)
     } catch (error) {
       // 容量超過やプライベートブラウズ。画面で知らせ、送信は続ける
@@ -132,7 +132,7 @@ export function ScoreKeeper({ initial, isAdmin, canScore }: Props) {
       }
       throw error
     }
-  }, [matchId])
+  }, [userId, matchId])
 
   const setQueue = useCallback(
     (next: ScoreOp[]) => {
@@ -213,13 +213,13 @@ export function ScoreKeeper({ initial, isAdmin, canScore }: Props) {
 
   // 前回この端末に残った未送信の操作を読み、送る
   useEffect(() => {
-    const saved = loadQueue(matchId)
+    const saved = loadQueue(userId, matchId)
     opsRef.current = saved.ops
     startedAtRef.current = saved.startedAt
     setOps(saved.ops)
     setNow(Date.now())
     void flush()
-  }, [matchId, flush])
+  }, [userId, matchId, flush])
 
   useEffect(() => {
     const retry = window.setInterval(() => {
