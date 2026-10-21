@@ -1,19 +1,32 @@
-import { tournamentStatusOptions } from '@/admin/labels.utils'
+import { sideName, statusLabel, tournamentStatusOptions } from '@/admin/labels.utils'
+import { resultTypeLabels } from '@/admin/scoreOps.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { tournaments } from '@/api/admin'
+import { matches, tournaments } from '@/api/admin'
+import type { AssignedMatch } from '@/api/admin.types'
 import { createTournamentAction } from '@/app/admin/_actions/tournament'
 import type { SearchProps } from '@/app/admin/_lib/page'
 import { AdminShell, Field, Hidden, readNotice } from '@/components/admin/AdminParts'
 
-// 管理画面のトップ。大会の一覧(記録係は担当大会だけ)と、管理者なら大会の作成。
+// 管理画面のトップ。自分の担当試合(記録係の割り当てが覆う試合。時刻順)、大会の一覧(記録係は担当大会
+// だけ)、管理者なら大会の作成。記録係が開いてすぐ次の試合の記録に入れるよう、担当試合を先頭に置く。
 export default async function AdminTopPage({ searchParams }: SearchProps) {
   const notice = readNotice(await searchParams)
   const { user, token } = await requireUser('any')
-  const list = await loadAdmin(() => tournaments.list(token))
+  const [list, mine] = await loadAdmin(() =>
+    Promise.all([tournaments.list(token), matches.mine(token)]),
+  )
   const statusLabel = (value: string) =>
     tournamentStatusOptions.find((option) => option.value === value)?.label ?? value
   return (
-    <AdminShell user={user} title="大会一覧" notice={notice}>
+    <AdminShell
+      user={user}
+      title={user.role === 'admin' ? '大会一覧' : '自分の担当試合'}
+      notice={notice}
+    >
+      {user.role === 'admin' && mine.matches.length === 0 ? null : (
+        <MyMatches list={mine.matches} />
+      )}
+      {user.role === 'admin' ? null : <h2>担当の大会</h2>}
       {list.tournaments.length === 0 ? (
         <p className="adm-muted">
           {user.role === 'admin' ? '大会がありません。' : '担当の大会がありません。'}
@@ -58,5 +71,53 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
         </>
       ) : null}
     </AdminShell>
+  )
+}
+
+function MyMatches({ list }: { list: AssignedMatch[] }) {
+  if (list.length === 0) {
+    return (
+      <p className="adm-muted">
+        担当の試合はまだありません。本部(管理者)に、コートと時間帯の割り当てを頼んでください。
+      </p>
+    )
+  }
+  // 記録が終わっていない試合を先に、終わった試合を後ろにまとめる(次にやる試合が一番上に来る)
+  const ordered = [
+    ...list.filter((match) => match.status !== 'finished'),
+    ...list.filter((match) => match.status === 'finished'),
+  ]
+  return (
+    <ul className="adm-matches">
+      {ordered.map((match) => (
+        <li key={match.id} className={match.status}>
+          <a href={`/admin/matches/${match.id}/score`}>
+            <span className="when">
+              {[
+                match.date?.slice(5).replace('-', '/'),
+                match.time,
+                match.field && `コート ${match.field}`,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            </span>
+            <span className="teams">
+              {match.code} {sideName(match.left)} - {sideName(match.right)}
+            </span>
+            <span className="state">
+              {match.status === 'finished' && match.resultType !== 'normal'
+                ? resultTypeLabels[match.resultType]
+                : statusLabel(match.status)}
+              {match.status === 'finished' && match.left.score !== null
+                ? ` ${match.left.score}-${match.right.score}`
+                : ''}
+            </span>
+            <span className="sub">
+              {match.tournamentName} / {match.divisionName}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
   )
 }

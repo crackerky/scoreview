@@ -23,6 +23,17 @@ export type StatsKind = z.infer<typeof statsKindSchema>
 export const matchStatusSchema = z.enum(['scheduled', 'live', 'finished'])
 export type MatchStatus = z.infer<typeof matchStatusSchema>
 
+/** 試合の結果の種類(docs/api.md 共通の型 ResultType) */
+export const resultTypeSchema = z.enum([
+  'normal',
+  'forfeit',
+  'double_forfeit',
+  'no_contest',
+  'abandoned',
+  'unplayed',
+])
+export type ResultType = z.infer<typeof resultTypeSchema>
+
 export const groupKindSchema = z.enum(['pool', 'bracket', 'image'])
 export type GroupKind = z.infer<typeof groupKindSchema>
 

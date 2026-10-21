@@ -11,7 +11,7 @@ import (
 
 // 管理用エンドポイントのルートとハンドラ。ハンドラはボディの読み込み、store の呼び出し、DTO への
 // 変換だけを行う。記録係(staff)に許すのは、担当大会の読み取りと、試合の状態、得点経過、選手記録の
-// 変更だけ(docs/requirements.md 権限モデル)。
+// 変更だけ(docs/requirements.md 権限モデル)。試合を変えられるのは、記録係の割り当てが覆う試合だけ。
 
 func (s *Server) adminRoutes() {
 	const base = "/api/v1/admin"
@@ -78,20 +78,48 @@ func (s *Server) adminRoutes() {
 	s.admin("GET "+base+"/matches/{id}", staffOfMatch(), ok, withPathID(s.getMatchAdmin))
 	s.admin("PATCH "+base+"/matches/{id}", adminOnly(), ok, withPathID(s.patchMatch))
 	s.admin("DELETE "+base+"/matches/{id}", adminOnly(), noContent, withPathID(s.deleteMatch))
-	s.admin("POST "+base+"/matches/{id}/events", staffOfMatch(), created, withPathID(s.addEvent))
+	s.admin("POST "+base+"/matches/{id}/events", scorerOfMatch(), created, withPathID(s.addEvent))
 	s.admin(
 		"DELETE "+base+"/matches/{id}/events/{eventId}",
-		staffOfMatch(),
+		scorerOfMatch(),
 		ok,
 		withPathID(s.removeEvent),
 	)
 	s.admin(
+		"PATCH "+base+"/matches/{id}/events/{eventId}",
+		scorerOfMatch(),
+		ok,
+		withPathID(s.patchEvent),
+	)
+	s.admin(
 		"PUT "+base+"/matches/{id}/player-stats",
-		staffOfMatch(),
+		scorerOfMatch(),
 		ok,
 		withPathID(s.putPlayerStats),
 	)
-	s.admin("POST "+base+"/matches/{id}/status", staffOfMatch(), ok, withPathID(s.changeStatus))
+	s.admin("POST "+base+"/matches/{id}/status", scorerOfMatch(), ok, withPathID(s.changeStatus))
+	s.admin("POST "+base+"/matches/{id}/result", scorerOfMatch(), ok, withPathID(s.setResult))
+	s.admin("GET "+base+"/matches/{id}/audit", staffOfMatch(), ok, withPathID(s.matchAudit))
+
+	s.admin("GET "+base+"/me/matches", anyUser(), ok, s.myMatches)
+	s.admin(
+		"GET "+base+"/tournaments/{id}/assignments",
+		adminOnly(),
+		ok,
+		withPathID(s.listAssignments),
+	)
+	s.admin(
+		"POST "+base+"/tournaments/{id}/assignments",
+		adminOnly(),
+		created,
+		withPathID(s.createAssignment),
+	)
+	s.admin(
+		"DELETE "+base+"/assignments/{id}",
+		adminOnly(),
+		noContent,
+		withPathID(s.deleteAssignment),
+	)
 
 	s.admin("GET "+base+"/tournaments/{id}/galleries", adminOnly(), ok, withPathID(s.listGalleries))
 	s.admin(
@@ -320,7 +348,7 @@ func (s *Server) putFinalRanks(
 	ctx context.Context,
 	id int64,
 	r *http.Request,
-	_ domain.User,
+	user domain.User,
 ) (any, error) {
 	var body []finalRankDTO
 	if err := decodeBody(r, &body); err != nil {
@@ -330,7 +358,7 @@ func (s *Server) putFinalRanks(
 	for i, rank := range body {
 		ranks[i] = store.FinalRank{TeamID: rank.TeamID, Rank: rank.Rank}
 	}
-	records, err := store.SetFinalRanks(ctx, s.db, id, ranks)
+	records, err := store.SetFinalRanks(ctx, s.db, actorOf(user), id, ranks)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +552,7 @@ func (s *Server) patchTeam(
 	ctx context.Context,
 	id int64,
 	r *http.Request,
-	_ domain.User,
+	user domain.User,
 ) (any, error) {
 	current, err := store.GetAdminTeam(ctx, s.db, id)
 	if err != nil {
@@ -534,7 +562,7 @@ func (s *Server) patchTeam(
 	if err := decodeBody(r, &in); err != nil {
 		return nil, err
 	}
-	record, err := store.UpdateTeam(ctx, s.db, id, in.fields())
+	record, err := store.UpdateTeam(ctx, s.db, actorOf(user), id, in.fields())
 	if err != nil {
 		return nil, err
 	}
@@ -714,6 +742,7 @@ func (s *Server) addEvent(
 			ScorerID: body.ScorerID, AssistID: body.AssistID, Callahan: body.Callahan,
 		},
 		ElapsedSec: body.ElapsedSec, WinnerSide: toSidePtr(body.WinnerSide),
+		ClientID: body.ClientID,
 	}
 	detail, err := store.AddMatchEvent(ctx, s.db, actorOf(user), id, input, s.now())
 	if err != nil {
@@ -728,11 +757,15 @@ func (s *Server) removeEvent(
 	r *http.Request,
 	user domain.User,
 ) (any, error) {
-	eventID, err := pathInt64(r, "eventId")
+	ref, err := eventRef(r)
 	if err != nil {
 		return nil, err
 	}
-	detail, err := store.RemoveMatchEvent(ctx, s.db, actorOf(user), id, eventID)
+	var clientID *string
+	if value := r.URL.Query().Get("clientId"); value != "" {
+		clientID = &value
+	}
+	detail, err := store.RemoveMatchEventRef(ctx, s.db, actorOf(user), id, ref, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -778,6 +811,7 @@ func (s *Server) changeStatus(
 	input := store.StatusInput{
 		Status:     domain.MatchStatus(body.Status),
 		WinnerSide: toSidePtr(body.WinnerSide),
+		ClientID:   body.ClientID,
 	}
 	if body.Score != nil {
 		input.Score = &domain.Score{Left: body.Score.Left, Right: body.Score.Right}

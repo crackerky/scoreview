@@ -203,6 +203,7 @@ type scoringSetup struct {
 	division          int64
 	otherDivision     int64
 	match, otherMatch int64
+	unassigned        int64 // 担当大会の試合のうち、記録係に割り当てていない試合
 	left, right       int64 // チーム ID
 	scorer            int64 // 左チームの選手
 }
@@ -241,6 +242,13 @@ func (f *adminFixture) setupScoring(t *testing.T) scoringSetup {
 	}
 	s.division, s.match, s.left, s.right = makeMatch(s.own)
 	s.otherDivision, s.otherMatch, _, _ = makeMatch(s.other)
+	s.unassigned = id(f.call(t, http.StatusCreated, http.MethodPost,
+		fmt.Sprintf("/api/v1/admin/divisions/%d/matches", s.division),
+		map[string]any{"code": "A2", "left": map[string]any{"teamId": s.right},
+			"right": map[string]any{"teamId": s.left}})["id"])
+	f.call(t, http.StatusCreated, http.MethodPost,
+		fmt.Sprintf("/api/v1/admin/tournaments/%d/assignments", s.own),
+		map[string]any{"userId": f.staffID, "matchId": s.match})
 	s.scorer = id(
 		f.call(t, http.StatusCreated, http.MethodPost, fmt.Sprintf("/api/v1/admin/teams/%d/players", s.left),
 			map[string]any{"number": "7", "name": map[string]string{"ja": "選手", "en": "Player"}, "gender": "F"})["id"],
@@ -304,6 +312,10 @@ func TestStaffAuthorization(t *testing.T) {
 		{http.MethodGet, fmt.Sprintf("/api/v1/admin/matches/%d", s.otherMatch)},
 		{http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/events", s.otherMatch)},
 		{http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/status", s.otherMatch)},
+		// 担当大会でも、割り当てのない試合は入力できない
+		{http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/events", s.unassigned)},
+		{http.MethodPost, fmt.Sprintf("/api/v1/admin/matches/%d/result", s.unassigned)},
+		{http.MethodPost, fmt.Sprintf("/api/v1/admin/tournaments/%d/assignments", s.own)},
 		// 担当大会でも、試合以外の登録と編集は admin だけ
 		{http.MethodPatch, fmt.Sprintf("/api/v1/admin/tournaments/%d", s.own)},
 		{http.MethodPost, fmt.Sprintf("/api/v1/admin/divisions/%d/teams", s.division)},

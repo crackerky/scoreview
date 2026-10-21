@@ -34,6 +34,10 @@ export default async function AdminDivisionPage(props: IdPageProps) {
   return (
     <AdminShell user={user} title={division.name.ja} notice={notice} crumbs={crumbs}>
       <h2>試合</h2>
+      <p className="adm-actions">
+        <a href={`/admin/divisions/${id}/sheets`}>スコアシートをまとめて印刷</a>
+        <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
+      </p>
       <MatchTable matches={matchList.matches} isAdmin={user.role === 'admin'} />
       {user.role === 'admin' ? (
         <AdminSections
@@ -79,6 +83,7 @@ function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin
               </td>
               <td className="adm-actions">
                 <a href={`/admin/matches/${match.id}/score`}>スコア入力</a>
+                <a href={`/admin/matches/${match.id}/sheet`}>印刷</a>
                 {isAdmin ? <a href={`/admin/matches/${match.id}`}>編集</a> : null}
               </td>
             </tr>
