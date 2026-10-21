@@ -103,7 +103,7 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 				p.End = end
 			}
 		}
-		p.Ranked, p.Unique = rankedPlaces(plan)
+		p.Ranked, p.Unique = FinalPlaces(plan)
 		out = append(out, p)
 	}
 
@@ -298,8 +298,8 @@ func Title(plan *Plan) string {
 	return fmt.Sprintf("%s → %s(%s)", head, strings.Join(tail, "、"), strings.Join(places, " / "))
 }
 
-// rankedPlaces は全試合を終えたときに最終順位が付くチーム数と、そのうち同順位でないチーム数。
-func rankedPlaces(plan *Plan) (int, int) {
+// FinalPlaces は全試合を終えたときに最終順位が付くチーム数と、そのうち同順位でないチーム数を返す。
+func FinalPlaces(plan *Plan) (int, int) {
 	ranked, unique := 0, 0
 	for _, g := range plan.Groups {
 		if !g.Final {
