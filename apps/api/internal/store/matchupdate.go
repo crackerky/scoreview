@@ -61,12 +61,14 @@ type EventPlayersInput struct {
 }
 
 // StatusInput は状態の変更。Score は得点経過の無い試合(詳細なしの試合)の結果を直接入れるときだけ使い、
-// 得点経過がある試合ではスコアは経過から決まるので指定できない。
+// 得点経過がある試合ではスコアは経過から決まるので指定できない。Downstream は、結果のある下流の
+// 試合の対戦が変わるとき(終了した試合を試合中へ戻すなど)の承認と下流の扱い(format_guard.go)。
 type StatusInput struct {
 	Status     domain.MatchStatus
 	WinnerSide *domain.Side
 	Score      *domain.Score
 	ClientID   *string
+	Downstream Downstream
 }
 
 // ResultInput は通常以外の結果(不戦勝、両チーム不戦敗、不成立、途中打ち切り、未消化)で試合を終える
@@ -104,6 +106,7 @@ type matchOpChange struct {
 
 // runMatchOp は試合を変える 1 回の操作を、ディビジョンと試合の行の lock(locks.go の順序)、送り直しの
 // 検出、監査ログの記録と同じトランザクションで行い、操作の後のスコア入力画面のデータを返す。
+// 結果のある下流の試合の対戦が変わる操作は承認なしでは保存しない(runApprovedMatchOp)。
 func runMatchOp(
 	ctx context.Context,
 	db *gorm.DB,
@@ -111,6 +114,21 @@ func runMatchOp(
 	matchID int64,
 	clientID *string,
 	action string,
+	apply func(tx *gorm.DB, match Match) (matchOpChange, error),
+) (MatchDetail, error) {
+	return runApprovedMatchOp(ctx, db, actor, matchID, clientID, action, DownstreamNone, apply)
+}
+
+// runApprovedMatchOp は runMatchOp に、下流の試合への影響の承認(downstream)を付けたもの。
+// 対戦チームが決まる前の試合には、得点者の付け直し以外の操作をさせない(結果が誰のものか決まらない)。
+func runApprovedMatchOp(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	matchID int64,
+	clientID *string,
+	action string,
+	downstream Downstream,
 	apply func(tx *gorm.DB, match Match) (matchOpChange, error),
 ) (MatchDetail, error) {
 	if err := domain.CheckClientID("clientId", clientID); err != nil {
@@ -125,12 +143,18 @@ func runMatchOp(
 		if err != nil || applied {
 			return err
 		}
+		if action != AuditEventUpdate && (match.LeftTeamID == nil || match.RightTeamID == nil) {
+			return fmt.Errorf("%w: 対戦チームが決まっていない試合の結果は入れられません", domain.ErrConflict)
+		}
 		change, err := apply(tx, match)
 		if err != nil {
 			return err
 		}
 		after, err := findInternal[Match](ctx, tx, matchID, "match")
 		if err != nil {
+			return err
+		}
+		if err := guardDownstream(ctx, tx, actor, match, after, downstream); err != nil {
 			return err
 		}
 		division, err := findInternal[Division](ctx, tx, match.DivisionID, "division")
@@ -404,7 +428,7 @@ func ChangeMatchStatus(
 	if input.WinnerSide != nil && input.Status != domain.MatchFinished {
 		return MatchDetail{}, domain.Invalid("winnerSide", "only when finishing")
 	}
-	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchStatus,
+	return runApprovedMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchStatus, input.Downstream,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
 			return matchOpChange{}, changeStatus(ctx, tx, actor, match, input)
 		})
@@ -607,6 +631,36 @@ func writeMatchState(ctx context.Context, tx *gorm.DB, before Match, state match
 	// とき(試合開始、試合終了)に、同じトランザクションで notification_jobs へ INSERT する。
 	// トランザクションの外で配信すると、ロールバックした変更を通知してしまうため。
 	return nil
+}
+
+// resetMatchResult は試合の結果と得点経過を消して未試合に戻す。上流の訂正で対戦チームが変わり、
+// 運営者が「下流の結果を未試合に戻す」を選んだときだけ使う(format_guard.go)。通常の状態遷移
+// (domain.ValidTransition)にない未試合への戻しなので、この経路に閉じ込める。対戦チームは後続の
+// 同期で訂正後の順位のチームになる。監査ログに前後の状態を残す。
+func resetMatchResult(ctx context.Context, tx *gorm.DB, actor domain.Actor, matchID int64) error {
+	match, err := lockMatch(ctx, tx, matchID)
+	if err != nil || match.Status == domain.MatchScheduled {
+		return err
+	}
+	if err := tx.WithContext(ctx).Where(sqlByMatch, matchID).Delete(&MatchEvent{}).Error; err != nil {
+		return fmt.Errorf("remove events of match %d: %w", matchID, err)
+	}
+	err = writeMatchState(ctx, tx, match, matchState{status: domain.MatchScheduled,
+		resultType: domain.ResultNormal})
+	if err != nil {
+		return err
+	}
+	after, err := findInternal[Match](ctx, tx, matchID, "match")
+	if err != nil {
+		return err
+	}
+	division, err := findInternal[Division](ctx, tx, match.DivisionID, "division")
+	if err != nil {
+		return err
+	}
+	return writeAudit(ctx, tx, auditEntry{tournamentID: division.TournamentID, matchID: &matchID,
+		actor: actor, action: AuditMatchStatus, before: AuditSnapshot{Match: auditMatchState(match)},
+		after: AuditSnapshot{Match: auditMatchState(after)}})
 }
 
 // advanceFromResult は試合の結果を、それを参照する後続試合へ反映する。勝者や敗者を次の試合へ進める

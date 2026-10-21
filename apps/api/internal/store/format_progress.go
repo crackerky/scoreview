@@ -88,29 +88,24 @@ func (fs *formatState) writeSlots(ctx context.Context, tx *gorm.DB) error {
 	return nil
 }
 
-// sideTeams は試合の左右の枠が解決したチーム(枠でない側は nil と false)。
+// sideTeams は試合の左右の計算上のチーム(枠のチームか、前の試合の勝者・敗者。決まらなければ nil)。
+// 形の外の試合なら hasLeft と hasRight が偽。
 func (fs *formatState) sideTeams(m Match) (left, right *int64, hasLeft, hasRight bool) {
-	sides := fs.matchSlots[m.ID]
-	pick := func(slotID *int64) (*int64, bool) {
-		if slotID == nil {
-			return nil, false
-		}
-		key, ok := fs.slotKeys[*slotID]
-		if !ok {
-			return nil, false
-		}
-		if status := fs.res.Slots[key]; status.Resolved() {
-			id := status.TeamID
-			return &id, true
-		}
-		return nil, true
+	mt, ok := fs.res.Matches[m.Code]
+	if !ok {
+		return nil, nil, false, false
 	}
-	left, hasLeft = pick(sides.LeftSlotID)
-	right, hasRight = pick(sides.RightSlotID)
-	return left, right, hasLeft, hasRight
+	pick := func(status format.TeamStatus) *int64 {
+		if !status.Resolved() {
+			return nil
+		}
+		id := status.TeamID
+		return &id
+	}
+	return pick(mt.Left), pick(mt.Right), true, true
 }
 
-// writeMatchTeams は枠を左右に持つ試合のチームを枠のチームにする。force が偽なら未試合の試合だけ
+// writeMatchTeams は試合のチームを計算上のチーム(sideTeams)にする。force が偽なら未試合の試合だけ
 // (読んだ後に始まった試合も変えないよう、UPDATE に status の条件を付けて変えた行数を確かめる)、
 // 真なら only の試合を状態によらず変える(運営者が食い違いを直すとき)。
 func (fs *formatState) writeMatchTeams(
@@ -328,6 +323,10 @@ func confirmGroupIn(
 	if group.Kind != domain.GroupPool {
 		return fmt.Errorf("%w: トーナメントは試合の終了で自動に進むので確定は要りません", domain.ErrConflict)
 	}
+	if len(status.Mismatches) > 0 && status.State != format.GroupConfirmed {
+		return fmt.Errorf("%w: %s に対戦チームが順位と食い違っている試合(%s)があります。先に差し替えてください",
+			domain.ErrConflict, group.Name, strings.Join(status.Mismatches, "、"))
+	}
 	switch status.State {
 	case format.GroupConfirmed:
 		return nil
@@ -518,8 +517,9 @@ func (fs *formatState) bandTie(stage, rank int) []int64 {
 	return ranking.Unresolved[0]
 }
 
-// AlignMatchTeams は既に始まった試合の左右を、枠が解決したチームに合わせる(訂正で順位が変わり、
-// 運営者が対戦チームの差し替えを選んだとき)。スコアと状態は変えない。
+// AlignMatchTeams は既に始まった試合の左右を、計算上のチームに合わせる(訂正で順位が変わり、
+// 運営者が対戦チームの差し替えを選んだとき)。スコアと状態は変えない。試合の結果は新しいチームの
+// ものになるので、勝者と敗者を次の試合へ流し直す(advanceFromResult)。
 func AlignMatchTeams(ctx context.Context, db *gorm.DB, actor domain.Actor, matchID int64) error {
 	match, err := findByID[Match](ctx, db, matchID, domain.ResourceMatch)
 	if err != nil {
@@ -530,7 +530,15 @@ func AlignMatchTeams(ctx context.Context, db *gorm.DB, actor domain.Actor, match
 		if err != nil {
 			return err
 		}
-		if err := syncBracketSlots(ctx, tx, changed); err != nil {
+		aligned, err := findInternal[Match](ctx, tx, matchID, "match")
+		if err != nil {
+			return err
+		}
+		advanced, err := advanceFromResult(ctx, tx, aligned)
+		if err != nil {
+			return err
+		}
+		if err := syncBracketSlots(ctx, tx, append(changed, advanced...)); err != nil {
 			return err
 		}
 		id := matchID

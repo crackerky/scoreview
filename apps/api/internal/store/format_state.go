@@ -102,9 +102,7 @@ type formatState struct {
 	groupIndex map[int64]int
 	stages     map[int]Stage
 	slots      map[format.SlotKey]GroupSlot
-	slotKeys   map[int64]format.SlotKey
 	matches    map[string]Match
-	matchSlots map[int64]matchSlotRow
 	decisions  []GroupRankDecision
 	state      format.State
 	res        *format.Resolution
@@ -150,8 +148,7 @@ func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*forma
 		return nil, ok, err
 	}
 	fs := &formatState{row: row, groups: map[int]formatGroupRow{}, groupIndex: map[int64]int{},
-		stages: map[int]Stage{}, slots: map[format.SlotKey]GroupSlot{}, slotKeys: map[int64]format.SlotKey{},
-		matches: map[string]Match{}, matchSlots: map[int64]matchSlotRow{}}
+		stages: map[int]Stage{}, slots: map[format.SlotKey]GroupSlot{}, matches: map[string]Match{}}
 	if fs.division, err = findInternal[Division](ctx, db, divisionID, "division"); err != nil {
 		return nil, false, err
 	}
@@ -220,7 +217,6 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 	for _, s := range slots {
 		key := format.SlotKey{Group: fs.groupIndex[s.GroupID], Position: s.Position}
 		fs.slots[key] = s
-		fs.slotKeys[s.ID] = key
 	}
 	var matches []Match
 	if err := tx.Where(sqlByDivision, id).Order(sqlOrderID).Find(&matches).Error; err != nil {
@@ -231,13 +227,6 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 			fs.matches[m.Code] = m
 		}
 	}
-	var sides []matchSlotRow
-	if err := tx.Where(sqlByDivision, id).Find(&sides).Error; err != nil {
-		return fmt.Errorf("load match slots of division %d: %w", id, err)
-	}
-	for _, s := range sides {
-		fs.matchSlots[s.ID] = s
-	}
 	if err := tx.Where(sqlDecisionsOf, groupIDs, stageIDs).Order(sqlOrderID).
 		Find(&fs.decisions).Error; err != nil {
 		return fmt.Errorf("load rank decisions of division %d: %w", id, err)
@@ -246,7 +235,8 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 }
 
 // formatResultOf は試合の行を順位計算の結果にする。結果の種類(matches.result_type)は format の
-// 種類に対応させる(不成立 no_contest は format の void)。
+// 種類に対応させる(不成立 no_contest は format の void)。Played は行の左右のチームで、勝者と敗者は
+// このチームで決まる(計算上の対戦チームと食い違えば、エンジンは結果を下流へ流さない)。
 func formatResultOf(m Match) format.Result {
 	kind := format.ResultNormal
 	switch m.ResultType {
@@ -261,8 +251,15 @@ func formatResultOf(m Match) format.Result {
 	case domain.ResultUnplayed:
 		kind = format.ResultUnplayed
 	}
+	played := format.PlayedTeams{}
+	if m.LeftTeamID != nil {
+		played.Left = *m.LeftTeamID
+	}
+	if m.RightTeamID != nil {
+		played.Right = *m.RightTeamID
+	}
 	return format.Result{Status: m.Status, Type: kind, LeftScore: m.LeftScore,
-		RightScore: m.RightScore, Winner: m.WinnerSide}
+		RightScore: m.RightScore, Winner: m.WinnerSide, Played: &played}
 }
 
 func (fs *formatState) buildState() format.State {

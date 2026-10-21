@@ -491,21 +491,18 @@ func (v progressBuilder) courtDelays() []TodoItem {
 	return out
 }
 
-// mismatches は、既に始まった試合で、左右のチームが枠の解決したチームと食い違うもの(確定後の訂正で
-// 順位が変わった)。
+// mismatches は、既に始まった試合で、記録した左右のチームが計算上のチーム(枠のチーム、前の試合の
+// 勝者・敗者)と食い違うもの(確定後の訂正で順位が変わった)。結果は下流と最終順位に使っていない。
 func (v progressBuilder) mismatches() []TodoItem {
 	var out []TodoItem
 	for _, m := range v.sortedMatches() {
-		if m.Status == domain.MatchScheduled {
+		if !v.fs.res.Matches[m.Code].Mismatch {
 			continue
 		}
-		left, right, hasLeft, hasRight := v.fs.sideTeams(m)
-		if (hasLeft && left != nil && !sameID(left, m.LeftTeamID)) ||
-			(hasRight && right != nil && !sameID(right, m.RightTeamID)) {
-			id := m.ID
-			out = append(out, TodoItem{Kind: TodoMismatch, MatchID: &id,
-				Text: fmt.Sprintf("%s の対戦チームが、訂正後の順位と食い違っています(結果は入ったまま)", m.Code)})
-		}
+		id := m.ID
+		out = append(out, TodoItem{Kind: TodoMismatch, MatchID: &id,
+			Text: fmt.Sprintf("%s の対戦チームが、訂正後の順位と食い違っています。結果は次の試合と最終順位に"+
+				"使っていません。チームを差し替えるか、結果を入れ直してください", m.Code)})
 	}
 	return out
 }

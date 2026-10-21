@@ -202,7 +202,8 @@ function TodoAction({
           <Hidden values={{ back, matchId: todo.matchId ?? 0 }} />
           <button type="submit" className="danger">
             順位どおりのチームに差し替える(結果はそのまま)
-          </button>
+          </button>{' '}
+          <a href={`/admin/matches/${todo.matchId ?? 0}/result`}>結果を直す</a>
         </form>
       )
   }

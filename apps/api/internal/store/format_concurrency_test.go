@@ -105,7 +105,7 @@ func TestCorrectionDoesNotOverwriteMatchStartedMeanwhile(t *testing.T) {
 	wg.Go(func() {
 		// A1 を逆にすると A の 1 位が teams[7] になる
 		_, corrErr = store.ApplyCorrection(ctx, f.db, f.actor, f.match(t, "A1").ID,
-			store.CorrectionInput{Score: domain.Score{Left: 1, Right: 3}}, true)
+			store.CorrectionInput{Score: domain.Score{Left: 1, Right: 3}}, store.DownstreamKeep)
 	})
 	waitLockWaiters(t, f.db, 1)
 	require.NoError(t, blocker.Commit().Error)

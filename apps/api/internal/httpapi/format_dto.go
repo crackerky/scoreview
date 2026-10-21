@@ -424,7 +424,9 @@ type scoreInputDTO struct {
 type correctionInputDTO struct {
 	Score      *scoreInputDTO `json:"score"`
 	WinnerSide *domain.Side   `json:"winnerSide"`
-	Approved   bool           `json:"approved"`
+	// Downstream は結果のある下流の試合の対戦が変わるときの承認と下流の扱い(keep / reset)。
+	// null は承認しない
+	Downstream *string `json:"downstream"`
 }
 
 func (in correctionInputDTO) toInput() (store.CorrectionInput, error) {

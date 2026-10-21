@@ -6,14 +6,40 @@ import { ApiError } from '@/api/client'
 import { formats } from '@/api/format'
 import type { Impact } from '@/api/format.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
-import { correctMatchAction } from '@/app/admin/_actions/format'
+import { correctMatchAction, reopenMatchAction } from '@/app/admin/_actions/format'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Hidden } from '@/components/admin/AdminParts'
 import '@/styles/format-admin.css'
 
 // 結果の入力と訂正(docs/operations/operator-experience.md「当日」5)。スコアを入れて「影響を確かめる」を
 // 押すと、保存の前に順位と次の組み合わせがどう変わるかを出す。既に結果のある試合に影響するなら、
-// 明示的な承認のチェックが無いと保存できない。
+// 下流の結果の扱い(未試合に戻す / 食い違いとして残す)を選ばないと保存できない。
+
+function DownstreamChoice({ required }: { required: boolean }) {
+  return (
+    <fieldset className="adm-field">
+      <legend>既に結果のある下流の試合の扱い</legend>
+      {required ? null : (
+        <label className="adm-check">
+          <input type="radio" name="downstream" value="" defaultChecked />
+          <span>下流に結果のある試合があれば止める</span>
+        </label>
+      )}
+      <label className="adm-check">
+        <input type="radio" name="downstream" value="reset" required={required} />
+        <span>
+          下流の試合の結果を消して未試合に戻す(訂正後の順位のチームで組み直し、試合をやり直す)
+        </span>
+      </label>
+      <label className="adm-check">
+        <input type="radio" name="downstream" value="keep" required={required} />
+        <span>
+          下流の試合の結果は残す(「食い違い」として本部の画面に出る。結果は差し替えるまで次の試合と最終順位に使わない)
+        </span>
+      </label>
+    </fieldset>
+  )
+}
 
 function pick(value: string | string[] | undefined): string {
   return typeof value === 'string' ? value : ''
@@ -43,7 +69,7 @@ export default async function MatchResultPage(props: IdPageProps) {
       impact = await formats.correctionImpact(token, id, {
         score: { left, right },
         winnerSide,
-        approved: false,
+        downstream: null,
       })
     } catch (error) {
       if (!(error instanceof ApiError) || error.status >= 500) {
@@ -83,6 +109,15 @@ export default async function MatchResultPage(props: IdPageProps) {
           この試合には得点経過があります。結果は{' '}
           <a href={`/admin/matches/${id}/score`}>スコア入力画面</a> で得点経過を直してください。
         </p>
+      ) : null}
+      {detail.events.length > 0 && finished ? (
+        <form action={reopenMatchAction}>
+          <Hidden values={{ back, matchId: id }} />
+          <DownstreamChoice required={false} />
+          <button type="submit" className="danger">
+            試合中に戻して得点経過を直す
+          </button>
+        </form>
       ) : null}
 
       <form method="get" action={back}>
@@ -152,14 +187,7 @@ export default async function MatchResultPage(props: IdPageProps) {
                 winnerSide: winnerSide ?? '',
               }}
             />
-            {impact.needsApproval ? (
-              <label className="adm-check">
-                <input type="checkbox" name="approved" required />
-                <span>
-                  既に結果のある試合の対戦が変わることを確認しました(その試合のチームは自動では変わらず、本部の画面に「食い違い」として出ます)
-                </span>
-              </label>
-            ) : null}
+            {impact.needsApproval ? <DownstreamChoice required={true} /> : null}
             <button type="submit" className={impact.needsApproval ? 'danger' : ''}>
               この結果で保存する
             </button>

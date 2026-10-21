@@ -609,6 +609,7 @@ UUID の形でない `clientId` は 400。得点経過の追加では `clientId`
   status: MatchStatus
   winnerSide?: Side | null           // finished にするときだけ。同点のトーナメントの試合では必須
   score?: { left: number; right: number } | null  // 得点経過の無い試合(詳細なし)の結果。経過がある試合では指定不可
+  downstream?: 'keep' | 'reset' | null  // 結果のある下流の試合の対戦が変わるときの承認(下記「大会の形と進行」)
 }
 ```
 
@@ -667,6 +668,7 @@ type AuditEntry = {
   at: string                         // RFC 3339(UTC)
   user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
   action: 'event.add' | 'event.remove' | 'event.update' | 'match.status' | 'match.result' | 'team.final_rank'
+    | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
   matchId: number | null; teamId: number | null
   // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
   before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
@@ -806,14 +808,19 @@ type Impact = {
 | `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須) |
 | `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決 |
 | `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
-| `POST /admin/matches/{id}/correction` | 上と同じ + `approved: boolean` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `approved: false` なら 409。得点経過のある試合は 400 |
-| `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない) |
+| `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は 400 |
+| `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |
 | `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }` |
 | `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |
 | `POST /admin/matches/{id}/swap-schedule` | `{ otherMatchId: number }` | `{ violations }`。未試合の 2 試合の日付、時刻、コートを入れ替える |
 
 - 試合の結果が変わるたび(得点経過、状態、結果の種類の変更)に、形のあるディビジョンでは枠と下流の未試合の試合の左右、グループのチーム、プールの順位(`rank_override`)、最終順位(`teams.final_rank`)を自動で書き直す。トーナメント内の勝ち上がりは自動、プールから次の段へは確定が要る。
-- 既に始まった試合の左右は自動では変えない。食い違いは `progress.todo` の `mismatch` に出る。
+- 既に始まった試合の左右は自動では変えない。食い違いは `progress.todo` の `mismatch` に出る(枠の側も、前の試合の勝者・敗者を待つ側も)。食い違う試合の結果は、勝者と敗者を次の試合へ流さず、最終順位にも使わない(結果を記録した対戦チームで勝者を決めるので、出ていないチームを勝者にしない)。食い違いのあるプールは確定できない。
+- 結果を変える全経路(得点経過の追加と取り消し、状態の変更、結果の種類、訂正)で、既に結果のある下流の試合の対戦が新たに変わるなら、`downstream` を付けない限り 409。`downstream` は状態の変更(`POST /admin/matches/{id}/status`)と訂正だけが受け付ける。得点経過の `end` の取り消しで 409 になったら、状態の変更(`status: 'live'`)に `downstream` を付けて試合中へ戻す。
+  - `reset`: 影響を受ける下流の試合の結果と得点経過を消して未試合に戻す。対戦チームは訂正後の順位で入れ直る(監査ログに `match.status` で残る)。
+  - `keep`: 下流の結果を残す。その試合は `mismatch` になり、`align-teams` で差し替えるか結果を直すまで、結果を次の試合と最終順位に使わない。
+  - 既に食い違いになっている試合は、さらに対戦が変わっても承認の対象にしない(前の承認で扱いが決まっている)。
+- 対戦チームが決まっていない試合への結果の入力は、どの経路(得点経過、状態、結果の種類、訂正)でも 409。
 - 形の適用、確定、同順位の指定、差し替えは監査ログに残る(`format.apply`、`group.confirm`、`stage.confirm`、`group.rank_decision`、`stage.rank_decision`、`match.align_teams`)。
 
 ### ギャラリー
