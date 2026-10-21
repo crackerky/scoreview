@@ -58,6 +58,7 @@ URL: `https://score.clubjr.com/pscore/{scv_team|scv_match|scv_player}/open/{ID}?
    - 得点セル(5,8列目): 終了=整数。未試合=空セル。中央セルは全角 `Ｘ`(U+FF38)。
    - 状況セル: 終了=`<a href="#" class="Select_Link" onclick="...scv_match/open/{試合ID}?lang=jp...">[対戦結果]</a>`(en `[Result]`)、未試合=テキスト `未試合`(en `Waiting`)でリンクなし(= **未試合には試合IDへのリンクが出ない**)。
    - 日付は `MM/DD`、時間は `HH:MM␣`(末尾半角空白)。
+   - 試合が 1 つもないチーム(237 の中止大会の 22 チーム)では、この節(見出し、表、後ろの `<hr />`)が丸ごと出ない。
 6. (任意・旧大会) `SOTGｽｺｱ一覧` 表 (2017 DISCRAFT=4990 で確認。2021/2026 のチームには無い → データ有無か大会設定で出し分け):
    - 見出し table: `td.LM(26%) > span.SCV_MIDA_M「&lt; SOTGｽｺｱ一覧 &gt;」` + `td.LM(74%) > span.SCV_SOTG_COMM`(※１･･･ルールの理解　※２･･･ファール及び身体接触　※３･･･フェアプレイ　<br />※４･･･ポジティブな姿勢およびセルフマネジメント　※５･･･相手チームのスピリットとの比較)。`.SCV_SOTG_COMM{font-size:93%;color:#ff4500;line-height:120%}`
    - 表: CD / 相手チーム / ※１ ※２ ※３ ※４ ※５ / 合計 (td.MC_END)。値セルは4990では全て空。最終行 `colspan=2 「&lt; SOTG 平均 &gt;」`(td.MD1) + 空6セル。

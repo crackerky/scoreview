@@ -70,6 +70,12 @@ describe('チームページ(clone-spec D 1.1)', () => {
     assert.match(html, /<td class="CM">4 {2}<\/td><td class="CM">2 {2}<\/td>/)
   })
 
+  test('試合のないチームは対戦一覧を見出しごと出さない', () => {
+    const out = renderHtml(<TeamView data={{ ...team, matches: [] }} lang="jp" />)
+    assert.doesNotMatch(out, /チーム対戦一覧/)
+    assert.match(out, /<\/table><\/div><hr\/><span class="SCV_MIDA_M">&lt; 選手一覧 &gt;<\/span>/)
+  })
+
   test('欠場の選手は行の全セルに ABS を付ける', () => {
     const players = team.players.map((line, index) =>
       index === 3 ? { ...line, absent: true } : line,

@@ -177,12 +177,17 @@ export function TeamView({ data, lang }: { data: TeamResponse; lang: Lang }) {
       <TeamHeading team={data.team} lang={lang} />
       <RecordTable record={data.record} lang={lang} />
       <hr />
-      <ScvMidaM>{angleHeading(lang, msg(lang, 'teamGameList'))}</ScvMidaM>
-      <br />
-      <Tbl>
-        <MatchListRows rows={data.matches} lang={lang} />
-      </Tbl>
-      <hr />
+      {/* 試合が 1 つもないチーム(237 の中止大会)は対戦一覧を見出しごと出さない */}
+      {data.matches.length > 0 && (
+        <>
+          <ScvMidaM>{angleHeading(lang, msg(lang, 'teamGameList'))}</ScvMidaM>
+          <br />
+          <Tbl>
+            <MatchListRows rows={data.matches} lang={lang} />
+          </Tbl>
+          <hr />
+        </>
+      )}
       <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
       <PlayersTable players={data.players} lang={lang} />
       <hr />
