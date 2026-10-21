@@ -56,6 +56,7 @@ Node は 22 以上(`.nvmrc`)。シェルで pnpm が見つからないときは 
 - `pnpm go:lint` / `pnpm go:build` / `pnpm go:test` — api の golangci-lint / ビルド / テスト。
 - `cd apps/api && go run ./cmd/devdb` — 開発用 PostgreSQL(ポート 54329、データは `.local/devdb`)を起動してマイグレーションを当てる。Ctrl+C で停止。
 - `cd apps/api && DATABASE_URL=... INTERNAL_API_TOKEN=... go run ./cmd/api` — api を 8080 で起動。値は `.env.example` 参照。
+- `cd apps/api && DATABASE_URL=... SCOREVIEW_ADMIN_PASSWORD=... go run ./cmd/createadmin -email ...` — 最初の管理者を作る(パスワードは環境変数か標準入力。引数に書かない)。
 - `pnpm --filter @scoreview/web dev` — web を 3000 で起動(`apps/web/.env.local` に `BACKEND_INTERNAL_URL` と `INTERNAL_API_TOKEN`)。
 - 依存の追加は `pnpm add -E`(厳密ピン)、Go は `go get <module>@<version>`(バージョンを明示)。
 
