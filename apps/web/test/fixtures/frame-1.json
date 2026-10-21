@@ -18,15 +18,22 @@
         "en": "Beach Mixed"
       },
       "scheduleEnabled": true,
+      "menuSuffix": "Ult",
       "groups": [
         {
           "id": 1001,
-          "name": "Qualifying pool A",
+          "name": {
+            "ja": "Qualifying pool A",
+            "en": "Qualifying pool A"
+          },
           "linked": true
         },
         {
           "id": 1002,
-          "name": "Tounament A",
+          "name": {
+            "ja": "Tounament A",
+            "en": "Tournament A"
+          },
           "linked": true
         }
       ]
@@ -38,17 +45,24 @@
         "en": "Women's"
       },
       "scheduleEnabled": true,
+      "menuSuffix": "Ult",
       "groups": []
     }
   ],
   "galleries": [
     {
       "id": 201,
-      "name": "Day1-AM"
+      "name": {
+        "ja": "Day1-AM",
+        "en": "---"
+      }
     },
     {
       "id": 202,
-      "name": "Day1-PM"
+      "name": {
+        "ja": "Day1-PM",
+        "en": "---"
+      }
     }
   ],
   "banners": [

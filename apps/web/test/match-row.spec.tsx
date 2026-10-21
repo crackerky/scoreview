@@ -147,6 +147,23 @@ describe('結果一覧の行(clone-spec C 2.1(c)、D 1.1)', () => {
     assert.match(html, />\[Result\]<\/a>/)
   })
 
+  test('英語版で英語名のないチームは決まり方の表記を出す(英語名があれば名前)', () => {
+    const row = rowAt(0)
+    const labelled = {
+      ...row,
+      left: { ...row.left, team: { id: 1, name: { ja: '架空', en: '' } }, labelEn: '[MA-3rd]' },
+      right: {
+        ...row.right,
+        team: { id: 2, name: { ja: '見本', en: 'Sample' } },
+        labelEn: '(A10)',
+      },
+    }
+    const en = renderListRow(labelled, 'en')
+    assert.match(en, /open\/1\?lang=en">\[MA-3rd\]<\/a>/)
+    assert.match(en, /open\/2\?lang=en">Sample<\/a>/)
+    assert.match(renderListRow(labelled), /open\/1\?lang=jp">架空<\/a>/)
+  })
+
   test('推測: 試合中の行は MC_NOW', () => {
     const live = { ...rowAt(0), status: 'live' as const }
     assert.match(renderListRow(live), /<td class="MC_NOW LM">A1<\/td>/)

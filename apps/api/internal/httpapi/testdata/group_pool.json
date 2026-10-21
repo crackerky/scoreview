@@ -19,20 +19,30 @@
           "en": "Beach Mixed"
         },
         "scheduleEnabled": true,
+        "menuSuffix": "Ult",
         "groups": [
           {
             "id": 1,
-            "name": "Qualifying pool A",
+            "name": {
+              "ja": "Qualifying pool A",
+              "en": ""
+            },
             "linked": true
           },
           {
             "id": 4,
-            "name": "Tounament A",
+            "name": {
+              "ja": "Tounament A",
+              "en": ""
+            },
             "linked": false
           },
           {
             "id": 2,
-            "name": "Temporary ranking",
+            "name": {
+              "ja": "Temporary ranking",
+              "en": "Temporary ranking"
+            },
             "linked": true
           }
         ]
@@ -44,13 +54,17 @@
           "en": "Women's"
         },
         "scheduleEnabled": true,
+        "menuSuffix": "Ult",
         "groups": []
       }
     ],
     "galleries": [
       {
         "id": 1,
-        "name": "Day2-AM"
+        "name": {
+          "ja": "Day2-AM",
+          "en": "---"
+        }
       }
     ],
     "banners": [
@@ -129,7 +143,7 @@
           "kind": "match",
           "matchId": 3,
           "status": "scheduled",
-          "text": ""
+          "text": "A3"
         }
       ],
       [
@@ -218,7 +232,8 @@
           }
         },
         "placeholder": null,
-        "score": 9
+        "score": 9,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -229,7 +244,8 @@
           }
         },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       }
     },
     {
@@ -249,7 +265,8 @@
           }
         },
         "placeholder": null,
-        "score": 5
+        "score": 5,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -260,7 +277,8 @@
           }
         },
         "placeholder": null,
-        "score": 5
+        "score": 5,
+        "labelEn": ""
       }
     },
     {
@@ -280,7 +298,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -291,7 +310,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       }
     }
   ]

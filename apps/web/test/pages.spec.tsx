@@ -134,6 +134,13 @@ describe('チーム一覧(clone-spec A 5)', () => {
     assert.doesNotMatch(html, /scv_team\//)
   })
 
+  test('ナビが「エントリー一覧」の大会はチーム戦でも "Players"(名前はリンクのまま)', () => {
+    const entries = { ...teams1, frame: { ...teams1.frame, labels: teams2.frame.labels } }
+    const html = renderHtml(<TeamListView data={entries} lang="jp" />)
+    assert.match(html, /--\s4 Players\s--/)
+    assert.match(html, /href="\/pscore\/scv_team\/open\/5001\?lang=jp"/)
+  })
+
   test('lang=en ではチーム名とディビジョン名が英語、リンクに lang=en', () => {
     const html = renderHtml(<TeamListView data={teams1} lang="en" />)
     assert.match(html, />Beach Mixed   -- 4 Teams/)

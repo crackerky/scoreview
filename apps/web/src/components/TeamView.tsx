@@ -2,13 +2,13 @@ import type { TeamResponse } from '@/api/public.types'
 import { formatWinRate } from '@/format/format.utils'
 import { type Lang, pickText } from '@/i18n/lang'
 import { angleHeading, msg } from '@/i18n/messages'
-import { MatchListRows } from './MatchRowLine'
+import { MatchListRows, statusClass } from './MatchRowLine'
 import { PlayerLink } from './PlayerLink'
 import { ScvMidaM } from './ScvMidaM'
 import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
 
 // clone-spec D 1: チームページ /pscore/scv_team/open/{id} の #score_view の中身。
-// SOTG 表(D 1.1 の 6)は api にデータがないので出さない(フェーズ 2)。
+// SOTG 表(D 1.1 の 6)は参照サイトにも値がなく、表の形だけを出す(入力はフェーズ 2)。
 
 // clone-spec D 1.1: 得点・失点・得失差・順位・トータルのセルは値の後ろに半角空白 2 つ
 const trailing = '  '
@@ -89,23 +89,27 @@ function PlayersTable({ players, lang }: { players: TeamResponse['players']; lan
   return (
     <Tbl tableStyle={{ width: '100%' }}>
       <TblHeaderRow columns={playerColumns(lang)} />
-      {players.map(({ player, games, assists, goals, blocks }) => (
-        <tr key={player.id}>
-          <td className="CM">{player.number}</td>
-          <td className="LM">
-            <PlayerLink id={player.id} gender={player.gender} lang={lang}>
-              {pickText(lang, player.name)}
-            </PlayerLink>
-          </td>
-          <td className="CM">{games}</td>
-          <td className="CM">{assists}</td>
-          <td className="CM">{goals}</td>
-          <td className="CM">{`${assists + goals}${trailing}`}</td>
-          {/* clone-spec D 1.1: ブロック 0 は数字を出さない(空白 2 つだけのセル) */}
-          <td className="CM">{`${blocks === 0 ? '' : blocks}${trailing}`}</td>
-          <td className="CM" />
-        </tr>
-      ))}
+      {players.map(({ player, games, assists, goals, blocks, absent }) => {
+        // clone-spec D 1.1: 欠場の選手は行の全セルに ABS(灰色の背景)を付ける
+        const cm = absent ? 'CM ABS' : 'CM'
+        return (
+          <tr key={player.id}>
+            <td className={cm}>{player.number}</td>
+            <td className={absent ? 'LM ABS' : 'LM'}>
+              <PlayerLink id={player.id} gender={player.gender} lang={lang}>
+                {pickText(lang, player.name)}
+              </PlayerLink>
+            </td>
+            <td className={cm}>{games}</td>
+            <td className={cm}>{assists}</td>
+            <td className={cm}>{goals}</td>
+            <td className={cm}>{`${assists + goals}${trailing}`}</td>
+            {/* clone-spec D 1.1: ブロック 0 は数字を出さない(空白 2 つだけのセル) */}
+            <td className={cm}>{`${blocks === 0 ? '' : blocks}${trailing}`}</td>
+            <td className={cm} />
+          </tr>
+        )
+      })}
     </Tbl>
   )
 }
@@ -130,6 +134,75 @@ function StaffTable({ staff, lang }: { staff: TeamResponse['staff']; lang: Lang 
         </tr>
       ))}
     </Tbl>
+  )
+}
+
+/**
+ * clone-spec D 1.1 の 6: SOTG スコア一覧。見出しと凡例の表、試合ごとの行(CD と相手チームの短縮名、
+ * 値は空)、平均の行。参照サイトでも値は空。
+ */
+function SotgTables({ data, lang }: { data: TeamResponse; lang: Lang }) {
+  const [line1, line2] = msg(lang, 'sotgLegend').split('\n')
+  const items = [
+    'colSotg1',
+    'colSotg2',
+    'colSotg3',
+    'colSotg4',
+    'colSotg5',
+    'colSotgTotal',
+  ] as const
+  const columns: TblColumn[] = [
+    { label: 'CD', width: '10%' },
+    { label: msg(lang, 'colOpponent'), width: '20%' },
+    ...items.map((key) => ({ label: msg(lang, key), width: '11.6%' })),
+  ]
+  const emptyCells = (className: string) =>
+    ['1', '2', '3', '4', '5', 'total'].map((key) => <td key={key} className={className} />)
+  return (
+    <>
+      <div className="">
+        <table className="WMAX">
+          <tbody>
+            <tr>
+              <td className="LM" width="26%">
+                <ScvMidaM>{angleHeading(lang, msg(lang, 'sotgScoreList'))}</ScvMidaM>
+              </td>
+              <td className="LM" width="74%">
+                <span className="SCV_SOTG_COMM">
+                  {line1}
+                  <br />
+                  {/* 参照サイトは <br /> の後に改行と字下げがあり、画面では空白 1 つ */}
+                  {` ${line2}`}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <Tbl>
+        <TblHeaderRow columns={columns} />
+        {data.matches.map((row) => {
+          const state = statusClass[row.status]
+          const opponent = row.left.team?.id === data.team.id ? row.right.team : row.left.team
+          return (
+            <tr key={row.matchId}>
+              <td className={`${state} LM`}>{row.code}</td>
+              <td className={`${state} LM`}>
+                {opponent === null ? '' : pickText(lang, opponent.name)}
+              </td>
+              {emptyCells(`${state} CM`)}
+            </tr>
+          )
+        })}
+        <tr>
+          <td className="MD1 CM" colSpan={2}>
+            {msg(lang, 'sotgAverage')}
+          </td>
+          {emptyCells('MD1 CM')}
+        </tr>
+      </Tbl>
+      <hr />
+    </>
   )
 }
 
@@ -173,15 +246,26 @@ export function TeamView({ data, lang }: { data: TeamResponse; lang: Lang }) {
       <TeamHeading team={data.team} lang={lang} />
       <RecordTable record={data.record} lang={lang} />
       <hr />
-      <ScvMidaM>{angleHeading(lang, msg(lang, 'teamGameList'))}</ScvMidaM>
-      <br />
-      <Tbl>
-        <MatchListRows rows={data.matches} lang={lang} />
-      </Tbl>
-      <hr />
-      <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
-      <PlayersTable players={data.players} lang={lang} />
-      <hr />
+      {/* 試合が 1 つもないチーム(237 の中止大会)は対戦一覧を見出しごと出さない */}
+      {data.matches.length > 0 && (
+        <>
+          <ScvMidaM>{angleHeading(lang, msg(lang, 'teamGameList'))}</ScvMidaM>
+          <br />
+          <Tbl>
+            <MatchListRows rows={data.matches} lang={lang} />
+          </Tbl>
+          <hr />
+        </>
+      )}
+      {data.showSotg && <SotgTables data={data} lang={lang} />}
+      {/* 選手が 1 人もいないチーム(539 のエントリー直後)は選手一覧を見出しごと出さない */}
+      {data.players.length > 0 && (
+        <>
+          <ScvMidaM>{angleHeading(lang, msg(lang, 'playersList'))}</ScvMidaM>
+          <PlayersTable players={data.players} lang={lang} />
+          <hr />
+        </>
+      )}
       {data.staff.length > 0 && (
         <>
           <ScvMidaM>{angleHeading(lang, msg(lang, 'staffList'))}</ScvMidaM>

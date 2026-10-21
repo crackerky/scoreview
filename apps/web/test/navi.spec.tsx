@@ -79,6 +79,19 @@ describe('大会ナビの 7 パターン', () => {
     assert.equal(buildNavi(frame, 'jp').fillerWidthPx, 172)
   })
 
+  test('日程のないディビジョンはスケジュールとディビジョン成績に出ず、グループ成績には出る', () => {
+    const [first, second] = standard.divisions
+    assert.ok(first && second)
+    const frame = variant({ divisions: [first, { ...second, scheduleEnabled: false }] })
+    const navi = buildNavi(frame, 'jp')
+    const entryLabels = navi.items.map((item) =>
+      item.kind === 'menu' ? item.entries.map((entry) => entry.label) : [],
+    )
+    assert.deepEqual(entryLabels[2], ['全ディビジョン', 'ビーチミックス'])
+    assert.deepEqual(entryLabels[3], ['ビーチミックス'])
+    assert.deepEqual(entryLabels[4], ['ビーチミックス', 'ウィメン'])
+  })
+
   test('英語のラベル', () => {
     assert.deepEqual(labels(standard, 'en'), [
       'Tournament Top',
@@ -123,6 +136,24 @@ describe('ScoreNavi の描画', () => {
     )
     assert.match(html, /<li style="width:495px"><p> <\/p><\/li><\/ul>$/)
     assert.doesNotMatch(html, /scv_search|scv_division|scv_group/)
+  })
+
+  test('lang=en ではグループとギャラリーも英語名("---" もそのまま)', () => {
+    const html = renderHtml(<ScoreNavi frame={standard} lang="en" />)
+    assert.match(html, /href="\/pscore\/scv_group\/open\/1002\?lang=en">Tournament A</)
+    assert.match(html, /href="\/pscore\/scv_tgallery\/open\/201\?lang=en">---</)
+  })
+
+  test('名前の空のグループへのリンクはリンク先を文字にする(参照サイトの CakePHP と同じ)', () => {
+    const [first, second] = standard.divisions
+    assert.ok(first && second)
+    const groups = first.groups.map((group) => ({ ...group, name: { ...group.name, en: '' } }))
+    const frame = variant({ divisions: [{ ...first, groups }, second] })
+    const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)
+    assert.match(
+      html,
+      /<a href="\/pscore\/scv_group\/open\/1001\?lang=en">\/pscore\/scv_group\/open\/1001\?lang=en<\/a>/,
+    )
   })
 
   test('lang=en はリンクに引き継がれ、英語名が空のディビジョンは空のまま', () => {

@@ -88,7 +88,10 @@ function Scoreboard({ match, now, lang }: { match: Match; now: Date; lang: Lang 
             <td className="CM TG_MD1" width="16%">
               {msg(lang, 'matchResultBadge')}
             </td>
-            <td className="LM TG_MD1" width="68%" />
+            {/* 備考("スクラッチのため" など)。多くの試合で空 */}
+            <td className="LM TG_MD1" width="68%">
+              {match.note}
+            </td>
             {/* clone-spec D 2.2: 試合の時刻ではなく、ページを表示した時点の時刻 */}
             <td className="CM TG_MD1" width="16%">
               {formatClockJst(now)}
@@ -153,8 +156,9 @@ function sideCells(event: MatchEvent, side: Side, lang: Lang): SideCells {
     const point = side === 'left' ? event.leftScore : event.rightScore
     return { assist: event.assist, scorer: event.scorer, point: String(point) }
   }
-  // clone-spec D 2.3: ★ はプルした側 / タイムアウトを取った側の「点」列に出る
-  if (event.kind === 'pull' || event.kind === 'timeout') {
+  // clone-spec D 2.3: ★ はプルした側 / タイムアウトを取った側の「点」列に出る。試合終了の行にも
+  // ★ の付く試合がある(44803)
+  if (event.kind === 'pull' || event.kind === 'timeout' || event.kind === 'end') {
     return { ...emptySide, point: msg(lang, 'eventMark') }
   }
   return emptySide
@@ -212,11 +216,29 @@ const lineupColumns: TblColumn[] = [
   { label: msg('en', 'lineupBlock'), width: '13%' },
 ]
 
+// Block 列のない試合(41580、2017 年の 151 など)は 4 列で幅も違う
+const lineupColumnsWithoutBlocks: TblColumn[] = [
+  { label: msg('en', 'lineupNumber'), width: '10%' },
+  { label: msg('en', 'lineupPlayer'), width: '50%' },
+  { label: msg('en', 'lineupAssist'), width: '15%' },
+  { label: msg('en', 'lineupGoal'), width: '15%' },
+]
+
 /** 出場選手(固定高 150px でスクロール)。並びは api の順のまま、名前だけをリンクにする */
-function LineupTable({ id, rows, lang }: { id: string; rows: LineupRow[]; lang: Lang }) {
+function LineupTable({
+  id,
+  rows,
+  hideBlocks,
+  lang,
+}: {
+  id: string
+  rows: LineupRow[]
+  hideBlocks: boolean
+  lang: Lang
+}) {
   return (
     <Tbl className="TG_PlayersList_Ult" tableId={id}>
-      <TblHeaderRow columns={lineupColumns} />
+      <TblHeaderRow columns={hideBlocks ? lineupColumnsWithoutBlocks : lineupColumns} />
       {rows.map(({ player, assists, goals, blocks }) => (
         <tr key={player.id}>
           <td className="CM">{player.number}</td>
@@ -228,23 +250,31 @@ function LineupTable({ id, rows, lang }: { id: string; rows: LineupRow[]; lang: 
           <td className="CM">{assists}</td>
           <td className="CM">{goals}</td>
           {/* ブロック 0 は空セル(アシスト・ゴールの 0 は出す) */}
-          <td className="CM">{blocks === 0 ? '' : blocks}</td>
+          {!hideBlocks && <td className="CM">{blocks === 0 ? '' : blocks}</td>}
         </tr>
       ))}
     </Tbl>
   )
 }
 
-function Lineups({ lineups, lang }: { lineups: MatchResponse['lineups']; lang: Lang }) {
+function Lineups({
+  lineups,
+  hideBlocks,
+  lang,
+}: {
+  lineups: MatchResponse['lineups']
+  hideBlocks: boolean
+  lang: Lang
+}) {
   return (
     <table style={{ width: '100%' }}>
       <tbody>
         <tr>
           <td width="50%">
-            <LineupTable id="lplayers" rows={lineups.left} lang={lang} />
+            <LineupTable id="lplayers" rows={lineups.left} hideBlocks={hideBlocks} lang={lang} />
           </td>
           <td width="50%">
-            <LineupTable id="rplayers" rows={lineups.right} lang={lang} />
+            <LineupTable id="rplayers" rows={lineups.right} hideBlocks={hideBlocks} lang={lang} />
           </td>
         </tr>
       </tbody>
@@ -340,9 +370,10 @@ export function MatchView({ data, now, lang }: { data: MatchResponse; now: Date;
       <hr />
       <EventsTable events={data.events} lang={lang} />
       <hr />
-      <Lineups lineups={data.lineups} lang={lang} />
+      <Lineups lineups={data.lineups} hideBlocks={data.match.hideBlocks} lang={lang} />
       <hr />
-      <StatsTable match={data.match} stats={data.stats} lang={lang} />
+      {/* 統計表のない試合(2017 年の 151)は出場選手の後の <hr /> で終わる */}
+      {!data.match.hideStats && <StatsTable match={data.match} stats={data.stats} lang={lang} />}
     </>
   )
 }

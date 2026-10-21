@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // Event は試合の得点経過の 1 行。Side は goal なら得点した側、timeout なら取った側、
 // pull ならプルした側。end は nil。Callahan はキャラハンゴール(goal のときだけ true になりうる)。
 type Event struct {
@@ -70,10 +72,16 @@ func (m *MatchStats) side(s Side) *SideStats {
 // ポイントで得点するには必ず一度ターンオーバーで攻撃権を得ているためで、参照サイトの実データ
 // 12 試合すべてで「ターンオーバーからの得点数 = ディフェンス開始からの得点数」だった
 // (取込パーサ担当の解析)。そのため保存せず計算する(migrations/00002)。
+//
+// プルのある試合で最初のプルより前に記録された得点は、得点数にも数えない(参照サイトの 41572 は
+// スコア 18-1 だが、00:00 のプルの前に記録された 00:00 の得点を除いて統計の得点数が 17)。
+// プルのない試合ではすべての得点を数える。
 func ComputeMatchStats(events []Event) MatchStats {
 	var stats MatchStats
 	// defenseStart は現在のポイントをディフェンスで始めた側(= プルした側)。nil は不明
 	var defenseStart *Side
+	hasPull := slices.ContainsFunc(events, func(ev Event) bool { return ev.Kind == EventPull })
+	pulled := false
 	for _, ev := range events {
 		if ev.Side == nil {
 			continue
@@ -82,9 +90,13 @@ func ComputeMatchStats(events []Event) MatchStats {
 		switch ev.Kind {
 		case EventPull:
 			defenseStart = &evSide
+			pulled = true
 		case EventTimeout:
 			stats.side(evSide).Timeouts++
 		case EventGoal:
+			if hasPull && !pulled {
+				continue
+			}
 			st := stats.side(evSide)
 			st.Goals++
 			if defenseStart != nil {

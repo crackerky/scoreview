@@ -18,7 +18,8 @@
         }
       },
       "placeholder": null,
-      "score": 2
+      "score": 2,
+      "labelEn": ""
     },
     "right": {
       "team": {
@@ -29,7 +30,8 @@
         }
       },
       "placeholder": null,
-      "score": 1
+      "score": 1,
+      "labelEn": ""
     },
     "winnerSide": null,
     "resultType": "normal"

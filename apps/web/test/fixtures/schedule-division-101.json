@@ -1,17 +1,42 @@
 {
   "frame": "frame-1",
   "scope": "division",
-  "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } },
+  "division": {
+    "id": 101,
+    "name": {
+      "ja": "ビーチミックス",
+      "en": "Beach Mixed"
+    }
+  },
   "filters": {
     "dates": ["2026-10-18"],
     "teams": [
-      { "value": "5001", "name": { "ja": "架空チームA", "en": "Fictional A" } },
-      { "value": "5002", "name": { "ja": "架空チームB", "en": "Fictional B" } }
+      {
+        "value": "5001",
+        "name": {
+          "ja": "架空チームA",
+          "en": "Fictional A"
+        }
+      },
+      {
+        "value": "5002",
+        "name": {
+          "ja": "架空チームB",
+          "en": "Fictional B"
+        }
+      }
     ],
     "fields": ["1"],
-    "selected": { "ymd": "", "team": "", "field": "" }
+    "selected": {
+      "ymd": "",
+      "team": "",
+      "field": ""
+    }
   },
-  "sort": { "key": "field", "dir": "asc" },
+  "sort": {
+    "key": "field",
+    "dir": "asc"
+  },
   "rows": [
     {
       "matchId": 9001,
@@ -22,18 +47,35 @@
       "field": "1",
       "status": "finished",
       "left": {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "placeholder": null,
-        "score": 9
+        "score": 9,
+        "labelEn": ""
       },
       "right": {
-        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       },
       "division": {
         "id": 101,
-        "name": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
         "kind": "mixed"
       }
     }

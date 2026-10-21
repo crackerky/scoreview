@@ -247,6 +247,7 @@ func toMatchRow(match Match, teams map[int64]Team) (domain.MatchRow, error) {
 	if err != nil {
 		return domain.MatchRow{}, fmt.Errorf("match %d right: %w", match.ID, err)
 	}
+	left.LabelEn, right.LabelEn = match.LeftLabelEn, match.RightLabelEn
 	return domain.MatchRow{
 		ID:        match.ID,
 		HasDetail: match.HasDetail,

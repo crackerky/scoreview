@@ -58,11 +58,14 @@ type TournamentFrame = {
   divisions: Array<{
     id: number
     name: I18nText
-    scheduleEnabled: boolean         // サイドバーの SCORE メニューに出すか(divisions.schedule_enabled)
-    // published=true のグループだけ。sort_order, id 順
-    groups: Array<{ id: number; name: string; linked: boolean }>
+    // 日程があるか(divisions.schedule_enabled)。false のディビジョンはナビのスケジュールと
+    // ディビジョン成績に出ず、SCORE メニューではリンクのない項目になる
+    scheduleEnabled: boolean
+    menuSuffix: string               // SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
+    // published=true のグループだけ。sort_order, id 順。name.ja は前後の空白も名前の一部
+    groups: Array<{ id: number; name: I18nText; linked: boolean }>
   }>
-  galleries: Array<{ id: number; name: string }>
+  galleries: Array<{ id: number; name: I18nText }>  // 英語名は "---" のことが多い(参照サイトの値)
   banners: Array<{ imageUrl: string; linkUrl: string | null }>
 }
 
@@ -74,6 +77,9 @@ type MatchSide = {
   team: TeamRef | null
   placeholder: { code: string; outcome: 'win' | 'lose' } | null  // team が null のとき
   score: number | null
+  // 対戦相手の決まり方の英語表記("[A1-Win]" "[MA-3rd]" "(A10)")。なければ空文字。
+  // 英語版でチームの英語名が空のとき、名前の代わりに出す(参照サイトと同じ。clone-spec B 8)
+  labelEn: string
 }
 
 type MatchRow = {
@@ -190,10 +196,11 @@ type Tally = {
 {
   frame: TournamentFrame
   division: { id: number; name: I18nText }
-  standings: Array<Tally & { team: TeamRef; rank: number | null }>  // rank 昇順(NULL は末尾)、同順位は sort_order 順
+  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順
+  standings: Array<Tally & { team: TeamRef; rank: number | null }>
   leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
     team: TeamRef; player: PlayerRef
-    games: number; assists: number; goals: number
+    games: number; assists: number; goals: number   // games は選手のチームの試合数
   }>
   blockLeaders: Array<{ team: TeamRef; player: PlayerRef; games: number; blocks: number }>  // 上位 10 件、0 件は除く
 }
@@ -212,7 +219,8 @@ type Tally = {
     // teams と同じ順の N×N。対角 self、下三角 lower、上三角は試合があれば match、なければ empty
     matrix: Array<Array<
       | { kind: 'self' | 'lower' | 'empty' }
-      | { kind: 'match'; matchId: number; status: MatchStatus; text: string }  // text は "9-3"(試合記録の左右順)
+      // text は "9-3"(試合記録の左右順)。スコアのない未試合は試合の CD("A1")
+      | { kind: 'match'; matchId: number; status: MatchStatus; text: string }
     >>
     results: Array<Tally & { team: TeamRef; points: number; rank: number | null }>  // teams と同じ順
   } | null
@@ -251,9 +259,15 @@ type BracketCell = {
   }
   record: Tally & { rank: number | null }
   matches: MatchRow[]                      // 日付、時刻の昇順
-  players: Array<{ player: PlayerRef; games: number; assists: number; goals: number; blocks: number }>
-                                           // (得点+アシスト)降順、得点降順、背番号の数値昇順
+  players: Array<{
+    player: PlayerRef
+    games: number                          // チームの試合数(record.games)。全選手で同じ値
+    assists: number; goals: number; blocks: number
+    absent: boolean                        // 欠場。出場記録のあるチームで、どの試合にも出ていない選手
+  }>                                       // (得点+アシスト)降順、得点降順、背番号の数値昇順
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
+                                           // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
+  showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
 }
 ```
 
@@ -265,12 +279,18 @@ type BracketCell = {
 {
   frame: TournamentFrame
   match: {
-    id: number; code: string; groupName: string | null
+    id: number; code: string
+    // スコアボードのグループ欄。試合に別の文字があればそれ(大文字小文字の違う旧名、2017 年は空)、
+    // なければグループの名前。グループがなければ null
+    groupName: string | null
     date: string | null; time: string | null; field: string | null
     status: MatchStatus
     // fullName は正式名(ページの title 用)。team が null なら null
     left: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
     right: { team: TeamRef | null; fullName: I18nText | null; score: number | null }
+    note: string                             // スコアボード下の行の中央の備考。多くは空
+    hideBlocks: boolean                      // 出場選手表に Block 列を出さない
+    hideStats: boolean                       // 統計表を出さない
     breadcrumb: { divisionId: number; divisionName: I18nText; groupId: number | null }
   }
   // 時系列の昇順(古い順)。画面では web が逆順にして新しい順で出す

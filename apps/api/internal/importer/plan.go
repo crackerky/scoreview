@@ -111,6 +111,7 @@ func BuildPlan(b *Bundle) (*Plan, error) {
 		return nil, err
 	}
 	p.planWinners()
+	p.planWinnersFromLabels()
 	p.planEventsAndStats()
 	p.planGreatests()
 	p.planPoolMembers()
@@ -238,7 +239,7 @@ func (p *planner) planGroups() {
 	for _, dp := range p.divs {
 		for j, ng := range dp.nav.Groups {
 			gp := &groupPlan{div: dp, row: store.Group{
-				Name: ng.Name, Kind: domain.GroupPool, SortOrder: j,
+				Name: ng.Name, NameEn: ng.NameEN, Kind: domain.GroupPool, SortOrder: j,
 				Linked: ng.Linked, Published: true,
 			}}
 			if ng.ID != nil {
@@ -391,8 +392,29 @@ func (p *planner) planTeams() {
 			tp.row.NameFullEn = page.Name.EN
 		}
 		tp.row.CommentJa, tp.row.CommentEn = page.Comment.JA, page.Comment.EN
+		if page.SOTG {
+			// clone-spec D 1.1 の 6: SOTG スコア一覧は大会の設定と推測し、ディビジョン単位で持つ
+			tp.div.row.ShowSOTG = true
+		}
 	}
 	p.planFinalRanks()
+	p.planMenuSuffixes()
+}
+
+// planMenuSuffixes は SCORE メニューの略号("Ult" "Free" "DiscGolfT")をディビジョンに入れる。
+// メニューは大会の全ディビジョンを大会トップの表と同じ順に並べるので、数の合うチームページの
+// メニューから順に対応させる。
+func (p *planner) planMenuSuffixes() {
+	for _, id := range sortedKeys(p.b.Teams) {
+		suffixes := p.b.Teams[id].MenuSuffixes
+		if len(suffixes) != len(p.divs) {
+			continue
+		}
+		for i, dp := range p.divs {
+			dp.row.MenuSuffix = suffixes[i]
+		}
+		return
+	}
 }
 
 func (p *planner) breadcrumbDivision(m *parse.Match) *divPlan {
@@ -532,10 +554,19 @@ func (p *planner) planTeamNames() {
 			p.shortEN[*id] = name.EN
 		}
 	}
+	// 英語版の一覧で英語名のないチームのリンクには、名前の代わりに決まり方の表記("[A1-Win]")が
+	// 出るので、英語の短縮名として拾わない(clone-spec B 8)
+	nameOf := func(side parse.MatchRowSide) parse.Text {
+		name := side.ShortName
+		if isLabel(name.EN) {
+			name.EN = ""
+		}
+		return name
+	}
 	rows := func(rs []parse.MatchRow) {
 		for _, r := range rs {
-			note(r.Left.TeamID, r.Left.ShortName)
-			note(r.Right.TeamID, r.Right.ShortName)
+			note(r.Left.TeamID, nameOf(r.Left))
+			note(r.Right.TeamID, nameOf(r.Right))
 		}
 	}
 	for _, dp := range p.divs {
@@ -704,7 +735,9 @@ func (p *planner) assemble() *store.TournamentImport {
 	imp.Events = p.events
 	imp.Stats = p.stats
 	for i, ng := range p.b.Top.Nav.Galleries {
-		g := store.GalleryImport{Gallery: store.Gallery{ID: ng.ID, Name: ng.Name, SortOrder: i}}
+		g := store.GalleryImport{Gallery: store.Gallery{
+			ID: ng.ID, Name: ng.Name, NameEn: ng.NameEN, SortOrder: i,
+		}}
 		if page := p.b.Galleries[ng.ID]; page != nil {
 			if page.Name != "" {
 				g.Gallery.Name = page.Name

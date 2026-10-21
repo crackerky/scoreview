@@ -30,8 +30,10 @@ func main() {
 	cacheDir := flag.String("cache-dir", "../../.local/import-cache", "取込ツールのキャッシュ")
 	outDir := flag.String("out", "../../.local/parity", "詳細レポートの出力先(git 管理外)")
 	ids := flag.String("tournament", "", "比べる大会 ID(カンマ区切り)")
+	// 同じ原因の差分は表の全行に出るので、既定では先頭の数件だけを書く。0 は全件
+	maxDiffs := flag.Int("max-diffs", 8, "1 ページあたりにレポートへ書く差分の上限(0 は全件)")
 	flag.Parse()
-	if err := run(*site, *cacheDir, *outDir, *ids); err != nil {
+	if err := run(*site, *cacheDir, *outDir, *ids, *maxDiffs); err != nil {
 		fmt.Fprintln(os.Stderr, "parity:", err)
 		os.Exit(1)
 	}
@@ -41,7 +43,7 @@ type kindSummary struct {
 	pages, fullMatch, structureOK, cells, text, classes, links int
 }
 
-func run(site, cacheDir, outDir, ids string) error {
+func run(site, cacheDir, outDir, ids string, maxDiffs int) error {
 	tournamentIDs, err := parseIDs(ids)
 	if err != nil {
 		return err
@@ -76,10 +78,10 @@ func run(site, cacheDir, outDir, ids string) error {
 			results = append(results, res)
 		}
 	}
-	return report(results, outDir)
+	return report(results, outDir, maxDiffs)
 }
 
-func report(results []parity.Result, outDir string) error {
+func report(results []parity.Result, outDir string, maxDiffs int) error {
 	summaries := map[string]*kindSummary{}
 	for _, res := range results {
 		sum := summaries[res.Kind]
@@ -125,8 +127,15 @@ func report(results []parity.Result, outDir string) error {
 			continue
 		}
 		fmt.Fprintf(&detail, "### %s\n\n", res.Path)
-		for _, diff := range res.Diffs {
+		diffs := res.Diffs
+		if maxDiffs > 0 && len(diffs) > maxDiffs {
+			diffs = diffs[:maxDiffs]
+		}
+		for _, diff := range diffs {
 			fmt.Fprintf(&detail, "- %s\n", diff)
+		}
+		if len(diffs) < len(res.Diffs) {
+			fmt.Fprintf(&detail, "- (ほか %d 件)\n", len(res.Diffs)-len(diffs))
 		}
 		detail.WriteString("\n")
 	}

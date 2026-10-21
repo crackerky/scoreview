@@ -15,7 +15,7 @@ function match(
   time: string | null,
   field: string | null,
 ): TimetableMatch {
-  const side = { team: null, placeholder: null, score: null }
+  const side = { team: null, placeholder: null, score: null, labelEn: '' }
   return {
     id,
     divisionId: 1,

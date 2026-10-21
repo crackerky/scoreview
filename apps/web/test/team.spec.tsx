@@ -70,6 +70,48 @@ describe('チームページ(clone-spec D 1.1)', () => {
     assert.match(html, /<td class="CM">4 {2}<\/td><td class="CM">2 {2}<\/td>/)
   })
 
+  test('SOTG スコア一覧: 対戦一覧の後に見出しと凡例、試合ごとの行(値は空)、平均の行', () => {
+    const out = renderHtml(<TeamView data={{ ...team, showSotg: true }} lang="jp" />)
+    assert.match(
+      out,
+      /<hr\/><div class=""><table class="WMAX"><tbody><tr><td class="LM" width="26%"><span class="SCV_MIDA_M">&lt; SOTGｽｺｱ一覧 &gt;<\/span><\/td><td class="LM" width="74%"><span class="SCV_SOTG_COMM">※１･･･ルールの理解/,
+    )
+    assert.match(out, /<td class="MD1 CM" width="11.6%">※１<\/td>/)
+    assert.match(out, /<td class="MD1 CM" colSpan="2">&lt; SOTG 平均 &gt;<\/td>/i)
+    const rows = [
+      ...out.matchAll(/<tr><td class="(MC_\w+) LM">([^<]*)<\/td><td class="MC_\w+ LM">/g),
+    ]
+    assert.equal(rows.length, team.matches.length, '対戦一覧と同じ試合が SOTG 表にも並ぶ')
+    assert.match(out, /<\/table><\/div><hr\/><span class="SCV_MIDA_M">&lt; 選手一覧 &gt;/)
+    assert.doesNotMatch(renderHtml(<TeamView data={team} lang="jp" />), /SOTG/)
+  })
+
+  test('選手のいないチームは選手一覧を見出しごと出さない', () => {
+    const out = renderHtml(
+      <TeamView data={{ ...team, matches: [], players: [], staff: [] }} lang="jp" />,
+    )
+    assert.doesNotMatch(out, /選手一覧/)
+    assert.match(out, /<\/table><\/div><hr\/><br\/><br\/><br\/>$/)
+  })
+
+  test('試合のないチームは対戦一覧を見出しごと出さない', () => {
+    const out = renderHtml(<TeamView data={{ ...team, matches: [] }} lang="jp" />)
+    assert.doesNotMatch(out, /チーム対戦一覧/)
+    assert.match(out, /<\/table><\/div><hr\/><span class="SCV_MIDA_M">&lt; 選手一覧 &gt;<\/span>/)
+  })
+
+  test('欠場の選手は行の全セルに ABS を付ける', () => {
+    const players = team.players.map((line, index) =>
+      index === 3 ? { ...line, absent: true } : line,
+    )
+    const out = renderHtml(<TeamView data={{ ...team, players }} lang="jp" />)
+    assert.match(
+      out,
+      /<tr><td class="CM ABS">00<\/td><td class="LM ABS"><a class="playerLinkM" href="[^"]*">仮名 四郎<\/a><\/td>(<td class="CM ABS">[^<]*<\/td>){6}<\/tr>/,
+    )
+    assert.equal([...out.matchAll(/ABS/g)].length, 8)
+  })
+
   test('スタッフ一覧は表 70%、役割と名前のリンク、その後 <hr /> と <br /> 3 つで終わる', () => {
     assert.match(
       html,

@@ -18,13 +18,17 @@
         "en": "Freestyle Team"
       },
       "scheduleEnabled": false,
+      "menuSuffix": "Ult",
       "groups": []
     }
   ],
   "galleries": [
     {
       "id": 203,
-      "name": "Day-1"
+      "name": {
+        "ja": "Day-1",
+        "en": "Day-1"
+      }
     }
   ],
   "banners": []

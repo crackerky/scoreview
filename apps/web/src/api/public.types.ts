@@ -189,7 +189,9 @@ export const teamResponseSchema = z.object({
   }),
   record: tallySchema.extend({ rank: z.number().int().nullable() }),
   matches: z.array(matchRowSchema),
-  players: z.array(playerLineSchema.extend({ games: z.number().int() })),
+  players: z.array(playerLineSchema.extend({ games: z.number().int(), absent: z.boolean() })),
+  // SOTG スコア一覧(行は matches、値は空)を出すか
+  showSotg: z.boolean(),
   staff: z.array(
     z.object({
       id: z.number().int(),
@@ -229,6 +231,10 @@ export const matchResponseSchema = z.object({
     status: matchStatusSchema,
     left: matchPageSideSchema,
     right: matchPageSideSchema,
+    // スコアボード下の行の中央の備考と、Block 列・統計表を出さない試合(clone-spec D 2.2、2.4、2.5)
+    note: z.string(),
+    hideBlocks: z.boolean(),
+    hideStats: z.boolean(),
     breadcrumb: z.object({
       divisionId: z.number().int(),
       divisionName: i18nTextSchema,

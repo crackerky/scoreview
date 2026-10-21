@@ -19,7 +19,8 @@
           }
         },
         "placeholder": null,
-        "score": 2
+        "score": 2,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -30,7 +31,8 @@
           }
         },
         "placeholder": null,
-        "score": 1
+        "score": 1,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -54,7 +56,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -65,7 +68,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -89,7 +93,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -100,7 +105,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -124,7 +130,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -135,7 +142,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -162,7 +170,8 @@
           "code": "B1",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": null,
@@ -170,7 +179,8 @@
           "code": "B2",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -191,7 +201,8 @@
           "code": "B3",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": null,
@@ -199,7 +210,8 @@
           "code": "B4",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -220,7 +232,8 @@
           "code": "B5",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": null,
@@ -228,7 +241,8 @@
           "code": "B6",
           "outcome": "win"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"
@@ -249,7 +263,8 @@
           "code": "B5",
           "outcome": "lose"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": null,
@@ -257,7 +272,8 @@
           "code": "B6",
           "outcome": "lose"
         },
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "winnerSide": null,
       "resultType": "normal"

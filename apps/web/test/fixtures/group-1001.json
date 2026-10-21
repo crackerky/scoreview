@@ -4,23 +4,61 @@
     "id": 1001,
     "name": "Qualifying pool A",
     "kind": "pool",
-    "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } }
+    "division": {
+      "id": 101,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      }
+    }
   },
   "pool": {
     "teams": [
-      { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
-      { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } }
+      {
+        "id": 5001,
+        "name": {
+          "ja": "架空チームA",
+          "en": "Fictional A"
+        }
+      },
+      {
+        "id": 5002,
+        "name": {
+          "ja": "架空チームB",
+          "en": "Fictional B"
+        }
+      }
     ],
     "matrix": [
       [
-        { "kind": "self" },
-        { "kind": "match", "matchId": 9001, "status": "finished", "text": "9-3" }
+        {
+          "kind": "self"
+        },
+        {
+          "kind": "match",
+          "matchId": 9001,
+          "status": "finished",
+          "text": "9-3"
+        }
       ],
-      [{ "kind": "lower" }, { "kind": "self" }]
+      [
+        {
+          "kind": "lower"
+        },
+        {
+          "kind": "self"
+        }
+      ]
     ],
     "results": [
       {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "points": 3,
         "rank": 1,
         "games": 1,
@@ -31,7 +69,13 @@
         "goalsAgainst": 3
       },
       {
-        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
         "points": 0,
         "rank": 2,
         "games": 1,
@@ -55,14 +99,28 @@
       "field": "1",
       "status": "finished",
       "left": {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "placeholder": null,
-        "score": 9
+        "score": 9,
+        "labelEn": ""
       },
       "right": {
-        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       }
     }
   ]

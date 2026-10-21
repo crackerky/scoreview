@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,45 @@ func TestParseTeam(t *testing.T) {
 }
 
 // ディスクゴルフ団体のチームページは成績表と対戦一覧がなく、選手一覧は # と選手だけ(clone-spec D 1.2)
+// SOTG スコア一覧(clone-spec D 1.1 の 6): CD から始まる 8 列の表があれば SOTG=true。
+func TestParseTeamSOTG(t *testing.T) {
+	page := func(extra string) string {
+		return `<html><body><div id="score_view"><span class='SCV_MIDA_M'>架空<br></span>` + extra +
+			`</div></body></html>`
+	}
+	sotg := `<div class="TBL"><table><tr class=''>
+<td class='MD1 CM'>CD</td><td class='MD1 CM'>相手チーム</td><td class='MD1 CM'>※１</td>
+<td class='MD1 CM'>※２</td><td class='MD1 CM'>※３</td><td class='MD1 CM'>※４</td>
+<td class='MD1 CM'>※５</td><td class='MD1 CM'>合計</td></tr></table></div>`
+	with, err := ParseTeam(strings.NewReader(page(sotg)), site.LangJP)
+	require.NoError(t, err)
+	assert.True(t, with.SOTG)
+	without, err := ParseTeam(strings.NewReader(page("")), site.LangJP)
+	require.NoError(t, err)
+	assert.False(t, without.SOTG)
+}
+
+// 見出しの正式名は字下げだけを除き、名前の末尾の空白は残す(4694 の形)。
+func TestParseTeamKeepsTrailingSpaceOfName(t *testing.T) {
+	html := "<html><body><div id=\"score_view\"><span class='SCV_MIDA_M'>\n\t\t架空 <br>\n\t</span>" +
+		"</div></body></html>"
+	tm, err := ParseTeam(strings.NewReader(html), site.LangJP)
+	require.NoError(t, err)
+	assert.Equal(t, "架空 ", tm.Name.JA)
+}
+
+// SCORE メニューのディビジョン名の後ろの略号(536、237 で観測した形)。
+func TestParseTeamMenuSuffixes(t *testing.T) {
+	html := `<html><body><div id='sub'><div class="menu_list"><ul>
+<li><a href="https://score.clubjr.com/pscore/scv_division/open/1?lang=jp">架空ミックス(Ult)</a><ul>
+<li><a href="#">架空リーグ</a></li></ul></li>
+<li><a href="#" onclick="alert(&quot;ページは存在しません&quot;); return false;">架空フリースタイル(Free)</a><ul></ul></li>
+</ul></div></div><div id="score_view"><span class='SCV_MIDA_M'>架空<br></span></div></body></html>`
+	tm, err := ParseTeam(strings.NewReader(html), site.LangJP)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Ult", "Free"}, tm.MenuSuffixes)
+}
+
 func TestParseTeamDiscGolf(t *testing.T) {
 	tm, err := ParseTeam(fixture(t, "team_17459_jp.html"), site.LangJP)
 	require.NoError(t, err)

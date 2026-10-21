@@ -152,6 +152,8 @@ dropdown の挙動(`jquery.dropdown.js` v1.1.7、`$('#score_navi').dropdown()` �
 - 高さは **初期化時に `target.height()` で測った値**。ただし初期状態が `display:none` なのでjQuery 1.7 は一時表示して測る(通常の挙動)。
 - showClass/textClass 等は未設定(クラス付与なし)。`a.open` クラスは使われない(CSSにはあるが付かない)。
 
+名前の言語(突き合わせで確認): lang=en ではグループとギャラリーも英語名で出る。ギャラリーの英語名は `---` の大会が多い(440、451 など)。英語名が空のグループは、`<a>` の文字がリンク先の URL そのもの(`https://score.clubjr.com/pscore/scv_group/open/2182?lang=en`。CakePHP の link() が空の文字を URL で補う既定動作)。グループ名の前後の半角空白は名前の一部で、グループページの title にも残る(`-17th placement tournament -`)。
+
 `score_navi.css` の見た目:
 - `li{float:left; position:relative; width:160px; border-left/top/bottom:1px solid #888}`、最後の li に `border-right:1px solid #888 !important`。サブメニュー内 li は left/right/top を `!important` で 1px #888、bottom なし(最後だけ bottom 1px)。
 - `li a, li p{padding:8px 0; margin:0; display:block; color:#008080; text-decoration:none; opacity:.99; background:repeating-linear-gradient(-45deg,#f9f9f9,#f9f9f9 5px,#fdfcff 5px,#fdfcff 10px)}`(斜めストライプ薄灰)。`text-align` は header の `text-align:center` が継承 → 中央揃え。
@@ -198,8 +200,8 @@ dropdown の挙動(`jquery.dropdown.js` v1.1.7、`$('#score_navi').dropdown()` �
 調査時には見落としており、ページ担当のスクリーンショット比較で見つけた。生 HTML 271 ページで確認した事実:
 - 出るページ: scv_division、scv_group、scv_team、scv_match、scv_player、scv_tgallery。出ないページ: sct_all(大会一覧)、scv_top(大会トップ)、scv_team_list、scv_search_tn、scv_search_div。
 - 位置: `#sub` の内側の table の先頭行(バナーの行の上)。`<td align="left">` の中に、見出し画像 `09_menu_score.png`(180x21、橙の帯に「SCORE」)、高さ 7px の空き、区切り線 `09_menu_brake_line.gif`(180x1)、`div.menu_list > ul`、最後にもう一度区切り線。
-- `ul > li` ごとにディビジョン 1 つ。`<a href=".../scv_division/open/{DIV}?lang=..">{ディビジョン名}(Ult)</a>` の後に、そのディビジョンのグループを `ul > li > a`(→ scv_group)で並べる。名前の接尾辞 `(Ult)` は日英とも付き、観測した全ディビジョンで同じ値だった。
-- スケジュールのないディビジョン(ディスクゴルフ、フリースタイル)は載らない(947、17459 の大会で項目 0)。
+- `ul > li` ごとにディビジョン 1 つ。`<a href=".../scv_division/open/{DIV}?lang=..">{ディビジョン名}(Ult)</a>` の後に、そのディビジョンのグループを `ul > li > a`(→ scv_group)で並べる。名前の接尾辞は日英とも付く競技の略号で、`(Ult)` のほか `(Free)`(237 のフリースタイル)、`(DiscGolfT)`(536 のディスクゴルフ団体戦)を観測した(突き合わせで訂正)。
+- スケジュールのないディビジョンも載る(突き合わせで訂正。当初の「載らない」は誤り)。リンクは `<a href="#" onclick="alert(&quot;ページは存在しません&quot;); return false;">` で、どこにも移らない(536 の 17459 では 2 項目とも、237 ではフリースタイルだけ)。本サイトは href のない `<a>` にする。
 - CSS(score_frame.css): `#sub ul{margin:2px 0 0 2px;padding:0}`、`#sub li{padding:2px 0 2px 12px;line-height:1.4;list-style:none}`、`#sub li a{color:#008080;display:block;padding-left:12px;background:url(bg_list.gif) 0 5px no-repeat}`、`#sub li p{color:#696969;...}`。
 
 ### 1.6 /sctnmt (大会一覧) と大会ページの外枠差分
@@ -448,7 +450,7 @@ CSV: `$S/A_tournaments.csv`(348行、jp名・en名・区分・pos)。
 </div>
 <div style='clear:both; height:10px'></div>
 ```
-- 見出し文言: `{ディビジョン名}   -- {N} Teams --`(**"Teams" は jp でも英語固定**。lang=en では名前だけ英語名に)。`&nbsp;` 3個+`--&nbsp;`N` Teams`&nbsp;--&nbsp;&nbsp;&nbsp;`。ディスクゴルフ(537)は `-- 6 Players --` で、リンクなし(`<span class='teamimg_rnk'>(選手名)</span>`)、人数セルは `&nbsp;`。
+- 見出し文言: `{ディビジョン名}   -- {N} Teams --`(**"Teams" は jp でも英語固定**。lang=en では名前だけ英語名に)。`&nbsp;` 3個+`--&nbsp;`N` Teams`&nbsp;--&nbsp;&nbsp;&nbsp;`。ディスクゴルフ(537)は `-- 6 Players --` で、リンクなし(`<span class='teamimg_rnk'>(選手名)</span>`)、人数セルは `&nbsp;`。単位の Players はナビが「エントリー一覧」の大会で全ディビジョンに付き、237(ビーチ、中止)ではチーム名がリンクで人数セルもあるチーム戦なのに `-- 22 Players --`。
 - チーム1件 = 187px の色バー(チーム名リンク、白文字、12px)+ 30px の黒バー(右寄せ、`x{人数}` = 登録選手数と推定、539 のように選手未登録だと `x0`)。1行あたり 187+2+30+8+2(各1px枠) ≒ 229px で、#main 内側(710−14 margin = 696) に **3組/行**(float:left で折り返し)。
 - バーの色(`class='px12 FTitle*'`)は **チームの属する部門種別**: メン/オープン等=`FTitle`(青)、ミックス=`FTitle_Mix`(紫)、ウィメン=`FTitle_Women`(ピンク)、大学など特定チーム=`FTitle_Univ`(緑。151 のメンで "2018U-24日本代表候補メン部門" の1チームだけ — ディビジョンではなくチーム属性、規則は推測)。ディビジョン名ではなく種別で決まる(539 のオープンは `FTitle`、525 のビーチミックスは `FTitle_Mix`)。
 - チームの並び: 525 は ID 順ではない(17491, 17409, 17400, 17474, 17456…)。172/539/151ミックス/ウィメンは ID 昇順。順序規則は不明(推測: ディビジョン内の登録順 / エントリー番号)。

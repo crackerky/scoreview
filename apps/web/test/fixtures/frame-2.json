@@ -18,6 +18,7 @@
         "en": ""
       },
       "scheduleEnabled": false,
+      "menuSuffix": "Ult",
       "groups": []
     },
     {
@@ -27,10 +28,14 @@
         "en": ""
       },
       "scheduleEnabled": false,
+      "menuSuffix": "Ult",
       "groups": [
         {
           "id": 3001,
-          "name": "最終結果",
+          "name": {
+            "ja": "最終結果",
+            "en": ""
+          },
           "linked": false
         }
       ]

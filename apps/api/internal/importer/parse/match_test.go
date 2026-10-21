@@ -1,6 +1,8 @@
 package parse
 
 import (
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,6 +53,23 @@ func TestParseMatch(t *testing.T) {
 		Left:  SideStats{Goals: 7, FromOffence: 5, FromDefence: 2, FromTurnovers: 2},
 		Right: SideStats{Goals: 6, FromOffence: 5, FromDefence: 1, FromTurnovers: 1},
 	}, m.Stats)
+	assert.True(t, m.BlockColumn)
+	assert.Equal(t, "", m.Note)
+}
+
+// フッター行の備考と、試合終了の行の ★(44803 で観測した形を 45277 に当てはめたもの)。
+func TestParseMatchNoteAndEndMark(t *testing.T) {
+	raw, err := io.ReadAll(fixture(t, "match_45277_jp.html"))
+	require.NoError(t, err)
+	page := strings.Replace(string(raw), "<td class='LM TG_MD1' width='68%'></td>",
+		"<td class='LM TG_MD1' width='68%'>架空の備考</td>", 1)
+	page = strings.Replace(page, `<td class='TG_EVMOJI CM  EVT' ></td>
+				<td class='TG_EVMOJI CM  EVT' >試合終了</td>`, `<td class='TG_EVMOJI CM  EVT' >★</td>
+				<td class='TG_EVMOJI CM  EVT' >試合終了</td>`, 1)
+	m, err := ParseMatch(strings.NewReader(page), site.LangJP)
+	require.NoError(t, err)
+	assert.Equal(t, "架空の備考", m.Note)
+	assert.Equal(t, MatchEvent{Seq: 15, ElapsedSec: 1200, Kind: "end", Side: ptr("left")}, m.Events[14])
 }
 
 // 試合終了の行がない試合(終了入力漏れ。clone-spec D 2.3)
@@ -115,6 +134,7 @@ func TestParseMatchWithoutBlockColumn(t *testing.T) {
 	for _, p := range append(m.Players.Left, m.Players.Right...) {
 		assert.Nil(t, p.Blocks)
 	}
+	assert.False(t, m.BlockColumn)
 	assert.Equal(t, ptr(3), m.Left.Score)
 	assert.Equal(t, ptr(3), m.Right.Score, "引き分け")
 }

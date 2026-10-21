@@ -46,7 +46,7 @@ func loadTournamentScope(
 	var groups []Group
 	if len(divisionIDs) > 0 {
 		// bracket_layout は大きいのでナビでは読まない
-		err := tx.Select("id", "division_id", "name", "linked").
+		err := tx.Select("id", "division_id", "name", "name_en", "linked").
 			Where(sqlPublishedGroups, divisionIDs, true).Order(sqlOrderSortID).Find(&groups).Error
 		if err != nil {
 			return tournamentScope{}, fmt.Errorf("load groups of tournament %d: %w", tournament.ID, err)
@@ -67,6 +67,17 @@ func loadTournamentScope(
 	}, nil
 }
 
+// defaultMenuSuffix は略号の登録がないディビジョンの略号。参照サイトの SCORE メニューで最も多い
+// (代表 16 大会の 3,395 件)アルティメットの "Ult"。
+const defaultMenuSuffix = "Ult"
+
+func menuSuffix(division Division) string {
+	if division.MenuSuffix == "" {
+		return defaultMenuSuffix
+	}
+	return division.MenuSuffix
+}
+
 func buildFrame(
 	tournament Tournament,
 	divisions []Division,
@@ -77,7 +88,7 @@ func buildFrame(
 	groupsByDivision := map[int64][]FrameGroup{}
 	for _, group := range groups {
 		groupsByDivision[group.DivisionID] = append(groupsByDivision[group.DivisionID],
-			FrameGroup{ID: group.ID, Name: group.Name, Linked: group.Linked})
+			FrameGroup{ID: group.ID, Name: i18n(group.Name, group.NameEn), Linked: group.Linked})
 	}
 	frame := Frame{
 		ID:            tournament.ID,
@@ -99,12 +110,15 @@ func buildFrame(
 			frame.Divisions,
 			FrameDivision{
 				ID: division.ID, Name: i18n(division.NameJa, division.NameEn),
-				ScheduleEnabled: division.ScheduleEnabled, Groups: fg,
+				ScheduleEnabled: division.ScheduleEnabled, MenuSuffix: menuSuffix(division), Groups: fg,
 			},
 		)
 	}
 	for _, gallery := range galleries {
-		frame.Galleries = append(frame.Galleries, FrameGallery{ID: gallery.ID, Name: gallery.Name})
+		frame.Galleries = append(
+			frame.Galleries,
+			FrameGallery{ID: gallery.ID, Name: i18n(gallery.Name, gallery.NameEn)},
+		)
 	}
 	for _, banner := range banners {
 		frame.Banners = append(
