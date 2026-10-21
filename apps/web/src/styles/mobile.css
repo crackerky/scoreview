@@ -32,10 +32,6 @@
     order: 2;
   }
 
-  #wrapper > #sub {
-    order: 3;
-  }
-
   /* ヘッダーの table を縦に積む(ロゴ、SNS、文字リンク、4 項目のナビ)。背景画像が届かない下の段が
      ページの地の色(黒)になり、文字リンクが読めないので白で塗る */
   #outer1 {
@@ -51,6 +47,7 @@
   }
 
   #outer1 td {
+    /* biome-ignore lint/complexity/noImportantStyles: 右寄せが td のインラインの style にある */
     text-align: center !important;
   }
 
@@ -68,8 +65,9 @@
     padding: 4px 0;
   }
 
-  #header_bar_spacer {
-    display: none !important;
+  /* #outer1 td(display: block)より詳しく指す */
+  #outer1 td#header_bar_spacer {
+    display: none;
   }
 
   #navigation {
@@ -91,6 +89,7 @@
     float: none;
     flex: 1 1 33%;
     box-sizing: border-box;
+    /* biome-ignore lint/complexity/noImportantStyles: 項目の幅が li のインラインの style にある */
     width: auto !important;
     min-width: 0;
   }
@@ -107,13 +106,13 @@
     z-index: 10;
   }
 
+  ul#score_navi li ul li ul {
+    position: static;
+  }
+
   ul#score_navi > li:nth-child(3n) > ul {
     left: auto;
     right: -1px;
-  }
-
-  ul#score_navi li ul li ul {
-    position: static;
   }
 
   /* 本文とサイドバー */
@@ -125,6 +124,7 @@
   }
 
   #sub {
+    order: 3;
     float: none;
     width: auto;
     margin: 8px;
@@ -149,7 +149,9 @@
 
   /* 表の外側の左右の余白(大会トップのディビジョン表は 80px と 100px をインラインで指定) */
   #main .TBL {
+    /* biome-ignore lint/complexity/noImportantStyles: 余白が div のインラインの style にある */
     margin-left: 0 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: 同上 */
     margin-right: 0 !important;
   }
 
@@ -162,6 +164,7 @@
      画面の幅に合わせ、長い大会名は切らずに折り返す */
   .TeamListBLOCK {
     float: none;
+    /* biome-ignore lint/complexity/noImportantStyles: 幅 98% が div のインラインの style にある */
     width: auto !important;
     white-space: normal;
   }
