@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"reflect"
 	"strings"
 
 	"scoreview/api/internal/auth"
@@ -167,12 +168,55 @@ func decodeBody(r *http.Request, dst any) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
-		return domain.Invalid("body", err.Error())
+		return jsonBodyError(err)
 	}
 	if dec.More() {
 		return domain.Invalid("body", "must be a single JSON value")
 	}
 	return nil
+}
+
+// jsonBodyError はボディの JSON の読み込みの失敗を、利用者向けの検証エラーにする。encoding/json の
+// 文面は Go の構造体名と型名(httpapi.tournamentBodyDTO、int など)を含むので、そのまま返さない
+// (セキュリティ点検 I-2)。
+func jsonBodyError(err error) error {
+	var typeErr *json.UnmarshalTypeError
+	if errors.As(err, &typeErr) {
+		field := typeErr.Field
+		if field == "" {
+			field = "body"
+		}
+		return domain.Invalid(field, "must be "+jsonKindOf(typeErr.Type))
+	}
+	if key, ok := strings.CutPrefix(err.Error(), "json: unknown field "); ok {
+		return domain.Invalid("body", "unknown key "+key)
+	}
+	return domain.Invalid("body", "must be a single valid JSON value")
+}
+
+// jsonKindOf は Go の型を、JSON での書き方の説明にする。
+func jsonKindOf(goType reflect.Type) string {
+	kind := goType.Kind()
+	for elem := goType; kind == reflect.Pointer; kind = elem.Kind() {
+		elem = elem.Elem()
+	}
+	switch kind {
+	case reflect.String:
+		return "a string"
+	case reflect.Bool:
+		return "true or false"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "an integer in range"
+	case reflect.Float32, reflect.Float64:
+		return "a number"
+	case reflect.Slice, reflect.Array:
+		return "an array"
+	case reflect.Struct, reflect.Map:
+		return "an object"
+	default:
+		return "a valid value"
+	}
 }
 
 // withPathID はパスの {id} を読んでから fn を呼ぶ adminFunc にする。
