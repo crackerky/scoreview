@@ -491,8 +491,9 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
   return (
     <div className="sk">
       <header className="sk-top">
+        {/* 管理者は大会の管理画面から来ることが多いので、そこへ戻す。記録係は担当試合の一覧へ */}
         <a
-          href="/admin"
+          href={isAdmin ? `/admin/tournaments/${view.context.tournamentId}` : '/admin'}
           className="sk-back"
           onClick={(event) => {
             if (pending > 0) {
@@ -501,10 +502,13 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
             }
           }}
         >
-          ← 担当試合
+          {isAdmin ? '← 大会の管理' : '← 担当試合'}
         </a>
         <span className="sk-where">{where}</span>
-        {canScore ? <SyncBadge pending={pending} online={online} /> : null}
+        {/* 試合を始める前で未送信もないときは、送るものがないので「送信済み」を出さない */}
+        {canScore && !(notStarted && pending === 0 && online) ? (
+          <SyncBadge pending={pending} online={online} />
+        ) : null}
       </header>
 
       <section className="sk-board" aria-live="polite" aria-label="スコア">
