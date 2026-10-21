@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"scoreview/api/internal/auth"
@@ -28,6 +27,8 @@ type policy struct {
 	staffTournament func(*Server, *http.Request) (int64, error)
 	// anyUser なら役割を問わずログインしていればよい(応答の絞り込みはハンドラが行う)
 	anyUser bool
+	// scoreMatch なら、staff はパスの {id} の試合を覆う割り当て(staff_assignments)も要る
+	scoreMatch bool
 }
 
 // adminOnly は管理者だけに許す。
@@ -63,6 +64,14 @@ func staffOfMatch() policy {
 		}
 		return store.TournamentOfMatch(r.Context(), s.db, id)
 	}}
+}
+
+// scorerOfMatch は記録係にも、パスの {id} の試合の大会の担当で、割り当てがその試合を覆うなら許す
+// (担当外の試合は入力できない。docs/operations/operator-experience.md「記録係」5)。
+func scorerOfMatch() policy {
+	rule := staffOfMatch()
+	rule.scoreMatch = true
+	return rule
 }
 
 // adminFunc は認可済みの利用者を受け取るハンドラ。
@@ -124,6 +133,20 @@ func (s *Server) authorize(r *http.Request, user domain.User, rule policy) error
 	if !ok {
 		return fmt.Errorf("%w: not a staff of tournament %d", domain.ErrForbidden, tournamentID)
 	}
+	if !rule.scoreMatch {
+		return nil
+	}
+	matchID, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	ok, err = store.CanScoreMatch(r.Context(), s.db, user.ID, matchID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: match %d is not assigned to this staff", domain.ErrForbidden, matchID)
+	}
 	return nil
 }
 
@@ -149,15 +172,6 @@ func decodeBody(r *http.Request, dst any) error {
 		return domain.Invalid("body", "must be a single JSON value")
 	}
 	return nil
-}
-
-// pathInt64 はパス変数 name を正の整数として読む。
-func pathInt64(r *http.Request, name string) (int64, error) {
-	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
-	if err != nil || id <= 0 {
-		return 0, domain.Invalid(name, "must be a positive integer")
-	}
-	return id, nil
 }
 
 // withPathID はパスの {id} を読んでから fn を呼ぶ adminFunc にする。

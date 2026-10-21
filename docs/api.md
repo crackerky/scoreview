@@ -42,6 +42,8 @@ type TeamBarStyle = 'default' | 'mixed' | 'women' | 'univ' | 'waku1' | 'waku2'
 type EntryKind = 'team' | 'individual'
 type StatsKind = 'ultimate' | 'discgolf'
 type MatchStatus = 'scheduled' | 'live' | 'finished'
+// 試合の結果の種類(docs/format-engine.md「試合の結果の種類」)。管理用の応答だけに出す
+type ResultType = 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
 type GroupKind = 'pool' | 'bracket' | 'image'
 type Side = 'left' | 'right'
 type Gender = 'M' | 'F'
@@ -334,8 +336,9 @@ type BracketCell = {
 記録係(staff)は `tournament_staff` に登録された大会について、次の操作だけができる。
 それ以外はすべて管理者(admin)専用で、staff が呼ぶと 403(`forbidden`)。
 
-- 読み取り: 大会一覧(担当大会だけが返る)、大会、ディビジョン一覧、ディビジョン、試合一覧、試合(スコア入力画面のデータ)
-- 変更: 試合の状態、得点経過の追加と取り消し、試合ごとの選手記録
+- 読み取り: 大会一覧(担当大会だけが返る)、大会、ディビジョン一覧、ディビジョン、試合一覧、試合(スコア入力画面のデータ)、試合の監査ログ、自分の担当試合
+- 変更: 試合の状態、結果の種類、得点経過の追加・取り消し・得点者の付け直し、試合ごとの選手記録。
+  ただし**記録係の割り当て**(`staff_assignments`)が覆う試合だけ。割り当ての無い試合を変えると 403
 
 パスの資源が存在しなければ、権限の判定より先に 404 を返す。
 
@@ -383,6 +386,8 @@ type TournamentInput = {
   topHtml: I18nText                  // 保存時に無害化
   labels: { teamList: 'teams' | 'entries'; groups: 'groups' | 'results' }  // 既定 teams, groups
   showSchedule: boolean              // 既定 true
+  // 不戦勝の規定スコア。既定 null(未設定)。winner > loser >= 0
+  forfeitScore: { winner: number; loser: number } | null
 }
 type AdminTournament = { id: number } & TournamentInput
 type Banner = { imageUrl: string; linkUrl: string | null }
@@ -508,13 +513,20 @@ type AdminMatch = {
   code: string; date: string | null; time: string | null; field: string | null
   hasDetail: boolean; status: MatchStatus
   left: MatchSide; right: MatchSide  // 閲覧用と同じ形。ただし team が解決済みでも placeholder を返す
-  winnerSide: Side | null            // 同点で勝者を決めた試合だけ
+  winnerSide: Side | null            // 同点で勝者を決めた試合と、不戦勝・不成立の勝者
+  resultType: ResultType
 }
 type MatchDetail = {
   match: AdminMatch
+  context: {                         // 見出しとスコアシートに出す名前
+    tournamentId: number; tournamentName: string; divisionName: string; groupName: string | null
+  }
   inBracket: boolean                 // トーナメント(bracket グループ)の試合
+  forfeitScore: { winner: number; loser: number } | null  // 大会の不戦勝の規定スコア
+  startedAt: string | null           // 経過 0 秒の時刻(RFC 3339、UTC)。得点経過が無ければ null
   events: Array<{                    // 時系列の昇順
-    id: number; seq: number; elapsedSec: number
+    id: number; clientId: string     // clientId は端末が付けた UUID(無ければ api が付けた UUID)
+    seq: number; elapsedSec: number
     kind: 'goal' | 'timeout' | 'pull' | 'end'; side: Side | null
     scorer: PlayerRef | null; assist: PlayerRef | null; callahan: boolean
     leftScore: number; rightScore: number       // その時点の累計
@@ -532,14 +544,25 @@ type MatchDetail = {
 | `PATCH /admin/matches/{id}` | `MatchInput` の一部 | `AdminMatch`。スコアと状態は変えない |
 | `DELETE /admin/matches/{id}` | なし | 204 |
 | `POST /admin/matches/{id}/events` | 下記 | 201 と `MatchDetail` |
-| `DELETE /admin/matches/{id}/events/{eventId}` | なし | 200 と `MatchDetail`(取り消し後の状態を返す) |
+| `DELETE /admin/matches/{id}/events/{eventId}` | なし(クエリ `clientId` で操作 ID) | 200 と `MatchDetail`(取り消し後の状態を返す) |
+| `PATCH /admin/matches/{id}/events/{eventId}` | `{ clientId?, scorerId, assistId, callahan }` | `MatchDetail`。goal の得点者、アシスト、キャラハンを付け直す。終了した試合でも可 |
 | `PUT /admin/matches/{id}/player-stats` | `{ stats: Array<{ playerId; side; blocks; greatests }> }` | `MatchDetail` |
 | `POST /admin/matches/{id}/status` | 下記 | `MatchDetail` |
+| `POST /admin/matches/{id}/result` | 下記 | `MatchDetail`。通常以外の結果で試合を終える |
+| `GET /admin/matches/{id}/audit` | なし | `{ entries: AuditEntry[] }`(新しい順。下記「監査ログ」) |
+
+`{eventId}` は得点経過の `id`(正の整数)か `clientId`(UUID)。通信が切れている間に記録した得点経過は、端末が api の `id` を知らないので `clientId` で指す。
+
+**操作 ID(`clientId`)と冪等性**: 試合を変える操作(得点経過の追加・取り消し・付け直し、状態の変更、結果の種類)には、端末が UUID の `clientId` を付けられる。
+同じ `clientId` の操作が既に適用済みなら、2 回目は何もせずに現在の `MatchDetail` を返す(得点経過の追加なら 201、他は 200)。
+端末は通信が切れている間の操作を溜め、つながったら順に送り直す。応答が届かずに送り直しても二重に登録されない。
+UUID の形でない `clientId` は 400。得点経過の追加では `clientId` がその得点経過の `clientId` になる。
 
 得点経過の追加のボディ:
 
 ```ts
 {
+  clientId?: string | null           // 操作 ID(UUID)
   kind: 'goal' | 'timeout' | 'pull' | 'end'
   side: Side | null                  // goal は得点した側、timeout は取った側、pull はプルした側。end は null
   elapsedSec?: number | null         // 省略か null なら、最初のイベントを記録した時刻からの経過秒
@@ -554,11 +577,37 @@ type MatchDetail = {
 
 ```ts
 {
+  clientId?: string | null           // 操作 ID(UUID)
   status: MatchStatus
   winnerSide?: Side | null           // finished にするときだけ。同点のトーナメントの試合では必須
   score?: { left: number; right: number } | null  // 得点経過の無い試合(詳細なし)の結果。経過がある試合では指定不可
 }
 ```
+
+結果の種類のボディ(`POST /admin/matches/{id}/result`):
+
+```ts
+{
+  clientId?: string | null           // 操作 ID(UUID)
+  resultType: Exclude<ResultType, 'normal'>
+  winnerSide?: Side | null           // forfeit と no_contest は必須。abandoned は同点のトーナメントの試合で必須。
+                                     // double_forfeit と unplayed は指定不可
+  forfeitScore?: { winner: number; loser: number } | null
+                                     // forfeit だけ。大会に規定スコアが無いときに必須。あるときは省略するか同じ値
+}
+```
+
+| 種類 | 記録する値 | 成績の集計(チーム、プール、勝ち点) |
+|---|---|---|
+| `forfeit`(不戦勝) | 大会の規定スコアを勝者の側に。`winnerSide` | 規定スコアで勝ち・負け |
+| `double_forfeit`(両チーム不戦敗) | スコアなし(`null`) | 両チームとも負け。得失点なし |
+| `no_contest`(不成立) | スコアなし。`winnerSide` | 勝ち・負けだけ。得失点なし |
+| `abandoned`(途中打ち切り) | その時点の得点経過のスコア | 通常の試合と同じ |
+| `unplayed`(未消化。途中打ち切りを未消化にした場合も) | その時点のスコア(あれば) | 数えない |
+
+- 試合前でも試合中でも `finished` になる。終了した試合には 409(結果を変えるときは管理者が `status: 'live'` へ戻す)。
+- 試合中へ戻すと `resultType` は `normal` に戻り、スコアは得点経過から計算し直す(規定スコアを引き継がない)。
+- 勝者がいれば、通常の終了と同じく後続試合の未確定チームを埋める。両チーム不戦敗と未消化は埋めない。
 
 試合のスコアと状態は、得点経過と状態の変更からだけ決まる。
 
@@ -568,6 +617,61 @@ type MatchDetail = {
 - 終了した試合には得点経過を足せない(409)。取り消せるのは `end` だけ。
 - 終了時、スコアに差があれば勝者はスコアで決まり、`winnerSide` は保存しない(スコアと矛盾する指定は 400)。同点なら `winnerSide` を保存し、トーナメントの試合で指定が無ければ 400。
 - 試合が終わると、同じディビジョンで、この試合の CD を `placeholder` で参照する未試合の試合のチームを、勝者または敗者で埋める。終了を取り消すと空に戻す(既に始まった後続試合は変えない)。トーナメント表の格子のチーム名も同時に書き直す。
+
+### 監査ログ
+
+スコア、得点経過、試合の状態、結果の種類、最終順位の変更は、変更と同じトランザクションで 1 操作 1 行の監査ログに残る(docs/format-engine.md「監査ログ」)。
+
+```ts
+type AuditMatchState = {
+  status: MatchStatus; resultType: ResultType
+  leftScore: number | null; rightScore: number | null; winnerSide: Side | null
+}
+type AuditEvent = {
+  clientId: string; kind: 'goal' | 'timeout' | 'pull' | 'end'; side: Side | null; elapsedSec: number
+  scorer: { id: number; number: string; name: string } | null   // 記録した時点の背番号と名前
+  assist: { id: number; number: string; name: string } | null
+  callahan: boolean
+}
+type AuditEntry = {
+  id: number
+  at: string                         // RFC 3339(UTC)
+  user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
+  action: 'event.add' | 'event.remove' | 'event.update' | 'match.status' | 'match.result' | 'team.final_rank'
+  matchId: number | null; teamId: number | null
+  // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
+  before: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
+  after: { match: AuditMatchState | null; event: AuditEvent | null; finalRank: number | null }
+}
+```
+
+最終順位の変更(`PUT /admin/divisions/{id}/final-ranks` と `PATCH /admin/teams/{id}` の `finalRank`)は、値が変わったチームごとに 1 行残す。
+
+### 記録係の割り当て
+
+記録係(staff)を、試合 1 つ、またはコート・日付・時間帯の範囲に割り当てる。
+範囲の条件は `null` なら問わない(全部 `null` なら大会の全試合)。時間帯は `from` 以上 `to` 未満で、試合の開始時刻で判定する。
+コートや時刻が決まっていない試合は、その条件のある割り当てでは覆わない。
+
+```ts
+type AssignmentInput = {
+  userId: number                     // 役割 staff のユーザー
+  matchId: number | null             // 同じ大会の試合。指定したら他の条件は null
+  field: string | null               // コート
+  date: string | null                // "YYYY-MM-DD"
+  from: string | null                // "HH:MM"
+  to: string | null                  // "HH:MM"。from より後
+}
+type Assignment = { id: number; userName: string; matchCode: string | null } & AssignmentInput
+type AssignedMatch = AdminMatch & { tournamentId: number; tournamentName: string; divisionName: string }
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/assignments` | なし | `{ assignments: Assignment[] }`(記録係、日付、時刻、コートの順) |
+| `POST /admin/tournaments/{id}/assignments` | `AssignmentInput` | `Assignment`。記録係がまだ大会の担当でなければ担当にもする |
+| `DELETE /admin/assignments/{id}` | なし | 204 |
+| `GET /admin/me/matches` | なし | `{ matches: AssignedMatch[] }`。自分の割り当てが覆う試合(日付、時刻、コートの順)。誰でも呼べる |
 
 ### ギャラリー
 

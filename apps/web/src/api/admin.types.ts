@@ -8,6 +8,7 @@ import {
   matchSideSchema,
   matchStatusSchema,
   playerRefSchema,
+  resultTypeSchema,
   sideSchema,
   statsKindSchema,
   teamBarStyleSchema,
@@ -61,6 +62,7 @@ const tournamentInputShape = {
     groups: z.enum(['groups', 'results']),
   }),
   showSchedule: z.boolean(),
+  forfeitScore: z.object({ winner: z.number().int(), loser: z.number().int() }).nullable(),
 }
 export const adminTournamentSchema = z.object({ id, ...tournamentInputShape })
 export type AdminTournament = z.infer<typeof adminTournamentSchema>
@@ -150,12 +152,14 @@ export const adminMatchSchema = z.object({
   left: matchSideSchema,
   right: matchSideSchema,
   winnerSide: sideSchema.nullable(),
+  resultType: resultTypeSchema,
 })
 export type AdminMatch = z.infer<typeof adminMatchSchema>
 export const adminMatchListSchema = z.object({ matches: z.array(adminMatchSchema) })
 
 export const adminEventSchema = z.object({
   id,
+  clientId: z.string(),
   seq: z.number().int(),
   elapsedSec: z.number().int(),
   kind: z.enum(['goal', 'timeout', 'pull', 'end']),
@@ -177,14 +181,97 @@ export const playerStatSchema = z.object({
 export type PlayerStat = z.infer<typeof playerStatSchema>
 
 /** GET /api/v1/admin/matches/{id} とスコア入力の各操作の応答 */
+export const forfeitScoreSchema = z.object({ winner: z.number().int(), loser: z.number().int() })
+export type ForfeitScore = z.infer<typeof forfeitScoreSchema>
+
 export const matchDetailSchema = z.object({
   match: adminMatchSchema,
+  context: z.object({
+    tournamentId: id,
+    tournamentName: z.string(),
+    divisionName: z.string(),
+    groupName: z.string().nullable(),
+  }),
   inBracket: z.boolean(),
+  forfeitScore: forfeitScoreSchema.nullable(),
+  startedAt: z.iso.datetime().nullable(),
   events: z.array(adminEventSchema),
   playerStats: z.array(playerStatSchema),
   rosters: z.object({ left: z.array(adminPlayerSchema), right: z.array(adminPlayerSchema) }),
 })
 export type MatchDetail = z.infer<typeof matchDetailSchema>
+
+const auditMatchStateSchema = z.object({
+  status: matchStatusSchema,
+  resultType: resultTypeSchema,
+  leftScore: z.number().int().nullable(),
+  rightScore: z.number().int().nullable(),
+  winnerSide: sideSchema.nullable(),
+})
+const auditPlayerSchema = z.object({ id, number: z.string(), name: z.string() })
+const auditSnapshotSchema = z.object({
+  match: auditMatchStateSchema.nullable(),
+  event: z
+    .object({
+      clientId: z.string(),
+      kind: z.enum(['goal', 'timeout', 'pull', 'end']),
+      side: sideSchema.nullable(),
+      elapsedSec: z.number().int(),
+      scorer: auditPlayerSchema.nullable(),
+      assist: auditPlayerSchema.nullable(),
+      callahan: z.boolean(),
+    })
+    .nullable(),
+  finalRank: z.number().int().nullable(),
+})
+export type AuditSnapshot = z.infer<typeof auditSnapshotSchema>
+
+export const auditEntrySchema = z.object({
+  id,
+  at: z.iso.datetime(),
+  user: z.object({ id, name: z.string(), role: roleSchema.nullable() }).nullable(),
+  action: z.enum([
+    'event.add',
+    'event.remove',
+    'event.update',
+    'match.status',
+    'match.result',
+    'team.final_rank',
+  ]),
+  matchId: id.nullable(),
+  teamId: id.nullable(),
+  before: auditSnapshotSchema,
+  after: auditSnapshotSchema,
+})
+export type AuditEntry = z.infer<typeof auditEntrySchema>
+/** GET /api/v1/admin/matches/{id}/audit */
+export const auditListSchema = z.object({ entries: z.array(auditEntrySchema) })
+
+export const assignmentSchema = z.object({
+  id,
+  userId: id,
+  userName: z.string(),
+  matchId: id.nullable(),
+  matchCode: z.string().nullable(),
+  field: z.string().nullable(),
+  date: z.string().nullable(),
+  from: z.string().nullable(),
+  to: z.string().nullable(),
+})
+export type Assignment = z.infer<typeof assignmentSchema>
+export const assignmentListSchema = z.object({ assignments: z.array(assignmentSchema) })
+
+/** GET /api/v1/admin/me/matches */
+export const assignedMatchListSchema = z.object({
+  matches: z.array(
+    adminMatchSchema.extend({
+      tournamentId: id,
+      tournamentName: z.string(),
+      divisionName: z.string(),
+    }),
+  ),
+})
+export type AssignedMatch = z.infer<typeof assignedMatchListSchema>['matches'][number]
 
 export const adminGallerySchema = z.object({
   id,
@@ -258,7 +345,20 @@ export const tournamentFormSchema = z
     teamListLabel: z.enum(['teams', 'entries']),
     groupLabel: z.enum(['groups', 'results']),
     showSchedule: checkbox,
+    forfeitWinner: optionalInt,
+    forfeitLoser: optionalInt,
   })
+  .refine((form) => (form.forfeitWinner === null) === (form.forfeitLoser === null), {
+    path: ['forfeitLoser'],
+    message: '不戦勝のスコアは勝ちと負けの両方を入れるか、両方空欄にしてください',
+  })
+  .refine(
+    (form) =>
+      form.forfeitWinner === null ||
+      form.forfeitLoser === null ||
+      (form.forfeitLoser >= 0 && form.forfeitWinner > form.forfeitLoser),
+    { path: ['forfeitWinner'], message: '勝ちのスコアを負けのスコアより大きくしてください' },
+  )
   .transform((form) => ({
     name: { ja: form.nameJa, en: form.nameEn },
     shortName: form.shortName,
@@ -269,6 +369,10 @@ export const tournamentFormSchema = z
     topHtml: { ja: form.topHtmlJa, en: form.topHtmlEn },
     labels: { teamList: form.teamListLabel, groups: form.groupLabel },
     showSchedule: form.showSchedule,
+    forfeitScore:
+      form.forfeitWinner === null || form.forfeitLoser === null
+        ? null
+        : { winner: form.forfeitWinner, loser: form.forfeitLoser },
   }))
 export type TournamentInput = z.output<typeof tournamentFormSchema>
 

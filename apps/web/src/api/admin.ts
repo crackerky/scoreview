@@ -16,6 +16,10 @@ import {
   adminTournamentListSchema,
   adminTournamentSchema,
   adminUserSchema,
+  assignedMatchListSchema,
+  assignmentListSchema,
+  assignmentSchema,
+  auditListSchema,
   bannersSchema,
   bracketTemplateListSchema,
   loginResponseSchema,
@@ -157,6 +161,37 @@ export const matches = {
     call(token, 'PUT', `${admin}/matches/${id}/player-stats`, matchDetailSchema, body),
   setStatus: (token: string, id: number, body: unknown) =>
     call(token, 'POST', `${admin}/matches/${id}/status`, matchDetailSchema, body),
+  setResult: (token: string, id: number, body: unknown) =>
+    call(token, 'POST', `${admin}/matches/${id}/result`, matchDetailSchema, body),
+  /** eventRef は得点経過の id か clientId(UUID)。opId は操作 ID(送り直しの冪等性) */
+  removeEventByRef: (token: string, id: number, eventRef: string, opId: string) =>
+    call(
+      token,
+      'DELETE',
+      `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}?clientId=${encodeURIComponent(opId)}`,
+      matchDetailSchema,
+    ),
+  updateEvent: (token: string, id: number, eventRef: string, body: unknown) =>
+    call(
+      token,
+      'PATCH',
+      `${admin}/matches/${id}/events/${encodeURIComponent(eventRef)}`,
+      matchDetailSchema,
+      body,
+    ),
+  audit: (token: string, id: number) =>
+    call(token, 'GET', `${admin}/matches/${id}/audit`, auditListSchema),
+  mine: (token: string) => call(token, 'GET', `${admin}/me/matches`, assignedMatchListSchema),
+}
+
+// 記録係の割り当て
+export const assignments = {
+  list: (token: string, tournamentId: number) =>
+    call(token, 'GET', `${admin}/tournaments/${tournamentId}/assignments`, assignmentListSchema),
+  create: (token: string, tournamentId: number, body: unknown) =>
+    call(token, 'POST', `${admin}/tournaments/${tournamentId}/assignments`, assignmentSchema, body),
+  remove: (token: string, id: number) =>
+    call(token, 'DELETE', `${admin}/assignments/${id}`, noContentSchema),
 }
 
 export const galleries = {

@@ -17,5 +17,6 @@
     "teamList": "teams",
     "groups": "groups"
   },
-  "showSchedule": true
+  "showSchedule": true,
+  "forfeitScore": null
 }

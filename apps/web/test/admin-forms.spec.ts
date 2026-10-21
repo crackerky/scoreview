@@ -48,7 +48,20 @@ describe('大会のフォーム', () => {
       labels: { teamList: 'teams', groups: 'results' },
       // チェックなしのチェックボックスはキーごと送られない
       showSchedule: false,
+      // 不戦勝の規定スコアは未設定(空欄)なら null
+      forfeitScore: null,
     })
+  })
+
+  test('不戦勝の規定スコアは勝ちと負けを両方入れ、勝ちを大きくする', () => {
+    const base = { nameJa: 'x', status: 'finished', teamListLabel: 'teams', groupLabel: 'groups' }
+    const parsed = tournamentFormSchema.parse({ ...base, forfeitWinner: '15', forfeitLoser: '0' })
+    assert.deepEqual(parsed.forfeitScore, { winner: 15, loser: 0 })
+    assert.equal(tournamentFormSchema.safeParse({ ...base, forfeitWinner: '15' }).success, false)
+    assert.equal(
+      tournamentFormSchema.safeParse({ ...base, forfeitWinner: '0', forfeitLoser: '0' }).success,
+      false,
+    )
   })
 
   test('名前が空、日付の形が違う、javascript: の URL は失敗する', () => {

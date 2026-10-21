@@ -126,7 +126,23 @@ async function AdminSections({
             ]}
             defaultValue={tournament.labels.groups}
           />
+          <Field
+            label="不戦勝のスコア(勝ったチーム)"
+            name="forfeitWinner"
+            type="number"
+            defaultValue={tournament.forfeitScore?.winner ?? null}
+          />
+          <Field
+            label="不戦勝のスコア(負けたチーム)"
+            name="forfeitLoser"
+            type="number"
+            defaultValue={tournament.forfeitScore?.loser ?? null}
+          />
         </div>
+        <p className="adm-muted">
+          不戦勝のスコアは大会の規程に合わせて入れてください(例 15 と
+          0)。空欄のままだと、記録係が不戦勝を記録するときにスコアの入力を求めます。
+        </p>
         <Check label="大会一覧に載せる" name="listed" defaultChecked={tournament.listed} />
         <Check
           label="ナビにスケジュールとディビジョン成績を出す"

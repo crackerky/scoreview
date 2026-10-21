@@ -61,6 +61,7 @@ type MatchRecord struct {
 	Left       domain.MatchSide
 	Right      domain.MatchSide
 	WinnerSide *domain.Side
+	ResultType domain.ResultType
 }
 
 func (f MatchFields) validate() error {
@@ -164,6 +165,7 @@ func toMatchRecord(match Match, teams map[int64]Team) (MatchRecord, error) {
 		Left:       row.Left,
 		Right:      row.Right,
 		WinnerSide: match.WinnerSide,
+		ResultType: match.ResultType,
 	}, nil
 }
 
@@ -305,6 +307,7 @@ func GetAdminMatch(ctx context.Context, db *gorm.DB, id int64) (MatchRecord, err
 // EventRecord は管理画面の得点経過の 1 行。LeftScore と RightScore はその時点の累計。
 type EventRecord struct {
 	ID         int64
+	ClientID   string
 	Seq        int
 	ElapsedSec int
 	Kind       domain.EventKind
@@ -326,12 +329,20 @@ type PlayerStatFields struct {
 }
 
 // MatchDetail はスコア入力画面の全データ。Rosters は左右のチームの選手とスタッフ(チームが未確定なら空)。
+// StartedAt は経過時間が 0 秒だった時刻(最初の得点経過の記録時刻からその経過秒を引いたもの。
+// 得点経過が無ければ nil)。ForfeitScore は大会の不戦勝の規定スコア(未設定なら nil)。
 type MatchDetail struct {
-	Match       MatchRecord
-	InBracket   bool
-	Events      []EventRecord
-	PlayerStats []PlayerStatFields
-	Rosters     struct{ Left, Right []PlayerRecord }
+	Match          MatchRecord
+	InBracket      bool
+	TournamentID   int64
+	TournamentName string
+	DivisionName   string
+	GroupName      *string
+	ForfeitScore   *domain.ForfeitScore
+	StartedAt      *time.Time
+	Events         []EventRecord
+	PlayerStats    []PlayerStatFields
+	Rosters        struct{ Left, Right []PlayerRecord }
 }
 
 // GetMatchDetail はスコア入力画面のデータを返す。無ければ MATCH_ID の NotFound。得点経過は時系列順。
@@ -346,6 +357,9 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 	}
 	detail := MatchDetail{Match: records[0], PlayerStats: []PlayerStatFields{}}
 	if detail.InBracket, err = inBracket(ctx, db, match); err != nil {
+		return MatchDetail{}, err
+	}
+	if err := fillMatchContext(ctx, db, match, &detail); err != nil {
 		return MatchDetail{}, err
 	}
 	events, err := loadEvents(ctx, db, id)
@@ -389,10 +403,14 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 			return MatchDetail{}, err
 		}
 		detail.Events = append(detail.Events, EventRecord{
-			ID: ev.ID, Seq: ev.Seq, ElapsedSec: ev.ElapsedSec, Kind: ev.Kind, Side: ev.Side,
+			ID: ev.ID, ClientID: ev.ClientID, Seq: ev.Seq, ElapsedSec: ev.ElapsedSec, Kind: ev.Kind, Side: ev.Side,
 			Scorer: scorer, Assist: assist, Callahan: ev.Callahan,
 			LeftScore: scores[i].Left, RightScore: scores[i].Right, CreatedAt: ev.CreatedAt,
 		})
+	}
+	if len(events) > 0 {
+		started := events[0].CreatedAt.Add(-time.Duration(events[0].ElapsedSec) * time.Second)
+		detail.StartedAt = &started
 	}
 	detail.Rosters.Left, detail.Rosters.Right = []PlayerRecord{}, []PlayerRecord{}
 	if match.LeftTeamID != nil {
@@ -406,6 +424,29 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 		}
 	}
 	return detail, nil
+}
+
+// fillMatchContext は試合の大会、ディビジョン、グループの名前と、大会の不戦勝の規定スコアを入れる
+// (スコア入力画面とスコアシートの見出しに出す)。
+func fillMatchContext(ctx context.Context, db *gorm.DB, match Match, detail *MatchDetail) error {
+	division, err := findInternal[Division](ctx, db, match.DivisionID, "division")
+	if err != nil {
+		return err
+	}
+	tournament, err := findInternal[Tournament](ctx, db, division.TournamentID, "tournament")
+	if err != nil {
+		return err
+	}
+	detail.TournamentID, detail.TournamentName = tournament.ID, tournament.NameJa
+	detail.DivisionName, detail.ForfeitScore = division.NameJa, tournamentForfeitScore(tournament)
+	if match.GroupID != nil {
+		group, err := findInternal[Group](ctx, db, *match.GroupID, "group")
+		if err != nil {
+			return err
+		}
+		detail.GroupName = &group.Name
+	}
+	return nil
 }
 
 // loadEvents は試合の得点経過を時系列順(経過時間、同時刻は seq)で読む。
