@@ -7,6 +7,8 @@ Next.js(TypeScript)の web と Go の api を、Vercel の 1 プロジェクト�
 - [技術スタック選定](docs/tech-stack.md)
 - [アーキテクチャ設計書](docs/architecture.md)
 - [API 契約](docs/api.md)
+- [運営者の体験から見た要件](docs/operations/operator-experience.md)
+- [大会形式エンジンの設計](docs/format-engine.md)
 - [参照サイト調査](docs/clone-spec/README.md)
 - [LINE 連携の設計(将来の拡張)](docs/line-integration.md)
 
