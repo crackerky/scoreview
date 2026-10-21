@@ -6,17 +6,18 @@
 :root {
   --sk-tap: 48px;
   --sk-gap: 8px;
+  /* 屋外の日差しで読めるよう、文字と背景のコントラスト比を 7 以上にする(WCAG 2.2 AAA。レビュー M9) */
   --sk-fg: #1f2328;
-  --sk-muted: #59636e;
+  --sk-muted: #3d444d;
   --sk-line: #d0d7de;
   --sk-bg: #f6f8fa;
-  --sk-left: #0b63c5;
+  --sk-left: #0a4f9e;
   --sk-left-soft: #e3effc;
-  --sk-right: #b35900;
+  --sk-right: #8a4500;
   --sk-right-soft: #fdf0e3;
-  --sk-danger: #c62828;
-  --sk-ok: #1a7f37;
-  --sk-warn: #9a6700;
+  --sk-danger: #9b1c1c;
+  --sk-ok: #0b4a1f;
+  --sk-warn: #5c3d00;
 }
 
 .sk {
@@ -107,7 +108,7 @@
 .sk-sync {
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: bold;
   white-space: nowrap;
 }
@@ -130,13 +131,42 @@
 .sk-banner {
   margin: 0;
   padding: 8px var(--sk-gap);
+  border: 2px solid var(--sk-warn);
+  border-radius: 8px;
   background: #fff8c5;
-  font-size: 0.9rem;
+  color: var(--sk-fg);
+  font-size: 1rem;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+}
+
+.sk-toast {
+  border-color: var(--sk-fg);
+  background: #fff;
 }
 
 .sk-banner.error {
+  border-color: var(--sk-danger);
   background: #ffebe9;
   color: var(--sk-danger);
+}
+
+/* 通信断などの知らせは得点経過の上に重ねて出し、+1 の位置を動かさない(レビュー M5) */
+.sk-banners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.sk-banners:empty {
+  display: none;
 }
 
 .sk-close {
@@ -174,7 +204,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  font-weight: bold;
 }
 
 .sk-team.left .sk-name {
@@ -204,9 +235,9 @@
 .sk-chip {
   padding: 2px 10px;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: bold;
-  background: #59636e;
+  background: #3d444d;
 }
 
 .sk-chip.live {
@@ -220,6 +251,15 @@
 .sk-clock {
   font-variant-numeric: tabular-nums;
   font-size: 1.1rem;
+  font-weight: bold;
+}
+
+/* 試合時間を大きく超えた経過時間(レビュー M6) */
+.sk-clock.long {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #fff8c5;
+  color: var(--sk-warn);
 }
 
 .sk-main {
@@ -237,12 +277,13 @@
   gap: var(--sk-gap);
 }
 
+/* +1 は画面の下側、取り消しと試合終了のすぐ上に置く(親指が届く。レビュー M4) */
 .sk .sk-goal {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 150px;
+  min-height: 140px;
   border-radius: 16px;
 }
 
@@ -270,10 +311,30 @@
   gap: var(--sk-gap);
 }
 
+/* タイムアウトとプルは画面の上側(+1 から得点経過の欄をはさんで離す。押し間違えを防ぐ) */
 .sk-minor button {
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.2;
   padding: 4px;
+}
+
+.sk-events-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 96px;
+}
+
+.sk .sk-newrows {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 0 16px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
 }
 
 .sk-events {
@@ -297,8 +358,17 @@
   width: 100%;
   min-height: var(--sk-tap);
   padding: 4px 4px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   text-align: left;
+}
+
+.sk .sk-event.timeout,
+.sk .sk-event.pull {
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: var(--sk-fg);
+  font-weight: normal;
 }
 
 .sk .sk-event.goal {
@@ -338,7 +408,7 @@
   border-radius: 6px;
   background: #fff8c5;
   color: var(--sk-warn);
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: bold;
 }
 
@@ -378,14 +448,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.75rem;
-  font-weight: normal;
+  font-size: 1rem;
+  font-weight: bold;
   color: var(--sk-muted);
 }
 
 .sk .sk-other {
   flex: 0.8;
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.2;
 }
 
@@ -403,7 +473,35 @@
 .sk-hint {
   margin: 4px 0 8px;
   color: var(--sk-muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
+}
+
+.sk-warn {
+  color: var(--sk-warn);
+  font-weight: bold;
+}
+
+.sk-now {
+  color: var(--sk-fg);
+  font-weight: bold;
+}
+
+.sk-winner {
+  margin: 4px 0;
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.sk-next {
+  display: flex;
+  align-items: center;
+  min-height: var(--sk-tap);
+  padding: 4px 12px;
+  border: 2px solid var(--sk-left);
+  border-radius: 10px;
+  color: var(--sk-left);
+  font-weight: bold;
+  text-decoration: none;
 }
 
 .sk-pair {
@@ -499,8 +597,30 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: normal;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* 得点者の段とアシストの段で見出しの高さを揃え、選手のボタンの位置を動かさない(レビュー M2) */
+.sk-sheet-heading {
+  min-height: 2.8em;
+}
+
+.sk-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sk-gap);
+  min-height: var(--sk-tap);
+  margin-top: var(--sk-gap);
+}
+
+.sk .sk-players button.picked {
+  outline: 4px solid var(--sk-fg);
+}
+
+.sk .sk-results button.danger {
+  border-color: var(--sk-danger);
+  color: var(--sk-danger);
 }
 
 .sk-confirm-score {
