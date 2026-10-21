@@ -1,0 +1,33 @@
+version: "2"
+
+linters:
+  enable:
+    - gosec        # G201/G202: SQL 文字列の組み立てを検出する
+    - forbidigo    # GORM の Raw / Exec を禁止する
+    - errorlint    # %w でのラップと errors.Is/As の使用を強制する
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+    - misspell
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^\*?gorm\.DB\.(Raw|Exec)$'
+          pkg: '^gorm\.io/gorm$'
+          msg: >-
+            GORM の Raw/Exec は使わない。クエリビルダ(Where に ? プレースホルダ)で書く。
+            どうしても必要なら理由を書いて //nolint:forbidigo を付ける。
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [gosec, noctx]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: [scoreview/api]

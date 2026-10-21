@@ -1,0 +1,28 @@
+{
+  "name": "scoreview",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "go:lint": "cd apps/api && \"$(go env GOPATH)/bin/golangci-lint\" run ./...",
+    "go:test": "cd apps/api && go test ./...",
+    "go:build": "cd apps/api && go build ./...",
+    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm go:lint && pnpm go:build && pnpm go:test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "husky": "9.1.7",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec biome ci .
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      # embedded-postgres のバイナリ(テスト用 DB)をジョブ間で再利用する
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/scoreview-embedded-postgres
+          key: embedded-postgres-v17
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0
+          working-directory: apps/api
+      - run: go build ./...
+      - run: go test ./...
