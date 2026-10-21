@@ -149,6 +149,12 @@ const jp = {
   eventCallahan: 'キャラハンゴール',
   // スケジュールの検索フォームの送信ボタン。JavaScript がないとき(noscript)だけ出す本サイト独自の文言
   scheduleSearchSubmit: '検索',
+  // 結果の種類(本サイト独自。状況列に出す)
+  resultForfeit: '不戦勝',
+  resultDoubleForfeit: '両者不戦敗',
+  resultNoContest: '不成立',
+  resultAbandoned: '打切',
+  resultUnplayed: '未消化',
 } as const
 
 export type MessageKey = keyof typeof jp
@@ -290,6 +296,11 @@ const en: Record<MessageKey, string> = {
   // 推測: キャラハンゴールの英語表記は未観測
   eventCallahan: 'Callahan Goal',
   scheduleSearchSubmit: 'Search',
+  resultForfeit: 'Forfeit',
+  resultDoubleForfeit: 'Double forfeit',
+  resultNoContest: 'No contest',
+  resultAbandoned: 'Abandoned',
+  resultUnplayed: 'Unplayed',
 }
 
 const dictionaries: Record<Lang, Record<MessageKey, string>> = { jp, en }

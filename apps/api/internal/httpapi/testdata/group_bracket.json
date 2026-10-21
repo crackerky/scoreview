@@ -226,6 +226,7 @@
       "time": "10:00",
       "field": "2",
       "status": "live",
+      "resultType": "normal",
       "left": {
         "team": {
           "id": 4,

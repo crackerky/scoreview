@@ -112,6 +112,7 @@
       "time": "09:00",
       "field": "1",
       "status": "finished",
+      "resultType": "normal",
       "left": {
         "team": {
           "id": 1,
@@ -145,6 +146,7 @@
       "time": "10:00",
       "field": "2",
       "status": "finished",
+      "resultType": "normal",
       "left": {
         "team": {
           "id": 3,

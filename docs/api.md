@@ -90,6 +90,8 @@ type MatchRow = {
   time: string | null
   field: string | null               // コート。数字とは限らない("A" など)
   status: MatchStatus
+  // 結果の種類。通常以外は閲覧ページの状況列に種類を出す(本サイト独自。requirements の意図的な差分)
+  resultType: 'normal' | 'forfeit' | 'double_forfeit' | 'no_contest' | 'abandoned' | 'unplayed'
   left: MatchSide
   right: MatchSide
 }
