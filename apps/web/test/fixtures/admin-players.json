@@ -1,0 +1,37 @@
+{
+  "players": [
+    {
+      "id": 100000000,
+      "teamId": 100000013,
+      "number": "7",
+      "name": {
+        "ja": "選手A1",
+        "en": ""
+      },
+      "gender": "M",
+      "role": null
+    },
+    {
+      "id": 100000001,
+      "teamId": 100000013,
+      "number": "10",
+      "name": {
+        "ja": "選手B1",
+        "en": ""
+      },
+      "gender": "F",
+      "role": null
+    },
+    {
+      "id": 100000002,
+      "teamId": 100000013,
+      "number": "23",
+      "name": {
+        "ja": "選手C1",
+        "en": ""
+      },
+      "gender": "M",
+      "role": null
+    }
+  ]
+}
