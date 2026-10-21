@@ -23,6 +23,7 @@ func toFrame(frame store.Frame) frameDTO {
 		Divisions:    make([]frameDivisionDTO, 0, len(frame.Divisions)),
 		Galleries:    make([]frameGalleryDTO, 0, len(frame.Galleries)),
 		Banners:      make([]bannerDTO, 0, len(frame.Banners)),
+		Suspension:   toSuspension(frame.Suspension),
 	}
 	for _, division := range frame.Divisions {
 		groups := make([]frameGroupDTO, 0, len(division.Groups))

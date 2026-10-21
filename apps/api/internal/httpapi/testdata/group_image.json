@@ -76,7 +76,8 @@
         "imageUrl": "/b2.png",
         "linkUrl": null
       }
-    ]
+    ],
+    "suspension": null
   },
   "group": {
     "id": 2,

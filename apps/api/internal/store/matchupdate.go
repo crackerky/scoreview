@@ -681,6 +681,79 @@ func writeMatchState(ctx context.Context, tx *gorm.DB, before Match, state match
 	return nil
 }
 
+// bulkResult は本部の一括処理(棄権、大会の締め)で 1 試合に書く結果。teamID は監査ログに残す
+// チーム(棄権したチーム)、note は監査ログの補足(「棄権の一括処理」)。
+type bulkResult struct {
+	resultType domain.ResultType
+	winner     *domain.Side
+	teamID     *int64
+	action     string
+	note       string
+}
+
+// writeBulkResult は本部の一括処理の 1 試合を、試合の行をロックして書き、監査ログに残す。呼ぶ前に
+// ディビジョンをロックしていること(一括処理は 1 つのトランザクションで全試合を書く)。既に結果の
+// ある試合は変えない(changed=false)。未消化は対戦相手が決まっていない試合にも書ける(行わなかった
+// ことだけを記録する)が、不戦勝などは両チームが決まった試合だけ。
+func writeBulkResult(
+	ctx context.Context,
+	tx *gorm.DB,
+	actor domain.Actor,
+	matchID int64,
+	result bulkResult,
+) (bool, error) {
+	match, err := lockMatch(ctx, tx, matchID)
+	if err != nil {
+		return false, err
+	}
+	if decisive(match) || (match.Status == domain.MatchLive && result.resultType != domain.ResultUnplayed) {
+		return false, nil
+	}
+	if result.resultType != domain.ResultUnplayed && (match.LeftTeamID == nil || match.RightTeamID == nil) {
+		return false, fmt.Errorf("%w: 対戦チームが決まっていない試合(%s)の結果は入れられません",
+			domain.ErrConflict, match.Code)
+	}
+	if err := domain.ValidTransition(match.Status, domain.MatchFinished, actor.Role); err != nil {
+		return false, err
+	}
+	events, err := loadEvents(ctx, tx, match.ID)
+	if err != nil {
+		return false, err
+	}
+	forfeit, err := forfeitScoreOf(ctx, tx, match, nil)
+	if err != nil {
+		return false, err
+	}
+	bracket, err := inBracket(ctx, tx, match)
+	if err != nil {
+		return false, err
+	}
+	outcome, err := domain.DecideResult(domain.ExceptionalResult{
+		Type: result.resultType, WinnerSide: result.winner, Forfeit: forfeit,
+		Current: domain.FinalScore(toDomainEvents(events)),
+	}, bracket)
+	if err != nil {
+		return false, err
+	}
+	err = writeMatchState(ctx, tx, match, matchState{status: domain.MatchFinished, score: outcome.Score,
+		winner: outcome.Winner, resultType: result.resultType})
+	if err != nil {
+		return false, err
+	}
+	after, err := findInternal[Match](ctx, tx, matchID, "match")
+	if err != nil {
+		return false, err
+	}
+	division, err := findInternal[Division](ctx, tx, match.DivisionID, "division")
+	if err != nil {
+		return false, err
+	}
+	return true, writeAudit(ctx, tx, auditEntry{tournamentID: division.TournamentID, matchID: &matchID,
+		teamID: result.teamID, actor: actor, action: result.action,
+		before: AuditSnapshot{Match: auditMatchState(match)},
+		after:  AuditSnapshot{Match: auditMatchState(after), Note: result.note}})
+}
+
 // resetMatchResult は試合の結果と得点経過を消して未試合に戻す。上流の訂正で対戦チームが変わり、
 // 運営者が「下流の結果を未試合に戻す」を選んだときだけ使う(format_guard.go)。通常の状態遷移
 // (domain.ValidTransition)にない未試合への戻しなので、この経路に閉じ込める。対戦チームは後続の

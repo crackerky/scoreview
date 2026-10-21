@@ -25,7 +25,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "confirm_group",
@@ -34,7 +35,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "confirm_group",
@@ -43,7 +45,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "tie",
@@ -52,7 +55,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     }
   ],
   "stages": [
@@ -718,5 +722,8 @@
       "groupLabel": "5〜8 位を決めるトーナメント"
     }
   ],
-  "final": []
+  "final": [],
+  "withdrawn": [],
+  "closedAt": null,
+  "suspension": null
 }

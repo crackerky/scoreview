@@ -251,6 +251,7 @@ type todoDTO struct {
 	GroupID *int64  `json:"groupId"`
 	StageID *int64  `json:"stageId"`
 	MatchID *int64  `json:"matchId"`
+	TeamID  *int64  `json:"teamId"`
 	Court   *string `json:"court"`
 	Minutes int     `json:"minutes"`
 }
@@ -335,6 +336,9 @@ type progressDTO struct {
 	Live        []progressMatchDTO `json:"live"`
 	Next        []progressMatchDTO `json:"next"`
 	Final       []progressFinalDTO `json:"final"`
+	Withdrawn   []int64            `json:"withdrawn"`
+	ClosedAt    *string            `json:"closedAt"`
+	Suspension  *suspensionDTO     `json:"suspension"`
 }
 
 type progressMatchListDTO struct {
@@ -367,7 +371,7 @@ func toProgress(p store.FormatProgress, now time.Time) progressDTO {
 		Final: []progressFinalDTO{}}
 	for _, t := range p.Todo {
 		out.Todo = append(out.Todo, todoDTO{Kind: string(t.Kind), Text: t.Text, GroupID: t.GroupID,
-			StageID: t.StageID, MatchID: t.MatchID, Court: t.Court, Minutes: t.Minutes})
+			StageID: t.StageID, MatchID: t.MatchID, TeamID: t.TeamID, Court: t.Court, Minutes: t.Minutes})
 	}
 	for _, s := range p.Stages {
 		out.Stages = append(out.Stages, stageProgressDTO(s))
@@ -400,6 +404,12 @@ func toProgress(p store.FormatProgress, now time.Time) progressDTO {
 	for _, f := range p.Final {
 		out.Final = append(out.Final, progressFinalDTO{Rank: f.Rank, Team: toTeamRef(f.Team), Tied: f.Tied})
 	}
+	out.Withdrawn = nonNil(p.Withdrawn)
+	if p.ClosedAt != nil {
+		at := formatInstant(*p.ClosedAt)
+		out.ClosedAt = &at
+	}
+	out.Suspension = toSuspension(p.Suspension)
 	return out
 }
 
@@ -478,6 +488,13 @@ func toImpact(i store.CorrectionImpact) impactDTO {
 type shiftInputDTO struct {
 	Court   *string `json:"court"`
 	Minutes int     `json:"minutes"`
+	// DryRun は動く試合の数だけを返す(本部の確認画面)
+	DryRun bool `json:"dryRun"`
+}
+
+type shiftResultDTO struct {
+	Violations []violationDTO `json:"violations"`
+	Moved      int            `json:"moved"`
 }
 
 type swapInputDTO struct {

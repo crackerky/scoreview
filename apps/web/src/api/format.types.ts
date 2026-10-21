@@ -3,6 +3,7 @@ import {
   bracketCellSchema,
   groupKindSchema,
   matchStatusSchema,
+  suspensionSchema,
   tallySchema,
   teamRefSchema,
 } from './common.types'
@@ -195,11 +196,14 @@ export const todoSchema = z.object({
     'court_delay',
     'mismatch',
     'overlap',
+    'withdrawn',
   ]),
   text: z.string(),
   groupId: id.nullable(),
   stageId: id.nullable(),
   matchId: id.nullable(),
+  /** withdrawn の棄権したチーム */
+  teamId: id.nullable(),
   court: z.string().nullable(),
   minutes: z.number().int(),
 })
@@ -257,8 +261,77 @@ export const progressSchema = z.object({
   live: z.array(progressMatchSchema),
   next: z.array(progressMatchSchema),
   final: z.array(z.object({ rank: z.number().int(), team: teamRefSchema, tied: z.boolean() })),
+  /** 棄権したチームの ID */
+  withdrawn: z.array(id),
+  /** 大会を締めた時刻。まだなら null */
+  closedAt: z.iso.datetime().nullable(),
+  /** 大会の中断(全部門に共通) */
+  suspension: suspensionSchema.nullable(),
 })
 export type Progress = z.infer<typeof progressSchema>
+
+/** POST /admin/divisions/{id}/schedule-shift */
+export const shiftResultSchema = z.object({
+  violations: z.array(violationSchema),
+  /** 動いた(dryRun なら動く)試合の数 */
+  moved: z.number().int(),
+})
+
+const withdrawalMatchSchema = z.object({
+  id,
+  code: z.string(),
+  date: z.string().nullable(),
+  time: z.string().nullable(),
+  field: z.string().nullable(),
+  status: matchStatusSchema,
+  opponent: teamRefSchema.nullable(),
+  result: z.enum(['forfeit', 'double_forfeit']),
+})
+export type WithdrawalMatch = z.infer<typeof withdrawalMatchSchema>
+
+/** GET / POST /admin/teams/{id}/withdrawal(チームの棄権) */
+export const withdrawalSchema = z.object({
+  team: teamRefSchema,
+  divisionId: id,
+  withdrawnAt: z.iso.datetime().nullable(),
+  targets: z.array(withdrawalMatchSchema),
+  waiting: z.array(withdrawalMatchSchema),
+  forfeitScore: z.object({ winner: z.number().int(), loser: z.number().int() }).nullable(),
+})
+export type Withdrawal = z.infer<typeof withdrawalSchema>
+
+/** GET /admin/divisions/{id}/closing と POST close(大会の締め) */
+export const closingSchema = z.object({
+  remaining: z.array(progressMatchSchema),
+  ranks: z.array(
+    z.object({
+      rank: z.number().int(),
+      team: teamRefSchema,
+      tied: z.boolean(),
+      proposed: z.boolean(),
+    }),
+  ),
+  ties: z.array(z.string()),
+  closedAt: z.iso.datetime().nullable(),
+  published: z.boolean(),
+})
+export type Closing = z.infer<typeof closingSchema>
+
+/** POST /admin/tournaments/{id}/resume(中断の再開) */
+export const resumeSchema = z.object({
+  minutes: z.number().int(),
+  shifted: z.number().int(),
+  overEnd: z.array(
+    z.object({
+      matchId: id,
+      code: z.string(),
+      division: z.string(),
+      time: z.string(),
+      overMinutes: z.number().int(),
+    }),
+  ),
+})
+export type ResumeResult = z.infer<typeof resumeSchema>
 
 /** GET /admin/divisions/{id}/format/matches */
 export const progressMatchListSchema = z.object({ matches: z.array(progressMatchSchema) })

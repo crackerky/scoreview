@@ -69,6 +69,15 @@ type TournamentFrame = {
   }>
   galleries: Array<{ id: number; name: I18nText }>  // 英語名は "---" のことが多い(参照サイトの値)
   banners: Array<{ imageUrl: string; linkUrl: string | null }>
+  // 雷・雨などによる大会の中断(本サイト独自の追加。docs/requirements.md「意図的な差分」)。中断していなければ null。
+  // 閲覧ページは大会の上部に「雷のため中断中(再開予定 13:30)」の帯を出す
+  suspension: Suspension | null
+}
+type Suspension = {
+  reason: 'thunder' | 'rain' | 'heat' | 'other'   // 雷 / 雨 / 暑さ / その他
+  note: string                       // その他の説明(空文字可)
+  resumeAt: string | null            // 再開予定 "HH:MM"
+  since: string                      // 中断した時刻(RFC 3339、UTC)
 }
 
 type TeamRef = { id: number; name: I18nText }     // name は短縮名(画面の表で使う名前)
@@ -832,8 +841,10 @@ type Progress = {
   // court_delay)に並べて返す。overlap は同じチームが時刻の重なる 2 試合に入っている(両方終わったものは除く)
   todo: Array<{
     kind: 'tie' | 'confirm_group' | 'confirm_stage' | 'overdue' | 'court_delay' | 'mismatch' | 'overlap'
+      | 'withdrawn'                                 // 棄権したチームが入った試合前の試合(相手の不戦勝にする)
     text: string                                    // 運営者向けの文
     groupId: number | null; stageId: number | null; matchId: number | null; court: string | null
+    teamId: number | null                           // withdrawn の棄権したチーム
     minutes: number                                 // overdue と court_delay の遅れ(分)
   }>
   stages: Array<{ id; index; name; confirmed: boolean; confirmedUnplayed: boolean; needsConfirm: boolean }>
@@ -849,7 +860,11 @@ type Progress = {
   }>
   live: ProgressMatch[]                             // 試合中
   next: ProgressMatch[]                             // 次の時間帯(まだ始まっていない最も早い開始時刻の試合)
+  // 最終順位(決まった分)。大会を締めた後は、締めで同順位にした順位も含む(tied: true)
   final: Array<{ rank: number; team: TeamRef; tied: boolean }>
+  withdrawn: number[]                               // 棄権したチームの ID(昇順)
+  closedAt: string | null                           // 大会を締めた時刻(RFC 3339、UTC)
+  suspension: Suspension | null                     // 大会の中断(全部門に共通)
 }
 type Impact = {
   lines: string[]                                   // 「Qualifying pool A の 2 位と 3 位が入れ替わります(…)」
@@ -875,7 +890,7 @@ type Impact = {
 | `POST /admin/matches/{id}/correction` | 上と同じ + `downstream: 'keep' \| 'reset' \| null`、`expectedScore?: { left; right } \| null`、`keepEvents?: boolean` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `downstream` が null なら 409。得点経過のある試合は `keepEvents: true` のときだけ、得点経過を残したまま `score` で終了にする(得点経過の合計と違えば監査ログの `note` に残す。閲覧ページは試合の最終スコアを出す)。無ければ 400。`expectedScore` は本部が画面を開いたときのスコアで、今のスコア(スコアなしは 0-0)と違えば 409 `score_mismatch`(記録係の試合終了の照合と同じ。`message` に今のスコア) |
 | `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない)。結果は新しいチームのものとして次の試合と最終順位に流す |
 | `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }`。同じ大会の他のディビジョンの試合とのコートの重なりも `court_conflict`(`codes` の 2 つ目が相手の試合 CD)。形の適用で作る時間割は、他のディビジョンの試合のコートと時刻を避ける |
-| `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |
+| `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number; dryRun?: boolean }` | `{ violations; moved: number }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外)。`moved` は動いた(`dryRun: true` なら動く)試合の数で、`dryRun` は保存しない(本部の確認「コート 3 の 8 試合を 15 分ずらします」) |
 | `POST /admin/matches/{id}/swap-schedule` | `{ otherMatchId: number }` | `{ violations }`。未試合の 2 試合の日付、時刻、コートを入れ替える |
 
 - 試合の結果が変わるたび(得点経過、状態、結果の種類の変更)に、形のあるディビジョンでは枠と下流の未試合の試合の左右、グループのチーム、プールの順位(`rank_override`)、最終順位(`teams.final_rank`)を自動で書き直す。トーナメント内の勝ち上がりは自動、プールから次の段へは確定が要る。
@@ -886,6 +901,69 @@ type Impact = {
   - 既に食い違いになっている試合は、さらに対戦が変わっても承認の対象にしない(前の承認で扱いが決まっている)。
 - 対戦チームが決まっていない試合への結果の入力は、どの経路(得点経過、状態、結果の種類、訂正)でも 409。
 - 形の適用、確定、同順位の指定、差し替えは監査ログに残る(`format.apply`、`group.confirm`、`stage.confirm`、`group.rank_decision`、`stage.rank_decision`、`match.align_teams`)。
+- トーナメントの `POST /admin/groups/{id}/confirm` は `unplayed: true` のときだけ受け付け、残りの試合(相手が未定の試合も)を未消化にする(時間切れ)。`unplayed: false` は 409。
+
+### チームの棄権
+
+大会の途中で帰ったチームの残りの試合を、相手の不戦勝として一括で記録する(本部の「棄権にする」)。管理者だけ。
+
+```ts
+type WithdrawalMatch = {
+  id: number; code: string; date: string | null; time: string | null; field: string | null
+  status: MatchStatus
+  opponent: TeamRef | null           // 相手。未定なら null
+  result: 'forfeit' | 'double_forfeit'  // 記録する結果(相手も棄権していれば両チーム不戦敗)
+}
+type Withdrawal = {
+  team: TeamRef; divisionId: number
+  withdrawnAt: string | null         // 棄権にした時刻(RFC 3339、UTC)。まだなら null
+  targets: WithdrawalMatch[]         // 一括で記録する試合(試合前で相手が決まっている。時刻の順)
+  waiting: WithdrawalMatch[]         // 今は記録しない試合(相手が未定、試合中)
+  forfeitScore: { winner: number; loser: number } | null  // 不戦勝の規定スコア。null なら勝敗だけを記録する
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/teams/{id}/withdrawal` | なし | `Withdrawal`(保存しない。確認画面「残り 2 試合(C3、G3)を相手の不戦勝にします」) |
+| `POST /admin/teams/{id}/withdrawal` | `{ matchIds: number[] }` | `Withdrawal`。チームを棄権にし、`targets` を記録する。`matchIds` は確認画面の `targets` の ID で、今の対象と違えば 409(何も記録しない) |
+
+- 各試合は `match.withdraw` の監査ログ(`teamId` は棄権したチーム、`after.note` は「棄権の一括処理(チーム名)」)に残る。下流の試合と順位は通常の結果と同じく書き直す。
+- 棄権したチームが後で試合(順位決定戦など)に入ると、`progress.todo` に `withdrawn` が出る。同じ `POST` で記録する。
+
+### 大会の締め
+
+時間切れで残った試合をまとめて未消化にし、決まらなかった順位を同順位で提案して、最終順位を書いて公開する(進行画面の「大会を締める」)。管理者だけ。
+
+```ts
+type Closing = {
+  remaining: ProgressMatch[]         // 未消化にする試合(相手が未定の試合も含む。時刻の順)
+  ranks: Array<{ rank: number; team: TeamRef; tied: boolean; proposed: boolean }>
+                                     // 締めた後の最終順位。proposed はエンジンで決まらず締めで同順位にした順位
+  ties: string[]                     // 「9〜12 位は 9 位タイ(T03、T06、T09、T12)」
+  closedAt: string | null            // 締めた時刻。まだなら null
+  published: boolean                 // 最終順位を公開しているか(standings_published)
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/divisions/{id}/closing` | なし | `Closing`(保存しない。残りを全部未消化にしたときの提案) |
+| `POST /admin/divisions/{id}/close` | `{ matchIds: number[]; publish: boolean }` | `Closing`。段の順に残りの試合を未消化にし、プールと段を確定する(未決の同順位のプールも同順位のまま)。エンジンが決めなかった順位は、未消化で終わった試合から先で取りえた最も上の順位で並べ(準決勝が未消化なら 4 チームが 1 位タイ)、どの順位決定戦にも進めなかったチームは最後の順位の次で並べる。`publish` なら最終順位を公開する。`matchIds` は確認画面の `remaining` の ID で、今の残りと違えば 409 |
+
+- 未消化にした試合は `match.result` の監査ログ(`after.note` は「大会の締め(未消化)」)、締めは `division.close` に残る。
+- 締めた後に結果を直しても、エンジンが順位を決めたチームはエンジンの順位、それ以外は締めの順位になる。
+
+### 大会の中断
+
+雷・雨・暑さで大会全体を止める。中断中は閲覧ページの大会の上部に帯を出し、再開すると中断した分だけ未開始の試合をずらす。管理者だけ。
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `POST /admin/tournaments/{id}/suspension` | `{ reason: 'thunder' \| 'rain' \| 'heat' \| 'other'; note: string; resumeAt: string \| null }` | `Suspension`。中断する。中断中なら理由と再開予定だけを書き直す(中断した時刻は変えない) |
+| `POST /admin/tournaments/{id}/resume` | `{ minutes: number \| null }` | `{ minutes: number; shifted: number; overEnd: Array<{ matchId; code; division: string; time: string; overMinutes: number }> }`。中断を終え、大会の全部門のまだ始まっていない試合を `minutes` 分(null なら中断からの経過を 5 分単位に切り上げた分。0〜360)遅らせる。`overEnd` はずらした結果、部門の時間割の終了時刻を過ぎる試合。中断していなければ 409 |
+
+- 中断と再開は監査ログに残る(`tournament.suspend`、`tournament.resume`)。
 
 ### ギャラリー
 

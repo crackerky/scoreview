@@ -133,26 +133,9 @@ func ShiftFormatSchedule(
 		if !ok {
 			return fmt.Errorf("%w: この部門には大会の形が設定されていません", domain.ErrConflict)
 		}
-		current := fs.assignments()
-		var from *time.Time
-		for _, a := range current {
-			m := fs.matches[a.Code]
-			if m.Status != domain.MatchScheduled || (court != nil && a.Court != *court) {
-				continue
-			}
-			if from == nil || a.Start.Before(*from) {
-				start := a.Start
-				from = &start
-			}
-		}
-		if from == nil {
-			return fmt.Errorf("%w: 遅らせる試合がありません", domain.ErrConflict)
-		}
-		var shifted []format.Assignment
-		if court != nil {
-			shifted = format.ShiftCourt(current, *court, *from, minutes)
-		} else {
-			shifted = format.ShiftAll(current, *from, minutes)
+		current, shifted, err := fs.planShift(court, minutes)
+		if err != nil {
+			return err
 		}
 		for i, a := range shifted {
 			m := fs.matches[a.Code]
@@ -170,6 +153,57 @@ func ShiftFormatSchedule(
 		return nil, err
 	}
 	return CheckFormatSchedule(ctx, db, divisionID)
+}
+
+// planShift は court(nil なら全コート)のまだ始まっていない試合を minutes 分ずらした時間割を返す。
+// 起点はそのコートのまだ始まっていない最初の試合の予定時刻。
+func (fs *formatState) planShift(court *string, minutes int) ([]format.Assignment, []format.Assignment, error) {
+	current := fs.assignments()
+	var from *time.Time
+	for _, a := range current {
+		m := fs.matches[a.Code]
+		if m.Status != domain.MatchScheduled || (court != nil && a.Court != *court) {
+			continue
+		}
+		if from == nil || a.Start.Before(*from) {
+			start := a.Start
+			from = &start
+		}
+	}
+	if from == nil {
+		return nil, nil, fmt.Errorf("%w: 遅らせる試合がありません", domain.ErrConflict)
+	}
+	var shifted []format.Assignment
+	if court != nil {
+		shifted = format.ShiftCourt(current, *court, *from, minutes)
+	} else {
+		shifted = format.ShiftAll(current, *from, minutes)
+	}
+	return current, shifted, nil
+}
+
+// CountShift は ShiftFormatSchedule で動く試合の数を返す(保存しない。本部の確認「コート 3 の 8 試合を
+// 15 分ずらします」に使う)。
+func CountShift(ctx context.Context, db *gorm.DB, divisionID int64, court *string, minutes int) (int, error) {
+	if minutes == 0 || minutes > maxShiftMinutes || minutes < -maxShiftMinutes {
+		return 0, domain.Invalid("minutes", fmt.Sprintf("must be between -%d and %d, not 0",
+			maxShiftMinutes, maxShiftMinutes))
+	}
+	fs, err := mustFormatState(ctx, db, divisionID)
+	if err != nil {
+		return 0, err
+	}
+	current, shifted, err := fs.planShift(court, minutes)
+	if err != nil {
+		return 0, err
+	}
+	moved := 0
+	for i, a := range shifted {
+		if !a.Start.Equal(current[i].Start) && fs.matches[a.Code].Status == domain.MatchScheduled {
+			moved++
+		}
+	}
+	return moved, nil
 }
 
 func writeMatchTime(ctx context.Context, tx *gorm.DB, matchID int64, start time.Time, field *string) error {

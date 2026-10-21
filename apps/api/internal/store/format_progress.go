@@ -224,6 +224,9 @@ func sameMembers(current []GroupTeam, want []GroupTeamFields) bool {
 // いないチームは空にする(大会形式のあるディビジョンでは最終順位をエンジンが持つ)。
 func (fs *formatState) writeFinalRanks(ctx context.Context, tx *gorm.DB) error {
 	ranks := map[int64]int{}
+	for team, rank := range fs.closedRanks {
+		ranks[team] = rank // 大会の締めで決めた順位。エンジンの順位があればそちらを使う
+	}
 	for _, f := range fs.res.Final {
 		ranks[f.TeamID] = f.Rank
 	}
@@ -322,7 +325,15 @@ func confirmGroupIn(
 	group := fs.plan.Groups[index]
 	status := fs.res.Groups[index]
 	if group.Kind != domain.GroupPool {
-		return fmt.Errorf("%w: トーナメントは試合の終了で自動に進むので確定は要りません", domain.ErrConflict)
+		if !unplayed {
+			return fmt.Errorf("%w: トーナメントは試合の終了で自動に進むので確定は要りません", domain.ErrConflict)
+		}
+		// 時間切れ: 残りの試合を未消化にする(相手が未定の試合も)。順位は大会の締めで同順位にする
+		if err := unplayedGroupMatches(ctx, tx, fs, actor, index, timeUpNote); err != nil {
+			return err
+		}
+		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditGroupConfirm, nil,
+			AuditFormat{Group: group.Name, Unplayed: true})
 	}
 	if len(status.Mismatches) > 0 && status.State != format.GroupConfirmed {
 		return fmt.Errorf("%w: %s に対戦チームが順位と食い違っている試合(%s)があります。先に差し替えてください",

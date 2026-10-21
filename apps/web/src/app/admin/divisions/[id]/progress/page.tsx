@@ -196,6 +196,12 @@ function TodoAction({
           <button type="submit">このコートを遅らせる</button>
         </form>
       )
+    case 'withdrawn':
+      return (
+        <p className="adm-actions">
+          <a href={`/admin/teams/${todo.teamId ?? 0}/withdraw`}>相手の不戦勝にする</a>
+        </p>
+      )
     case 'overlap':
       return (
         <p className="adm-actions">

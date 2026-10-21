@@ -37,6 +37,7 @@ const (
 	TodoCourtDelay   TodoKind = "court_delay"   // 遅れているコート
 	TodoMismatch     TodoKind = "mismatch"      // 対戦チームが順位と食い違っている試合
 	TodoOverlap      TodoKind = "overlap"       // 同じチームの試合の時刻が重なっている
+	TodoWithdrawn    TodoKind = "withdrawn"     // 棄権したチームが入った試合前の試合
 )
 
 // TodoItem は「いまやること」の 1 件。対象の ID は種類に応じて入る。
@@ -46,6 +47,7 @@ type TodoItem struct {
 	GroupID *int64
 	StageID *int64
 	MatchID *int64
+	TeamID  *int64
 	Court   *string
 	Minutes int
 }
@@ -66,6 +68,11 @@ type FormatProgress struct {
 	Live        []ProgressMatch
 	Next        []ProgressMatch
 	Final       []FinalRankRow
+	// Withdrawn は棄権したチーム(ID の昇順)、ClosedAt は大会を締めた時刻(締めていなければ nil)、
+	// Suspension は大会の中断(中断していなければ nil)
+	Withdrawn  []int64
+	ClosedAt   *time.Time
+	Suspension *Suspension
 }
 
 // StageProgress は段の状態。NeedsConfirm は段の全体順位を出どころにする枠があり、まだ確定していない。
@@ -157,8 +164,16 @@ func GetFormatProgress(ctx context.Context, db *gorm.DB, divisionID int64, now t
 	if err != nil {
 		return FormatProgress{}, err
 	}
-	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone())}
-	return v.build(), nil
+	withdrawn, err := withdrawnTeams(ctx, db, divisionID)
+	if err != nil {
+		return FormatProgress{}, err
+	}
+	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone()), withdrawn: withdrawn}
+	out := v.build()
+	if out.Suspension, err = GetSuspension(ctx, db, fs.division.TournamentID); err != nil {
+		return FormatProgress{}, err
+	}
+	return out, nil
 }
 
 func (fs *formatState) loadTeams(ctx context.Context, db *gorm.DB) (map[int64]Team, error) {
@@ -177,6 +192,8 @@ type progressBuilder struct {
 	fs    *formatState
 	teams map[int64]Team
 	now   time.Time
+	// withdrawn は棄権したチームと棄権した時刻(進行画面だけが読む)
+	withdrawn map[int64]time.Time
 }
 
 func (v progressBuilder) ref(id int64) domain.TeamRef {
@@ -215,8 +232,29 @@ func (v progressBuilder) build() FormatProgress {
 	out.Stages = v.stages()
 	out.Todo = v.todo(out.Groups, out.Stages)
 	out.Live, out.Next = v.liveAndNext()
+	ranked := map[int64]bool{}
 	for _, f := range fs.res.Final {
 		out.Final = append(out.Final, FinalRankRow{Rank: f.Rank, Team: v.ref(f.TeamID), Tied: f.Tied})
+		ranked[f.TeamID] = true
+	}
+	for team, rank := range fs.closedRanks {
+		if !ranked[team] {
+			out.Final = append(out.Final, FinalRankRow{Rank: rank, Team: v.ref(team), Tied: true})
+		}
+	}
+	slices.SortStableFunc(out.Final, func(a, b FinalRankRow) int {
+		if a.Rank != b.Rank {
+			return a.Rank - b.Rank
+		}
+		return cmp.Compare(a.Team.ID, b.Team.ID)
+	})
+	for team := range v.withdrawn {
+		out.Withdrawn = append(out.Withdrawn, team)
+	}
+	slices.Sort(out.Withdrawn)
+	if fs.closing != nil {
+		at := fs.closing.ClosedAt
+		out.ClosedAt = &at
 	}
 	return out
 }
@@ -384,6 +422,7 @@ func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []
 	out := v.overdue()
 	out = append(out, v.overlaps()...)
 	out = append(out, v.mismatches()...)
+	out = append(out, v.withdrawnTodo()...)
 	var ties []TodoItem
 	for _, g := range groups {
 		id := g.ID
