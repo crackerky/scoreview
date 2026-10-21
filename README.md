@@ -11,5 +11,6 @@ Next.js(TypeScript)の web と Go の api を、Vercel の 1 プロジェクト�
 - [大会形式エンジンの設計](docs/format-engine.md)
 - [参照サイト調査](docs/clone-spec/README.md)
 - [LINE 連携の設計(将来の拡張)](docs/line-integration.md)
+- [デプロイ手順](docs/deploy.md)
 
 開発の手順とコマンドは [CLAUDE.md](CLAUDE.md) の「コマンド」節にある。
