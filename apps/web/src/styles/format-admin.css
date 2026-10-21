@@ -1,0 +1,292 @@
+/*
+ * 大会の形のウィザードと本部の進行画面の見た目。admin.css の .adm の中だけで使う。
+ * スマートフォン(幅 360px)では 1 列、PC では 2〜4 列に並べる。
+ */
+
+.adm .fmt-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--adm-muted);
+}
+
+.adm .fmt-steps .on {
+  color: var(--adm-fg);
+  font-weight: bold;
+}
+
+.adm .fmt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--adm-gap);
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm .fmt-card {
+  border: 1px solid var(--adm-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.adm .fmt-card.chosen {
+  border-color: var(--adm-accent);
+  box-shadow: 0 0 0 2px var(--adm-accent) inset;
+}
+
+.adm .fmt-card h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.adm .fmt-card p {
+  margin: 0 0 8px;
+}
+
+.adm .fmt-big {
+  font-size: 1.05rem;
+  font-weight: bold;
+}
+
+.adm .fmt-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #fff;
+  background: var(--adm-ok);
+  vertical-align: middle;
+}
+
+.adm .fmt-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--adm-gap);
+}
+
+.adm .fmt-pool {
+  border: 1px solid var(--adm-line);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--adm-bg);
+}
+
+.adm .fmt-pool h4 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.adm .fmt-pool-list,
+.adm .fmt-seeds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm .fmt-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--adm-tap);
+  margin: 4px 0;
+  padding: 4px 8px;
+  border: 1px solid var(--adm-line);
+  border-radius: 6px;
+  background: #fff;
+  cursor: grab;
+  user-select: none;
+}
+
+.adm .fmt-slot.over {
+  border-color: var(--adm-accent);
+  background: #ddf4ff;
+}
+
+.adm .fmt-slot .seed {
+  min-width: 2.5em;
+  font-size: 0.75rem;
+  color: var(--adm-muted);
+}
+
+.adm .fmt-slot .grow {
+  flex: 1;
+}
+
+.adm .fmt-slot button {
+  min-width: var(--adm-tap);
+  padding: 0 6px;
+}
+
+.adm .fmt-rules {
+  border-left: 4px solid var(--adm-accent);
+  padding: 4px 12px;
+  background: var(--adm-bg);
+}
+
+.adm .fmt-rules p {
+  margin: 4px 0;
+}
+
+.adm .fmt-violations li {
+  color: var(--adm-danger);
+}
+
+.adm .fmt-ok {
+  color: var(--adm-ok);
+}
+
+.adm .fmt-grid {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.adm .fmt-grid th,
+.adm .fmt-grid td {
+  border: 1px solid var(--adm-line);
+  padding: 4px 6px;
+  vertical-align: top;
+  min-width: 7em;
+}
+
+.adm .fmt-grid td .code {
+  font-weight: bold;
+}
+
+.adm .fmt-bracket {
+  overflow-x: auto;
+  margin: 0 0 var(--adm-gap);
+}
+
+/* 進行画面 */
+
+.adm .hq-todo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm .hq-todo > li {
+  margin: 0 0 var(--adm-gap);
+  padding: 10px 12px;
+  border: 1px solid var(--adm-line);
+  border-left: 6px solid var(--adm-accent);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.adm .hq-todo > li.tie,
+.adm .hq-todo > li.mismatch {
+  border-left-color: var(--adm-danger);
+  background: #fff5f5;
+}
+
+.adm .hq-todo > li.overdue,
+.adm .hq-todo > li.court_delay {
+  border-left-color: #b35900;
+}
+
+.adm .hq-todo form {
+  margin: 8px 0 0;
+}
+
+.adm .hq-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.adm .hq-inline .adm-field {
+  margin: 0;
+}
+
+.adm .hq-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--adm-gap);
+}
+
+.adm .hq-group {
+  border: 1px solid var(--adm-line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.adm .hq-group h3 {
+  margin: 0 0 6px;
+}
+
+.adm .hq-state {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  background: var(--adm-bg);
+  border: 1px solid var(--adm-line);
+}
+
+.adm .hq-state.tied {
+  color: #fff;
+  background: var(--adm-danger);
+}
+
+.adm .hq-state.ready {
+  color: #fff;
+  background: var(--adm-accent);
+}
+
+.adm .hq-state.confirmed,
+.adm .hq-state.finished {
+  color: var(--adm-ok);
+}
+
+.adm .hq-rank {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.adm .hq-rank td,
+.adm .hq-rank th {
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--adm-line);
+  text-align: left;
+}
+
+.adm .hq-rank .num {
+  text-align: right;
+}
+
+.adm .hq-rank .tied td {
+  color: var(--adm-danger);
+  font-weight: bold;
+}
+
+.adm .hq-reason {
+  font-size: 0.75rem;
+  color: var(--adm-muted);
+}
+
+.adm .hq-cond {
+  margin: 6px 0 0;
+  padding-left: 1.2em;
+  font-size: 0.875rem;
+}
+
+.adm .hq-impact {
+  border: 2px solid #b35900;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #fff8e1;
+}
+
+.adm .hq-impact.danger {
+  border-color: var(--adm-danger);
+  background: #fff5f5;
+}
