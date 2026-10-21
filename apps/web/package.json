@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.spec.ts"
+    "test": "TSX_TSCONFIG_PATH=tsconfig.test.json node --import tsx --test test/*.spec.ts test/*.spec.tsx"
   },
   "dependencies": {
     "next": "16.4.2",
