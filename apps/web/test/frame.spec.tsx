@@ -79,15 +79,16 @@ describe('外枠', () => {
       html,
       /<img src="\/brand\/logo.svg" width="168" height="80" alt="SCORE VIEW スコア速報" class="logo"\/>/,
     )
-    assert.match(
-      html,
-      /<td id="header_bar">\|　<a href="https:\/\/example.com\/company">会社案内<\/a>　\|　<a/,
-    )
-    for (const link of brand.socialLinks) {
-      assert.ok(html.includes(`href="${link.href}" target="_blank" rel="noopener"`))
-    }
-    assert.match(html, /<li id="navi01"><a href="https:\/\/example.com\/events">Event<\/a><\/li>/)
+    assert.match(html, /<td id="header_bar">\|　<a href="\/about#operator">運営者情報<\/a>　\|　<a/)
+    assert.match(html, /<li id="navi04"><a href="\/sctnmt">Events<\/a><\/li>/)
     assert.doesNotMatch(html, /clubjr|CLUB Jr/i)
+  })
+
+  test('ヘッダーのリンクは全部サイトの中に行き先がある(仮の外部 URL や mailto を残さない)', () => {
+    const links = [...brand.headerLinks, ...brand.navigation].map((link) => link.href)
+    for (const href of links) {
+      assert.match(href, /^\/(about|guide|privacy|contact|sctnmt)(#[a-z]+)?$/, href)
+    }
   })
 
   test('サイドバーのバナーは <br /> 2 つで区切り、リンク先がなければ画像だけ', () => {

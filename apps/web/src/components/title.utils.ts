@@ -15,3 +15,8 @@ export function tournamentPageTitle(frame: TournamentFrame, lang: Lang, suffix =
 export function tournamentListTitle(): string {
   return `${brand.titlePrefix} ${brand.tournamentListTitle}`
 }
+
+/** 大会に属さないサイトの案内ページ(このサイトについて、見方ガイドなど)の <title>。 */
+export function infoPageTitle(name: string): string {
+  return `${brand.titlePrefix} ${name}`
+}

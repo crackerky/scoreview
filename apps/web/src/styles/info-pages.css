@@ -1,0 +1,52 @@
+/*
+ * 案内ページ(このサイトについて、見方ガイド、個人情報保護方針。src/components/InfoPage.tsx)の本文。
+ * 参照サイトに無いページなので、#main の白地の中で読みやすい素の体裁にする。
+ */
+.sv_doc {
+  margin: 0 7px 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #333;
+}
+
+.sv_doc section {
+  margin: 0 0 20px;
+}
+
+.sv_doc h2.TeamListMIDA {
+  margin: 0 0 8px;
+  text-align: left;
+}
+
+.sv_doc h3 {
+  margin: 12px 0 4px;
+  font-size: 14px;
+}
+
+.sv_doc p {
+  margin: 0 0 8px;
+}
+
+.sv_doc ul,
+.sv_doc ol {
+  margin: 0 0 8px;
+  padding-left: 1.5em;
+}
+
+.sv_doc dl {
+  margin: 0 0 8px;
+}
+
+.sv_doc dt {
+  font-weight: bold;
+}
+
+.sv_doc dd {
+  margin: 0 0 6px 1em;
+}
+
+.sv_doc .sv_doc_note {
+  padding: 8px 10px;
+  border: 1px solid #f0c36d;
+  background: #fff8e1;
+}

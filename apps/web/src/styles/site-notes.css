@@ -83,3 +83,31 @@
   margin: 6px 0 0 90px;
   font-size: 12px;
 }
+
+/* ヘッダー右上の共有ボタン(ShareLinks)。リンクのコピーは button なので、a の画像と同じ見た目にする */
+#header_social .sv_share_copy {
+  margin: 0 0 0 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  vertical-align: top;
+  cursor: pointer;
+}
+
+#header_social .sv_share_copy:disabled {
+  cursor: default;
+}
+
+/* 「コピーしました」はアイコンの下に重ねて出す(ヘッダーの高さを変えない) */
+#header_social {
+  position: relative;
+}
+
+#header_social .sv_share_copied {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  left: 0;
+  font-size: 11px;
+  color: #555;
+}

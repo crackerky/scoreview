@@ -1,10 +1,12 @@
 import { Fragment, Suspense } from 'react'
 import { brand } from '@/brand/brand.config'
 import { LangSwitch } from './LangSwitch'
+import { ShareLinks } from './ShareLinks'
 
 // clone-spec A 1.2: div#outer1 > div#header(id が入れ子で重複する)> table。
 // ロゴ、SNS アイコン、文字リンク列、4 項目のナビ。lang に関係なく同じものを出す。
 // 参照サイトの画像と会社リンクはブランド設定に置き換える(requirements「意図的な差分」)。
+// SNS アイコンの位置には今のページの共有ボタンを置く(ShareLinks)。
 
 const fullWidthSpace = '　'
 
@@ -52,11 +54,9 @@ export function SiteHeader() {
                     <tr>
                       <td>
                         <div id="header_social">
-                          {brand.socialLinks.map((link) => (
-                            <a key={link.href} href={link.href} target="_blank" rel="noopener">
-                              <img src={link.icon} width={32} height={32} alt={link.alt} />
-                            </a>
-                          ))}
+                          <Suspense fallback={null}>
+                            <ShareLinks />
+                          </Suspense>
                         </div>
                       </td>
                       <td style={{ textAlign: 'right', verticalAlign: 'top' }}>

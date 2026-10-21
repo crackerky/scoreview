@@ -14,8 +14,6 @@ export type BrandConfig = {
   logo: ImageRef & { href: string }
   /** ヘッダー右上の文字リンク列(全角空白と | で区切って出す) */
   headerLinks: TextLink[]
-  /** ヘッダー右上の SNS アイコン列(32x32、別タブで開く) */
-  socialLinks: Array<{ href: string; icon: string; alt: string }>
   /** ヘッダー下段の 4 項目(画面上は左から 04, 03, 02, 01 の順に並ぶ。clone-spec A 1.2) */
   navigation: Array<{ id: 'navi01' | 'navi02' | 'navi03' | 'navi04'; label: string; href: string }>
   /** フッターの著作権者名。年は表示時の西暦を入れる */
@@ -34,21 +32,17 @@ export const brand: BrandConfig = {
     height: 80,
     href: '/sctnmt',
   },
+  // 行き先はサイトの中の案内ページ(src/app/about などの InfoPage)。参照サイトは運営会社のサイトへ出る
   headerLinks: [
-    { label: '会社案内', href: 'https://example.com/company' },
-    { label: '個人情報保護方針', href: 'https://example.com/privacy' },
-    { label: 'お問い合わせ', href: 'mailto:info@example.com' },
-  ],
-  socialLinks: [
-    { href: 'https://example.com/sns/x', icon: '/brand/sns-x.svg', alt: 'X icon' },
-    { href: 'https://example.com/sns/video', icon: '/brand/sns-video.svg', alt: 'Video icon' },
-    { href: 'https://example.com/sns/photo', icon: '/brand/sns-photo.svg', alt: 'Photo icon' },
+    { label: '運営者情報', href: '/about#operator' },
+    { label: '個人情報保護方針', href: '/privacy' },
+    { label: 'お問い合わせ', href: '/contact' },
   ],
   navigation: [
-    { id: 'navi01', label: 'Event', href: 'https://example.com/events' },
-    { id: 'navi02', label: 'Results', href: 'https://example.com/results' },
-    { id: 'navi03', label: 'Gear', href: 'https://example.com/gear' },
-    { id: 'navi04', label: 'About', href: 'https://example.com/about' },
+    { id: 'navi01', label: 'About', href: '/about' },
+    { id: 'navi02', label: 'Organizers', href: '/about#organizers' },
+    { id: 'navi03', label: 'Guide', href: '/guide' },
+    { id: 'navi04', label: 'Events', href: '/sctnmt' },
   ],
   copyrightHolder: 'SCORE VIEW',
   defaultTournamentLogo: '/brand/logo-default-tournament.svg',
