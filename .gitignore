@@ -11,3 +11,5 @@ coverage/
 # 調査と取込のキャッシュ、開発用 DB。実在の個人名を含むので公開しない
 .local/
 apps/api/bin/
+# エージェントの git worktree
+.claude/worktrees/
