@@ -57,8 +57,21 @@ func syncFormatProgress(ctx context.Context, tx *gorm.DB, divisionID int64) ([]i
 	return changed, nil
 }
 
+// writeSlots は枠のチームを解決したチームにする。行は (グループ、位置) の順に書く(書く順序を
+// 決めておき、行ロックの取り方を毎回同じにするため)。
 func (fs *formatState) writeSlots(ctx context.Context, tx *gorm.DB) error {
-	for key, slot := range fs.slots {
+	keys := make([]format.SlotKey, 0, len(fs.slots))
+	for key := range fs.slots {
+		keys = append(keys, key)
+	}
+	slices.SortFunc(keys, func(a, b format.SlotKey) int {
+		if a.Group != b.Group {
+			return a.Group - b.Group
+		}
+		return a.Position - b.Position
+	})
+	for _, key := range keys {
+		slot := fs.slots[key]
 		var team *int64
 		if status := fs.res.Slots[key]; status.Resolved() {
 			id := status.TeamID
@@ -97,7 +110,8 @@ func (fs *formatState) sideTeams(m Match) (left, right *int64, hasLeft, hasRight
 	return left, right, hasLeft, hasRight
 }
 
-// writeMatchTeams は枠を左右に持つ試合のチームを枠のチームにする。force が偽なら未試合の試合だけ、
+// writeMatchTeams は枠を左右に持つ試合のチームを枠のチームにする。force が偽なら未試合の試合だけ
+// (読んだ後に始まった試合も変えないよう、UPDATE に status の条件を付けて変えた行数を確かめる)、
 // 真なら only の試合を状態によらず変える(運営者が食い違いを直すとき)。
 func (fs *formatState) writeMatchTeams(
 	ctx context.Context,
@@ -130,8 +144,18 @@ func (fs *formatState) writeMatchTeams(
 		if len(updates) == 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).Model(&Match{}).Where(sqlByID, m.ID).Updates(updates).Error; err != nil {
-			return nil, writeError(fmt.Sprintf("set teams of match %s", code), err)
+		query := tx.WithContext(ctx).Model(&Match{})
+		if force {
+			query = query.Where(sqlByID, m.ID)
+		} else {
+			query = query.Where(sqlScheduledMatch, m.ID, domain.MatchScheduled)
+		}
+		written := query.Updates(updates)
+		if written.Error != nil {
+			return nil, writeError(fmt.Sprintf("set teams of match %s", code), written.Error)
+		}
+		if written.RowsAffected == 0 {
+			continue // 読んだ後に始まった(食い違いとして進行画面に出る)
 		}
 		changed = append(changed, m.ID)
 	}
@@ -142,7 +166,11 @@ func (fs *formatState) writeMatchTeams(
 // 1 試合以上の結果があれば、エンジンの順位(タイブレークの設定と運営者の指定を反映したもの)を
 // rank_override に入れ、閲覧ページの順位表に同じ順位を出す。
 func (fs *formatState) writeGroupTeams(ctx context.Context, tx *gorm.DB) error {
-	for index, g := range fs.groups {
+	for index := range fs.plan.Groups {
+		g, ok := fs.groups[index]
+		if !ok {
+			continue
+		}
 		ranking := fs.res.Groups[index].Ranking
 		played := false
 		if ranking != nil {
@@ -225,7 +253,7 @@ func (fs *formatState) writeFinalRanks(ctx context.Context, tx *gorm.DB) error {
 }
 
 // runFormatOp は大会形式の操作を 1 つのトランザクションで行い、続けて枠と下流の試合とトーナメント表を
-// 更新する。
+// 更新する。先にディビジョンをロックする(locks.go。試合の結果の更新と直列にする)。
 func runFormatOp(
 	ctx context.Context,
 	db *gorm.DB,
@@ -233,6 +261,9 @@ func runFormatOp(
 	op func(tx *gorm.DB, fs *formatState) error,
 ) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockDivision(ctx, tx, divisionID); err != nil {
+			return err
+		}
 		fs, ok, err := loadFormatState(ctx, tx, divisionID)
 		if err != nil {
 			return err

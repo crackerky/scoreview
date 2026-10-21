@@ -171,7 +171,7 @@ func ApplyCorrection(
 	}
 	var impact CorrectionImpact
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		match, err := lockMatch(ctx, tx, matchID)
+		match, err := lockMatchInDivision(ctx, tx, matchID)
 		if err != nil {
 			return err
 		}

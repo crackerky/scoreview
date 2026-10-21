@@ -33,6 +33,7 @@ const (
 	sqlSlotsOfMatches     = "match_id IN ?"
 	sqlOrderSlots         = "row_index, col_index"
 	sqlDistinctSlotGroup  = "group_id"
+	sqlScheduledMatch     = "id = ? AND status = ?"
 )
 
 // EventInput は追加する得点経過。ElapsedSec が nil なら、最初のイベントを記録した時刻からの経過秒を
@@ -101,8 +102,8 @@ type matchOpChange struct {
 	after  *AuditEvent
 }
 
-// runMatchOp は試合を変える 1 回の操作を、試合の行の lock、送り直しの検出、監査ログの記録と同じ
-// トランザクションで行い、操作の後のスコア入力画面のデータを返す。
+// runMatchOp は試合を変える 1 回の操作を、ディビジョンと試合の行の lock(locks.go の順序)、送り直しの
+// 検出、監査ログの記録と同じトランザクションで行い、操作の後のスコア入力画面のデータを返す。
 func runMatchOp(
 	ctx context.Context,
 	db *gorm.DB,
@@ -116,7 +117,7 @@ func runMatchOp(
 		return MatchDetail{}, err
 	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		match, err := lockMatch(ctx, tx, matchID)
+		match, err := lockMatchInDivision(ctx, tx, matchID)
 		if err != nil {
 			return err
 		}
@@ -613,7 +614,8 @@ func writeMatchState(ctx context.Context, tx *gorm.DB, before Match, state match
 //
 // 同じディビジョンで、左右の未確定チームの参照(placeholder_code)がこの試合の CD を指す試合の
 // チームを、この試合の勝者または敗者にする。試合が終了していなければ(終了の取り消しを含む)空に戻す。
-// 後続試合が既に始まっていれば変えない(試合中や終了した試合の対戦相手を差し替えない)。
+// 後続試合が既に始まっていれば変えない(試合中や終了した試合の対戦相手を差し替えない)。読んだ後に
+// 始まった試合も変えないよう、UPDATE に status の条件を付けて変えた行数を確かめる。
 // 戻り値はチームを変えた試合の ID。
 func advanceFromResult(ctx context.Context, tx *gorm.DB, match Match) ([]int64, error) {
 	if match.Code == "" {
@@ -654,12 +656,15 @@ func advanceFromResult(ctx context.Context, tx *gorm.DB, match Match) ([]int64, 
 		if len(updates) == 0 {
 			continue
 		}
-		if err := tx.WithContext(ctx).
+		written := tx.WithContext(ctx).
 			Model(&Match{}).
-			Where(sqlByID, dep.ID).
-			Updates(updates).
-			Error; err != nil {
-			return nil, writeError(fmt.Sprintf("advance %s to match %d", match.Code, dep.ID), err)
+			Where(sqlScheduledMatch, dep.ID, domain.MatchScheduled).
+			Updates(updates)
+		if written.Error != nil {
+			return nil, writeError(fmt.Sprintf("advance %s to match %d", match.Code, dep.ID), written.Error)
+		}
+		if written.RowsAffected == 0 {
+			continue // 読んだ後に始まった(食い違いとして進行画面に出る)
 		}
 		changed = append(changed, dep.ID)
 	}

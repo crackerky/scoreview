@@ -381,6 +381,14 @@ func ApplyFormat(
 		if err != nil {
 			return err
 		}
+		// 大会 → ディビジョンの順にロックし、結果の入った試合の検査から作り直しまでの間に試合が
+		// 始まらないようにする(試合の更新もディビジョンをロックする)
+		if err := lockTournament(ctx, tx, division.TournamentID); err != nil {
+			return err
+		}
+		if err := lockDivision(ctx, tx, divisionID); err != nil {
+			return err
+		}
 		var started int64
 		if err := tx.Model(&Match{}).Where(sqlStartedInDivision, divisionID, domain.MatchScheduled).
 			Count(&started).Error; err != nil {

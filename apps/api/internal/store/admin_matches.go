@@ -252,7 +252,7 @@ func UpdateMatch(
 	var row Match
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		row, err = findByID[Match](ctx, tx, id, domain.ResourceMatch)
+		row, err = lockMatchInDivision(ctx, tx, id)
 		if err != nil {
 			return err
 		}

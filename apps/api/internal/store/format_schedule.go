@@ -71,6 +71,9 @@ func ShiftFormatSchedule(
 			maxShiftMinutes, maxShiftMinutes))
 	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockDivision(ctx, tx, divisionID); err != nil {
+			return err
+		}
 		fs, ok, err := loadFormatState(ctx, tx, divisionID)
 		if err != nil {
 			return err
@@ -137,16 +140,22 @@ func SwapMatchSchedule(ctx context.Context, db *gorm.DB, matchID, otherID int64)
 	}
 	var divisionID int64
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		a, err := lockMatch(ctx, tx, matchID)
+		a, err := lockMatchInDivision(ctx, tx, matchID)
 		if err != nil {
 			return err
 		}
+		other, err := findByID[Match](ctx, tx, otherID, domain.ResourceMatch)
+		if err != nil {
+			return err
+		}
+		if a.DivisionID != other.DivisionID {
+			return domain.Invalid("otherMatchId", "must be a match of the same division")
+		}
+		// 同じディビジョンなのでロックは取得済み。試合の行は id の順でなくてよい(ディビジョンの
+		// ロックで同じディビジョンの操作は直列になっている)
 		b, err := lockMatch(ctx, tx, otherID)
 		if err != nil {
 			return err
-		}
-		if a.DivisionID != b.DivisionID {
-			return domain.Invalid("otherMatchId", "must be a match of the same division")
 		}
 		if a.Status != domain.MatchScheduled || b.Status != domain.MatchScheduled {
 			return fmt.Errorf("%w: 始まった試合の時刻は入れ替えられません", domain.ErrConflict)
