@@ -53,6 +53,9 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
   ]
 
   if (frame.showSchedule) {
+    // 日程のないディビジョン(237 のフリースタイル)はスケジュールとディビジョン成績に出さない。
+    // グループ成績には全ディビジョンが出る(clone-spec E 3)
+    const scheduled = frame.divisions.filter((division) => division.scheduleEnabled)
     items.push({
       kind: 'menu',
       label: msg(lang, 'navSchedule'),
@@ -63,7 +66,7 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
           label: msg(lang, 'navAllDivision'),
           href: tournamentScheduleHref(frame.id, lang),
         },
-        ...frame.divisions.map(
+        ...scheduled.map(
           (division): NaviEntry => ({
             kind: 'link',
             label: pickText(lang, division.name),
@@ -76,7 +79,7 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
       kind: 'menu',
       label: msg(lang, 'navDivisionScore'),
       widthPx: null,
-      entries: frame.divisions.map((division) => ({
+      entries: scheduled.map((division) => ({
         kind: 'link',
         label: pickText(lang, division.name),
         href: divisionHref(division.id, lang),

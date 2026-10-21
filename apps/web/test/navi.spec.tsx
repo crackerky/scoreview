@@ -79,6 +79,19 @@ describe('大会ナビの 7 パターン', () => {
     assert.equal(buildNavi(frame, 'jp').fillerWidthPx, 172)
   })
 
+  test('日程のないディビジョンはスケジュールとディビジョン成績に出ず、グループ成績には出る', () => {
+    const [first, second] = standard.divisions
+    assert.ok(first && second)
+    const frame = variant({ divisions: [first, { ...second, scheduleEnabled: false }] })
+    const navi = buildNavi(frame, 'jp')
+    const entryLabels = navi.items.map((item) =>
+      item.kind === 'menu' ? item.entries.map((entry) => entry.label) : [],
+    )
+    assert.deepEqual(entryLabels[2], ['全ディビジョン', 'ビーチミックス'])
+    assert.deepEqual(entryLabels[3], ['ビーチミックス'])
+    assert.deepEqual(entryLabels[4], ['ビーチミックス', 'ウィメン'])
+  })
+
   test('英語のラベル', () => {
     assert.deepEqual(labels(standard, 'en'), [
       'Tournament Top',
