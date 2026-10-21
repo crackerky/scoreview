@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,6 +42,21 @@ func TestParseTeamListIndividual(t *testing.T) {
 		}
 	}
 	assert.Equal(t, "ＤＧシングルス（土曜日）", tl.Divisions[0].Name.JA)
+}
+
+// ナビが「エントリー一覧」の大会は、チーム名がリンクのチーム戦でも見出しが Players(237)。
+func TestParseTeamListPlayersWithLinksIsTeam(t *testing.T) {
+	html := `<html><body><div id="score_view">
+<div class='TeamListMIDA'>架空ミックス&nbsp;&nbsp;&nbsp;--&nbsp;1 Players&nbsp;--&nbsp;&nbsp;&nbsp;</div>
+<div class='TeamListBLOCK'><div class='px12 FTitle_Mix'><span class='teamimg_rnk'><a href="#"
+ onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/9?lang=jp'; return false;">架空</a></span></div></div>
+<div class='TeamListBLOCK'><div class='px12 AreaSepa RM'>x7</div></div>
+</div></body></html>`
+	tl, err := ParseTeamList(strings.NewReader(html), site.LangJP)
+	require.NoError(t, err)
+	require.Len(t, tl.Divisions, 1)
+	assert.Equal(t, "team", tl.Divisions[0].EntryKind)
+	assert.Equal(t, ptr(int64(9)), tl.Divisions[0].Entries[0].ID)
 }
 
 func TestParseTeamListBarStyles(t *testing.T) {
