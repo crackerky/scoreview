@@ -12,8 +12,8 @@ import (
 
 const beachTopHTML = `<p><span class="SCV_MIDA_M" style="background-color: rgb(255, 102, 0); ` +
 	`font-family: &quot;ヒラギノ角ゴ Pro W3&quot;, Meiryo, sans-serif; color: rgb(255, 255, 255); ` +
-	`padding: 4px 10px; border-radius: 4px;">【Web Site】</span></p>` +
-	`<p><a href="https://example.com/fictional-beach" target="_blank">https://example.com/fictional-beach</a></p>` +
+	`padding: 4px 10px; border-radius: 4px;">【Guide】</span></p>` +
+	`<p><a href="/guide">観戦ガイド(各ページの見方)</a></p>` +
 	`<p><span class="SCV_MIDA_M">【Result】</span><br><strong>■1st place：ブラボー</strong><br>` +
 	`<img src="/brand/photo-sample.svg" style="width: 600px; height: 400px;"></p>`
 
@@ -42,7 +42,8 @@ func (s *seeder) beachLeague() error {
 			TournamentID: tour.ID, ImageURL: sampleBanner, SortOrder: idx,
 		}
 		if idx == 1 {
-			banner.LinkURL = ptr("https://example.com/")
+			// 架空の大会なので、スポンサーのサイトの代わりにサイトの案内ページへ送る
+			banner.LinkURL = ptr("/about")
 		}
 		if err := s.create(&banner); err != nil {
 			return err
