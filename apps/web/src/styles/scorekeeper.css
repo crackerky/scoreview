@@ -151,17 +151,17 @@
   color: var(--sk-danger);
 }
 
-/* 通信断などの知らせは得点経過の上に重ねて出し、+1 の位置を動かさない(レビュー M5) */
+/*
+ * 通信断などの知らせは得点経過の欄の中の上に出し、+1 の位置を動かさない(レビュー M5)。重ねると得点
+ * 経過の最新行が隠れる(通し確認)ので、欄の中で場所を取り、得点経過の表示の高さを縮める
+ */
 .sk-banners {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 100%;
+  max-height: 60%;
+  margin-bottom: 4px;
   overflow-y: auto;
 }
 
