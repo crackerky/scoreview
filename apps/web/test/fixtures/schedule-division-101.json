@@ -1,0 +1,41 @@
+{
+  "frame": "frame-1",
+  "scope": "division",
+  "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } },
+  "filters": {
+    "dates": ["2026-10-18"],
+    "teams": [
+      { "value": "5001", "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      { "value": "5002", "name": { "ja": "架空チームB", "en": "Fictional B" } }
+    ],
+    "fieldMax": 1,
+    "selected": { "ymd": "", "team": "", "field": "" }
+  },
+  "sort": { "key": "field", "dir": "asc" },
+  "rows": [
+    {
+      "matchId": 9001,
+      "hasDetail": true,
+      "code": "A1",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": 1,
+      "status": "finished",
+      "left": {
+        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "placeholder": null,
+        "score": 9
+      },
+      "right": {
+        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "placeholder": null,
+        "score": 3
+      },
+      "division": {
+        "id": 101,
+        "name": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+        "kind": "mixed"
+      }
+    }
+  ]
+}

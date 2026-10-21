@@ -1,0 +1,73 @@
+{
+  "frame": "frame-1",
+  "group": {
+    "id": 1002,
+    "name": "Tounament A",
+    "kind": "bracket",
+    "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } }
+  },
+  "pool": null,
+  "bracket": {
+    "pattern": "T2A",
+    "ptnName": "Sample =Tounament A=",
+    "columns": 2,
+    "rows": [
+      [
+        {
+          "borders": { "top": false, "bottom": true, "left": false, "right": false },
+          "kind": "team",
+          "text": "",
+          "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": { "top": false, "bottom": false, "left": false, "right": false },
+          "kind": "txt_sharp",
+          "text": "Placement",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": { "top": true, "bottom": false, "left": false, "right": true },
+          "kind": "game",
+          "text": "9-3",
+          "team": null,
+          "matchId": 9001,
+          "status": "finished"
+        },
+        {
+          "borders": { "top": false, "bottom": true, "left": true, "right": false },
+          "kind": "win",
+          "text": "",
+          "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": { "top": false, "bottom": true, "left": false, "right": true },
+          "kind": "team",
+          "text": "",
+          "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": { "top": false, "bottom": false, "left": false, "right": false },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ]
+    ]
+  },
+  "image": null,
+  "matches": []
+}

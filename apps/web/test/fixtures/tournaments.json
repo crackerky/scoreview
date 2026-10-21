@@ -1,0 +1,17 @@
+{
+  "sections": [
+    {
+      "status": "entry_open",
+      "tournaments": [
+        { "id": 3, "name": { "ja": "2027 架空フリースタイル", "en": "2027 Fictional Freestyle" } }
+      ]
+    },
+    {
+      "status": "finished",
+      "tournaments": [
+        { "id": 1, "name": { "ja": "2026 架空ビーチカップ", "en": "2026 Fictional Beach Cup" } },
+        { "id": 2, "name": { "ja": "2026 架空ディスクゴルフ大会", "en": "" } }
+      ]
+    }
+  ]
+}

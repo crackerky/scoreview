@@ -1,0 +1,63 @@
+{
+  "frame": "frame-1",
+  "division": { "id": 101, "name": { "ja": "ビーチミックス", "en": "Beach Mixed" } },
+  "standings": [
+    {
+      "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      "rank": 1,
+      "games": 5,
+      "wins": 5,
+      "draws": 0,
+      "losses": 0,
+      "goalsFor": 38,
+      "goalsAgainst": 19
+    },
+    {
+      "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+      "rank": 2,
+      "games": 6,
+      "wins": 4,
+      "draws": 1,
+      "losses": 1,
+      "goalsFor": 40,
+      "goalsAgainst": 30
+    },
+    {
+      "team": { "id": 5004, "name": { "ja": "架空チームD", "en": "" } },
+      "rank": null,
+      "games": 0,
+      "wins": 0,
+      "draws": 0,
+      "losses": 0,
+      "goalsFor": 0,
+      "goalsAgainst": 0
+    }
+  ],
+  "leaders": [
+    {
+      "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      "player": {
+        "id": 70001,
+        "number": "7",
+        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "gender": "M"
+      },
+      "games": 5,
+      "assists": 6,
+      "goals": 4
+    }
+  ],
+  "blockLeaders": [
+    {
+      "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+      "player": {
+        "id": 70011,
+        "number": "00",
+        "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+        "gender": "F"
+      },
+      "games": 6,
+      "blocks": 3
+    }
+  ]
+}

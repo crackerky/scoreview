@@ -1,0 +1,22 @@
+{
+  "frame": "frame-1",
+  "logoUrl": null,
+  "topHtml": {
+    "ja": "<p><span class=\"SCV_MIDA_M\">【Result】</span></p><p>■1st place：架空チームA</p>",
+    "en": ""
+  },
+  "divisions": [
+    {
+      "id": 101,
+      "name": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "scheduleLinked": true,
+      "standingsLinked": true
+    },
+    {
+      "id": 102,
+      "name": { "ja": "ウィメン", "en": "Women's" },
+      "scheduleLinked": true,
+      "standingsLinked": false
+    }
+  ]
+}

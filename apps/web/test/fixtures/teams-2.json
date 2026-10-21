@@ -1,0 +1,25 @@
+{
+  "frame": "frame-2",
+  "divisions": [
+    {
+      "id": 301,
+      "name": { "ja": "ＤＧシングルス（土曜日）", "en": "" },
+      "kind": "none",
+      "entryKind": "individual",
+      "teams": [
+        {
+          "id": 6001,
+          "name": { "ja": "架空選手一", "en": "" },
+          "barStyle": "default",
+          "memberCount": null
+        },
+        {
+          "id": 6002,
+          "name": { "ja": "架空選手二", "en": "" },
+          "barStyle": "default",
+          "memberCount": null
+        }
+      ]
+    }
+  ]
+}

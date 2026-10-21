@@ -1,0 +1,13 @@
+{
+  "frame": "frame-3",
+  "logoUrl": null,
+  "topHtml": { "ja": "", "en": "" },
+  "divisions": [
+    {
+      "id": 401,
+      "name": { "ja": "フリースタイル チーム制", "en": "Freestyle Team" },
+      "scheduleLinked": false,
+      "standingsLinked": false
+    }
+  ]
+}

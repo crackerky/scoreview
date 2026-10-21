@@ -1,0 +1,23 @@
+{
+  "id": 1,
+  "name": { "ja": "2026 架空ビーチカップ", "en": "2026 Fictional Beach Cup" },
+  "shortName": "2026 FBC",
+  "labels": { "teamList": "teams", "groups": "groups" },
+  "showSchedule": true,
+  "divisions": [
+    {
+      "id": 101,
+      "name": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "groups": [
+        { "id": 1001, "name": "Qualifying pool A", "linked": true },
+        { "id": 1002, "name": "Tounament A", "linked": true }
+      ]
+    },
+    { "id": 102, "name": { "ja": "ウィメン", "en": "Women's" }, "groups": [] }
+  ],
+  "galleries": [{ "id": 201, "name": "Day1-AM" }, { "id": 202, "name": "Day1-PM" }],
+  "banners": [
+    { "imageUrl": "/brand/banner-sample.svg", "linkUrl": "https://example.com/" },
+    { "imageUrl": "/brand/banner-sample.svg", "linkUrl": null }
+  ]
+}

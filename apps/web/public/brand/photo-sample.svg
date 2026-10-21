@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="945" height="630" viewBox="0 0 945 630"><title>Sample photo</title>
+  <rect width="945" height="630" fill="#9cc9e8"/>
+  <rect y="420" width="945" height="210" fill="#e9d6a8"/>
+  <ellipse cx="470" cy="250" rx="70" ry="22" fill="#fff" stroke="#ff6600" stroke-width="6"/>
+  <text x="472" y="560" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" fill="#666">SAMPLE PHOTO</text>
+</svg>

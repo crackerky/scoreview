@@ -1,0 +1,19 @@
+{
+  "frame": "frame-2",
+  "logoUrl": "/brand/banner-sample.svg",
+  "topHtml": { "ja": "", "en": "" },
+  "divisions": [
+    {
+      "id": 301,
+      "name": { "ja": "ＤＧシングルス（土曜日）", "en": "" },
+      "scheduleLinked": false,
+      "standingsLinked": false
+    },
+    {
+      "id": 302,
+      "name": { "ja": "ＤＧシングルス（日曜日）", "en": "" },
+      "scheduleLinked": false,
+      "standingsLinked": false
+    }
+  ]
+}
