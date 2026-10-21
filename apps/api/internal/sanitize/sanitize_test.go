@@ -157,6 +157,52 @@ func TestHTMLKeepsReferenceSiteMarkup(t *testing.T) {
 	}
 }
 
+// 閲覧ページの他の部分を覆う、重ねる、他のサイトへ誘うための指定を落とす(セキュリティ点検 L-5)。
+func TestHTMLRemovesPageSpoofing(t *testing.T) {
+	s := sanitize.New()
+	cases := []struct {
+		name      string
+		input     string
+		forbidden []string
+		kept      string
+	}{
+		{"page class", `<div class="Sidebar modal">x</div>`, []string{"class"}, "x"},
+		{"badge class with another", `<span class="SCV_MIDA_M Sidebar">x</span>`, []string{"class"}, "x"},
+		{"negative margin", `<span style="margin: -500px 0 0 0; color: red">x</span>`,
+			[]string{"margin", "-500"}, "color: red"},
+		{"huge padding", `<span style="padding: 9999px">x</span>`, []string{"padding"}, "x"},
+		{"huge font", `<a href="/x" style="font-size: 1000px; line-height: 1000px">x</a>`,
+			[]string{"font-size", "line-height"}, `href="/x"`},
+		{"huge em", `<span style="font-size: 50em">x</span>`, []string{"font-size"}, "x"},
+		{"huge width", `<span style="width: calc(100vw); height: 100vh">x</span>`,
+			[]string{"width", "height"}, "x"},
+		{"huge img attribute", `<img src="/a.png" width="100%" height="99999">`,
+			[]string{"99999"}, `width="100%"`},
+		{"protocol-relative link", `<a href="//evil.example/x">x</a>`, []string{"evil"}, "x"},
+		{"backslash link", `<a href="/\evil.example/x">x</a>`, []string{"evil"}, "x"},
+		{"protocol-relative image", `<img src="//evil.example/t.png">`, []string{"evil"}, ""},
+		{"tab in link", "<a href=\"/\t/evil.example\">x</a>", []string{"evil"}, "x"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := s.HTML(tc.input)
+			for _, bad := range tc.forbidden {
+				assert.NotContains(t, strings.ToLower(got), bad, "output: %s", got)
+			}
+			assert.Contains(t, got, tc.kept)
+		})
+	}
+	// 範囲内の値、サイト内のパス、http(s) の外部画像は残す
+	got := s.HTML(`<span class="SCV_MIDA_S" style="font-size: 131%; margin: 0 auto; padding: .5em">x</span>` +
+		`<a href="/pscore/scv_top/open/1">t</a><img src="https://example.com/a.png" height="400">`)
+	for _, want := range []string{
+		`class="SCV_MIDA_S"`, `font-size: 131%`, `margin: 0 auto`, `padding: .5em`,
+		`href="/pscore/scv_top/open/1"`, `src="https://example.com/a.png"`, `height="400"`,
+	} {
+		assert.Contains(t, got, want)
+	}
+}
+
 func TestHTMLEmptyInput(t *testing.T) {
 	assert.Empty(t, sanitize.New().HTML(""))
 }

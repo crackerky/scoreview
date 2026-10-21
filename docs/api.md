@@ -380,7 +380,7 @@ type BracketCell = {
   キーに `null` を入れるとその値を消す。
 - 作成でボディに無いキーは、各型の「既定」の値になる。
 - URL の項目(ロゴ、バナー、写真、グループの画像)は `http(s)://` の絶対 URL か `/` で始まるサイト内のパスだけを受け付ける(`javascript:` などは 400)。`//` で始まるもの、バックスラッシュ、空白、制御文字を含むものも 400(ブラウザが `/\host` や `/<TAB>/host` を他のサイトの `//host` と読むため。空白は `%20` で書く)。
-- 自由記述 HTML(`topHtml`)は**保存時に**無害化する。応答と閲覧用の `topHtml` は無害化後の値になる。
+- 自由記述 HTML(`topHtml`)は**保存時に**無害化する。応答と閲覧用の `topHtml` は無害化後の値になる。許可するクラスは見出しの `SCV_MIDA_L` / `SCV_MIDA_M` / `SCV_MIDA_S` だけ。寸法の style(width、height、font-size、line-height、letter-spacing、padding、margin、border-radius)は負の値と上限を超える値を落とす。`href` と `src` の `//host`、`/\host` は落とす(`internal/sanitize`)。
 
 ### 認証
 
