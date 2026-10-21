@@ -23,6 +23,9 @@ const headerWords = {
   number: /^(背番号|番号|no\.?|#|number)$/i,
   person: /^(氏名|名前|選手名?|player|name)$/i,
   gender: /^(性別|gender|sex)$/i,
+  // 英語名の列(無ければ api が日本語名を入れる。英語の閲覧ページで名前が空にならないように)
+  english:
+    /^(英語名|英名|英語表記|(チーム名?|氏名|名前)\s*[(（]英語[)）]|english(\s*name)?|name\s*\(en\))$/i,
   other: /^(代表者?|連絡先|備考|メール|電話|no\.?|#|番号)$/i,
 }
 
@@ -47,8 +50,16 @@ function numericColumn(rows: readonly string[][], column: number): boolean {
   return values.length > 0 && values.every((value) => numeric.test(value))
 }
 
-/** チームの名簿の列の割り当て。short が null なら略称は正式名と同じ */
-export type TeamColumns = { header: boolean; name: number; short: number | null }
+/**
+ * チームの名簿の列の割り当て。short が null なら略称は正式名と同じ。nameEn が null なら英語名は空で送り、
+ * api が日本語名を入れる
+ */
+export type TeamColumns = {
+  header: boolean
+  name: number
+  short: number | null
+  nameEn: number | null
+}
 
 /** チームの名簿の列を推測する。見出しがあれば言葉で、無ければ数字だけでない最初の列を名前にする */
 export function guessTeamColumns(rows: readonly string[][]): TeamColumns {
@@ -67,11 +78,17 @@ export function guessTeamColumns(rows: readonly string[][]): TeamColumns {
     // 見出しの無い「正式名、短縮名」(これまでの貼り付けの形)
     short = name + 1
   }
-  return { header: header !== null, name, short }
+  return { header: header !== null, name, short, nameEn: findColumn(header, headerWords.english) }
 }
 
-/** 登録前のチームの行。warnings は画面に出す注意(登録は止めない) */
-export type TeamRow = { fullName: string; shortName: string; warnings: string[] }
+/** 登録前のチームの行。fullNameEn は英語名の列の値(空なら api が日本語名を入れる)。warnings は画面に
+ * 出す注意(登録は止めない) */
+export type TeamRow = {
+  fullName: string
+  shortName: string
+  fullNameEn: string
+  warnings: string[]
+}
 
 /** 列の割り当てでチームの行を作る。existing は登録済みのチームの正式名(重複の注意に使う) */
 export function teamRowsOf(
@@ -104,18 +121,20 @@ export function teamRowsOf(
     if (!seen.has(fullName)) {
       seen.set(fullName, out.length)
     }
-    out.push({ fullName, shortName: short === '' ? fullName : short, warnings })
+    const fullNameEn = columns.nameEn === null ? '' : (row[columns.nameEn] ?? '')
+    out.push({ fullName, shortName: short === '' ? fullName : short, fullNameEn, warnings })
   }
   return out
 }
 
-/** 選手の名簿の列の割り当て。number と gender は無くてもよい */
+/** 選手の名簿の列の割り当て。number、gender、nameEn(英語名。無ければ api が日本語名を入れる)は無くてもよい */
 export type PlayerColumns = {
   header: boolean
   team: number
   number: number | null
   name: number
   gender: number | null
+  nameEn: number | null
 }
 
 /** 選手の名簿の列を推測する(見出しの言葉から。無ければ チーム名、背番号、氏名、性別 の順とみなす) */
@@ -129,6 +148,7 @@ export function guessPlayerColumns(rows: readonly string[][]): PlayerColumns {
     number: header ? findColumn(header, headerWords.number) : at(1),
     name: findColumn(header, headerWords.person) ?? (count > 2 ? 2 : count - 1),
     gender: header ? findColumn(header, headerWords.gender) : at(3),
+    nameEn: findColumn(header, headerWords.english),
   }
 }
 
@@ -149,6 +169,7 @@ export type PlayerRow = {
   teamName: string
   number: string
   name: string
+  nameEn: string
   gender: Gender | null
   warnings: string[]
 }
@@ -187,7 +208,23 @@ export function playerRowsOf(
       warnings.push('同じチームに同じ背番号があります')
     }
     seen.add(key)
-    out.push({ teamId: team?.id ?? null, teamName, number, name, gender, warnings })
+    const nameEn = columns.nameEn === null ? '' : (row[columns.nameEn] ?? '')
+    out.push({ teamId: team?.id ?? null, teamName, number, name, nameEn, gender, warnings })
   }
   return out
+}
+
+/** 英語名の一括の補い(POST /admin/divisions/{id}/english-names)の結果の通知 */
+export function filledEnglishText(filled: {
+  teams: number
+  players: number
+  groups: number
+}): string {
+  if (filled.teams + filled.players + filled.groups === 0) {
+    return '英語名が空のチーム、選手、組はありませんでした'
+  }
+  return (
+    `英語名が空だったところに日本語名を入れました(チーム ${filled.teams}、選手 ${filled.players}、` +
+    `組 ${filled.groups})`
+  )
 }

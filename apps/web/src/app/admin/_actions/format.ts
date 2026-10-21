@@ -56,7 +56,13 @@ export async function applyFormatAction(
 }
 
 const teamRowsSchema = z
-  .array(z.object({ fullName: z.string().trim().min(1), shortName: z.string().trim().min(1) }))
+  .array(
+    z.object({
+      fullName: z.string().trim().min(1),
+      shortName: z.string().trim().min(1),
+      fullNameEn: z.string().trim().default(''),
+    }),
+  )
   .max(512)
 const playerRowsSchema = z
   .array(
@@ -64,6 +70,7 @@ const playerRowsSchema = z
       teamId: z.number().int().positive(),
       number: z.string().trim(),
       name: z.string().trim().min(1),
+      nameEn: z.string().trim().default(''),
       gender: genderSchema.nullable(),
     }),
   )
@@ -95,8 +102,9 @@ export async function createTeamsFromRosterAction(formData: FormData): Promise<n
         throw inputError('名簿が空です')
       }
       for (const [index, row] of rows.entries()) {
+        // 英語名が空なら api が日本語名を入れる(英語の短縮名は英語名か日本語の略称)
         await teams.create(token, divisionId, {
-          fullName: { ja: row.fullName, en: '' },
+          fullName: { ja: row.fullName, en: row.fullNameEn },
           shortName: { ja: row.shortName, en: '' },
           sortOrder: start + index,
         })
@@ -119,7 +127,7 @@ export async function createPlayersFromRosterAction(formData: FormData): Promise
       for (const row of rows) {
         await players.create(token, row.teamId, {
           number: row.number,
-          name: { ja: row.name, en: '' },
+          name: { ja: row.name, en: row.nameEn },
           gender: row.gender,
           role: null,
         })
