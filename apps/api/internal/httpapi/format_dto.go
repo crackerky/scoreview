@@ -18,6 +18,8 @@ type proposalInputDTO struct {
 	Date        string `json:"date"`
 	Start       string `json:"start"`
 	Sport       string `json:"sport"`
+	// Schedule があれば、courts、slotMinutes、date、start の代わりにこの条件で組む(形の適用と同じ条件)
+	Schedule *scheduleSettingDTO `json:"schedule"`
 }
 
 type proposalDTO struct {
@@ -32,6 +34,9 @@ type proposalDTO struct {
 	Ranked      int             `json:"ranked"`
 	Unique      int             `json:"unique"`
 	Violations  int             `json:"violations"`
+	EndDay      int             `json:"endDay"`
+	Overflow    int             `json:"overflow"`
+	FitNote     *string         `json:"fitNote"`
 }
 
 type proposalListDTO struct {
@@ -43,14 +48,62 @@ type forfeitDTO struct {
 	Loser  int `json:"loser"`
 }
 
+type scheduleDayDTO struct {
+	Date  string  `json:"date"`
+	Start string  `json:"start"`
+	End   *string `json:"end"`
+}
+
+type lunchDTO struct {
+	Start   string `json:"start"`
+	Minutes int    `json:"minutes"`
+}
+
 type scheduleSettingDTO struct {
-	Date          string   `json:"date"`
-	Start         string   `json:"start"`
-	SlotMinutes   int      `json:"slotMinutes"`
-	Courts        []string `json:"courts"`
-	TeamRestSlots int      `json:"teamRestSlots"`
-	StageGapSlots int      `json:"stageGapSlots"`
-	End           *string  `json:"end"`
+	Date          string           `json:"date"`
+	Start         string           `json:"start"`
+	SlotMinutes   int              `json:"slotMinutes"`
+	Courts        []string         `json:"courts"`
+	TeamRestSlots int              `json:"teamRestSlots"`
+	StageGapSlots int              `json:"stageGapSlots"`
+	End           *string          `json:"end"`
+	Days          []scheduleDayDTO `json:"days"`
+	Lunch         *lunchDTO        `json:"lunch"`
+	StageDays     bool             `json:"stageDays"`
+	Sport         *string          `json:"sport"`
+}
+
+func (in scheduleSettingDTO) toSetting() store.ScheduleSetting {
+	out := store.ScheduleSetting{Date: in.Date, Start: in.Start, SlotMinutes: in.SlotMinutes, Courts: in.Courts,
+		TeamRestSlots: in.TeamRestSlots, StageGapSlots: in.StageGapSlots, End: in.End,
+		StageDays: in.StageDays, Sport: in.Sport}
+	for _, d := range in.Days {
+		out.Days = append(out.Days, store.ScheduleDay(d))
+	}
+	if in.Lunch != nil {
+		lunch := store.LunchSetting(*in.Lunch)
+		out.Lunch = &lunch
+	}
+	return out
+}
+
+// toScheduleSetting は保存済みの設定を応答にする。日数を持たない古い設定は date、start、end の 1 日を
+// days に入れて返す(画面がいつも days を読めるように)。
+func toScheduleSetting(s store.ScheduleSetting) scheduleSettingDTO {
+	out := scheduleSettingDTO{Date: s.Date, Start: s.Start, SlotMinutes: s.SlotMinutes, Courts: nonNil(s.Courts),
+		TeamRestSlots: s.TeamRestSlots, StageGapSlots: s.StageGapSlots, End: s.End,
+		Days: []scheduleDayDTO{}, StageDays: s.StageDays, Sport: s.Sport}
+	for _, d := range s.Days {
+		out.Days = append(out.Days, scheduleDayDTO(d))
+	}
+	if len(out.Days) == 0 {
+		out.Days = append(out.Days, scheduleDayDTO{Date: s.Date, Start: s.Start, End: s.End})
+	}
+	if s.Lunch != nil {
+		lunch := lunchDTO(*s.Lunch)
+		out.Lunch = &lunch
+	}
+	return out
 }
 
 type formatInputDTO struct {
@@ -79,7 +132,7 @@ func (in formatInputDTO) toInput() (store.FormatInput, error) {
 		out.Forfeit = format.ForfeitScore{Winner: in.Forfeit.Winner, Loser: in.Forfeit.Loser}
 	}
 	if in.Schedule != nil {
-		s := store.ScheduleSetting(*in.Schedule)
+		s := in.Schedule.toSetting()
 		out.Schedule = &s
 	}
 	return out, nil
@@ -139,6 +192,8 @@ type formatPreviewDTO struct {
 	Courts          []string          `json:"courts"`
 	Violations      []violationDTO    `json:"violations"`
 	End             *string           `json:"end"`
+	EndDay          *int              `json:"endDay"`
+	FitNote         *string           `json:"fitNote"`
 	RuleText        []string          `json:"ruleText"`
 	Advancement     []string          `json:"advancement"`
 	Ranked          int               `json:"ranked"`
@@ -170,7 +225,8 @@ func toPreviewSide(side store.PreviewSide) previewSideDTO {
 func toFormatPreview(p store.FormatPreview) formatPreviewDTO {
 	out := formatPreviewDTO{Title: p.Title, StartLetter: p.StartLetter, Teams: p.Teams, Stages: nonNil(p.Stages),
 		Groups: []previewGroupDTO{}, Matches: []previewMatchDTO{}, Courts: nonNil(p.Courts),
-		Violations: toViolations(p.Violations), End: p.End, RuleText: nonNil(p.RuleText),
+		Violations: toViolations(p.Violations), End: p.End, EndDay: p.EndDay, FitNote: p.FitNote,
+		RuleText:    nonNil(p.RuleText),
 		Advancement: nonNil(p.Advancement), Ranked: p.Ranked, Unique: p.Unique,
 		ReplacesGroups: p.ReplacesGroups, ReplacesMatches: p.ReplacesMatches}
 	for _, g := range p.Groups {
@@ -198,9 +254,14 @@ func toProposal(p format.Proposal) (proposalDTO, error) {
 	if err != nil {
 		return proposalDTO{}, err
 	}
-	return proposalDTO{ID: p.ID, Title: p.Title, Template: p.Spec.Template, Params: params,
+	out := proposalDTO{ID: p.ID, Title: p.Title, Template: p.Spec.Template, Params: params,
 		Recommended: p.Recommended, Note: p.Note, Matches: p.Matches, End: p.End.Format("15:04"),
-		Ranked: p.Ranked, Unique: p.Unique, Violations: p.Violations}, nil
+		Ranked: p.Ranked, Unique: p.Unique, Violations: p.Violations, EndDay: p.EndDay + 1,
+		Overflow: p.Overflow}
+	if p.FitNote != "" {
+		out.FitNote = &p.FitNote
+	}
+	return out, nil
 }
 
 type savedFormatDTO struct {
@@ -236,8 +297,7 @@ func toSavedFormat(f store.SavedFormat) (savedFormatDTO, error) {
 		Tiebreak: string(f.Tiebreak), Forfeit: forfeitDTO{Winner: f.Forfeit.Winner, Loser: f.Forfeit.Loser},
 		Seeds: nonNil(f.Seeds)}
 	if f.Schedule != nil {
-		s := scheduleSettingDTO(*f.Schedule)
-		s.Courts = nonNil(s.Courts)
+		s := toScheduleSetting(*f.Schedule)
 		out.Schedule = &s
 	}
 	return out, nil

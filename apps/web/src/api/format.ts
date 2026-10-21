@@ -9,6 +9,7 @@ import {
   progressMatchListSchema,
   progressSchema,
   proposalListSchema,
+  type ScheduleSetting,
   savedFormatListSchema,
   savedFormatOneSchema,
   violationListSchema,
@@ -30,6 +31,7 @@ function call<T>(
   return apiFetch(path, schema, { method, body, sessionToken: token })
 }
 
+/** 形の候補の条件。schedule があれば courts 以下の代わりにそれを使う(形の適用と同じ条件) */
 export type ProposalInput = {
   teams: number
   courts: number
@@ -37,6 +39,7 @@ export type ProposalInput = {
   date: string
   start: string
   sport: string
+  schedule: ScheduleSetting | null
 }
 
 /** 結果のある下流の試合の対戦が変わるときの承認と下流の扱い。null は承認しない */

@@ -715,12 +715,17 @@ type Sport = 'seven' | 'four' | 'beach'            // 7 人制 / 4on4 / ビー�
 type Tiebreak = 'current' | 'current_no_h2h' | 'jfda'  // 現行方式(直接対決あり)/ 直接対決なし / JFDA 競技規則
 type FormatParams = object                          // テンプレートごとの JSON(docs/format-engine.md「形の指定の JSON」)
 type ScheduleSetting = {
-  date: string; start: string                      // "YYYY-MM-DD"、"HH:MM"
-  slotMinutes: number                               // 1 試合の枠の長さ(分)
+  date: string; start: string                      // "YYYY-MM-DD"、"HH:MM"(1 日目。days[0] と同じ値)
+  slotMinutes: number                               // 1 試合の枠の長さ(分)。記録係の画面は試合時間として使う
   courts: string[]                                  // コートの名前(この順に使う)
-  teamRestSlots: number                             // 同じチームの試合の間に空ける枠の数(4on4 は 0)
+  teamRestSlots: number                             // 同じチームの試合の間に空ける枠の数(0〜6。4on4 は 0、7 人制は 1)
   stageGapSlots: number                             // 段の間に空ける枠の数
-  end: string | null                                // 終了時刻 "HH:MM"
+  end: string | null                                // 1 日目の終了時刻 "HH:MM"
+  days: Array<{ date: string; start: string; end: string | null }>  // 会場を使う日(1〜7 日。日付順)。
+                                                    // 最後の日以外は end 必須。空なら date、start、end の 1 日。応答では必ず 1 日以上
+  lunch: { start: string; minutes: number } | null  // 各日の昼休み。minutes 0 か null はなし
+  stageDays: boolean                                // 段ごとに日を分ける(段 k は k+1 日目から。最後の段以外はその日のうちに)
+  sport: Sport | null                               // 条件を入れた競技(ウィザードの初期値)
 }
 type FormatInput = {
   template: 'pool_bands' | 'blocks' | 'round_robin'
@@ -730,9 +735,11 @@ type FormatInput = {
   forfeit: { winner: number; loser: number } | null // 不戦勝の規定スコア。null は 15-0。大会の設定があればそちらを順位計算に使う
   schedule: ScheduleSetting | null                  // null なら時刻とコートを入れない
 }
+// kind: unscheduled / court_conflict / team_rest / dependency_order / stage_gap / after_end(その日の終了を過ぎる)/
+//       outside_hours(会場を使う日でない、開始前)/ break(昼休みに重なる)/ stage_day(段ごとに分けた日に入っていない)
 type Violation = { kind: string; codes: string[]; shortMinutes: number; detail: string }  // detail は運営者向けの文
 type FormatPreview = {
-  title: string                                     // 「4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)」
+  title: string                                     // 「4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)」
   startLetter: string                               // 最初のグループ文字(大会内の通し)
   teams: number; stages: string[]
   groups: Array<{
@@ -746,6 +753,8 @@ type FormatPreview = {
     date: string | null; time: string | null; field: string | null
   }>
   courts: string[]; violations: Violation[]; end: string | null   // end は最後の試合の終了時刻
+  endDay: number | null                             // end が何日目か(1 から)
+  fitNote: string | null                            // 会場の時間に収まらないとき「17:00 までにあと 6 試合が収まりません」
   ruleText: string[]                                // タイブレークの案内文(参加チームへの案内にそのまま使える)
   advancement: string[]                             // 勝ち上がりの案内文
   ranked: number; unique: number                    // 全試合後に順位が付くチーム数、そのうち同順位でないチーム数
@@ -796,7 +805,7 @@ type Impact = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport }` | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; ranked; unique; violations }> }`(運営会社の頻出形が先頭で `recommended`) |
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明 |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
 | `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null }` |

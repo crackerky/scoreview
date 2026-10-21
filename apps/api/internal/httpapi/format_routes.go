@@ -48,6 +48,13 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 	if err := decodeBody(r, &in); err != nil {
 		return nil, err
 	}
+	if in.Schedule != nil {
+		cfg, err := in.Schedule.toSetting().Config()
+		if err != nil {
+			return nil, err
+		}
+		return proposalList(format.ProposalInput{Teams: in.Teams, Sport: format.Sport(in.Sport), Schedule: &cfg})
+	}
 	day, err := domain.ParseDay("date", in.Date)
 	if err != nil {
 		return nil, err
@@ -60,8 +67,12 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 		return nil, domain.Invalid("start", "must be HH:MM")
 	}
 	start := time.Date(day.Year(), day.Month(), day.Day(), clock.Hour(), clock.Minute(), 0, 0, time.UTC)
-	proposals, err := format.Propose(format.ProposalInput{Teams: in.Teams, Courts: in.Courts,
+	return proposalList(format.ProposalInput{Teams: in.Teams, Courts: in.Courts,
 		SlotMinutes: in.SlotMinutes, Start: start, Sport: format.Sport(in.Sport)})
+}
+
+func proposalList(input format.ProposalInput) (any, error) {
+	proposals, err := format.Propose(input)
 	if err != nil {
 		return nil, err
 	}

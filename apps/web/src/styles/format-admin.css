@@ -136,6 +136,65 @@
   color: var(--adm-danger);
 }
 
+/* 会場の時間に収まらない、時間割の決まりに合わない(赤で目立たせる) */
+.adm .fmt-warn {
+  color: var(--adm-danger);
+  font-weight: bold;
+}
+
+.adm .fmt-card.overflow {
+  border-color: var(--adm-danger);
+  background: #fff5f5;
+}
+
+/* 前回の形のコピーで変えた欄の説明 */
+.adm .fmt-notes {
+  margin: 8px 0;
+  padding: 8px 12px 8px 28px;
+  border-left: 4px solid var(--adm-accent);
+  background: var(--adm-bg);
+}
+
+/* 日ごとの開始と終了、昼休み。PC では 1 行、スマートフォンでは折り返す */
+.adm .fmt-days {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.adm .fmt-day {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 4px 12px;
+}
+
+.adm .fmt-day > strong {
+  min-width: 4.5em;
+  padding-bottom: 12px;
+}
+
+/* 2 回タップの入れ替えで選んだチーム */
+.adm .fmt-slot.picked {
+  border-color: var(--adm-accent);
+  box-shadow: 0 0 0 2px var(--adm-accent) inset;
+}
+
+.adm .fmt-slot .fmt-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--adm-tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .adm .fmt-ok {
   color: var(--adm-ok);
 }

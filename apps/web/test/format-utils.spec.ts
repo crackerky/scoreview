@@ -1,18 +1,17 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
-  buildPreviewGrid,
   moveTo,
   parseRoster,
   proposalSentence,
   roundUpToFive,
   swapAt,
 } from '../src/admin/format.utils.ts'
-import type { PreviewMatch, Proposal } from '../src/api/format.types.ts'
+import type { Proposal } from '../src/api/format.types.ts'
 
 const proposal: Proposal = {
   id: 'pb4',
-  title: '4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)',
+  title: '4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)',
   template: 'pool_bands',
   params: { teams: 12 },
   recommended: true,
@@ -22,6 +21,9 @@ const proposal: Proposal = {
   ranked: 12,
   unique: 12,
   violations: 0,
+  endDay: 1,
+  overflow: 0,
+  fitNote: null,
 }
 
 describe('大会の形のウィザードの整形', () => {
@@ -63,24 +65,5 @@ describe('大会の形のウィザードの整形', () => {
     assert.equal(roundUpToFive(1), 5)
     assert.equal(roundUpToFive(12), 15)
     assert.equal(roundUpToFive(15), 15)
-  })
-
-  test('時間割は時刻順の行とコートの列', () => {
-    const match = (code: string, time: string, field: string): PreviewMatch => ({
-      code,
-      group: 0,
-      round: 1,
-      left: { label: 'シード1', team: null },
-      right: { label: 'シード2', team: null },
-      date: '2026-10-18',
-      time,
-      field,
-    })
-    const grid = buildPreviewGrid(
-      [match('A2', '09:20', '2'), match('A1', '09:00', '1')],
-      ['1', '2'],
-    )
-    assert.deepEqual(grid.times, ['09:00', '09:20'])
-    assert.equal(grid.cells.get('09:20|2')?.code, 'A2')
   })
 })

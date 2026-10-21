@@ -25,57 +25,147 @@ const (
 )
 
 // ScheduleSetting は時間割の設定(division_formats.schedule)。Start は "HH:MM"、End は終了時刻
-// (なければ nil)。Date は "YYYY-MM-DD"。
+// (なければ nil)。Date は "YYYY-MM-DD"。Days があれば会場を使う日はそちら(Date、Start、End は
+// 1 日目と同じ値を入れる。1 日の設定しか知らない読み手のため)。Lunch は各日の昼休み、StageDays は
+// 段ごとに日を分けるか、Sport は条件を入れた競技(ウィザードの初期値に使う)。
 type ScheduleSetting struct {
-	Date          string   `json:"date"`
-	Start         string   `json:"start"`
-	SlotMinutes   int      `json:"slotMinutes"`
-	Courts        []string `json:"courts"`
-	TeamRestSlots int      `json:"teamRestSlots"`
-	StageGapSlots int      `json:"stageGapSlots"`
-	End           *string  `json:"end"`
+	Date          string        `json:"date"`
+	Start         string        `json:"start"`
+	SlotMinutes   int           `json:"slotMinutes"`
+	Courts        []string      `json:"courts"`
+	TeamRestSlots int           `json:"teamRestSlots"`
+	StageGapSlots int           `json:"stageGapSlots"`
+	End           *string       `json:"end"`
+	Days          []ScheduleDay `json:"days"`
+	Lunch         *LunchSetting `json:"lunch"`
+	StageDays     bool          `json:"stageDays"`
+	Sport         *string       `json:"sport"`
 }
 
-// config は format.ScheduleConfig にする。日付と時刻は UTC の値として扱う(試合の日付と時刻は
+// ScheduleDay は会場を使う 1 日。Date は "YYYY-MM-DD"、Start と End は "HH:MM"(End は最後の日だけ
+// 省略できる)。
+type ScheduleDay struct {
+	Date  string  `json:"date"`
+	Start string  `json:"start"`
+	End   *string `json:"end"`
+}
+
+// LunchSetting は各日の昼休み。Start は "HH:MM"、Minutes は長さ(分)。
+type LunchSetting struct {
+	Start   string `json:"start"`
+	Minutes int    `json:"minutes"`
+}
+
+// 時間割の設定の上限(入力の誤りを弾くための値)。
+const (
+	// maxScheduleDays は会場を使う日数の上限(参照サイトの大会は最長 3 日)
+	maxScheduleDays = 7
+	// maxRestSlots は同じチームの試合の間に空ける枠の上限
+	maxRestSlots = 6
+	// maxLunchMinutes は昼休みの長さの上限(分)
+	maxLunchMinutes = 240
+)
+
+// Config は format.ScheduleConfig にする。日付と時刻は UTC の値として扱う(試合の日付と時刻は
 // タイムゾーンを持たない現地時刻なので、比べるときも同じ扱いにする)。
-func (s ScheduleSetting) config() (format.ScheduleConfig, error) {
-	day, err := domain.ParseDay("schedule.date", s.Date)
-	if err != nil {
-		return format.ScheduleConfig{}, err
-	}
-	start, err := clockOn(day, "schedule.start", s.Start)
-	if err != nil {
-		return format.ScheduleConfig{}, err
-	}
+func (s ScheduleSetting) Config() (format.ScheduleConfig, error) {
 	if s.SlotMinutes <= 0 || s.SlotMinutes > maxSlotMinutes {
 		return format.ScheduleConfig{}, domain.Invalid("schedule.slotMinutes",
-			fmt.Sprintf("must be 1 to %d", maxSlotMinutes))
+			fmt.Sprintf("1 試合の枠の長さは 1〜%d 分にしてください", maxSlotMinutes))
 	}
 	if len(s.Courts) == 0 {
-		return format.ScheduleConfig{}, domain.Invalid("schedule.courts", "at least one court is required")
+		return format.ScheduleConfig{}, domain.Invalid("schedule.courts", "コートを 1 つ以上入れてください")
 	}
 	seen := map[string]bool{}
 	for i, court := range s.Courts {
 		if court == "" || seen[court] {
 			return format.ScheduleConfig{}, domain.Invalid(fmt.Sprintf("schedule.courts[%d]", i),
-				"must be unique and not empty")
+				"コートの名前は空にせず、重ならないようにしてください")
 		}
 		seen[court] = true
 	}
-	cfg := format.ScheduleConfig{Start: start, SlotMinutes: s.SlotMinutes, Courts: s.Courts,
-		TeamRestSlots: s.TeamRestSlots, StageGapSlots: s.StageGapSlots}
-	if s.End != nil {
-		end, err := clockOn(day, "schedule.end", *s.End)
+	if s.TeamRestSlots < 0 || s.TeamRestSlots > maxRestSlots {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.teamRestSlots",
+			fmt.Sprintf("同じチームの試合の間に空ける枠は 0〜%d にしてください", maxRestSlots))
+	}
+	if s.Sport != nil {
+		switch format.Sport(*s.Sport) {
+		case format.SportSeven, format.SportFour, format.SportBeach:
+		default:
+			return format.ScheduleConfig{}, domain.Invalid("schedule.sport", "seven、four、beach のどれか")
+		}
+	}
+	days := s.Days
+	if len(days) == 0 {
+		days = []ScheduleDay{{Date: s.Date, Start: s.Start, End: s.End}}
+	}
+	if len(days) > maxScheduleDays {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.days",
+			fmt.Sprintf("日数は %d 日までです", maxScheduleDays))
+	}
+	cfg := format.ScheduleConfig{SlotMinutes: s.SlotMinutes, Courts: s.Courts,
+		TeamRestSlots: s.TeamRestSlots, StageGapSlots: s.StageGapSlots, StageDays: s.StageDays}
+	for i, d := range days {
+		window, err := d.window(i, len(days))
 		if err != nil {
 			return format.ScheduleConfig{}, err
 		}
-		if !end.After(start) {
-			// 終了が開始より前だと、置ける枠の数が負になり「制限なし」と区別できない
-			return format.ScheduleConfig{}, domain.Invalid("schedule.end", "must be after schedule.start")
+		if i > 0 && !window.Start.After(cfg.Days[i-1].End) {
+			return format.ScheduleConfig{}, domain.Invalid(fmt.Sprintf("schedule.days[%d].date", i),
+				"日付は前の日より後にしてください")
 		}
-		cfg.End = end
+		cfg.Days = append(cfg.Days, window)
+		if s.Lunch != nil && s.Lunch.Minutes > 0 {
+			lunch, err := s.Lunch.on(window.Start)
+			if err != nil {
+				return format.ScheduleConfig{}, err
+			}
+			cfg.Breaks = append(cfg.Breaks, lunch)
+		}
 	}
+	cfg.Start, cfg.End = cfg.Days[0].Start, cfg.Days[0].End
 	return cfg, nil
+}
+
+func (d ScheduleDay) window(index, count int) (format.DayWindow, error) {
+	field := fmt.Sprintf("schedule.days[%d]", index)
+	day, err := domain.ParseDay(field+".date", d.Date)
+	if err != nil {
+		return format.DayWindow{}, err
+	}
+	start, err := clockOn(day, field+".start", d.Start)
+	if err != nil {
+		return format.DayWindow{}, err
+	}
+	out := format.DayWindow{Start: start}
+	if d.End == nil {
+		if index < count-1 {
+			return format.DayWindow{}, domain.Invalid(field+".end",
+				fmt.Sprintf("%d 日目の終了時刻を入れてください", index+1))
+		}
+		return out, nil
+	}
+	if out.End, err = clockOn(day, field+".end", *d.End); err != nil {
+		return format.DayWindow{}, err
+	}
+	if !out.End.After(start) {
+		// 終了が開始より前だと、置ける枠の数が負になり「制限なし」と区別できない
+		return format.DayWindow{}, domain.Invalid(field+".end",
+			fmt.Sprintf("%d 日目の終了時刻は開始時刻より後にしてください", index+1))
+	}
+	return out, nil
+}
+
+func (l LunchSetting) on(dayStart time.Time) (format.Break, error) {
+	if l.Minutes < 0 || l.Minutes > maxLunchMinutes {
+		return format.Break{}, domain.Invalid("schedule.lunch.minutes",
+			fmt.Sprintf("昼休みの長さは 0〜%d 分にしてください", maxLunchMinutes))
+	}
+	start, err := clockOn(dayStart, "schedule.lunch.start", l.Start)
+	if err != nil {
+		return format.Break{}, err
+	}
+	return format.Break{Start: start, End: start.Add(time.Duration(l.Minutes) * time.Minute)}, nil
 }
 
 // maxSlotMinutes は 1 試合の枠の長さの上限(参照サイトの最長 90 分に余裕を持たせた値)。

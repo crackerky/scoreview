@@ -1,5 +1,5 @@
 import { loadAdmin, requireUser } from '@/admin/session'
-import { divisions, teams, tournaments } from '@/api/admin'
+import { divisions, matches, teams, tournaments } from '@/api/admin'
 import { formats } from '@/api/format'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { createTeamsFromRosterAction } from '@/app/admin/_actions/format'
@@ -14,14 +14,17 @@ export default async function FormatWizardPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const { user, token } = await requireUser('admin')
   const division = await loadAdmin(() => divisions.get(token, id))
-  const [tournament, teamList, saved, copies] = await loadAdmin(() =>
+  const [tournament, teamList, saved, copies, matchList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, division.tournamentId),
       teams.list(token, id),
       formats.get(token, id),
       formats.list(token, id),
+      matches.list(token, id),
     ]),
   )
+  // 結果の入った試合(試合中、終了)があれば形は作り直せない(api も 409 で断る)。ボタンを先に止める
+  const startedMatches = matchList.matches.filter((match) => match.status !== 'scheduled').length
   const back = `/admin/divisions/${id}/format`
   const refs = teamList.teams.map((team) => ({ id: team.id, name: team.shortName }))
   // 保存済みの形があればそのシード順、無ければ登録順(並び順、ID の順)
@@ -71,7 +74,9 @@ export default async function FormatWizardPage(props: IdPageProps) {
           initialSeeds={initialSeeds}
           defaultDate={tournament.startDate ?? new Date().toISOString().slice(0, 10)}
           saved={saved.format}
+          inherited={null}
           copies={copies.formats}
+          startedMatches={startedMatches}
         />
       ) : (
         <p>チームを 2 つ以上登録すると、形の候補を出せます。</p>
