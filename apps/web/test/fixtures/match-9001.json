@@ -10,10 +10,12 @@
     "status": "finished",
     "left": {
       "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+      "fullName": { "ja": "架空チームA", "en": "Fictional A" },
       "score": 1
     },
     "right": {
       "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+      "fullName": { "ja": "架空チームB", "en": "Fictional B" },
       "score": 0
     },
     "breadcrumb": {

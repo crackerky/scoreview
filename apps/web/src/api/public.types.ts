@@ -209,6 +209,13 @@ const matchTeamStatsSchema = z.object({
   timeouts: z.number().int(),
 })
 
+// fullName はチームの正式名(<title> に使う)。team が null なら null
+const matchPageSideSchema = z.object({
+  team: teamRefSchema.nullable(),
+  fullName: i18nTextSchema.nullable(),
+  score: z.number().int().nullable(),
+})
+
 /** GET /api/v1/matches/{id}。events は古い順(画面では web が新しい順に並べ替える)。 */
 export const matchResponseSchema = z.object({
   frame: tournamentFrameSchema,
@@ -220,8 +227,8 @@ export const matchResponseSchema = z.object({
     time: z.string().nullable(),
     field: z.string().nullable(),
     status: matchStatusSchema,
-    left: z.object({ team: teamRefSchema.nullable(), score: z.number().int().nullable() }),
-    right: z.object({ team: teamRefSchema.nullable(), score: z.number().int().nullable() }),
+    left: matchPageSideSchema,
+    right: matchPageSideSchema,
     breadcrumb: z.object({
       divisionId: z.number().int(),
       divisionName: i18nTextSchema,
