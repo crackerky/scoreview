@@ -1,0 +1,28 @@
+{
+  "frame": "frame-1",
+  "player": {
+    "id": 70009,
+    "number": "",
+    "name": { "ja": "見本 次郎", "en": "Jiro MIHON" },
+    "gender": "M",
+    "role": { "ja": "マネージャ", "en": "Manager" }
+  },
+  "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+  "prev": {
+    "id": 70004,
+    "number": "00",
+    "name": { "ja": "仮名 四郎", "en": "" },
+    "gender": "M",
+    "role": null
+  },
+  "next": {
+    "id": 70001,
+    "number": "7",
+    "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+    "gender": "M",
+    "role": null
+  },
+  "statsKind": "ultimate",
+  "stats": { "games": 0, "assists": 0, "goals": 0, "callahans": 0, "greatests": 0, "blocks": 0 },
+  "events": []
+}

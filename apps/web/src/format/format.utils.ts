@@ -158,3 +158,17 @@ export function formatElapsed(elapsedSec: number): string {
   const seconds = elapsedSec % 60
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
+
+// clone-spec D 2.2: 試合ページの表示時刻は日本時間。hourCycle h23 で 0 時を "24" にしない
+const jstClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Tokyo',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** 試合ページのスコアボード右下の "HH:MM:SS JST"(表示した時点の日本時間。clone-spec D 2.2)。 */
+export function formatClockJst(now: Date): string {
+  return `${jstClock.format(now)} JST`
+}

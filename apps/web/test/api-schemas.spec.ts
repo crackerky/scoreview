@@ -30,8 +30,12 @@ const cases: Array<[string, z.ZodType]> = [
   ['group-1001', groupResponseSchema],
   ['group-1002', groupResponseSchema],
   ['team-5001', teamResponseSchema],
+  ['team-5003', teamResponseSchema],
   ['match-9001', matchResponseSchema],
+  ['match-9002', matchResponseSchema],
   ['player-70001', playerResponseSchema],
+  ['player-70009', playerResponseSchema],
+  ['player-70101', playerResponseSchema],
   ['gallery-201', galleryResponseSchema],
 ]
 

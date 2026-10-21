@@ -1,0 +1,47 @@
+{
+  "frame": "frame-1",
+  "team": {
+    "id": 5003,
+    "fullName": { "ja": "架空ディスクゴルフ部", "en": "" },
+    "shortName": { "ja": "架空DG", "en": "" },
+    "comment": { "ja": "", "en": "" },
+    "layout": "roster_only"
+  },
+  "record": {
+    "games": 0,
+    "wins": 0,
+    "draws": 0,
+    "losses": 0,
+    "goalsFor": 0,
+    "goalsAgainst": 0,
+    "rank": null
+  },
+  "matches": [],
+  "players": [
+    {
+      "player": {
+        "id": 70101,
+        "number": "1",
+        "name": { "ja": "仮名 一", "en": "" },
+        "gender": "M"
+      },
+      "games": 0,
+      "assists": 0,
+      "goals": 0,
+      "blocks": 0
+    },
+    {
+      "player": {
+        "id": 70102,
+        "number": "2",
+        "name": { "ja": "仮名 二", "en": "" },
+        "gender": "F"
+      },
+      "games": 0,
+      "assists": 0,
+      "goals": 0,
+      "blocks": 0
+    }
+  ],
+  "staff": []
+}
