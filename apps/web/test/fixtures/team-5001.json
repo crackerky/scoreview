@@ -47,12 +47,12 @@
       "left": {
         "team": { "id": 5004, "name": { "ja": "架空チームD", "en": "Fictional D" } },
         "placeholder": null,
-        "score": 6
+        "score": 3
       },
       "right": {
         "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
         "placeholder": null,
-        "score": 7
+        "score": 4
       }
     },
     {

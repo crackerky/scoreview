@@ -143,6 +143,9 @@ const jp = {
   dgCleanCatch: 'ｸﾘｰﾝｷｬｯﾁ',
   dgFollowCatch: 'ﾌｫﾛｰｷｬｯﾁ',
   dgFootFault: 'ﾌｯﾄﾌｧｰﾙ',
+
+  // 試合ページの得点経過(clone-spec D 2.3。import-cache の試合 45322 などで観測)
+  eventCallahan: 'キャラハンゴール',
 } as const
 
 export type MessageKey = keyof typeof jp
@@ -279,6 +282,9 @@ const en: Record<MessageKey, string> = {
   dgCleanCatch: 'Clean Catch',
   dgFollowCatch: 'Follow Catch',
   dgFootFault: 'Foot Fault',
+
+  // 推測: キャラハンゴールの英語表記は未観測
+  eventCallahan: 'Callahan Goal',
 }
 
 const dictionaries: Record<Lang, Record<MessageKey, string>> = { jp, en }
