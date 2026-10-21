@@ -138,10 +138,14 @@ func draftFormat(ctx context.Context, db *gorm.DB, division Division, input Form
 		return nil, domain.Invalid("forfeit", "winner score must be larger than loser score")
 	}
 	d := &formatDraft{input: input, spec: spec, plan: plan,
-		cfg: format.Config{Tiebreak: rule, Band: format.BandRule(), Forfeit: input.Forfeit}}
+		cfg: format.Config{Tiebreak: rule, Band: format.BandRule(), Forfeit: new(input.Forfeit)}}
 	if input.Schedule != nil {
 		cfg, err := input.Schedule.config()
 		if err != nil {
+			return nil, err
+		}
+		// 同じ大会の他のディビジョンの試合が使うコートと時刻を避ける
+		if cfg.Busy, err = otherDivisionBusy(ctx, db, division, cfg.SlotMinutes); err != nil {
 			return nil, err
 		}
 		if d.schedule, err = format.BuildSchedule(plan, cfg); err != nil {
@@ -379,6 +383,14 @@ func ApplyFormat(
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		division, err := findByID[Division](ctx, tx, divisionID, domain.ResourceDivision)
 		if err != nil {
+			return err
+		}
+		// 大会 → ディビジョンの順にロックし、結果の入った試合の検査から作り直しまでの間に試合が
+		// 始まらないようにする(試合の更新もディビジョンをロックする)
+		if err := lockTournament(ctx, tx, division.TournamentID); err != nil {
+			return err
+		}
+		if err := lockDivision(ctx, tx, divisionID); err != nil {
 			return err
 		}
 		var started int64

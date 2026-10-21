@@ -830,6 +830,11 @@ func (s *Server) changeStatus(
 	if body.Score != nil {
 		input.Score = &domain.Score{Left: body.Score.Left, Right: body.Score.Right}
 	}
+	downstream, err := parseDownstream(body.Downstream)
+	if err != nil {
+		return nil, err
+	}
+	input.Downstream = downstream
 	detail, err := store.ChangeMatchStatus(ctx, s.db, actorOf(user), id, input)
 	if err != nil {
 		return nil, err

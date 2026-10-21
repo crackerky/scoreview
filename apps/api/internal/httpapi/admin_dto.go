@@ -595,6 +595,8 @@ type statusBodyDTO struct {
 	Score      *scoreDTO `json:"score"`
 	// ExpectedScore は終了にするときに記録係が確認したスコア
 	ExpectedScore *scoreDTO `json:"expectedScore"`
+	// Downstream は結果のある下流の試合の対戦が変わるときの承認(keep / reset。null は承認しない)
+	Downstream *string `json:"downstream"`
 }
 
 type eventPlayersBodyDTO struct {

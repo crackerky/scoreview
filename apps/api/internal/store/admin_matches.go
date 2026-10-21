@@ -252,7 +252,7 @@ func UpdateMatch(
 	var row Match
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		row, err = findByID[Match](ctx, tx, id, domain.ResourceMatch)
+		row, err = lockMatchInDivision(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -435,8 +435,8 @@ func GetMatchDetail(ctx context.Context, db *gorm.DB, id int64) (MatchDetail, er
 	return detail, nil
 }
 
-// fillMatchContext は試合の大会、ディビジョン、グループの名前と、大会の不戦勝の規定スコアを入れる
-// (スコア入力画面とスコアシートの見出しに出す)。
+// fillMatchContext は試合の大会、ディビジョン、グループの名前と、不戦勝の規定スコア(大会、無ければ
+// 大会の形の設定。regulationForfeitScore)を入れる(スコア入力画面とスコアシートの見出しに出す)。
 func fillMatchContext(ctx context.Context, db *gorm.DB, match Match, detail *MatchDetail) error {
 	division, err := findInternal[Division](ctx, db, match.DivisionID, "division")
 	if err != nil {
@@ -447,7 +447,10 @@ func fillMatchContext(ctx context.Context, db *gorm.DB, match Match, detail *Mat
 		return err
 	}
 	detail.TournamentID, detail.TournamentName = tournament.ID, tournament.NameJa
-	detail.DivisionName, detail.ForfeitScore = division.NameJa, tournamentForfeitScore(tournament)
+	detail.DivisionName = division.NameJa
+	if detail.ForfeitScore, err = regulationForfeitScore(ctx, db, division); err != nil {
+		return err
+	}
 	if match.GroupID != nil {
 		group, err := findInternal[Group](ctx, db, *match.GroupID, "group")
 		if err != nil {
