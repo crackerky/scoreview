@@ -34,7 +34,6 @@ func TestOperatorNames(t *testing.T) {
 	assert.Equal(t, "予選 A 組", format.OperatorName(plan.Groups[0]))
 	assert.Equal(t, "1〜4 位を決めるトーナメント", format.OperatorName(plan.Groups[4]))
 	assert.Equal(t, "9〜12 位を決めるトーナメント", format.OperatorName(plan.Groups[6]))
-	assert.Equal(t, "A 組 1 位", plan.Groups[4].Slots[0].Source.OperatorLabel(plan))
 	custom := plan.Groups[0]
 	custom.Name = "本部の付けた名前"
 	assert.Equal(t, "本部の付けた名前", format.OperatorName(custom))

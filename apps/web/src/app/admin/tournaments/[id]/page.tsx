@@ -7,6 +7,7 @@ import {
   createGalleryAction,
   deleteTournamentAction,
   putBannersAction,
+  setListedAction,
   updateTournamentAction,
 } from '@/app/admin/_actions/tournament'
 import { readAdminPage } from '@/app/admin/_lib/page'
@@ -31,11 +32,31 @@ export default async function AdminTournamentPage(props: IdPageProps) {
   const isAdmin = user.role === 'admin'
   return (
     <AdminShell user={user} title={tournament.name.ja} notice={notice}>
+      {isAdmin ? (
+        <form action={setListedAction} className="adm-publish">
+          <Hidden values={{ back, id, listed: tournament.listed ? '' : 'on' }} />
+          {tournament.listed ? (
+            <>
+              <span>公開中(大会一覧に載っています)</span>
+              <button type="submit" className="secondary">
+                非公開にする
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="adm-notice">
+                準備中です。閲覧ページは URL を知っている人だけが見られ、大会一覧には載りません。
+              </span>
+              <button type="submit">公開する</button>
+            </>
+          )}
+        </form>
+      ) : null}
       <p className="adm-actions">
         <a href={`/scview/${id}`}>閲覧ページを開く</a>
         <a href={`/admin/tournaments/${id}/timetable`}>時間割を印刷</a>
       </p>
-      <h2>ディビジョン</h2>
+      <h2>部門</h2>
       <ul className="adm-list">
         {divisionList.divisions.map((division) => (
           <li key={division.id}>
@@ -86,7 +107,7 @@ async function AdminSections({
     .join('\n')
   return (
     <>
-      <h3>ディビジョンを作る</h3>
+      <h3>部門を作る</h3>
       <form action={createDivisionAction}>
         <Hidden
           values={{
@@ -106,8 +127,13 @@ async function AdminSections({
             options={divisionKindOptions}
             defaultValue="mixed"
           />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
         </div>
+        <details>
+          <summary>詳しい設定</summary>
+          <div className="adm-grid">
+            <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
+          </div>
+        </details>
         <button type="submit">作成</button>
       </form>
 
@@ -124,8 +150,6 @@ async function AdminSections({
         <Hidden values={{ back, id }} />
         <div className="adm-grid">
           <Field label="大会名(日本語)" name="nameJa" defaultValue={tournament.name.ja} required />
-          <Field label="大会名(英語)" name="nameEn" defaultValue={tournament.name.en} />
-          <Field label="短い名前" name="shortName" defaultValue={tournament.shortName} />
           <Select
             label="区分"
             name="status"
@@ -133,25 +157,6 @@ async function AdminSections({
             defaultValue={tournament.status}
           />
           <Field label="開催日" name="startDate" type="date" defaultValue={tournament.startDate} />
-          <Field label="ロゴ URL" name="logoUrl" defaultValue={tournament.logoUrl} />
-          <Select
-            label="ナビのチーム一覧の名前"
-            name="teamListLabel"
-            options={[
-              { value: 'teams', label: 'チーム一覧' },
-              { value: 'entries', label: 'エントリー一覧' },
-            ]}
-            defaultValue={tournament.labels.teamList}
-          />
-          <Select
-            label="ナビのグループの名前"
-            name="groupLabel"
-            options={[
-              { value: 'groups', label: 'グループ成績' },
-              { value: 'results', label: '成績' },
-            ]}
-            defaultValue={tournament.labels.groups}
-          />
           <Field
             label="不戦勝のスコア(勝ったチーム)"
             name="forfeitWinner"
@@ -169,24 +174,50 @@ async function AdminSections({
           不戦勝のスコアは大会の規程に合わせて入れてください(例 15 と
           0)。空欄のままだと、記録係が不戦勝を記録するときにスコアの入力を求めます。
         </p>
-        <Check label="大会一覧に載せる" name="listed" defaultChecked={tournament.listed} />
-        <Check
-          label="ナビにスケジュールとディビジョン成績を出す"
-          name="showSchedule"
-          defaultChecked={tournament.showSchedule}
-        />
+        <Check label="大会一覧に載せる(公開)" name="listed" defaultChecked={tournament.listed} />
         <TextArea
-          label="自由記述(日本語。HTML。保存時に無害化します)"
+          label="大会トップのお知らせ欄(日本語。HTML も書けます。保存時に安全な形に直します)"
           name="topHtmlJa"
           defaultValue={tournament.topHtml.ja}
           rows={8}
         />
-        <TextArea
-          label="自由記述(英語。HTML)"
-          name="topHtmlEn"
-          defaultValue={tournament.topHtml.en}
-          rows={8}
-        />
+        <details>
+          <summary>詳しい設定(英語の名前、ロゴ、大会メニューの言い方)</summary>
+          <div className="adm-grid">
+            <Field label="大会名(英語)" name="nameEn" defaultValue={tournament.name.en} />
+            <Field label="短い名前" name="shortName" defaultValue={tournament.shortName} />
+            <Field label="ロゴ URL" name="logoUrl" defaultValue={tournament.logoUrl} />
+            <Select
+              label="大会メニューのチーム一覧の名前"
+              name="teamListLabel"
+              options={[
+                { value: 'teams', label: 'チーム一覧' },
+                { value: 'entries', label: 'エントリー一覧' },
+              ]}
+              defaultValue={tournament.labels.teamList}
+            />
+            <Select
+              label="大会メニューの組の成績の名前"
+              name="groupLabel"
+              options={[
+                { value: 'groups', label: 'グループ成績' },
+                { value: 'results', label: '成績' },
+              ]}
+              defaultValue={tournament.labels.groups}
+            />
+          </div>
+          <Check
+            label="大会メニューにスケジュールと部門の成績を出す"
+            name="showSchedule"
+            defaultChecked={tournament.showSchedule}
+          />
+          <TextArea
+            label="大会トップのお知らせ欄(英語)"
+            name="topHtmlEn"
+            defaultValue={tournament.topHtml.en}
+            rows={8}
+          />
+        </details>
         <button type="submit">保存</button>
       </form>
 
@@ -221,7 +252,7 @@ async function AdminSections({
       </form>
 
       <h2>大会の削除</h2>
-      <p className="adm-muted">ディビジョン、チーム、試合、ギャラリーも全部消えます。</p>
+      <p className="adm-muted">部門、チーム、試合、ギャラリーも全部消えます。</p>
       <DeleteForm action={deleteTournamentAction} values={{ back, id }} label="この大会" />
     </>
   )

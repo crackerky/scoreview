@@ -1,5 +1,7 @@
 import { loadAdmin, requireUser } from '@/admin/session'
+import { sideLabelsOf } from '@/admin/timetable.utils'
 import { divisions, matches, tournaments } from '@/api/admin'
+import { formats } from '@/api/format'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { PrintButton } from '@/components/admin/PrintButton'
@@ -13,9 +15,16 @@ export default async function TimetablePage(props: IdPageProps) {
   const [tournament, divisionList] = await loadAdmin(() =>
     Promise.all([tournaments.get(token, id), divisions.list(token, id)]),
   )
-  const lists = await loadAdmin(() =>
-    Promise.all(divisionList.divisions.map((division) => matches.list(token, division.id))),
+  // 大会の形のある部門は、未確定の対戦をプレビューと同じ決まり方(「A組1位」「E2 の勝者」)で出す
+  const [lists, formatLists] = await loadAdmin(() =>
+    Promise.all([
+      Promise.all(divisionList.divisions.map((division) => matches.list(token, division.id))),
+      Promise.all(
+        divisionList.divisions.map((division) => formats.matchesIfFormatted(token, division.id)),
+      ),
+    ]),
   )
+  const labels = sideLabelsOf(formatLists.flatMap((list) => list?.matches ?? []))
   const all = divisionList.divisions.flatMap((division, index) =>
     (lists[index]?.matches ?? []).map((match) => ({ ...match, divisionName: division.name.ja })),
   )
@@ -27,7 +36,7 @@ export default async function TimetablePage(props: IdPageProps) {
         <PrintButton />
         <span>A4 横、1 日 1 枚で印刷します。</span>
       </div>
-      <Timetable title={tournament.name.ja} matches={all} />
+      <Timetable title={tournament.name.ja} matches={all} labels={labels} />
     </div>
   )
 }

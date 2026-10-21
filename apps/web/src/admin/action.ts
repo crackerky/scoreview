@@ -1,6 +1,7 @@
 import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { ZodError } from 'zod'
 import { failureTarget, formToObject, safeAdminPath, withNotice } from './form.utils'
 import { readSessionToken } from './session'
 
@@ -9,6 +10,11 @@ export type ActionContext = {
   form: Record<string, string | string[]>
   /** フォームの hidden 欄 back(/admin 以下に限る)。成功と失敗の通知はここへ戻す */
   back: string
+}
+
+/** 入力の誤り。runAction が文面つきで元の画面へ戻す(ZodError として扱われる) */
+export function inputError(message: string): ZodError {
+  return new ZodError([{ code: 'custom', message, path: [], input: undefined }])
 }
 
 /** フォームの欄を文字列で読む(無ければ空文字) */

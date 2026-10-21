@@ -4,7 +4,6 @@ import { auditLines } from '../src/admin/audit.utils.ts'
 import {
   forfeitScoreText,
   hqTabOf,
-  operatorSideName,
   shiftSentence,
   suspendedMinutes,
   updatedAtText,
@@ -95,18 +94,6 @@ describe('本部の確認の文', () => {
     assert.equal(hqTabOf('delay'), 'delay')
     assert.equal(hqTabOf('x'), 'todo')
     assert.equal(hqTabOf(undefined), 'todo')
-  })
-
-  test('未定のチームは「E4 の負けチーム」と書く', () => {
-    const side = (placeholder: { code: string; outcome: 'win' | 'lose' } | null) => ({
-      team: null,
-      score: null,
-      labelEn: '',
-      placeholder,
-    })
-    assert.equal(operatorSideName(side({ code: 'E4', outcome: 'lose' })), 'E4 の負けチーム')
-    assert.equal(operatorSideName(side({ code: 'E2', outcome: 'win' })), 'E2 の勝ちチーム')
-    assert.equal(operatorSideName(side(null)), '未定')
   })
 
   test('締めの応答のスキーマ', () => {

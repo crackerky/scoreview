@@ -1,5 +1,5 @@
-import { sideName } from '@/admin/labels.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
+import { sideText } from '@/admin/timetable.utils'
 import type { AdminEvent, AdminPlayer, MatchDetail } from '@/api/admin.types'
 import type { ResultType, Side } from '@/api/common.types'
 
@@ -32,7 +32,15 @@ function Box({ checked }: { checked: boolean }) {
   return <span className="pr-box">{checked ? '✓' : ''}</span>
 }
 
-function Roster({ detail, side }: { detail: MatchDetail; side: Side }) {
+function Roster({
+  detail,
+  side,
+  label,
+}: {
+  detail: MatchDetail
+  side: Side
+  label: string | undefined
+}) {
   const list = players(detail.rosters[side])
   const blanks = Math.max(0, MIN_ROSTER_ROWS - list.length)
   const played = new Set(
@@ -41,7 +49,7 @@ function Roster({ detail, side }: { detail: MatchDetail; side: Side }) {
   return (
     <table className="pr-table pr-roster">
       <caption>
-        {sideLabel[side]}: {sideName(detail.match[side])}
+        {sideLabel[side]}: {sideText(detail.match[side], label)}
       </caption>
       <thead>
         <tr>
@@ -109,7 +117,14 @@ function TallyRows({ goals, from, to }: { goals: AdminEvent[]; from: number; to:
   )
 }
 
-export function ScoreSheet({ detail }: { detail: MatchDetail }) {
+export function ScoreSheet({
+  detail,
+  labels,
+}: {
+  detail: MatchDetail
+  /** 大会の形のある部門の試合の決まり方(「A1」「[E2-勝ち]」)。未確定の対戦を運営の言葉で出す */
+  labels?: { left: string; right: string }
+}) {
   const { match, context } = detail
   const goals = detail.events.filter((event) => event.kind === 'goal')
   const firstPull = detail.events.find((event) => event.kind === 'pull')
@@ -149,7 +164,7 @@ export function ScoreSheet({ detail }: { detail: MatchDetail }) {
 
       <div className="pr-two">
         {sides.map((side) => (
-          <Roster key={side} detail={detail} side={side} />
+          <Roster key={side} detail={detail} side={side} label={labels?.[side]} />
         ))}
       </div>
 

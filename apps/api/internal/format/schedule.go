@@ -28,6 +28,14 @@ type ScheduleConfig struct {
 	GroupsInParallel int
 	// End はすべての試合が終わっていなければならない時刻。ゼロ値なら制限なし
 	End time.Time
+	// Days は会場を使う日ごとの時間。空なら Start から End までの 1 日(Start と End は使わない)。
+	// 最後の日以外は End が要る。試合は日をまたがず、各日の時間の中に置く
+	Days []DayWindow
+	// Breaks は試合を置かない時間(昼休み)。日ごとに 1 つずつ入れる
+	Breaks []Break
+	// StageDays は段ごとに日を分ける。段 k は k 日目(最後の日を超える段は最後の日)から始め、
+	// 最後の段以外はその日のうちに終える
+	StageDays bool
 	// Busy は他のディビジョンの試合でふさがっているコートと時間(コートは大会で共有する)。生成は
 	// 重ならないように置き、検査は重なりを court_conflict として出す
 	Busy []Busy
@@ -71,6 +79,9 @@ const (
 	ViolationDependencyOrder ViolationKind = "dependency_order" // 前の試合(勝者・順位を待つ試合)より前に始まる
 	ViolationStageGap        ViolationKind = "stage_gap"        // 段の間が足りない
 	ViolationAfterEnd        ViolationKind = "after_end"        // 終了時刻を過ぎる
+	ViolationOutsideHours    ViolationKind = "outside_hours"    // 会場を使う日でない、開始時刻より前
+	ViolationBreak           ViolationKind = "break"            // 昼休みに重なる
+	ViolationStageDay        ViolationKind = "stage_day"        // 段ごとに分けた日に入っていない
 )
 
 // Violation は制約違反の 1 件。ShortMinutes は足りない分数(重なり、間隔の不足、超過)。
@@ -81,10 +92,12 @@ type Violation struct {
 	Detail       string
 }
 
-// Schedule は生成した時間割。Assignments は時刻、コートの順。
+// Schedule は生成した時間割。Assignments は時刻、コートの順。Overflow は会場の時間に収まらず、
+// 最後の日の終了の後に置いた試合の数。
 type Schedule struct {
 	Assignments []Assignment
 	Violations  []Violation
+	Overflow    int
 }
 
 // constraintSet は試合ごとの「同じチーム」の識別子と、先に終わっていなければならない試合。
@@ -133,7 +146,9 @@ func scheduleConstraints(plan *Plan) constraintSet {
 
 // BuildSchedule は段ごとに、グループを GroupsInParallel 個ずつ組にして、組の試合を
 // (ラウンド、グループ、番号)の順に、制約を満たす最も早いスロットの空いているコートへ置く。
-// 終了時刻までに置けない試合は、休憩の制約を緩めて置き、それでも無理なら終了時刻の後に置く。
+// スロットは各日の開始から終了までを枠の長さで刻み、昼休みに重なる枠を除いたもの(日をまたがない)。
+// 会場の時間内に置けない試合は、休憩の制約を緩めて置き、それでも無理なら最後の日の終了の後に置き、
+// Overflow に数える。段ごとに日を分けるときは、その段の日のうちに置けるかを先に試す。
 // 違反は止めずに Violations に出す。
 func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	if cfg.SlotMinutes <= 0 || len(cfg.Courts) == 0 {
@@ -142,18 +157,28 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	if cfg.TeamRestSlots < 0 || cfg.StageGapSlots < 0 || cfg.GroupsInParallel < 0 {
 		return nil, domain.Invalid("schedule", "slot counts must not be negative")
 	}
-	if !cfg.End.IsZero() && !cfg.End.After(cfg.Start) {
-		// 置ける枠の数が負になり、「制限なし」(maxSlot = -1)と区別できなくなる
-		return nil, domain.Invalid("schedule", "end must be after start")
+	days := cfg.days()
+	for i, day := range days {
+		if !day.End.IsZero() && !day.End.After(day.Start) {
+			// 置ける枠の数が負になり、「制限なし」と区別できなくなる
+			return nil, domain.Invalid("schedule", "end must be after start")
+		}
+		if day.End.IsZero() && i < len(days)-1 {
+			return nil, domain.Invalid("schedule", "every day but the last needs an end")
+		}
+		if i > 0 && !day.Start.After(days[i-1].Start) {
+			return nil, domain.Invalid("schedule", "days must be in order")
+		}
 	}
 	parallel := cfg.GroupsInParallel
 	if parallel == 0 {
 		parallel = DefaultGroupsInParallel
 	}
-	maxSlot := -1 // 制限なし
-	if !cfg.End.IsZero() {
-		maxSlot = int(cfg.End.Sub(cfg.Start).Minutes())/cfg.SlotMinutes - 1
+	tl := newTimeline(days, cfg.Breaks, cfg.SlotMinutes)
+	if tl.inHours == 0 {
+		return nil, domain.Invalid("schedule", "会場の時間に 1 試合も入りません。終了時刻か 1 試合の枠の長さを見直してください")
 	}
+	maxSlot := tl.lastInHours() // -1 は制限なし
 	cs := scheduleConstraints(plan)
 	slotOf := map[string]int{}
 	courtOf := map[string]int{}
@@ -178,7 +203,7 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	slotLength := time.Duration(cfg.SlotMinutes) * time.Minute
 	// takenElsewhere はスロット t のコート c が他のディビジョンの試合と重なるか
 	takenElsewhere := func(t, c int) bool {
-		start := cfg.Start.Add(time.Duration(t) * slotLength)
+		start := tl.at(t)
 		for _, b := range cfg.Busy {
 			if b.Court == cfg.Courts[c] && overlapMinutes(start, start.Add(slotLength), b.Start, b.End) > 0 {
 				return true
@@ -204,6 +229,14 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 	stageStart := 0
 	for stage := range plan.Stages {
 		groups := plan.StageGroups(stage)
+		stageLimit := maxSlot
+		if cfg.StageDays && len(days) > 1 {
+			day := min(stage, len(days)-1)
+			stageStart = max(stageStart, tl.firstOfDay(day))
+			if stage < len(plan.Stages)-1 {
+				stageLimit = tl.lastOfDay(day)
+			}
+		}
 		stageLast := stageStart - 1
 		for chunk := range slices.Chunk(groups, parallel) {
 			var ms []Match
@@ -215,12 +248,14 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 					cmp.Compare(a.Number, b.Number))
 			})
 			for _, m := range ms {
-				t, c, ok := freeAt(earliest(m.Code, stageStart, gap), maxSlot)
-				if !ok {
-					t, c, ok = freeAt(earliest(m.Code, stageStart, 1), maxSlot)
-				}
-				if !ok {
-					t, c, _ = freeAt(earliest(m.Code, stageStart, gap), -1)
+				// 段の日 → 会場の時間 → 時間外、の順に、休みを守る置き方と緩める置き方を試す
+				var t, c int
+				placed := false
+				for _, try := range [][2]int{{gap, stageLimit}, {1, stageLimit}, {gap, maxSlot},
+					{1, maxSlot}, {gap, -1}} {
+					if t, c, placed = freeAt(earliest(m.Code, stageStart, try[0]), try[1]); placed {
+						break
+					}
 				}
 				busy[t][c] = true
 				slotOf[m.Code], courtOf[m.Code] = t, c
@@ -235,9 +270,12 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 
 	out := &Schedule{}
 	for _, m := range plan.Matches {
+		if maxSlot >= 0 && slotOf[m.Code] > maxSlot {
+			out.Overflow++
+		}
 		out.Assignments = append(out.Assignments, Assignment{
 			Code:  m.Code,
-			Start: cfg.Start.Add(time.Duration(slotOf[m.Code]*cfg.SlotMinutes) * time.Minute),
+			Start: tl.at(slotOf[m.Code]),
 			Court: cfg.Courts[courtOf[m.Code]],
 		})
 	}
@@ -360,14 +398,7 @@ func CheckSchedule(plan *Plan, cfg ScheduleConfig, assignments []Assignment) []V
 		}
 	}
 	out = append(out, stageGapViolations(plan, cfg, byCode)...)
-	if !cfg.End.IsZero() {
-		for _, a := range sorted {
-			if over := minutes(a.Start.Add(time.Duration(cfg.SlotMinutes) * time.Minute).Sub(cfg.End)); over > 0 {
-				out = append(out, Violation{Kind: ViolationAfterEnd, Codes: []string{a.Code}, ShortMinutes: over,
-					Detail: fmt.Sprintf("%s が終了時刻を %d 分過ぎる", a.Code, over)})
-			}
-		}
-	}
+	out = append(out, hoursViolations(plan, cfg, sorted)...)
 	return out
 }
 

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/format"
 )
 
 // 雷・雨・暑さによる大会の中断と再開(レビュー H2。docs/format-engine.md「日程とコートの自動割り当て」
@@ -253,9 +254,11 @@ func shiftTournament(
 		if !ok {
 			continue
 		}
+		limit, ok := end.endOn(moved)
+		if !ok {
+			continue
+		}
 		finish := moved.Add(time.Duration(end.slotMinutes) * time.Minute)
-		limit := time.Date(moved.Year(), moved.Month(), moved.Day(), end.end.Hour(), end.end.Minute(), 0, 0,
-			time.UTC)
 		if late := int(finish.Sub(limit).Minutes()); late > 0 {
 			over = append(over, OverEnd{MatchID: m.ID, Code: m.Code, Division: names[m.DivisionID],
 				Time: moved.Format("15:04"), OverMinutes: late})
@@ -265,11 +268,22 @@ func shiftTournament(
 }
 
 type scheduleEnd struct {
-	end         time.Time
+	days        []format.DayWindow
 	slotMinutes int
 }
 
-// scheduleEnds は部門の時間割の終了時刻と 1 試合の枠の長さ(終了時刻の設定がある部門だけ)。
+// endOn は start の日の会場の終了時刻(時間割の各日の終了時刻)。その日の設定が無いか、終了時刻が
+// 無い(最後の日の省略)なら ok=false。
+func (e scheduleEnd) endOn(start time.Time) (time.Time, bool) {
+	for _, day := range e.days {
+		if day.Start.Year() == start.Year() && day.Start.YearDay() == start.YearDay() && !day.End.IsZero() {
+			return day.End, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// scheduleEnds は部門の時間割の各日の時間と 1 試合の枠の長さ(時間割の設定がある部門だけ)。
 func scheduleEnds(ctx context.Context, tx *gorm.DB, divisionIDs []int64) (map[int64]scheduleEnd, error) {
 	out := map[int64]scheduleEnd{}
 	for _, id := range divisionIDs {
@@ -284,14 +298,11 @@ func scheduleEnds(ctx context.Context, tx *gorm.DB, divisionIDs []int64) (map[in
 		if err := json.Unmarshal(row.Schedule, &setting); err != nil {
 			return nil, fmt.Errorf("division %d schedule: %w", id, err)
 		}
-		if setting.End == nil {
-			continue
-		}
-		end, err := time.Parse("15:04", *setting.End)
+		cfg, err := setting.Config()
 		if err != nil {
-			return nil, fmt.Errorf("division %d schedule end: %w", id, err)
+			return nil, fmt.Errorf("division %d schedule: %w", id, err)
 		}
-		out[id] = scheduleEnd{end: end, slotMinutes: setting.SlotMinutes}
+		out[id] = scheduleEnd{days: cfg.Days, slotMinutes: setting.SlotMinutes}
 	}
 	return out, nil
 }

@@ -3,20 +3,55 @@ import { courtLabel } from '@/admin/scoreKeeper.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { matches, tournaments } from '@/api/admin'
-import type { AssignedMatch } from '@/api/admin.types'
-import { createTournamentAction } from '@/app/admin/_actions/tournament'
+import type { AdminTournament, AssignedMatch } from '@/api/admin.types'
+import { copyTournamentAction, createTournamentAction } from '@/app/admin/_actions/tournament'
 import type { SearchProps } from '@/app/admin/_lib/page'
-import { AdminShell, Field, Hidden, readNotice } from '@/components/admin/AdminParts'
+import { AdminShell, Check, Field, Hidden, readNotice } from '@/components/admin/AdminParts'
 import { PendingBadge, PendingSummary, PrecacheScorePages } from '@/components/admin/PendingQueue'
 
 // 管理画面のトップ。自分の担当試合(記録係の割り当てが覆う試合。時刻順)、大会の一覧(記録係は担当大会
-// だけ)、管理者なら大会の作成。記録係が開いてすぐ次の試合の記録に入れるよう、担当試合を先頭に置く。
+// だけ。名前で絞り込み、開催日か名前で並べる)、管理者なら大会の作成とコピー。記録係が開いてすぐ次の
+// 試合の記録に入れるよう、担当試合を先頭に置く。
+
+const sortOptions = [
+  { value: 'date-desc', label: '開催日の新しい順' },
+  { value: 'date-asc', label: '開催日の古い順' },
+  { value: 'name', label: '名前の順' },
+] as const
+
+/** 一覧の絞り込み(名前の部分一致)と並べ替え。開催日の無い大会は最後 */
+function filterTournaments(list: AdminTournament[], query: string, sort: string) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const hit = list.filter((tournament) => {
+    const name = `${tournament.name.ja} ${tournament.name.en} ${tournament.shortName}`.toLowerCase()
+    return words.every((word) => name.includes(word))
+  })
+  const byDate = (a: AdminTournament, b: AdminTournament) => {
+    if (a.startDate === null || b.startDate === null) {
+      return a.startDate === b.startDate ? 0 : a.startDate === null ? 1 : -1
+    }
+    return a.startDate.localeCompare(b.startDate)
+  }
+  return hit.sort((a, b) => {
+    if (sort === 'name') {
+      return a.name.ja.localeCompare(b.name.ja, 'ja')
+    }
+    const order = byDate(a, b)
+    const dated = a.startDate !== null && b.startDate !== null
+    return (sort === 'date-asc' || !dated ? order : -order) || b.id - a.id
+  })
+}
+
 export default async function AdminTopPage({ searchParams }: SearchProps) {
-  const notice = readNotice(await searchParams)
+  const query = await searchParams
+  const notice = readNotice(query)
+  const search = typeof query.q === 'string' ? query.q : ''
+  const sort = typeof query.sort === 'string' ? query.sort : 'date-desc'
   const { user, token } = await requireUser('any')
   const [list, mine] = await loadAdmin(() =>
     Promise.all([tournaments.list(token), matches.mine(token)]),
   )
+  const shown = filterTournaments(list.tournaments, search, sort)
   const statusLabel = (value: string) =>
     tournamentStatusOptions.find((option) => option.value === value)?.label ?? value
   return (
@@ -29,20 +64,45 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
         <MyMatches list={mine.matches} />
       )}
       {user.role === 'admin' ? null : <h2>担当の大会</h2>}
-      {list.tournaments.length === 0 ? (
+      {list.tournaments.length > 5 ? (
+        <form method="get" className="adm-grid adm-search">
+          <label className="adm-field">
+            <span>大会名で探す</span>
+            <input type="search" name="q" defaultValue={search} />
+          </label>
+          <label className="adm-field">
+            <span>並び</span>
+            <select name="sort" defaultValue={sort}>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="secondary">
+            探す
+          </button>
+        </form>
+      ) : null}
+      {shown.length === 0 ? (
         <p className="adm-muted">
-          {user.role === 'admin' ? '大会がありません。' : '担当の大会がありません。'}
+          {search !== ''
+            ? `「${search}」に合う大会がありません。`
+            : user.role === 'admin'
+              ? '大会がありません。'
+              : '担当の大会がありません。'}
         </p>
       ) : (
         <ul className="adm-list">
-          {list.tournaments.map((tournament) => (
+          {shown.map((tournament) => (
             <li key={tournament.id}>
               <a href={`/admin/tournaments/${tournament.id}`}>
                 {tournament.name.ja}
                 <span className="adm-muted">
                   ({statusLabel(tournament.status)}
                   {tournament.startDate ? ` ${tournament.startDate}` : ''}
-                  {tournament.listed ? '' : ' 一覧に非掲載'})
+                  {tournament.listed ? '' : ' 非公開(準備中)'})
                 </span>
               </a>
             </li>
@@ -52,6 +112,9 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
       {user.role === 'admin' ? (
         <>
           <h2>大会を作る</h2>
+          <p className="adm-muted">
+            作った大会は準備中(公開の一覧に載りません)。準備ができたら大会の画面の「公開する」を押してください。
+          </p>
           <form action={createTournamentAction}>
             <Hidden
               values={{
@@ -59,7 +122,6 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
                 status: 'entry_open',
                 teamListLabel: 'teams',
                 groupLabel: 'groups',
-                listed: 'on',
                 showSchedule: 'on',
               }}
             />
@@ -70,6 +132,34 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
             </div>
             <button type="submit">作成</button>
           </form>
+          {list.tournaments.length > 0 ? (
+            <>
+              <h2>この大会をコピーして新しい大会を作る</h2>
+              <p className="adm-muted">
+                部門、大会の形、不戦勝の規定スコア、お知らせ欄、バナー、時間割の設定を引き継ぎます。試合と結果は引き継ぎません。
+              </p>
+              <form action={copyTournamentAction}>
+                <Hidden values={{ back: '/admin' }} />
+                <div className="adm-grid">
+                  <label className="adm-field">
+                    <span>コピー元の大会</span>
+                    <select name="sourceId" required>
+                      {list.tournaments.map((tournament) => (
+                        <option key={tournament.id} value={tournament.id}>
+                          {tournament.name.ja}
+                          {tournament.startDate ? `(${tournament.startDate})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Field label="新しい大会の開催日" name="startDate" type="date" required />
+                  <Field label="新しい大会の名前(空ならコピー元と同じ)" name="nameJa" />
+                </div>
+                <Check label="チームと選手も引き継ぐ" name="withTeams" />
+                <button type="submit">コピーして作る</button>
+              </form>
+            </>
+          ) : null}
         </>
       ) : null}
     </AdminShell>

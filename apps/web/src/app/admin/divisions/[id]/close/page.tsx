@@ -1,3 +1,4 @@
+import { describeSide } from '@/admin/formatWizard.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions } from '@/api/admin'
 import { formats } from '@/api/format'
@@ -42,8 +43,8 @@ export default async function CloseDivisionPage(props: IdPageProps) {
             {closing.remaining.map((match) => (
               <li key={match.id}>
                 {match.code} {match.time ?? '--:--'} {match.groupLabel}:{' '}
-                {match.left.team?.name.ja ?? match.left.label} 対{' '}
-                {match.right.team?.name.ja ?? match.right.label}
+                {match.left.team?.name.ja ?? describeSide(match.left.label)} 対{' '}
+                {match.right.team?.name.ja ?? describeSide(match.right.label)}
                 {match.status === 'live' ? '(試合中。今のスコアのまま未消化にします)' : ''}
               </li>
             ))}

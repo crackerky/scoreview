@@ -38,6 +38,7 @@ func (s *Server) formatRoutes() {
 	s.admin("GET "+base+"/divisions/{id}/schedule-check", adminOnly(), ok, withPathID(s.checkSchedule))
 	s.admin("POST "+base+"/divisions/{id}/schedule-shift", adminOnly(), ok, withPathID(s.shiftSchedule))
 	s.admin("POST "+base+"/matches/{id}/swap-schedule", adminOnly(), ok, withPathID(s.swapSchedule))
+	s.setupRoutes()
 }
 
 func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
@@ -47,6 +48,13 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 	var in proposalInputDTO
 	if err := decodeBody(r, &in); err != nil {
 		return nil, err
+	}
+	if in.Schedule != nil {
+		cfg, err := in.Schedule.toSetting().Config()
+		if err != nil {
+			return nil, err
+		}
+		return proposalList(format.ProposalInput{Teams: in.Teams, Sport: format.Sport(in.Sport), Schedule: &cfg})
 	}
 	day, err := domain.ParseDay("date", in.Date)
 	if err != nil {
@@ -60,8 +68,12 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 		return nil, domain.Invalid("start", "must be HH:MM")
 	}
 	start := time.Date(day.Year(), day.Month(), day.Day(), clock.Hour(), clock.Minute(), 0, 0, time.UTC)
-	proposals, err := format.Propose(format.ProposalInput{Teams: in.Teams, Courts: in.Courts,
+	return proposalList(format.ProposalInput{Teams: in.Teams, Courts: in.Courts,
 		SlotMinutes: in.SlotMinutes, Start: start, Sport: format.Sport(in.Sport)})
+}
+
+func proposalList(input format.ProposalInput) (any, error) {
+	proposals, err := format.Propose(input)
 	if err != nil {
 		return nil, err
 	}
@@ -113,14 +125,22 @@ func (s *Server) getFormat(ctx context.Context, id int64, _ *http.Request, _ dom
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
-		return savedFormatOneDTO{}, nil
+	if ok {
+		dto, err := toSavedFormat(saved)
+		if err != nil {
+			return nil, err
+		}
+		return savedFormatOneDTO{Format: &dto}, nil
 	}
-	dto, err := toSavedFormat(saved)
+	inherited, ok, err := store.GetInheritedFormat(ctx, s.db, id)
+	if err != nil || !ok {
+		return savedFormatOneDTO{}, err
+	}
+	dto, err := toSavedFormat(inherited)
 	if err != nil {
 		return nil, err
 	}
-	return savedFormatOneDTO{Format: &dto}, nil
+	return savedFormatOneDTO{Inherited: &dto}, nil
 }
 
 func (s *Server) listFormats(r *http.Request, _ domain.User) (any, error) {

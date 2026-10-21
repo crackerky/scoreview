@@ -4,6 +4,8 @@ import {
   buildTimetable,
   cellKey,
   compareFields,
+  sideLabelsOf,
+  sideText,
   type TimetableMatch,
 } from '../src/admin/timetable.utils.ts'
 
@@ -60,5 +62,36 @@ describe('時間割', () => {
       first.unplaced.map((item) => item.id),
       [4],
     )
+  })
+})
+
+describe('印刷物の未確定の対戦(H11)', () => {
+  const empty = { team: null, placeholder: null, score: null, labelEn: '' }
+  test('形の決まり方があれば運営の言葉で出す', () => {
+    assert.equal(sideText(empty, 'A1'), 'A組1位')
+    assert.equal(sideText(empty, '[E2-勝ち]'), 'E2 の勝者')
+  })
+  test('決まり方が無ければ参照サイトの表記を言い換え、何も無ければ未定', () => {
+    const placeholder = { ...empty, placeholder: { code: 'E4', outcome: 'lose' as const } }
+    assert.equal(sideText(placeholder, undefined), 'E4 の負けチーム')
+    assert.equal(sideText(empty, undefined), '未定')
+  })
+  test('形の試合一覧から試合 ID ごとの決まり方を作る', () => {
+    const side = (label: string) => ({ label, team: null, score: null })
+    const labels = sideLabelsOf([
+      {
+        id: 7,
+        code: 'E4',
+        groupName: '1st placement tournament',
+        groupLabel: '1〜4 位を決めるトーナメント',
+        date: null,
+        time: null,
+        field: null,
+        status: 'scheduled',
+        left: side('A1'),
+        right: side('C2'),
+      },
+    ])
+    assert.deepEqual(labels.get(7), { left: 'A1', right: 'C2' })
   })
 })

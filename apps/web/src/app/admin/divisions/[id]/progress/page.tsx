@@ -1,5 +1,6 @@
 import { operatorErrorText } from '@/admin/errorText.utils'
 import { decisionReasons, groupStateLabels, roundUpToFive } from '@/admin/format.utils'
+import { describeSide } from '@/admin/formatWizard.utils'
 import { hqTabOf, hqTabs, shiftSentence, suspendedMinutes, updatedAtText } from '@/admin/hq.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
@@ -592,7 +593,7 @@ function GroupCard({
         <RankTable group={group} withdrawn={withdrawn} isAdmin={isAdmin} back={back} />
       ) : (
         <p className="adm-muted">
-          {group.slots.map((slot) => slot.team?.name.ja ?? slot.label).join('、')}
+          {group.slots.map((slot) => slot.team?.name.ja ?? describeSide(slot.label)).join('、')}
         </p>
       )}
       {group.conditions.length > 0 ? (
@@ -658,8 +659,9 @@ function MatchList({
               {match.time ?? '--:--'} {match.field ? `コート ${match.field}` : ''} {match.code}
             </span>
             <span className="teams">
-              {match.left.team?.name.ja ?? match.left.label} {match.left.score ?? ''} -{' '}
-              {match.right.score ?? ''} {match.right.team?.name.ja ?? match.right.label}
+              {match.left.team?.name.ja ?? describeSide(match.left.label)} {match.left.score ?? ''}{' '}
+              - {match.right.score ?? ''}{' '}
+              {match.right.team?.name.ja ?? describeSide(match.right.label)}
             </span>
             <span className="sub">{match.groupLabel}</span>
           </a>

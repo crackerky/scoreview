@@ -575,6 +575,16 @@ export const teamFormSchema = z
     finalRank: form.finalRank,
   }))
 
+/** DELETE /admin/divisions/{id}/teams の応答 */
+export const deletedTeamsSchema = z.object({ deleted: z.number().int() })
+
+/** POST /admin/tournaments/{id}/copy のボディ。name.ja が空ならコピー元と同じ名前 */
+export type TournamentCopyInput = {
+  name: { ja: string; en: string }
+  startDate: string
+  withTeams: boolean
+}
+
 export const playerFormSchema = z
   .object({
     number: text,

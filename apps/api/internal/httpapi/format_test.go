@@ -55,7 +55,7 @@ func TestFormatWizardAndProgress(t *testing.T) {
 	assert.Len(t, copies["formats"], 1)
 
 	progress := f.call(t, http.StatusOK, http.MethodGet, base+"/progress", nil)
-	assert.Equal(t, "4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)", progress["title"])
+	assert.Equal(t, "4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)", progress["title"])
 	progressGroups, ok := progress["groups"].([]any)
 	require.True(t, ok)
 	poolA, ok := progressGroups[0].(map[string]any)

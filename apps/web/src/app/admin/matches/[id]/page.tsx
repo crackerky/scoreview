@@ -24,7 +24,14 @@ export default async function AdminMatchPage(props: IdPageProps) {
   )
   const names = { left: sideName(match.left), right: sideName(match.right) }
   const back = `/admin/matches/${id}`
-  const others = matchList.matches.filter((other) => other.id !== id)
+  // 勝者・敗者の候補は同じ組の前の試合に絞る(部門の全試合だと 100 件を超える。運営者レビュー L5)。
+  // 組の無い試合と、今入っている参照の試合は残す
+  const current = new Set([match.left.placeholder?.code, match.right.placeholder?.code])
+  const others = matchList.matches.filter(
+    (other) =>
+      other.id !== id &&
+      (match.groupId === null || other.groupId === match.groupId || current.has(other.code)),
+  )
   const title = `${match.code || '試合'} ${sideName(match.left)} - ${sideName(match.right)}`
   const crumbs = [{ href: `/admin/divisions/${match.divisionId}`, label: '部門' }]
   return (

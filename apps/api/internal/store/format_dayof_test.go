@@ -46,13 +46,13 @@ func TestProgressTodoOrderAndOverlap(t *testing.T) {
 	assert.Equal(t, "予選 A 組", progress.Groups[0].Label)
 	assert.Equal(t, "Qualifying pool A", progress.Groups[0].Name, "グループ名のデータは変えない")
 	assert.Equal(t, "1〜4 位を決めるトーナメント", progress.Groups[4].Label)
-	assert.Equal(t, "A 組 1 位", progress.Groups[4].Slots[0].Label)
+	assert.Equal(t, "A1", progress.Groups[4].Slots[0].Label)
 
 	matches, err := store.ListFormatMatches(ctx, f.db, f.division.ID)
 	require.NoError(t, err)
 	for _, m := range matches {
 		if m.Code == "E1" {
-			assert.Equal(t, "E2 の勝ちチーム", m.Left.Label)
+			assert.Equal(t, "[E2-勝ち]", m.Left.Label)
 			assert.True(t, strings.HasSuffix(m.GroupLabel, "トーナメント"))
 		}
 	}

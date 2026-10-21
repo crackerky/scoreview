@@ -1,4 +1,3 @@
-import type { MatchSide } from '@/api/common.types'
 import type { Withdrawal } from '@/api/format.types'
 
 // 本部の進行画面と、そこから開く確認画面(棄権、大会の締め、遅れの調整)の文の組み立て。Next.js と api に
@@ -66,16 +65,4 @@ export function forfeitScoreText(score: { winner: number; loser: number } | null
 export function suspendedMinutes(since: string, now: Date): number {
   const elapsed = (now.getTime() - new Date(since).getTime()) / 60000
   return elapsed <= 0 ? 0 : Math.ceil(elapsed / 5) * 5
-}
-
-/** 試合の片側の管理画面の表記。チームが未定なら「E4 の負けチーム」(閲覧ページの [E4-負け] の言い換え) */
-export function operatorSideName(side: MatchSide): string {
-  if (side.team) {
-    return side.team.name.ja
-  }
-  if (side.placeholder) {
-    const outcome = side.placeholder.outcome === 'win' ? '勝ち' : '負け'
-    return `${side.placeholder.code} の${outcome}チーム`
-  }
-  return '未定'
 }

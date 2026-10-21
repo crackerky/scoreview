@@ -267,7 +267,7 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 		Stage: g.Stage, State: status.State, ConfirmedUnplayed: row.ConfirmedUnplayed}
 	for _, slot := range g.Slots {
 		st := fs.res.Slots[format.SlotKey{Group: g.Index, Position: slot.Position}]
-		side := ProgressSide{Label: slot.Source.OperatorLabel(fs.plan)}
+		side := ProgressSide{Label: slot.Source.Label(fs.plan)}
 		if st.Resolved() {
 			side.Team = v.refPtr(&st.TeamID)
 		}
@@ -648,9 +648,9 @@ func (v progressBuilder) match(m Match) ProgressMatch {
 func (v progressBuilder) side(m format.Match, side format.SideRef, team *int64, score *int) ProgressSide {
 	out := ProgressSide{Team: v.refPtr(team), Score: score}
 	if side.From != nil {
-		out.Label = side.From.OperatorLabel()
+		out.Label = side.From.Label()
 	} else {
-		out.Label = v.fs.plan.SlotSource(format.SlotKey{Group: m.Group, Position: side.Slot}).OperatorLabel(v.fs.plan)
+		out.Label = v.fs.plan.SlotSource(format.SlotKey{Group: m.Group, Position: side.Slot}).Label(v.fs.plan)
 	}
 	return out
 }

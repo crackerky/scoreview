@@ -51,7 +51,11 @@ export default async function AdminGroupPage(props: IdPageProps) {
           <Field label="グループ名" name="name" defaultValue={group.name} required />
           <Select label="種類" name="kind" options={groupKindOptions} defaultValue={group.kind} />
           <Field label="並び順" name="sortOrder" type="number" defaultValue={group.sortOrder} />
-          <Field label="画像 URL(画像のみの型)" name="imageUrl" defaultValue={group.image?.url} />
+          <Field
+            label="画像 URL(組の表を画像で出すとき)"
+            name="imageUrl"
+            defaultValue={group.image?.url}
+          />
           <Field
             label="画像の幅"
             name="imageWidth"

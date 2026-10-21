@@ -1,8 +1,9 @@
 import { operatorErrorText } from '@/admin/errorText.utils'
 import { safeAdminPath } from '@/admin/form.utils'
-import { forfeitScoreText, operatorSideName } from '@/admin/hq.utils'
+import { forfeitScoreText } from '@/admin/hq.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
+import { sideText } from '@/admin/timetable.utils'
 import { matches } from '@/api/admin'
 import type { MatchDetail } from '@/api/admin.types'
 import { ApiError } from '@/api/client'
@@ -117,8 +118,8 @@ export default async function MatchResultPage(props: IdPageProps) {
       impactError = operatorErrorText(error.code, error.message)
     }
   }
-  const leftName = operatorSideName(match.left)
-  const rightName = operatorSideName(match.right)
+  const leftName = sideText(match.left, undefined)
+  const rightName = sideText(match.right, undefined)
   const finished = match.status === 'finished'
   const crumbs = [
     { href: `/admin/divisions/${match.divisionId}/progress`, label: '本部の進行画面' },
@@ -352,8 +353,8 @@ function ExceptionalResult({
   next: string
   seen: string
 }) {
-  const leftName = operatorSideName(detail.match.left)
-  const rightName = operatorSideName(detail.match.right)
+  const leftName = sideText(detail.match.left, undefined)
+  const rightName = sideText(detail.match.right, undefined)
   return (
     <form action={setResultAction} className="hq-box">
       <h2>試合をしなかったとき</h2>
