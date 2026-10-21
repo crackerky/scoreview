@@ -15,6 +15,9 @@ func TestCheckURL(t *testing.T) {
 	for _, bad := range []string{
 		"javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>", "//evil.example",
 		"logo.png", "ftp://example.com/a", "https://", "",
+		// ブラウザが "//evil.example" と読むもの(セキュリティ点検 L-1)
+		"/\\evil.example/x", "/\t/evil.example", "/\n/evil.example", "\\\\evil.example",
+		" https://ok.example", "https://evil.example\\@good.example", "/a b",
 	} {
 		assert.ErrorIs(t, domain.CheckURL("url", bad), domain.ErrBadRequest, bad)
 	}
