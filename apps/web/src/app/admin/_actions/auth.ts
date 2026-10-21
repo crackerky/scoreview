@@ -3,11 +3,14 @@
 import { redirect } from 'next/navigation'
 import { failureTarget, formToObject, withNotice } from '@/admin/form.utils'
 import { clearSession, readSessionToken, saveSession } from '@/admin/session'
+import { safeNext } from '@/admin/session.utils'
 import { login, logout } from '@/api/admin'
 import { loginFormSchema } from '@/api/admin.types'
 
 export async function loginAction(formData: FormData): Promise<never> {
-  let target = '/admin'
+  // ログインの前に開いていた画面(記録画面など)へ戻す
+  const next = safeNext(formData.get('next'))
+  let target = next
   try {
     const input = loginFormSchema.parse(formToObject(formData))
     const session = await login(input.email, input.password)
@@ -17,7 +20,8 @@ export async function loginAction(formData: FormData): Promise<never> {
     // 文面はメールアドレスの有無を区別しない(api と同じ)
     target = failureTarget('/admin/login', error)
     if (target === '/admin/login') {
-      target = withNotice('/admin/login', 'error', 'メールアドレスかパスワードが違います')
+      const failed = withNotice('/admin/login', 'error', 'メールアドレスかパスワードが違います')
+      target = next === '/admin' ? failed : `${failed}&${new URLSearchParams({ next })}`
     }
   }
   redirect(target)

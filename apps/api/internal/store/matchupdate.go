@@ -38,12 +38,14 @@ const (
 
 // EventInput は追加する得点経過。ElapsedSec が nil なら、最初のイベントを記録した時刻からの経過秒を
 // 使う(スコア入力画面で 1 タップで記録するため)。WinnerSide は kind=end で同点のトーナメントの試合を
-// 終えるときの勝者。ClientID は端末の操作 ID で、得点経過の client_id にもなる。
+// 終えるときの勝者。ClientID は端末の操作 ID で、得点経過の client_id にもなる。ExpectedScore は
+// kind=end で記録係が確認シートで見たスコア(現在のスコアと違えば ScoreMismatchError)。
 type EventInput struct {
 	domain.NewEvent
-	ElapsedSec *int
-	WinnerSide *domain.Side
-	ClientID   *string
+	ElapsedSec    *int
+	WinnerSide    *domain.Side
+	ClientID      *string
+	ExpectedScore *domain.Score
 }
 
 // EventRef は得点経過の指し方。ID(api の id)か ClientID(端末が付けた UUID)のどちらか。
@@ -63,21 +65,25 @@ type EventPlayersInput struct {
 // StatusInput は状態の変更。Score は得点経過の無い試合(詳細なしの試合)の結果を直接入れるときだけ使い、
 // 得点経過がある試合ではスコアは経過から決まるので指定できない。Downstream は、結果のある下流の
 // 試合の対戦が変わるとき(終了した試合を試合中へ戻すなど)の承認と下流の扱い(format_guard.go)。
+// ExpectedScore は終了にするときに記録係が確認したスコア(現在のスコアと違えば ScoreMismatchError)。
 type StatusInput struct {
-	Status     domain.MatchStatus
-	WinnerSide *domain.Side
-	Score      *domain.Score
-	ClientID   *string
-	Downstream Downstream
+	Status        domain.MatchStatus
+	WinnerSide    *domain.Side
+	Score         *domain.Score
+	ClientID      *string
+	Downstream    Downstream
+	ExpectedScore *domain.Score
 }
 
 // ResultInput は通常以外の結果(不戦勝、両チーム不戦敗、不成立、途中打ち切り、未消化)で試合を終える
-// 入力。ForfeitScore は大会に不戦勝の規定スコアが無いときだけ使う(あれば大会の設定に従う)。
+// 入力。ForfeitScore は大会に不戦勝の規定スコアが無いときだけ使う(あれば大会の設定に従う。どちらも
+// 無ければスコアを記録しない)。ExpectedScore は途中打ち切りで記録係が確認したスコア。
 type ResultInput struct {
-	Type         domain.ResultType
-	WinnerSide   *domain.Side
-	ForfeitScore *domain.ForfeitScore
-	ClientID     *string
+	Type          domain.ResultType
+	WinnerSide    *domain.Side
+	ForfeitScore  *domain.ForfeitScore
+	ClientID      *string
+	ExpectedScore *domain.Score
 }
 
 // lockMatch は試合の行を FOR UPDATE で読む(同じ試合への同時の入力で seq とスコアが食い違わないように)。
@@ -197,8 +203,14 @@ func AddMatchEvent(
 	if input.WinnerSide != nil && input.Kind != domain.EventEnd {
 		return MatchDetail{}, domain.Invalid("winnerSide", "only for end")
 	}
+	if input.ExpectedScore != nil && input.Kind != domain.EventEnd {
+		return MatchDetail{}, domain.Invalid("expectedScore", "only for end")
+	}
 	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditEventAdd,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			next, err := domain.StatusAfterEvent(match.Status, input.Kind)
 			if err != nil {
 				return matchOpChange{}, err
@@ -428,8 +440,14 @@ func ChangeMatchStatus(
 	if input.WinnerSide != nil && input.Status != domain.MatchFinished {
 		return MatchDetail{}, domain.Invalid("winnerSide", "only when finishing")
 	}
+	if input.ExpectedScore != nil && input.Status != domain.MatchFinished {
+		return MatchDetail{}, domain.Invalid("expectedScore", "only when finishing")
+	}
 	return runApprovedMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchStatus, input.Downstream,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			return matchOpChange{}, changeStatus(ctx, tx, actor, match, input)
 		})
 }
@@ -491,6 +509,9 @@ func SetMatchResult(
 	}
 	return runMatchOp(ctx, db, actor, matchID, input.ClientID, AuditMatchResult,
 		func(tx *gorm.DB, match Match) (matchOpChange, error) {
+			if err := checkConfirmedScore(match, input.ExpectedScore); err != nil {
+				return matchOpChange{}, err
+			}
 			if err := domain.ValidTransition(
 				match.Status,
 				domain.MatchFinished,

@@ -100,6 +100,19 @@ func (s *Server) adminRoutes() {
 	s.admin("POST "+base+"/matches/{id}/status", scorerOfMatch(), ok, withPathID(s.changeStatus))
 	s.admin("POST "+base+"/matches/{id}/result", scorerOfMatch(), ok, withPathID(s.setResult))
 	s.admin("GET "+base+"/matches/{id}/audit", staffOfMatch(), ok, withPathID(s.matchAudit))
+	s.admin(
+		"PUT "+base+"/matches/{id}/events/{eventId}/side",
+		scorerOfMatch(),
+		ok,
+		withPathID(s.moveGoal),
+	)
+	s.admin("POST "+base+"/matches/{id}/scorer", scorerOfMatch(), ok, withPathID(s.claimScorer))
+	s.admin(
+		"DELETE "+base+"/matches/{id}/scorer",
+		scorerOfMatch(),
+		noContent,
+		withPathID(s.releaseScorer),
+	)
 
 	s.admin("GET "+base+"/me/matches", anyUser(), ok, s.myMatches)
 	s.admin(
@@ -742,7 +755,7 @@ func (s *Server) addEvent(
 			ScorerID: body.ScorerID, AssistID: body.AssistID, Callahan: body.Callahan,
 		},
 		ElapsedSec: body.ElapsedSec, WinnerSide: toSidePtr(body.WinnerSide),
-		ClientID: body.ClientID,
+		ClientID: body.ClientID, ExpectedScore: body.ExpectedScore.toDomain(),
 	}
 	detail, err := store.AddMatchEvent(ctx, s.db, actorOf(user), id, input, s.now())
 	if err != nil {
@@ -809,9 +822,10 @@ func (s *Server) changeStatus(
 		return nil, err
 	}
 	input := store.StatusInput{
-		Status:     domain.MatchStatus(body.Status),
-		WinnerSide: toSidePtr(body.WinnerSide),
-		ClientID:   body.ClientID,
+		Status:        domain.MatchStatus(body.Status),
+		WinnerSide:    toSidePtr(body.WinnerSide),
+		ClientID:      body.ClientID,
+		ExpectedScore: body.ExpectedScore.toDomain(),
 	}
 	if body.Score != nil {
 		input.Score = &domain.Score{Left: body.Score.Left, Right: body.Score.Right}

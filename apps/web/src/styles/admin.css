@@ -469,3 +469,28 @@
   color: var(--adm-muted);
   font-size: 0.8125rem;
 }
+
+/* この端末に未送信の記録(docs/operations/operator-experience.md「紙を上回ることが前提」2) */
+.adm-pending {
+  margin: 0 0 var(--adm-gap);
+  padding: 8px 12px;
+  border: 2px solid #5c3d00;
+  border-radius: 8px;
+  background: #fff8c5;
+  color: #1f2328;
+  font-weight: bold;
+}
+
+.adm-pending-link {
+  margin-left: 8px;
+}
+
+.adm-matches .adm-pending-badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff8c5;
+  color: #5c3d00;
+  font-weight: bold;
+}
