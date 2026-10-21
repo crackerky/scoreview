@@ -144,6 +144,18 @@ describe('ScoreNavi の描画', () => {
     assert.match(html, /href="\/pscore\/scv_tgallery\/open\/201\?lang=en">---</)
   })
 
+  test('名前の空のグループへのリンクはリンク先を文字にする(参照サイトの CakePHP と同じ)', () => {
+    const [first, second] = standard.divisions
+    assert.ok(first && second)
+    const groups = first.groups.map((group) => ({ ...group, name: { ...group.name, en: '' } }))
+    const frame = variant({ divisions: [{ ...first, groups }, second] })
+    const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)
+    assert.match(
+      html,
+      /<a href="\/pscore\/scv_group\/open\/1001\?lang=en">\/pscore\/scv_group\/open\/1001\?lang=en<\/a>/,
+    )
+  })
+
   test('lang=en はリンクに引き継がれ、英語名が空のディビジョンは空のまま', () => {
     const frame = tournamentFrameSchema.parse(loadFixture('frame-2'))
     const html = renderHtml(<ScoreNavi frame={frame} lang="en" />)

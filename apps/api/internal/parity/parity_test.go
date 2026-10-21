@@ -82,6 +82,14 @@ func TestScheduleFormAndSortLinksMatch(t *testing.T) {
 	assert.Equal(t, "sort:ASC_mat.MATCH_DATE", refPage.Tables[1].Rows[0][0].Href)
 }
 
+// 名前の空のグループのリンクは、参照サイトが絶対 URL、本サイトがルート相対パスを文字にする。
+func TestNaviURLTextMatches(t *testing.T) {
+	ref := `<ul id='score_navi'><li><a href="https://score.clubjr.com/pscore/scv_group/open/9?lang=en">https://score.clubjr.com/pscore/scv_group/open/9?lang=en</a></li></ul>`
+	ours := `<ul id="score_navi"><li><a href="/pscore/scv_group/open/9?lang=en">/pscore/scv_group/open/9?lang=en</a></li></ul>`
+	res := parity.Compare("/x", "scview", extract(t, ref), extract(t, ours))
+	assert.True(t, res.FullMatch(), res.Diffs)
+}
+
 func TestNormalizeHref(t *testing.T) {
 	cases := map[string]string{
 		"https://score.clubjr.com/pscore/scv_team/open/5?lang=en": "/pscore/scv_team/open/5?lang=en",

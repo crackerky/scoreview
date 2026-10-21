@@ -117,6 +117,16 @@ func linkOf(sel *goquery.Selection) string {
 	return NormalizeHref(href)
 }
 
+// linkText はナビとメニューの項目の文字。名前の空のグループへのリンクは、参照サイトが絶対 URL、
+// 本サイトがルート相対パスを文字として出すので、URL に見える文字はリンク先と同じ形にそろえる。
+func linkText(text string) string {
+	if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") ||
+		strings.HasPrefix(text, "/pscore/") {
+		return NormalizeHref(text)
+	}
+	return text
+}
+
 // cellText はセルの表示文字列。<select> は選択肢を 1 つの空白で区切って並べる(参照サイトは選択肢の
 // 間に改行があり、本サイトはないので、そのまま連結すると比べられない)。
 func cellText(td *goquery.Selection) string {
@@ -147,7 +157,7 @@ func Extract(doc *goquery.Document) Page {
 		if text == "" {
 			return // 幅調整用の空 li
 		}
-		page.Navi = append(page.Navi, Link{Text: text, Href: linkOf(head)})
+		page.Navi = append(page.Navi, Link{Text: linkText(text), Href: linkOf(head)})
 	})
 
 	doc.Find("#sub .menu_list li").Each(func(_ int, li *goquery.Selection) {
@@ -155,7 +165,7 @@ func Extract(doc *goquery.Document) Page {
 		if head.Length() == 0 {
 			return
 		}
-		page.Menu = append(page.Menu, Link{Text: NormalizeText(head.Text()), Href: linkOf(head)})
+		page.Menu = append(page.Menu, Link{Text: linkText(NormalizeText(head.Text())), Href: linkOf(head)})
 	})
 
 	view := doc.Find("#score_view")

@@ -3,6 +3,7 @@ import type { TournamentFrame } from '@/api/common.types'
 import { divisionHref, groupHref } from '@/i18n/href'
 import type { Lang } from '@/i18n/lang'
 import { pickText } from '@/i18n/lang'
+import { groupLinkLabel } from './navi.utils'
 
 // clone-spec A 1.5: 大会ページの div#sub。バナーが 0 枚でも枠だけの白い箱を出す。
 // バナーは <br /><br /> 区切りで縦に並べ、リンク先があれば <a> で囲む。
@@ -85,7 +86,9 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
                 {division.groups.map((group) => (
                   <li key={group.id}>
                     {group.linked ? (
-                      <a href={groupHref(group.id, lang)}>{pickText(lang, group.name)}</a>
+                      <a href={groupHref(group.id, lang)}>
+                        {groupLinkLabel(pickText(lang, group.name), groupHref(group.id, lang))}
+                      </a>
                     ) : (
                       <p>{pickText(lang, group.name)}</p>
                     )}

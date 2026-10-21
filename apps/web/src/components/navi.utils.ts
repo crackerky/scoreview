@@ -42,6 +42,14 @@ const fillerWidthByItems: Record<
   five: { withGallery: null, without: 172 },
 }
 
+/**
+ * グループへのリンクの文字。名前(英語版では英語名)が空なら、参照サイト(CakePHP の link())と同じく
+ * リンク先を文字にする(clone-spec A 1.3)。参照サイトは絶対 URL、本サイトはルート相対パス。
+ */
+export function groupLinkLabel(name: string, href: string): string {
+  return name === '' ? href : name
+}
+
 export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
   const items: NaviItem[] = [
     { kind: 'link', label: msg(lang, 'navTournamentTop'), href: scvTopHref(frame.id, lang) },
@@ -95,13 +103,14 @@ export function buildNavi(frame: TournamentFrame, lang: Lang): NaviModel {
     entries: frame.divisions.map((division) => ({
       kind: 'submenu',
       label: pickText(lang, division.name),
-      entries: division.groups.map(
-        (group): NaviLeaf =>
-          group.linked
-            ? { kind: 'link', label: pickText(lang, group.name), href: groupHref(group.id, lang) }
-            : // 推測: リンクなしのグループは名前だけの <p> で出す(参照サイトで名前つきの実例は未観測)
-              { kind: 'text', label: pickText(lang, group.name) },
-      ),
+      entries: division.groups.map((group): NaviLeaf => {
+        if (!group.linked) {
+          // 推測: リンクなしのグループは名前だけの <p> で出す(参照サイトで名前つきの実例は未観測)
+          return { kind: 'text', label: pickText(lang, group.name) }
+        }
+        const href = groupHref(group.id, lang)
+        return { kind: 'link', label: groupLinkLabel(pickText(lang, group.name), href), href }
+      }),
     })),
   })
 
