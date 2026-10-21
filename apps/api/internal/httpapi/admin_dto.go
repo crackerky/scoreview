@@ -115,10 +115,11 @@ type adminTournamentListDTO struct {
 	Tournaments []adminTournamentDTO `json:"tournaments"`
 }
 
-// newTournamentInput は作成時の既定値(大会一覧に載る受付中の大会、ナビは標準のラベル)。
+// newTournamentInput は作成時の既定値(受付中で大会一覧に載せない準備中の大会、ナビは標準のラベル)。
+// 管理画面で作った大会、大会のコピーと同じく準備中にする(公開は大会の画面で切り替える)。
 func newTournamentInput() tournamentInputDTO {
 	return tournamentInputDTO{
-		Status: string(domain.TournamentEntryOpen), Listed: true,
+		Status: string(domain.TournamentEntryOpen), Listed: false,
 		Labels: labelsDTO{TeamList: "teams", Groups: "groups"}, ShowSchedule: true,
 	}
 }

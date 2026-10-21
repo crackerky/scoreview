@@ -63,6 +63,19 @@
   font-size: 14px;
   font-weight: bold;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * スマートフォン幅では本文の枠(参照サイトの固定幅)が画面より広く、帯の文が画面の外で切れる(通し確認)。
+ * 帯だけを画面の幅に収め、折り返して全文を出す。本文の他の部分の見た目は変えない
+ */
+@media (max-width: 760px) {
+  #main p.sv_suspension {
+    box-sizing: border-box;
+    max-width: calc(100vw - 24px);
+    text-align: left;
+  }
 }
 
 /* 大会トップのディビジョン表の下の会場図へのリンク(表の左端 80px + 余白に揃える) */

@@ -41,6 +41,10 @@ export default async function AdminMatchPage(props: IdPageProps) {
         <a href={`/admin/matches/${id}/score`}>スコア入力</a>
         <a href={`/admin/matches/${id}/sheet`}>スコアシートを印刷</a>
         <a href={`/admin/matches/${id}/score/basic`}>簡易の入力画面</a>
+        {match.status === 'finished' ? (
+          // 確定後の訂正は影響の表示と下流の扱い(keep / reset)のある画面で行う
+          <a href={`/admin/matches/${id}/result?next=${encodeURIComponent(back)}`}>結果を直す</a>
+        ) : null}
         <a href={`/pscore/scv_match/open/${id}`}>閲覧ページを開く</a>
       </p>
       <form action={updateMatchAction}>

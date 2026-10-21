@@ -20,6 +20,7 @@ import {
   putFinalRanksAction,
   updateDivisionAction,
 } from '@/app/admin/_actions/division'
+import { fillEnglishNamesAction } from '@/app/admin/_actions/team'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Check, DeleteForm, Field, Hidden, Select } from '@/components/admin/AdminParts'
 import { SideChoice } from '@/components/admin/SideChoice'
@@ -81,6 +82,11 @@ function byFinalRank(list: AdminTeam[]): AdminTeam[] {
   })
 }
 
+/** 英語の正式名か短縮名が空のチームの数 */
+function missingEnglish(list: AdminTeam[]): number {
+  return list.filter((team) => team.fullName.en === '' || team.shortName.en === '').length
+}
+
 function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin: boolean }) {
   if (list.length === 0) {
     return <p className="adm-muted">試合がありません。</p>
@@ -115,6 +121,16 @@ function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin
                 <a href={`/admin/matches/${match.id}/score`}>スコア入力</a>
                 <a href={`/admin/matches/${match.id}/sheet`}>印刷</a>
                 {isAdmin ? <a href={`/admin/matches/${match.id}`}>編集</a> : null}
+                {isAdmin && match.status === 'finished' ? (
+                  // 確定後の訂正は影響の表示と下流の扱い(keep / reset)のある画面で行う
+                  <a
+                    href={`/admin/matches/${match.id}/result?next=${encodeURIComponent(
+                      `/admin/divisions/${match.divisionId}`,
+                    )}`}
+                  >
+                    結果を直す
+                  </a>
+                ) : null}
               </td>
             </tr>
           ))}
@@ -216,6 +232,17 @@ async function AdminSections({
           </li>
         ))}
       </ul>
+      {teamList.teams.length > 0 ? (
+        <form action={fillEnglishNamesAction}>
+          <Hidden values={{ back, divisionId: id }} />
+          <p className="adm-muted">
+            英語名が空のチーム {missingEnglish(teamList.teams)}{' '}
+            件。英語の閲覧ページでは英語名が空だと
+            名前が出ません。選手と組の英語名も同じく入れます(入っている英語名は変えません)。
+          </p>
+          <button type="submit">英語名が空のチームに日本語名を入れる</button>
+        </form>
+      ) : null}
       <form action={createTeamAction}>
         <Hidden values={{ back, divisionId: id }} />
         <div className="adm-grid">

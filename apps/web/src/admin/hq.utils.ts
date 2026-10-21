@@ -66,3 +66,23 @@ export function suspendedMinutes(since: string, now: Date): number {
   const elapsed = (now.getTime() - new Date(since).getTime()) / 60000
   return elapsed <= 0 ? 0 : Math.ceil(elapsed / 5) * 5
 }
+
+/**
+ * 最終順位の行の、同順位として出す順位(2 チーム以上が並ぶ順位)。api の tied は締めで決めた順位にも
+ * 付くので、単独の順位に「(同順位)」を出さないよう、表示はこれで判断する(通し確認)
+ */
+export function sharedRanks(rows: ReadonlyArray<{ rank: number }>): Set<number> {
+  const counts = new Map<number, number>()
+  for (const row of rows) {
+    counts.set(row.rank, (counts.get(row.rank) ?? 0) + 1)
+  }
+  return new Set([...counts].filter(([, count]) => count >= 2).map(([rank]) => rank))
+}
+
+/** 締めの画面の最終順位の「決め方」 */
+export function closingReason(row: { proposed: boolean }, shared: boolean): string {
+  if (!row.proposed) {
+    return '試合の結果'
+  }
+  return shared ? '未消化のため同順位' : '締めで決めた順位(未消化の試合あり)'
+}

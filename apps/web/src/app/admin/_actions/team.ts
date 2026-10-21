@@ -1,6 +1,8 @@
 'use server'
 
-import { idField, runAction } from '@/admin/action'
+import { idField, runAction, runActionTo } from '@/admin/action'
+import { withNotice } from '@/admin/form.utils'
+import { filledEnglishText } from '@/admin/roster.utils'
 import { players, teams } from '@/api/admin'
 import { playerFormSchema, teamFormSchema } from '@/api/admin.types'
 
@@ -47,4 +49,12 @@ export async function deletePlayerAction(formData: FormData): Promise<never> {
     },
     '削除しました',
   )
+}
+
+/** 部門のチーム、選手、組のうち英語名が空のものに日本語名を入れる(英語の閲覧ページで空にならないように) */
+export async function fillEnglishNamesAction(formData: FormData): Promise<never> {
+  return runActionTo(formData, async ({ token, form, back }) => {
+    const filled = await teams.fillEnglishNames(token, idField(form, 'divisionId'))
+    return withNotice(back, 'ok', filledEnglishText(filled))
+  })
 }

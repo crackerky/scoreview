@@ -438,7 +438,7 @@ type TournamentInput = {
   name: I18nText                     // name.ja は必須
   shortName: string
   status: TournamentStatus           // 既定 'entry_open'
-  listed: boolean                    // 既定 true。false なら大会一覧に出さない
+  listed: boolean                    // 既定 false(準備中)。true なら大会一覧に出す
   startDate: string | null           // "YYYY-MM-DD"。大会一覧の並び順
   logoUrl: string | null
   topHtml: I18nText                  // 保存時に無害化
@@ -489,7 +489,7 @@ type AdminDivision = { id: number; tournamentId: number } & DivisionInput
 
 ```ts
 type GroupInput = {
-  name: string                       // 必須。参照サイトの表記ゆれもそのまま
+  name: string                       // 必須。参照サイトの表記ゆれもそのまま(英語名は同じ値にする。下記)
   kind: GroupKind                    // 既定 'pool'
   sortOrder: number                  // 既定 0
   linked: boolean                    // 既定 true
@@ -552,9 +552,18 @@ type AdminPlayer = { id: number; teamId: number } & PlayerInput
 | `POST /admin/divisions/{id}/teams` | `TeamInput` | `AdminTeam` |
 | `GET` / `PATCH` / `DELETE /admin/teams/{id}` | | `AdminTeam` / 204 |
 | `DELETE /admin/divisions/{id}/teams` | なし | `{ deleted: number }`。部門のチームと選手をまとめて消す(名簿の貼り直し)。試合が 1 件でもあれば 409 |
+| `POST /admin/divisions/{id}/english-names` | なし | `{ teams: number; players: number; groups: number }`。部門のチーム(正式名、短縮名)、選手、組のうち英語名が空のものに、下記の作成時と同じ規則で日本語名を入れ、入れた数を返す。英語名があるものは変えない |
 | `GET /admin/teams/{id}/players` | なし | `{ players: AdminPlayer[] }`(ID 順。スタッフを含む) |
 | `POST /admin/teams/{id}/players` | `PlayerInput` | `AdminPlayer` |
 | `GET` / `PATCH` / `DELETE /admin/players/{id}` | | `AdminPlayer` / 204 |
+
+英語名の補い: 閲覧ページは英語名が空なら空で出す(参照サイトの再現)ので、管理用の API で作るときにデータの
+側で補う。チームの作成(`POST /admin/divisions/{id}/teams` と大会のコピー)は、`shortName.en` が空なら
+`fullName.en` を(それも空なら `shortName.ja` を)、`fullName.en` が空なら `fullName.ja` を入れる。選手の
+作成と大会のコピーは `name.en` が空なら `name.ja` を入れる。組(`POST /admin/divisions/{id}/groups` と
+`PUT /admin/divisions/{id}/format`)の英語名は `name` と同じにする(`PATCH` でも、英語名が空か前の
+`name` と同じなら新しい `name` に合わせる)。`PATCH` で英語名を空にしたチームと選手は補わない。取込ツールの
+データは参照サイトの値をそのまま持ち、補わない。
 
 ### 試合
 

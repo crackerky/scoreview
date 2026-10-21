@@ -87,10 +87,50 @@ export function withSport(cond: Conditions, sport: Sport): Conditions {
   return { ...cond, sport, ...sportDefaults[sport] }
 }
 
-/** 条件の初期値。保存済みの時間割の設定があればそれを欄に出す(開き直したとき) */
-export function initialConditions(saved: ScheduleSetting | null, defaultDate: string): Conditions {
+/** 競技の初期値を推定できないときの値(運営会社の大会で最も多い 7 人制) */
+export const fallbackSport: Sport = 'seven'
+
+/** この端末で最後に使った競技を覚えておく localStorage のキー */
+export const lastSportKey = 'scoreview.formatWizard.sport'
+
+const sportWords: ReadonlyArray<[RegExp, Sport]> = [
+  [/[4４]\s*on\s*[4４]|[4４]\s*人制/i, 'four'],
+  [/ビーチ|beach/i, 'beach'],
+  [/[7７]\s*on\s*[7７]|[7７]\s*人制/i, 'seven'],
+]
+
+/**
+ * 部門の名前(「Open 4on4」「ビーチミックス」)と、同じ大会の他の部門の形の競技から、競技の初期値を
+ * 推定する(通し確認: 4on4 の部門でも 7 人制が初期値だった)。推定できなければ null(呼び出し側が
+ * この端末で最後に使った競技、それも無ければ fallbackSport にする)
+ */
+export function sportFromContext(
+  divisionName: string,
+  otherSports: readonly Sport[],
+): Sport | null {
+  for (const [word, sport] of sportWords) {
+    if (word.test(divisionName)) {
+      return sport
+    }
+  }
+  return otherSports[0] ?? null
+}
+
+/** 保存した文字列を競技として読む(読めなければ null) */
+export function parseSport(value: string | null): Sport | null {
+  return value === 'four' || value === 'seven' || value === 'beach' ? value : null
+}
+
+/**
+ * 条件の初期値。保存済みの時間割の設定があればそれを欄に出す(開き直したとき)。無ければ sport の競技の
+ * 初期値にする
+ */
+export function initialConditions(
+  saved: ScheduleSetting | null,
+  defaultDate: string,
+  sport: Sport = fallbackSport,
+): Conditions {
   if (saved === null) {
-    const sport: Sport = 'seven'
     return {
       sport,
       courts: 4,

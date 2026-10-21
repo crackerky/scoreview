@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { auditLines } from '../src/admin/audit.utils.ts'
 import {
+  closingReason,
   forfeitScoreText,
   hqTabOf,
+  sharedRanks,
   shiftSentence,
   suspendedMinutes,
   updatedAtText,
@@ -200,5 +202,19 @@ describe('変更の履歴', () => {
       ],
     }).entries
     assert.equal(auditLines(entries, names).length, 2)
+  })
+})
+
+describe('最終順位の同順位の表示', () => {
+  test('2 チーム以上が並ぶ順位だけを同順位にする', () => {
+    const rows = [{ rank: 1 }, { rank: 2 }, { rank: 3 }, { rank: 3 }, { rank: 5 }]
+    assert.deepEqual([...sharedRanks(rows)], [3])
+    assert.equal(sharedRanks([]).size, 0)
+  })
+
+  test('締めで決めた単独の順位は「未消化のため同順位」と出さない', () => {
+    assert.equal(closingReason({ proposed: false }, false), '試合の結果')
+    assert.equal(closingReason({ proposed: true }, true), '未消化のため同順位')
+    assert.equal(closingReason({ proposed: true }, false), '締めで決めた順位(未消化の試合あり)')
   })
 })

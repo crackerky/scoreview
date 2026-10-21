@@ -23,6 +23,7 @@ import {
   bannersSchema,
   bracketTemplateListSchema,
   deletedTeamsSchema,
+  filledEnglishNamesSchema,
   loginResponseSchema,
   matchDetailSchema,
   meResponseSchema,
@@ -151,6 +152,9 @@ export const teams = {
   /** 試合の無い部門のチームをまとめて消す(試合があれば 409) */
   removeAll: (token: string, divisionId: number) =>
     call(token, 'DELETE', `${admin}/divisions/${divisionId}/teams`, deletedTeamsSchema),
+  /** 部門のチーム、選手、組のうち英語名が空のものに日本語名を入れる */
+  fillEnglishNames: (token: string, divisionId: number) =>
+    call(token, 'POST', `${admin}/divisions/${divisionId}/english-names`, filledEnglishNamesSchema),
 }
 
 export const players = {

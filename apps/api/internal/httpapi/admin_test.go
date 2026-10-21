@@ -510,7 +510,8 @@ func TestTournamentCRUD(t *testing.T) {
 	tid := id(created["id"])
 	// 既定値と、保存時の無害化
 	assert.Equal(t, "entry_open", created["status"])
-	assert.Equal(t, true, created["listed"])
+	// 既定は準備中(大会一覧に載せない)。管理画面で作った大会、大会のコピーと同じ
+	assert.Equal(t, false, created["listed"])
 	assert.Equal(t, map[string]any{"teamList": "teams", "groups": "groups"}, created["labels"])
 	assert.Equal(t, "<p>本文</p>", created["topHtml"].(map[string]any)["ja"])
 

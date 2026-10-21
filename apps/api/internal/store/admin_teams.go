@@ -95,7 +95,8 @@ func GetAdminTeam(ctx context.Context, db *gorm.DB, id int64) (TeamRecord, error
 	return toTeamRecord(row), nil
 }
 
-// CreateTeam はディビジョンにチームを作る。
+// CreateTeam はディビジョンにチームを作る。英語の正式名と短縮名が空なら日本語の値を入れる
+// (domain.TeamNamesWithEnglish。英語の閲覧ページでチーム名が空にならないように)。
 func CreateTeam(
 	ctx context.Context,
 	db *gorm.DB,
@@ -110,6 +111,7 @@ func CreateTeam(
 		return TeamRecord{}, err
 	}
 	row := Team{TournamentID: division.TournamentID, DivisionID: division.ID}
+	fields.FullName, fields.ShortName = domain.TeamNamesWithEnglish(fields.FullName, fields.ShortName)
 	fields.apply(&row)
 	if err := db.WithContext(ctx).Create(&row).Error; err != nil {
 		return TeamRecord{}, writeError("create team", err)
@@ -325,7 +327,7 @@ func GetAdminPlayer(ctx context.Context, db *gorm.DB, id int64) (PlayerRecord, e
 	return toPlayerRecord(row), nil
 }
 
-// CreatePlayer はチームに選手を作る。
+// CreatePlayer はチームに選手を作る。英語の名前が空なら日本語の名前を入れる(CreateTeam と同じ)。
 func CreatePlayer(
 	ctx context.Context,
 	db *gorm.DB,
@@ -339,6 +341,7 @@ func CreatePlayer(
 		return PlayerRecord{}, err
 	}
 	row := Player{TeamID: teamID}
+	fields.Name = fields.Name.WithEnglish()
 	fields.apply(&row)
 	if err := db.WithContext(ctx).Create(&row).Error; err != nil {
 		return PlayerRecord{}, writeError("create player", err)

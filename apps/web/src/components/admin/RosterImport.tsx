@@ -78,9 +78,9 @@ export function RosterImport(props: Props) {
       : playerRows.filter((row) => row.teamId !== null).length
   const payload =
     props.kind === 'teams'
-      ? teamRows.map(({ fullName, shortName }) => ({ fullName, shortName }))
-      : playerRows.flatMap(({ teamId, number, name, gender }) =>
-          teamId === null ? [] : [{ teamId, number, name, gender }],
+      ? teamRows.map(({ fullName, shortName, fullNameEn }) => ({ fullName, shortName, fullNameEn }))
+      : playerRows.flatMap(({ teamId, number, name, nameEn, gender }) =>
+          teamId === null ? [] : [{ teamId, number, name, nameEn, gender }],
         )
 
   const setHeader = (value: boolean) => {
@@ -150,6 +150,13 @@ export function RosterImport(props: Props) {
                   optional
                   onChange={(value) => setTeamColumns({ ...teamCols, short: value })}
                 />
+                <ColumnSelect
+                  label="英語名の列(使わなければ英語のページにも日本語名を出す)"
+                  value={teamCols.nameEn}
+                  count={count}
+                  optional
+                  onChange={(value) => setTeamColumns({ ...teamCols, nameEn: value })}
+                />
               </>
             ) : (
               <>
@@ -181,6 +188,13 @@ export function RosterImport(props: Props) {
                   optional
                   onChange={(value) => setPlayerColumns({ ...playerCols, gender: value })}
                 />
+                <ColumnSelect
+                  label="英語名の列(使わなければ英語のページにも日本語名を出す)"
+                  value={playerCols.nameEn}
+                  count={count}
+                  optional
+                  onChange={(value) => setPlayerColumns({ ...playerCols, nameEn: value })}
+                />
               </>
             )}
           </div>
@@ -192,6 +206,7 @@ export function RosterImport(props: Props) {
                     <th>#</th>
                     <th>正式名</th>
                     <th>略称</th>
+                    <th>英語名</th>
                     <th>注意</th>
                   </tr>
                 ) : (
@@ -200,6 +215,7 @@ export function RosterImport(props: Props) {
                     <th>チーム</th>
                     <th>背番号</th>
                     <th>氏名</th>
+                    <th>英語名</th>
                     <th>性別</th>
                     <th>注意</th>
                   </tr>
@@ -216,6 +232,7 @@ export function RosterImport(props: Props) {
                         <td>{index + 1}</td>
                         <td>{row.fullName}</td>
                         <td>{row.shortName}</td>
+                        <td>{row.fullNameEn || row.fullName}</td>
                         <td>{row.warnings.join('。')}</td>
                       </tr>
                     ))
@@ -229,6 +246,7 @@ export function RosterImport(props: Props) {
                         <td>{row.teamName}</td>
                         <td>{row.number}</td>
                         <td>{row.name}</td>
+                        <td>{row.nameEn || row.name}</td>
                         <td>{row.gender === 'M' ? '男' : row.gender === 'F' ? '女' : ''}</td>
                         <td>{row.warnings.join('。')}</td>
                       </tr>
