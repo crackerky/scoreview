@@ -21,21 +21,28 @@ func toFrame(frame store.Frame) frameDTO {
 		Labels:       labelsDTO{TeamList: frame.TeamListLabel, Groups: frame.GroupsLabel},
 		ShowSchedule: frame.ShowSchedule,
 		Divisions:    make([]frameDivisionDTO, 0, len(frame.Divisions)),
-		Galleries:    make([]idNameDTO, 0, len(frame.Galleries)),
+		Galleries:    make([]frameGalleryDTO, 0, len(frame.Galleries)),
 		Banners:      make([]bannerDTO, 0, len(frame.Banners)),
 	}
 	for _, division := range frame.Divisions {
 		groups := make([]frameGroupDTO, 0, len(division.Groups))
 		for _, group := range division.Groups {
-			groups = append(groups, frameGroupDTO{ID: group.ID, Name: group.Name, Linked: group.Linked})
+			groups = append(
+				groups,
+				frameGroupDTO{ID: group.ID, Name: toI18n(group.Name), Linked: group.Linked},
+			)
 		}
 		out.Divisions = append(out.Divisions, frameDivisionDTO{
 			ID: division.ID, Name: toI18n(division.Name), ScheduleEnabled: division.ScheduleEnabled,
-			Groups: groups,
+			MenuSuffix: division.MenuSuffix,
+			Groups:     groups,
 		})
 	}
 	for _, gallery := range frame.Galleries {
-		out.Galleries = append(out.Galleries, idNameDTO{ID: gallery.ID, Name: gallery.Name})
+		out.Galleries = append(
+			out.Galleries,
+			frameGalleryDTO{ID: gallery.ID, Name: toI18n(gallery.Name)},
+		)
 	}
 	for _, banner := range frame.Banners {
 		out.Banners = append(out.Banners, bannerDTO{ImageURL: banner.ImageURL, LinkURL: banner.LinkURL})
@@ -80,7 +87,7 @@ func toPlayerWithRole(player store.PlayerWithRole) playerWithRoleDTO {
 }
 
 func toMatchSide(side domain.MatchSide) matchSideDTO {
-	out := matchSideDTO{Team: toTeamRefPtr(side.Team), Score: side.Score}
+	out := matchSideDTO{Team: toTeamRefPtr(side.Team), Score: side.Score, LabelEn: side.LabelEn}
 	if side.Placeholder != nil {
 		out.Placeholder = &placeholderDTO{
 			Code:    side.Placeholder.Code,
@@ -318,15 +325,16 @@ func toTeamPage(page store.TeamPage) teamPageDTO {
 			ID: page.Team.ID, FullName: toI18n(page.Team.FullName), ShortName: toI18n(page.Team.ShortName),
 			Comment: toI18n(page.Team.Comment), Layout: string(page.Team.Layout),
 		},
-		Record:  teamRecordDTO{tallyDTO: toTally(page.Record), Rank: page.Rank},
-		Matches: toMatchRows(page.Matches),
-		Players: make([]playerLineDTO, 0, len(page.Players)),
-		Staff:   make([]staffLineDTO, 0, len(page.Staff)),
+		Record:   teamRecordDTO{tallyDTO: toTally(page.Record), Rank: page.Rank},
+		Matches:  toMatchRows(page.Matches),
+		Players:  make([]playerLineDTO, 0, len(page.Players)),
+		Staff:    make([]staffLineDTO, 0, len(page.Staff)),
+		ShowSotg: page.ShowSOTG,
 	}
 	for _, line := range page.Players {
 		out.Players = append(out.Players, playerLineDTO{
 			Player: toPlayerRef(line.Player), Games: line.Games, Assists: line.Assists, Goals: line.Goals,
-			Blocks: line.Blocks,
+			Blocks: line.Blocks, Absent: line.Absent,
 		})
 	}
 	for _, staff := range page.Staff {
@@ -349,6 +357,7 @@ func toMatchPage(page store.MatchPage) matchPageDTO {
 			Date: match.Date, Time: match.Time, Field: match.Field, Status: string(match.Status),
 			Left:  toMatchTeamScore(match.Left),
 			Right: toMatchTeamScore(match.Right),
+			Note:  match.Note, HideBlocks: match.HideBlocks, HideStats: match.HideStats,
 			Breadcrumb: breadcrumbDTO{
 				DivisionID:   match.Breadcrumb.DivisionID,
 				DivisionName: toI18n(match.Breadcrumb.DivisionName),

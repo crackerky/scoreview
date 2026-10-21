@@ -57,12 +57,17 @@ export const tournamentFrameSchema = z.object({
     z.object({
       id: z.number().int(),
       name: i18nTextSchema,
-      // サイドバーの SCORE メニューに出すか(スケジュールのないディビジョンは出ない)
+      // 日程があるか。false ならナビのスケジュールとディビジョン成績に出ず、SCORE メニューではリンクなし
       scheduleEnabled: z.boolean(),
-      groups: z.array(z.object({ id: z.number().int(), name: z.string(), linked: z.boolean() })),
+      // SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
+      menuSuffix: z.string(),
+      // name.ja は前後の空白も名前の一部(参照サイトの title に空白つきで出る)
+      groups: z.array(
+        z.object({ id: z.number().int(), name: i18nTextSchema, linked: z.boolean() }),
+      ),
     }),
   ),
-  galleries: z.array(z.object({ id: z.number().int(), name: z.string() })),
+  galleries: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
   banners: z.array(z.object({ imageUrl: z.string(), linkUrl: z.string().nullable() })),
 })
 export type TournamentFrame = z.infer<typeof tournamentFrameSchema>
@@ -84,6 +89,8 @@ export const matchSideSchema = z.object({
   team: teamRefSchema.nullable(),
   placeholder: z.object({ code: z.string(), outcome: z.enum(['win', 'lose']) }).nullable(),
   score: z.number().int().nullable(),
+  // 英語版でチームの英語名が空のとき代わりに出す決まり方の表記(clone-spec B 8)。なければ空
+  labelEn: z.string(),
 })
 export type MatchSide = z.infer<typeof matchSideSchema>
 

@@ -2,6 +2,7 @@ package parse
 
 import (
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -42,6 +43,7 @@ type TopDivision struct {
 type NavGroup struct {
 	ID     *int64 `json:"id"`
 	Name   string `json:"name"`
+	NameEN string `json:"name_en"` // 英語版のナビの名前(Merge で入る)。空のことがある
 	Linked bool   `json:"linked"`
 }
 
@@ -58,8 +60,9 @@ type Nav struct {
 
 // NavGallery はナビのギャラリー。ギャラリー ID は大会 ID と別体系(clone-spec A 6)。
 type NavGallery struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID     int64  `json:"id"`
+	Name   string `json:"name"`
+	NameEN string `json:"name_en"` // 英語版のナビの名前(Merge で入る)。"---" が多い
 }
 
 // Banner はサイドバーのバナー画像。並びは表示順。
@@ -223,7 +226,7 @@ func parseNav(doc *goquery.Document) (parsedNav, error) {
 		case linkID(sub, site.PageGallery) != nil:
 			sub.Find("a").Each(func(_ int, a *goquery.Selection) {
 				if id := linkID(a, site.PageGallery); id != nil {
-					out.Galleries = append(out.Galleries, NavGallery{ID: *id, Name: cellText(a)})
+					out.Galleries = append(out.Galleries, NavGallery{ID: *id, Name: navName(a)})
 				}
 			})
 		default:
@@ -249,6 +252,17 @@ func parseNav(doc *goquery.Document) (parsedNav, error) {
 	return out, nil
 }
 
+// navName はナビのグループとギャラリーの名前(前後の半角空白は残す。nameText)。
+// 名前が空のリンクは、参照サイト(CakePHP の link())がリンク先の URL を文字として出すので空にする
+// (英語名のないグループの英語版で観測)。
+func navName(sel *goquery.Selection) string {
+	name := nameText(sel)
+	if strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
+		return ""
+	}
+	return name
+}
+
 func parseNavGroups(sub *goquery.Selection) ([]navGroupDivision, error) {
 	out := []navGroupDivision{}
 	var err error
@@ -261,7 +275,7 @@ func parseNavGroups(sub *goquery.Selection) ([]navGroupDivision, error) {
 		d := navGroupDivision{name: cellText(p), groups: []NavGroup{}}
 		li.ChildrenFiltered("ul").ChildrenFiltered("li").Each(func(_ int, g *goquery.Selection) {
 			item := g.ChildrenFiltered("a, p").First()
-			ng := NavGroup{Name: cellText(item)}
+			ng := NavGroup{Name: navName(item)}
 			if id := linkID(item, site.PageGroup); id != nil {
 				ng.ID, ng.Linked = id, true
 			}
@@ -354,7 +368,21 @@ func MergeTournamentTopEN(jp, en *TournamentTop) (*TournamentTop, error) {
 			return nil, mismatch("division %d differs between jp and en", i)
 		}
 		d.Name = mergeText(d.Name, e.Name)
+		d.Groups = slices.Clone(d.Groups)
+		for k := range d.Groups {
+			if !equalIDPtr(d.Groups[k].ID, e.Groups[k].ID) {
+				return nil, mismatch("division %d group %d differs between jp and en", i, k)
+			}
+			d.Groups[k].NameEN = e.Groups[k].Name
+		}
 		out.Divisions[i] = d
+	}
+	out.Nav.Galleries = slices.Clone(jp.Nav.Galleries)
+	for k := range out.Nav.Galleries {
+		if out.Nav.Galleries[k].ID != en.Nav.Galleries[k].ID {
+			return nil, mismatch("gallery %d differs between jp and en", k)
+		}
+		out.Nav.Galleries[k].NameEN = en.Nav.Galleries[k].Name
 	}
 	return &out, nil
 }

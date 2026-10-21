@@ -2,9 +2,18 @@
   "frame": "frame-1",
   "team": {
     "id": 5001,
-    "fullName": { "ja": "架空チームA フライングクラブ", "en": "Fictional A Flying Club" },
-    "shortName": { "ja": "架空チームA", "en": "Fictional A" },
-    "comment": { "ja": "架空のチーム紹介です。", "en": "" },
+    "fullName": {
+      "ja": "架空チームA フライングクラブ",
+      "en": "Fictional A Flying Club"
+    },
+    "shortName": {
+      "ja": "架空チームA",
+      "en": "Fictional A"
+    },
+    "comment": {
+      "ja": "架空のチーム紹介です。",
+      "en": ""
+    },
     "layout": "standard"
   },
   "record": {
@@ -26,14 +35,28 @@
       "field": "1",
       "status": "finished",
       "left": {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "placeholder": null,
-        "score": 9
+        "score": 9,
+        "labelEn": ""
       },
       "right": {
-        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       }
     },
     {
@@ -45,14 +68,28 @@
       "field": "2",
       "status": "finished",
       "left": {
-        "team": { "id": 5004, "name": { "ja": "架空チームD", "en": "Fictional D" } },
+        "team": {
+          "id": 5004,
+          "name": {
+            "ja": "架空チームD",
+            "en": "Fictional D"
+          }
+        },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       },
       "right": {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "placeholder": null,
-        "score": 4
+        "score": 4,
+        "labelEn": ""
       }
     },
     {
@@ -64,14 +101,28 @@
       "field": "3",
       "status": "scheduled",
       "left": {
-        "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
-        "team": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       }
     }
   ],
@@ -80,57 +131,80 @@
       "player": {
         "id": 70001,
         "number": "7",
-        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "name": {
+          "ja": "架空 太郎",
+          "en": "Taro KAKU"
+        },
         "gender": "M"
       },
       "games": 5,
       "assists": 6,
       "goals": 4,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     },
     {
       "player": {
         "id": 70003,
         "number": "4",
-        "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+        "name": {
+          "ja": "見本 花子",
+          "en": "Hanako MIHON"
+        },
         "gender": "F"
       },
       "games": 5,
       "assists": 1,
       "goals": 3,
-      "blocks": 2
+      "blocks": 2,
+      "absent": false
     },
     {
       "player": {
         "id": 70002,
         "number": "10",
-        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "name": {
+          "ja": "見本 三郎",
+          "en": "Saburo MIHON"
+        },
         "gender": "M"
       },
       "games": 5,
       "assists": 3,
       "goals": 1,
-      "blocks": 0
+      "blocks": 0,
+      "absent": false
     },
     {
       "player": {
         "id": 70004,
         "number": "00",
-        "name": { "ja": "仮名 四郎", "en": "" },
+        "name": {
+          "ja": "仮名 四郎",
+          "en": ""
+        },
         "gender": "M"
       },
       "games": 4,
       "assists": 0,
       "goals": 0,
-      "blocks": 1
+      "blocks": 1,
+      "absent": false
     }
   ],
   "staff": [
     {
       "id": 70009,
-      "role": { "ja": "マネージャ", "en": "Manager" },
-      "name": { "ja": "見本 次郎", "en": "Jiro MIHON" },
+      "role": {
+        "ja": "マネージャ",
+        "en": "Manager"
+      },
+      "name": {
+        "ja": "見本 次郎",
+        "en": "Jiro MIHON"
+      },
       "gender": "M"
     }
-  ]
+  ],
+  "showSotg": false
 }

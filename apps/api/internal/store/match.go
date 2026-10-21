@@ -37,6 +37,10 @@ func GetMatch(ctx context.Context, db *gorm.DB, id int64) (MatchPage, error) {
 		}
 		groupName = &group.Name
 	}
+	if match.GroupLabel != nil {
+		// clone-spec D 2.2: 試合に持たせたグループ欄の文字がグループの名前より優先
+		groupName = match.GroupLabel
+	}
 	teams, err := loadTeams(ctx, db, matchTeamIDs([]Match{match}))
 	if err != nil {
 		return MatchPage{}, err
@@ -95,15 +99,18 @@ func matchInfo(
 		return MatchInfo{}, err
 	}
 	return MatchInfo{
-		ID:        match.ID,
-		Code:      match.Code,
-		GroupName: groupName,
-		Date:      formatDate(match),
-		Time:      formatClock(match),
-		Field:     match.Field,
-		Status:    match.Status,
-		Left:      left,
-		Right:     right,
+		ID:         match.ID,
+		Code:       match.Code,
+		GroupName:  groupName,
+		Date:       formatDate(match),
+		Time:       formatClock(match),
+		Field:      match.Field,
+		Status:     match.Status,
+		Left:       left,
+		Right:      right,
+		Note:       match.Note,
+		HideBlocks: match.HideBlocks,
+		HideStats:  match.HideStats,
 		Breadcrumb: Breadcrumb{
 			DivisionID: division.ID, DivisionName: i18n(division.NameJa, division.NameEn), GroupID: match.GroupID,
 		},

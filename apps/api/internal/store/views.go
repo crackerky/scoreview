@@ -24,20 +24,22 @@ type FrameDivision struct {
 	ID              int64
 	Name            domain.I18nText
 	ScheduleEnabled bool
-	Groups          []FrameGroup
+	// MenuSuffix は SCORE メニューで名前の後ろに付く競技の略号("Ult" "Free" "DiscGolfT")
+	MenuSuffix string
+	Groups     []FrameGroup
 }
 
 // FrameGroup はナビのグループ。Linked が false なら名前だけ出す。
 type FrameGroup struct {
 	ID     int64
-	Name   string
+	Name   domain.I18nText
 	Linked bool
 }
 
 // FrameGallery はナビのギャラリー。
 type FrameGallery struct {
 	ID   int64
-	Name string
+	Name domain.I18nText
 }
 
 // FrameBanner はサイドバーのバナー。
@@ -261,6 +263,8 @@ type TeamPage struct {
 	Matches []domain.MatchRow
 	Players []PlayerLine
 	Staff   []StaffLine
+	// ShowSOTG は SOTG スコア一覧(行は Matches、値は空)を出すか(divisions.show_sotg)
+	ShowSOTG bool
 }
 
 // TeamLayout はチームページの構成。
@@ -288,6 +292,8 @@ type PlayerLine struct {
 	Assists int
 	Goals   int
 	Blocks  int
+	// Absent は欠場(出場記録の取られているチームで、どの試合にも出場していない選手)
+	Absent bool
 }
 
 // StaffLine はスタッフ一覧の 1 行。
@@ -309,15 +315,20 @@ type MatchPage struct {
 
 // MatchInfo は試合のスコアボードの情報。
 type MatchInfo struct {
-	ID         int64
-	Code       string
-	GroupName  *string
-	Date       *string
-	Time       *string
-	Field      *string
-	Status     domain.MatchStatus
-	Left       MatchTeamScore
-	Right      MatchTeamScore
+	ID        int64
+	Code      string
+	GroupName *string
+	Date      *string
+	Time      *string
+	Field     *string
+	Status    domain.MatchStatus
+	Left      MatchTeamScore
+	Right     MatchTeamScore
+	// Note はスコアボード下の行の中央の備考。HideBlocks / HideStats は出場選手表の Block 列と
+	// 統計表を出さない試合(clone-spec D 2.4、D 2.5)
+	Note       string
+	HideBlocks bool
+	HideStats  bool
 	Breadcrumb Breadcrumb
 }
 

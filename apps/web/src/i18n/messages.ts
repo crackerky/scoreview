@@ -94,9 +94,10 @@ const jp = {
   colRole: '役割',
   colStaff: 'スタッフ',
   colTeamBlock: 'ブロック',
+  // SOTG スコア一覧(clone-spec D 1.1 の 6)。凡例の 2 行目は "\n" の後。1 行目の区切りは全角空白 3 つ
   sotgScoreList: 'SOTGｽｺｱ一覧',
   sotgLegend:
-    '※１･･･ルールの理解　※２･･･ファール及び身体接触　※３･･･フェアプレイ　\n' +
+    '※１･･･ルールの理解　　　※２･･･ファール及び身体接触　　　※３･･･フェアプレイ　\n' +
     '※４･･･ポジティブな姿勢およびセルフマネジメント　※５･･･相手チームのスピリットとの比較',
   colOpponent: '相手チーム',
   colSotg1: '※１',
@@ -236,10 +237,11 @@ const en: Record<MessageKey, string> = {
   colStaff: 'Staff',
   colTeamBlock: 'block',
   sotgScoreList: 'SOTG ScoreList',
-  // 推測: ※4 の後半と ※5 は clone-spec D 1.1 で途中までしか記録が無い
+  // 区切りは &nbsp; 4 つ(224 のチームページ 9828 で確認。※5 の綴りも参照サイトのまま)
   sotgLegend:
-    '* 1 ･･･Rules Knowledge & Use  * 2 ･･･Fouls & Body Contact  * 3 ･･･Fair-Mindedness  \n' +
-    "* 4 ･･･Positive Attitude & Self-Control  * 5 ･･･Compare with Opponent's Spirit",
+    '* 1 ･･･Rules Knowledge & Use\u00a0\u00a0\u00a0\u00a0* 2 ･･･Fouls & Body Contact' +
+    '\u00a0\u00a0\u00a0\u00a0* 3 ･･･Fair-Mindedness\n' +
+    '* 4 ･･･Positive Attitude & Self-Control\u00a0\u00a0\u00a0\u00a0* 5 ･･･Out Spirit compared to theirs',
   colOpponent: 'VS Team',
   colSotg1: '* 1',
   colSotg2: '* 2',

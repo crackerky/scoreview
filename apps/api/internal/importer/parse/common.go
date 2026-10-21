@@ -94,6 +94,12 @@ func clean(s string) string {
 	return strings.Trim(s, asciiSpace)
 }
 
+// nameText は名前の文字列を、HTML の字下げ(改行とタブ)だけを除いて返す。名前の前後の半角空白は
+// 名前の一部として残す(参照サイトの title に "-BUTTERFLY -" "-17th placement tournament -" と出る)。
+func nameText(sel *goquery.Selection) string {
+	return strings.Trim(sel.Text(), "\r\n\t")
+}
+
 // cellText はセルの文字列を前後の空白を除いて返す。
 func cellText(sel *goquery.Selection) string {
 	return clean(sel.Text())

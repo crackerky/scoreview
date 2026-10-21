@@ -2,6 +2,7 @@ package parse
 
 import (
 	"io"
+	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -21,7 +22,28 @@ type Team struct {
 	Matches []MatchRow   `json:"matches"`
 	Players []TeamPlayer `json:"players"`
 	Staff   []TeamStaff  `json:"staff"`
+	// SOTG は SOTG スコア一覧の表があるか(224 のチームで観測。値はすべて空)。
+	SOTG bool `json:"sotg"`
+	// MenuSuffixes はサイドバーの SCORE メニューの各ディビジョン名の後ろの略号("Ult" など)。
+	// 大会の全ディビジョンが大会トップの表と同じ順に並ぶ(clone-spec A 1.5.1)。
+	MenuSuffixes []string `json:"menu_suffixes"`
 }
+
+var menuSuffixPattern = regexp.MustCompile(`\(([A-Za-z]+)\)$`)
+
+// parseMenuSuffixes は SCORE メニューの第 1 階層(ディビジョン)の略号を並べる。
+func parseMenuSuffixes(doc *goquery.Document) []string {
+	out := []string{}
+	doc.Find("#sub .menu_list > ul > li").Each(func(_ int, li *goquery.Selection) {
+		if m := menuSuffixPattern.FindStringSubmatch(cellText(li.ChildrenFiltered("a, p").First())); m != nil {
+			out = append(out, m[1])
+		}
+	})
+	return out
+}
+
+// sotgColumns は SOTG スコア一覧の列数(CD / 相手チーム / ※１〜※５ / 合計)。
+const sotgColumns = 8
 
 // TeamRecord はチームの通算成績。順位はディビジョン内の順位で、未確定なら nil。
 type TeamRecord struct {
@@ -73,11 +95,14 @@ func ParseTeam(r io.Reader, lang site.Lang) (*Team, error) {
 		return nil, err
 	}
 	out := &Team{
-		Name:    textOf(lang, cellText(sv.Find("span.SCV_MIDA_M").First())),
+		// 見出しは "{正式名}<br>"。名前の末尾の空白も title に出るので残す(4694 "BUTTERFLY ")
+		Name:    textOf(lang, nameText(sv.Find("span.SCV_MIDA_M").First())),
 		Comment: textOf(lang, cellText(sv.Find("div.SCV_TEAM_COMM").First())),
 		Matches: []MatchRow{},
 		Players: []TeamPlayer{},
 		Staff:   []TeamStaff{},
+		// 略号は日英で同じ
+		MenuSuffixes: parseMenuSuffixes(doc),
 	}
 	var tblErr error
 	sv.Find("div.TBL > table").EachWithBreak(func(_ int, table *goquery.Selection) bool {
@@ -89,8 +114,10 @@ func ParseTeam(r io.Reader, lang site.Lang) (*Team, error) {
 		case h[0] == "試合数" || h[0] == "Games":
 			out.Record, tblErr = parseTeamRecord(table)
 		case h[0] == "CD" && len(h) == listLayout().cells:
-			// 旧大会の SOTG スコア一覧も CD 列から始まるが列数が違う(clone-spec D 1.1 の 6)ので読まない
 			out.Matches, tblErr = parseMatchRows(table, listLayout(), lang)
+		case h[0] == "CD" && len(h) == sotgColumns:
+			// 旧大会の SOTG スコア一覧(clone-spec D 1.1 の 6)。値は空なので有無だけを読む
+			out.SOTG = true
 		case h[0] == "#":
 			out.Players, tblErr = parseTeamPlayers(table, len(h), lang)
 		case h[0] == "役割" || h[0] == "Task":

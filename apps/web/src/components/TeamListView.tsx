@@ -34,9 +34,12 @@ const barTextStyle = { padding: '4px', color: 'white' } as const
 
 type Division = TeamListResponse['divisions'][number]
 
-/** "{ディビジョン名}   -- 32 Teams --   "(件数の単位は jp でも英語) */
-function headingText(division: Division, lang: Lang): string {
-  const unit = msg(lang, division.entryKind === 'individual' ? 'teamListPlayers' : 'teamListTeams')
+/**
+ * "{ディビジョン名}   -- 32 Teams --   "(件数の単位は jp でも英語)。単位はナビが「エントリー一覧」の
+ * 大会で Players になる(237 はチーム名がリンクのチーム戦でも Players。clone-spec A 5)
+ */
+function headingText(division: Division, entries: boolean, lang: Lang): string {
+  const unit = msg(lang, entries ? 'teamListPlayers' : 'teamListTeams')
   return `${pickText(lang, division.name)}${nbsp3}--${nbsp}${division.teams.length} ${unit}${nbsp}--${nbsp3}`
 }
 
@@ -46,7 +49,9 @@ export function TeamListView({ data, lang }: { data: TeamListResponse; lang: Lan
       {data.divisions.map((division) => (
         <Fragment key={division.id}>
           <div style={headingBoxStyle}>
-            <div className="TeamListMIDA">{headingText(division, lang)}</div>
+            <div className="TeamListMIDA">
+              {headingText(division, data.frame.labels.teamList === 'entries', lang)}
+            </div>
           </div>
           <div style={{ marginLeft: '14px', marginTop: '10px' }}>
             {division.teams.map((team) => (

@@ -1,5 +1,6 @@
 import type { MatchRow, TeamRef } from '@/api/common.types'
 import type { GroupResponse, PoolMatrixCell } from '@/api/public.types'
+import { trimToWidth } from '@/format/format.utils'
 import { matchHref, teamHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { msg } from '@/i18n/messages'
@@ -9,6 +10,10 @@ import { Tbl, type TblColumn, TblHeaderRow } from './Tbl'
 // clone-spec C 2.1: 総当たり(プール)型のグループの対戦マトリクスとリーグ結果。
 
 type Pool = NonNullable<GroupResponse['pool']>
+
+// clone-spec C 2.1(a): 列見出しを切り詰めるチーム数と、切り詰める表示幅(半角 1、全角 2)
+const narrowMatrixTeams = 5
+const narrowHeaderWidth = 4
 
 function TeamName({ team, lang }: { team: TeamRef; lang: Lang }) {
   return (
@@ -70,10 +75,17 @@ export function PoolMatrix({
   const details = new Map(matches.map((match) => [match.matchId, match.hasDetail]))
   // 結果一覧に無い試合は詳細ありとみなす(リンクを出す)
   const hasDetail = (matchId: number) => details.get(matchId) ?? true
+  // 5 チーム以上の対戦表は列見出しが狭いので、名前を表示幅 4 で切り詰めてリンクにしない
+  // (2182、2188、3272 の 5 チーム、6631 の 6 チーム。4 チーム以下は短縮名のリンク)
+  const narrow = pool.teams.length >= narrowMatrixTeams
   const columns: TblColumn[] = [
     { label: msg(lang, 'matrixCorner'), width: '22%' },
     ...pool.teams.map((team) => ({
-      label: <TeamName team={team} lang={lang} />,
+      label: narrow ? (
+        trimToWidth(pickText(lang, team.name), narrowHeaderWidth)
+      ) : (
+        <TeamName team={team} lang={lang} />
+      ),
       width: matrixColumnWidth(pool.teams.length),
     })),
   ]

@@ -23,8 +23,8 @@ type TeamListDivision struct {
 	Name Text `json:"name"`
 	// Count は見出しの "-- N Teams --" の N。
 	Count int `json:"count"`
-	// EntryKind は "team"(Teams、チーム名がリンク)か "individual"(Players、ディスクゴルフ個人戦で
-	// 名前がリンクなし)。clone-spec A 5、E 7。
+	// EntryKind は "team"(チーム名がリンク)か "individual"(見出しが Players で名前がリンクなしの
+	// ディスクゴルフ個人戦)。clone-spec A 5、E 7。
 	EntryKind string          `json:"entry_kind"`
 	Entries   []TeamListEntry `json:"entries"`
 }
@@ -145,9 +145,16 @@ func ParseTeamList(r io.Reader, lang site.Lang) (*TeamList, error) {
 	if pending != nil {
 		return nil, unexpected("team %q without member cell", pending.Name)
 	}
-	for _, d := range out.Divisions {
+	for i, d := range out.Divisions {
 		if len(d.Entries) != d.Count {
 			return nil, unexpected("division %q: heading says %d, found %d", d.Name, d.Count, len(d.Entries))
+		}
+		// 見出しの単位 "Players" は大会のナビが「エントリー一覧」のとき全ディビジョンに付く(237 は
+		// チーム名がリンクのチーム戦でも "Players")。名前がリンクでないときだけ個人戦とする
+		for _, e := range d.Entries {
+			if e.ID != nil {
+				out.Divisions[i].EntryKind = "team"
+			}
 		}
 	}
 	return out, nil

@@ -60,13 +60,19 @@ func TestGetTournamentTopAndFrame(t *testing.T) {
 	require.Len(t, frame.Divisions, 2)
 	assert.Equal(t, sc.Mixed.ID, frame.Divisions[0].ID)
 	// 非公開(published=false)のグループは出ず、sort_order 順
+	// 英語名が空のグループは en も空のまま(日本語で補わない)
 	assert.Equal(t, []store.FrameGroup{
-		{ID: sc.Pool.ID, Name: "Qualifying pool A", Linked: true},
-		{ID: sc.Bracket.ID, Name: "Tounament A", Linked: false},
-		{ID: sc.Image.ID, Name: "Temporary ranking", Linked: true},
+		{ID: sc.Pool.ID, Name: domain.I18nText{Ja: "Qualifying pool A"}, Linked: true},
+		{ID: sc.Bracket.ID, Name: domain.I18nText{Ja: "Tounament A"}, Linked: false},
+		{
+			ID: sc.Image.ID, Name: domain.I18nText{Ja: "Temporary ranking", En: "Temporary ranking"},
+			Linked: true,
+		},
 	}, frame.Divisions[0].Groups)
 	assert.Equal(t, []store.FrameGroup{}, frame.Divisions[1].Groups)
-	assert.Equal(t, []store.FrameGallery{{ID: sc.Gallery.ID, Name: "Day2-AM"}}, frame.Galleries)
+	assert.Equal(t, []store.FrameGallery{
+		{ID: sc.Gallery.ID, Name: domain.I18nText{Ja: "Day2-AM", En: "---"}},
+	}, frame.Galleries)
 	assert.Equal(t, []store.FrameBanner{
 		{ImageURL: "/b1.png", LinkURL: ptr("https://example.com/")}, {ImageURL: "/b2.png"},
 	}, frame.Banners)
@@ -325,6 +331,33 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 	assert.LessOrEqual(t, before, int64(7))
 }
 
+// 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。
+func TestGetDivisionStandingsTieOrder(t *testing.T) {
+	db, b, sc := setup(t)
+	division := b.Division(sc.Tournament.ID)
+	rankOne := func(order int) store.Team {
+		return b.Team(division, func(row *store.Team) { row.FinalRank, row.SortOrder = ptr(1), order })
+	}
+	first, second, third := rankOne(0), rankOne(1), rankOne(2)
+	b.Match(division, &third, &first, storetest.Finished(5, 0))
+	b.Match(division, &second, &first, storetest.Finished(2, 1))
+	b.Match(division, &third, &second, storetest.Finished(1, 0))
+	scorer := b.Player(first.ID)
+	match := b.Match(division, &first, &second, storetest.Finished(1, 0))
+	b.Goal(match.ID, domain.SideLeft, 60, &scorer, nil)
+
+	page, err := store.GetDivisionStandings(context.Background(), db, division.ID)
+	require.NoError(t, err)
+	var order []int64
+	for _, row := range page.Standings {
+		order = append(order, row.Team.ID)
+	}
+	// third 2 勝(+6)、second 1 勝(-1)、first 1 勝(-5)
+	assert.Equal(t, []int64{third.ID, second.ID, first.ID}, order)
+	require.Len(t, page.Leaders, 1)
+	assert.Equal(t, 3, page.Leaders[0].Games, "出場は 1 試合でもチームの試合数")
+}
+
 func TestGetDivisionStandings(t *testing.T) {
 	db, _, sc := setup(t)
 	page, err := store.GetDivisionStandings(context.Background(), db, sc.Mixed.ID)
@@ -382,8 +415,9 @@ func TestGetGroupPool(t *testing.T) {
 	}, pool.Matrix[0][1])
 	// C が左の試合も記録の左右順のまま出す
 	assert.Equal(t, "5-5", pool.Matrix[0][2].Text)
+	// 未試合は試合の CD
 	assert.Equal(t, store.MatrixCell{
-		Kind: store.MatrixMatch, MatchID: sc.MatchBC.ID, Status: domain.MatchScheduled, Text: "",
+		Kind: store.MatrixMatch, MatchID: sc.MatchBC.ID, Status: domain.MatchScheduled, Text: "A3",
 	}, pool.Matrix[1][2])
 
 	var ranks []int
@@ -449,12 +483,35 @@ func TestGetTeam(t *testing.T) {
 			ID: sc.PlayerA7.ID, Number: "7", Name: domain.I18nText{Ja: "架空 七郎", En: "Shichiro KAKU"},
 			Gender: ptr(domain.Gender("M")),
 		},
-		Games: 1, Goals: 2, Blocks: 2,
+		// 試合数は出場記録の数(1)ではなくチームの試合数
+		Games: 2, Goals: 2, Blocks: 2,
 	}, page.Players[0])
 	assert.Equal(t, []store.StaffLine{{
 		ID: sc.StaffA.ID, Role: domain.I18nText{Ja: "マネージャ", En: "Manager"},
 		Name: domain.I18nText{Ja: "架空 監督", En: "Coach KAKU"},
 	}}, page.Staff)
+}
+
+// 出場記録のあるチームで記録のない選手は欠場。出場記録のないチームでは誰も欠場にしない。
+func TestGetTeamAbsentPlayers(t *testing.T) {
+	db, b, sc := setup(t)
+	benched := b.Player(sc.TeamA.ID)
+	page, err := store.GetTeam(context.Background(), db, sc.TeamA.ID)
+	require.NoError(t, err)
+	absent := map[int64]bool{}
+	for _, line := range page.Players {
+		absent[line.Player.ID] = line.Absent
+		assert.Equal(t, page.Record.Games, line.Games)
+	}
+	assert.Equal(t, map[int64]bool{sc.PlayerA7.ID: false, sc.PlayerA10.ID: false, benched.ID: true}, absent)
+
+	other := b.Team(sc.Mixed)
+	rookie := b.Player(other.ID)
+	page, err = store.GetTeam(context.Background(), db, other.ID)
+	require.NoError(t, err)
+	require.Len(t, page.Players, 1)
+	assert.Equal(t, rookie.ID, page.Players[0].Player.ID)
+	assert.False(t, page.Players[0].Absent)
 }
 
 func TestGetTeamDiscgolfIsRosterOnly(t *testing.T) {
@@ -511,6 +568,21 @@ func TestGetMatch(t *testing.T) {
 		Left:  domain.SideStats{Goals: 2, FromOffense: 1, FromDefense: 1, FromTurnover: 1},
 		Right: domain.SideStats{Goals: 1, FromOffense: 1, Timeouts: 1},
 	}, page.Stats)
+}
+
+// 試合に持たせたグループ欄の文字、備考、Block 列と統計表を隠す印はそのまま返す。
+func TestGetMatchDisplayValues(t *testing.T) {
+	db, b, sc := setup(t)
+	match := b.Match(sc.Mixed, &sc.TeamA, &sc.TeamB, storetest.Finished(1, 0), func(row *store.Match) {
+		row.GroupID, row.GroupLabel = &sc.Pool.ID, ptr("Qualifying Pool A")
+		row.Note, row.HideBlocks, row.HideStats = "架空の備考", true, true
+	})
+	page, err := store.GetMatch(context.Background(), db, match.ID)
+	require.NoError(t, err)
+	assert.Equal(t, ptr("Qualifying Pool A"), page.Match.GroupName, "グループの名前より試合の文字")
+	assert.Equal(t, "架空の備考", page.Match.Note)
+	assert.True(t, page.Match.HideBlocks)
+	assert.True(t, page.Match.HideStats)
 }
 
 func TestGetMatchWithoutGroupOrEvents(t *testing.T) {

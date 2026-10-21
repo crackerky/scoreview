@@ -3,6 +3,7 @@ import type { TournamentFrame } from '@/api/common.types'
 import { divisionHref, groupHref } from '@/i18n/href'
 import type { Lang } from '@/i18n/lang'
 import { pickText } from '@/i18n/lang'
+import { groupLinkLabel } from './navi.utils'
 
 // clone-spec A 1.5: 大会ページの div#sub。バナーが 0 枚でも枠だけの白い箱を出す。
 // バナーは <br /><br /> 区切りで縦に並べ、リンク先があれば <a> で囲む。
@@ -11,11 +12,9 @@ import { pickText } from '@/i18n/lang'
 // ディビジョン成績、グループ、チーム、試合、選手、ギャラリーのページでは、バナーの上に
 // 「SCORE」メニュー(ディビジョン成績とグループへのリンク一覧)が出る。参照サイトの生 HTML
 // 271 ページで確認した(大会トップ、チーム一覧、スケジュールには出ない)。
-// スケジュールのないディビジョン(ディスクゴルフ、フリースタイル)は載らない。
-
-// 参照サイトでは観測した全ディビジョンの名前の後ろに "(Ult)" が付く(日英とも)。競技の種別を
-// 表す接尾辞だと推測するが、Ult 以外の値は 348 大会で観測されていないので固定値にする
-const divisionSuffix = '(Ult)'
+// 大会の全ディビジョンが載り、名前の後ろに競技の略号 "(Ult)" "(Free)" "(DiscGolfT)" が付く
+// (日英とも)。日程のないディビジョン(237 のフリースタイル、536 のディスクゴルフ団体戦)は、
+// 参照サイトでは alert("ページは存在しません") を出すだけのリンクなので、href のない <a> にする。
 
 type SidebarProps = {
   frame: TournamentFrame
@@ -64,7 +63,6 @@ export function Sidebar({ frame, lang, scoreMenu }: SidebarProps) {
 }
 
 function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
-  const divisions = frame.divisions.filter((division) => division.scheduleEnabled)
   return (
     <>
       <div className="CM">
@@ -76,18 +74,20 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
       </div>
       <div className="menu_list">
         <ul>
-          {divisions.map((division) => (
+          {frame.divisions.map((division) => (
             <li key={division.id}>
-              <a href={divisionHref(division.id, lang)}>
-                {`${pickText(lang, division.name)}${divisionSuffix}`}
+              <a href={division.scheduleEnabled ? divisionHref(division.id, lang) : undefined}>
+                {`${pickText(lang, division.name)}(${division.menuSuffix})`}
               </a>
               <ul>
                 {division.groups.map((group) => (
                   <li key={group.id}>
                     {group.linked ? (
-                      <a href={groupHref(group.id, lang)}>{group.name}</a>
+                      <a href={groupHref(group.id, lang)}>
+                        {groupLinkLabel(pickText(lang, group.name), groupHref(group.id, lang))}
+                      </a>
                     ) : (
-                      <p>{group.name}</p>
+                      <p>{pickText(lang, group.name)}</p>
                     )}
                   </li>
                 ))}

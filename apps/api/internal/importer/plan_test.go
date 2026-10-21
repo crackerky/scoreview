@@ -127,6 +127,51 @@ func TestBuildPlanWinnerOfDrawnBracketMatch(t *testing.T) {
 	assert.Equal(t, int64(20), *findMatch(t, plan.Import, 101).GroupID, "グループの結果一覧の試合")
 }
 
+// 英語版の一覧で英語名のないチームのリンクに出る "[F1-Win]" は、短縮名ではなく試合の表記として
+// 残し、トーナメント表から決まらない同点の試合の勝者にも使う。
+func TestBuildPlanLabelsFromEnglishRows(t *testing.T) {
+	b := miniBundle()
+	b.Groups[21].Bracket.Rows[1][2] = parse.BracketCell{}
+	schedule := b.Schedules[10]
+	id := func(v int64) *int64 { return &v }
+	score := func(v int) *int { return &v }
+	schedule.Rows = append(schedule.Rows, parse.MatchRow{
+		MatchID: id(105), HasDetail: true, Status: "finished", Code: "P1", MonthDay: "05/01",
+		Date: ptr("2026-05-01"), DivisionKind: "women",
+		Left:      parse.MatchRowSide{TeamID: id(2), ShortName: parse.Text{JA: "二", EN: "[F1-Win]"}},
+		Right:     parse.MatchRowSide{TeamID: id(3), ShortName: parse.Text{JA: "三", EN: "Three"}},
+		LeftScore: score(3), RightScore: score(1),
+	})
+
+	plan, err := BuildPlan(b)
+	require.NoError(t, err)
+	placement := findMatch(t, plan.Import, 105)
+	assert.Equal(t, "[F1-Win]", placement.LeftLabelEn)
+	assert.Empty(t, placement.RightLabelEn)
+	final := findMatch(t, plan.Import, 104)
+	require.NotNil(t, final.WinnerSide)
+	assert.Equal(t, domain.SideRight, *final.WinnerSide, "チーム 2 が F1 の勝者")
+	names := map[int64]string{}
+	for _, team := range plan.Import.Divisions[0].Teams {
+		names[team.ID] = team.NameShortEn
+	}
+	assert.Equal(t, "", names[2], "表記は英語の短縮名にしない")
+	assert.Equal(t, "Three", names[3])
+}
+
+func TestBuildPlanSOTGFromTeamPage(t *testing.T) {
+	plan, err := BuildPlan(miniBundle())
+	require.NoError(t, err)
+	assert.False(t, plan.Import.Divisions[0].Division.ShowSOTG)
+
+	b := miniBundle()
+	b.Teams[1] = &parse.Team{Name: parse.Text{JA: "チーム一"}, SOTG: true, MenuSuffixes: []string{"Free"}}
+	plan, err = BuildPlan(b)
+	require.NoError(t, err)
+	assert.True(t, plan.Import.Divisions[0].Division.ShowSOTG)
+	assert.Equal(t, "Free", plan.Import.Divisions[0].Division.MenuSuffix, "SCORE メニューの略号")
+}
+
 func TestBuildPlanTournamentAndDivision(t *testing.T) {
 	plan, err := BuildPlan(miniBundle())
 	require.NoError(t, err)
@@ -173,8 +218,9 @@ func TestBuildPlanUsesMatchPageDateAndEvents(t *testing.T) {
 				ScorerID: &scorer, AssistID: &assist,
 			},
 			{Seq: 3, ElapsedSec: 70, Kind: "timeout"}, // ★ のないタイムアウトは飛ばす
-			{Seq: 4, ElapsedSec: 90, Kind: "end"},
+			{Seq: 4, ElapsedSec: 90, Kind: "end", Side: &left},
 		},
+		Note: "架空の備考",
 		Players: parse.MatchPlayers{
 			Left: []parse.MatchPlayer{
 				{PlayerID: scorer, Number: "7", Blocks: ptr(2)}, {PlayerID: assist, Number: "8"},
@@ -189,7 +235,13 @@ func TestBuildPlanUsesMatchPageDateAndEvents(t *testing.T) {
 	assert.Equal(t, "09:30", *m.StartTime)
 	assert.Equal(t, "B", *m.Field)
 	require.Len(t, plan.Import.Events, 3)
-	assert.Nil(t, plan.Import.Events[2].Side, "end は側なし")
+	assert.Equal(t, ptr(domain.SideLeft), plan.Import.Events[2].Side, "end の ★ も残す")
+	// グループ欄が空(2017 年の形)で、Block 列と統計表のない試合ページ
+	assert.Equal(t, ptr(""), m.GroupLabel, "グループ名 Pool A と違うので試合に持たせる")
+	assert.Equal(t, "架空の備考", m.Note)
+	assert.True(t, m.HideBlocks)
+	assert.True(t, m.HideStats)
+	assert.Nil(t, findMatch(t, plan.Import, 102).GroupLabel, "試合ページがなければグループの名前")
 	assert.Equal(t, &scorer, plan.Import.Events[1].ScorerID)
 	require.Len(t, plan.Import.Players, 2, "チームページがなければ試合ページの選手を足す")
 	require.Len(t, plan.Import.Stats, 2)

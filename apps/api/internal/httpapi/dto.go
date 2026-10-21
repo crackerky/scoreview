@@ -16,7 +16,7 @@ type frameDTO struct {
 	Labels       labelsDTO          `json:"labels"`
 	ShowSchedule bool               `json:"showSchedule"`
 	Divisions    []frameDivisionDTO `json:"divisions"`
-	Galleries    []idNameDTO        `json:"galleries"`
+	Galleries    []frameGalleryDTO  `json:"galleries"`
 	Banners      []bannerDTO        `json:"banners"`
 }
 
@@ -29,18 +29,19 @@ type frameDivisionDTO struct {
 	ID              int64           `json:"id"`
 	Name            i18nDTO         `json:"name"`
 	ScheduleEnabled bool            `json:"scheduleEnabled"`
+	MenuSuffix      string          `json:"menuSuffix"`
 	Groups          []frameGroupDTO `json:"groups"`
 }
 
 type frameGroupDTO struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Linked bool   `json:"linked"`
+	ID     int64   `json:"id"`
+	Name   i18nDTO `json:"name"`
+	Linked bool    `json:"linked"`
 }
 
-type idNameDTO struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+type frameGalleryDTO struct {
+	ID   int64   `json:"id"`
+	Name i18nDTO `json:"name"`
 }
 
 type bannerDTO struct {
@@ -71,6 +72,7 @@ type matchSideDTO struct {
 	Team        *teamRefDTO     `json:"team"`
 	Placeholder *placeholderDTO `json:"placeholder"`
 	Score       *int            `json:"score"`
+	LabelEn     string          `json:"labelEn"`
 }
 
 type matchRowDTO struct {
@@ -309,6 +311,8 @@ type teamPageDTO struct {
 	Matches []matchRowDTO   `json:"matches"`
 	Players []playerLineDTO `json:"players"`
 	Staff   []staffLineDTO  `json:"staff"`
+	// ShowSotg は SOTG スコア一覧を出すか(行は matches から作る。値は空)
+	ShowSotg bool `json:"showSotg"`
 }
 
 type teamInfoDTO struct {
@@ -330,6 +334,7 @@ type playerLineDTO struct {
 	Assists int          `json:"assists"`
 	Goals   int          `json:"goals"`
 	Blocks  int          `json:"blocks"`
+	Absent  bool         `json:"absent"`
 }
 
 type staffLineDTO struct {
@@ -359,6 +364,9 @@ type matchInfoDTO struct {
 	Status     string            `json:"status"`
 	Left       matchTeamScoreDTO `json:"left"`
 	Right      matchTeamScoreDTO `json:"right"`
+	Note       string            `json:"note"`
+	HideBlocks bool              `json:"hideBlocks"`
+	HideStats  bool              `json:"hideStats"`
 	Breadcrumb breadcrumbDTO     `json:"breadcrumb"`
 }
 

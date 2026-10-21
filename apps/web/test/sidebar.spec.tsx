@@ -26,26 +26,31 @@ describe('サイドバーの SCORE メニュー', () => {
     )
     for (const group of division.groups.filter((g) => g.linked)) {
       assert.ok(
-        html.includes(`<a href="/pscore/scv_group/open/${group.id}?lang=jp">${group.name}</a>`),
+        html.includes(`<a href="/pscore/scv_group/open/${group.id}?lang=jp">${group.name.ja}</a>`),
       )
     }
   })
 
-  test('英語では英語名に (Ult) を付ける', () => {
+  test('英語では英語名に (Ult) を付け、グループも英語名', () => {
     const html = renderHtml(<Sidebar frame={frame} lang="en" scoreMenu={true} />)
     const division = frame.divisions[0]
     assert.ok(division)
     assert.ok(html.includes(`${division.name.en}(Ult)</a>`))
     assert.match(html, /\?lang=en/)
+    assert.match(html, /<a href="\/pscore\/scv_group\/open\/1002\?lang=en">Tournament A<\/a>/)
   })
 
-  test('スケジュールのないディビジョンは載せない', () => {
+  test('日程のないディビジョンもリンクなしで載り、略号は api の値', () => {
     const noSchedule = {
       ...frame,
-      divisions: frame.divisions.map((division) => ({ ...division, scheduleEnabled: false })),
+      divisions: frame.divisions.map((division) => ({
+        ...division,
+        scheduleEnabled: false,
+        menuSuffix: 'DiscGolfT',
+      })),
     }
     const html = renderHtml(<Sidebar frame={noSchedule} lang="jp" scoreMenu={true} />)
     assert.doesNotMatch(html, /scv_division/)
-    assert.match(html, /menu_list/)
+    assert.match(html, /<li><a>ビーチミックス\(DiscGolfT\)<\/a><ul>/)
   })
 })

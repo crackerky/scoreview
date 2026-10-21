@@ -47,6 +47,27 @@ describe('プール型(clone-spec C 2.1)', () => {
     assert.match(html, /<td class="RM_NASI CM"><\/td><td class="RM_AIDA CM"><\/td><\/tr>/)
   })
 
+  test('マトリクス: 5 チーム以上は列見出しを表示幅 4 で切り詰めてリンクにしない', () => {
+    const source = pool.pool
+    assert.ok(source)
+    const names = ['架空大学', 'Fictional', '見本', 'ABCD', '試し']
+    const teams = names.map((ja, index) => ({ id: 7000 + index, name: { ja, en: '' } }))
+    const matrix = teams.map((_, row) =>
+      teams.map((__, col) => ({ kind: row === col ? 'self' : 'lower' }) as const),
+    )
+    const wide = { ...pool, pool: { ...source, teams, matrix, results: [] } }
+    const out = renderHtml(<GroupView data={wide} lang="jp" />)
+    const header = /<tr><td class="RM_MD1 CM" width="22%">- MATRIX -<\/td>(.*?)<\/tr>/.exec(
+      out,
+    )?.[1]
+    assert.equal(
+      header,
+      ['架空', 'Fict', '見本', 'ABCD', '試し']
+        .map((text) => `<td class="RM_MD1 CM" width="15.6%">${text}</td>`)
+        .join(''),
+    )
+  })
+
   test('マトリクス: 詳細のない試合はリンクなし、試合中は RM_NOW(推測)、試合なしは空', () => {
     const base = poolOf(pool)
     const variants: Array<[GroupResponse, RegExp]> = [

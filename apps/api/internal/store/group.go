@@ -198,11 +198,16 @@ func buildPool(members []GroupTeam, matches []Match, teams map[int64]Team) (Pool
 			default:
 				key := pair{min(row.TeamID, col.TeamID), max(row.TeamID, col.TeamID)}
 				if match, ok := byPair[key]; ok {
+					text := scoreText(match)
+					if text == "" {
+						// 未試合のセルは試合の CD を出す(527 のグループ 6631 で "A1" など)
+						text = match.Code
+					}
 					cells[j] = MatrixCell{
 						Kind:    MatrixMatch,
 						MatchID: match.ID,
 						Status:  match.Status,
-						Text:    scoreText(match),
+						Text:    text,
 					}
 				} else {
 					cells[j] = MatrixCell{Kind: MatrixEmpty}

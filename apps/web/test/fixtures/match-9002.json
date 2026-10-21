@@ -9,18 +9,42 @@
     "field": "2",
     "status": "finished",
     "left": {
-      "team": { "id": 5004, "name": { "ja": "架空チームD", "en": "Fictional D" } },
-      "fullName": { "ja": "架空チームD ディスククラブ", "en": "Fictional D Disc Club" },
+      "team": {
+        "id": 5004,
+        "name": {
+          "ja": "架空チームD",
+          "en": "Fictional D"
+        }
+      },
+      "fullName": {
+        "ja": "架空チームD ディスククラブ",
+        "en": "Fictional D Disc Club"
+      },
       "score": 3
     },
     "right": {
-      "team": { "id": 5001, "name": { "ja": "架空チームA", "en": "Fictional A" } },
-      "fullName": { "ja": "架空チームA フライングクラブ", "en": "Fictional A Flying Club" },
+      "team": {
+        "id": 5001,
+        "name": {
+          "ja": "架空チームA",
+          "en": "Fictional A"
+        }
+      },
+      "fullName": {
+        "ja": "架空チームA フライングクラブ",
+        "en": "Fictional A Flying Club"
+      },
       "score": 4
     },
+    "note": "",
+    "hideBlocks": false,
+    "hideStats": false,
     "breadcrumb": {
       "divisionId": 101,
-      "divisionName": { "ja": "ビーチミックス", "en": "Beach Mixed" },
+      "divisionName": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
       "groupId": 1001
     }
   },
@@ -43,13 +67,19 @@
       "scorer": {
         "id": 70001,
         "number": "7",
-        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "name": {
+          "ja": "架空 太郎",
+          "en": "Taro KAKU"
+        },
         "gender": "M"
       },
       "assist": {
         "id": 70002,
         "number": "10",
-        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "name": {
+          "ja": "見本 三郎",
+          "en": "Saburo MIHON"
+        },
         "gender": "M"
       },
       "leftScore": 0,
@@ -63,13 +93,19 @@
       "scorer": {
         "id": 70201,
         "number": "8",
-        "name": { "ja": "仮想 八重", "en": "Yae KASO" },
+        "name": {
+          "ja": "仮想 八重",
+          "en": "Yae KASO"
+        },
         "gender": "F"
       },
       "assist": {
         "id": 70202,
         "number": "21",
-        "name": { "ja": "仮想 二郎", "en": "Jiro KASO" },
+        "name": {
+          "ja": "仮想 二郎",
+          "en": "Jiro KASO"
+        },
         "gender": "M"
       },
       "leftScore": 1,
@@ -93,7 +129,10 @@
       "scorer": {
         "id": 70203,
         "number": "3",
-        "name": { "ja": "仮想 三太", "en": "Santa KASO" },
+        "name": {
+          "ja": "仮想 三太",
+          "en": "Santa KASO"
+        },
         "gender": null
       },
       "assist": null,
@@ -108,13 +147,19 @@
       "scorer": {
         "id": 70003,
         "number": "4",
-        "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+        "name": {
+          "ja": "見本 花子",
+          "en": "Hanako MIHON"
+        },
         "gender": "F"
       },
       "assist": {
         "id": 70001,
         "number": "7",
-        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "name": {
+          "ja": "架空 太郎",
+          "en": "Taro KAKU"
+        },
         "gender": "M"
       },
       "leftScore": 2,
@@ -128,13 +173,19 @@
       "scorer": {
         "id": 70202,
         "number": "21",
-        "name": { "ja": "仮想 二郎", "en": "Jiro KASO" },
+        "name": {
+          "ja": "仮想 二郎",
+          "en": "Jiro KASO"
+        },
         "gender": "M"
       },
       "assist": {
         "id": 70201,
         "number": "8",
-        "name": { "ja": "仮想 八重", "en": "Yae KASO" },
+        "name": {
+          "ja": "仮想 八重",
+          "en": "Yae KASO"
+        },
         "gender": "F"
       },
       "leftScore": 3,
@@ -148,13 +199,19 @@
       "scorer": {
         "id": 70002,
         "number": "10",
-        "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+        "name": {
+          "ja": "見本 三郎",
+          "en": "Saburo MIHON"
+        },
         "gender": "M"
       },
       "assist": {
         "id": 70003,
         "number": "4",
-        "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+        "name": {
+          "ja": "見本 花子",
+          "en": "Hanako MIHON"
+        },
         "gender": "F"
       },
       "leftScore": 3,
@@ -168,13 +225,19 @@
       "scorer": {
         "id": 70001,
         "number": "7",
-        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "name": {
+          "ja": "架空 太郎",
+          "en": "Taro KAKU"
+        },
         "gender": "M"
       },
       "assist": {
         "id": 70004,
         "number": "00",
-        "name": { "ja": "仮名 四郎", "en": "" },
+        "name": {
+          "ja": "仮名 四郎",
+          "en": ""
+        },
         "gender": "M"
       },
       "leftScore": 3,
@@ -197,7 +260,10 @@
         "player": {
           "id": 70202,
           "number": "21",
-          "name": { "ja": "仮想 二郎", "en": "Jiro KASO" },
+          "name": {
+            "ja": "仮想 二郎",
+            "en": "Jiro KASO"
+          },
           "gender": "M"
         },
         "assists": 1,
@@ -208,7 +274,10 @@
         "player": {
           "id": 70201,
           "number": "8",
-          "name": { "ja": "仮想 八重", "en": "Yae KASO" },
+          "name": {
+            "ja": "仮想 八重",
+            "en": "Yae KASO"
+          },
           "gender": "F"
         },
         "assists": 1,
@@ -219,7 +288,10 @@
         "player": {
           "id": 70203,
           "number": "3",
-          "name": { "ja": "仮想 三太", "en": "Santa KASO" },
+          "name": {
+            "ja": "仮想 三太",
+            "en": "Santa KASO"
+          },
           "gender": null
         },
         "assists": 0,
@@ -232,7 +304,10 @@
         "player": {
           "id": 70001,
           "number": "7",
-          "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+          "name": {
+            "ja": "架空 太郎",
+            "en": "Taro KAKU"
+          },
           "gender": "M"
         },
         "assists": 1,
@@ -243,7 +318,10 @@
         "player": {
           "id": 70003,
           "number": "4",
-          "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+          "name": {
+            "ja": "見本 花子",
+            "en": "Hanako MIHON"
+          },
           "gender": "F"
         },
         "assists": 1,
@@ -254,7 +332,10 @@
         "player": {
           "id": 70002,
           "number": "10",
-          "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
+          "name": {
+            "ja": "見本 三郎",
+            "en": "Saburo MIHON"
+          },
           "gender": "M"
         },
         "assists": 1,
@@ -265,7 +346,10 @@
         "player": {
           "id": 70004,
           "number": "00",
-          "name": { "ja": "仮名 四郎", "en": "" },
+          "name": {
+            "ja": "仮名 四郎",
+            "en": ""
+          },
           "gender": "M"
         },
         "assists": 1,
@@ -275,7 +359,19 @@
     ]
   },
   "stats": {
-    "left": { "goals": 3, "fromOffense": 1, "fromDefense": 2, "fromTurnover": 2, "timeouts": 0 },
-    "right": { "goals": 4, "fromOffense": 3, "fromDefense": 1, "fromTurnover": 1, "timeouts": 1 }
+    "left": {
+      "goals": 3,
+      "fromOffense": 1,
+      "fromDefense": 2,
+      "fromTurnover": 2,
+      "timeouts": 0
+    },
+    "right": {
+      "goals": 4,
+      "fromOffense": 3,
+      "fromDefense": 1,
+      "fromTurnover": 1,
+      "timeouts": 1
+    }
   }
 }

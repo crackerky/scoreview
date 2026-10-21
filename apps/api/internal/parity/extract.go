@@ -47,7 +47,14 @@ var (
 	clockJST = regexp.MustCompile(`\d{2}:\d{2}:\d{2} JST`)
 	// 大会ページの <title> の接頭辞はブランド(参照サイト [CJS]、本サイトはブランド設定の値)
 	titlePrefix = regexp.MustCompile(`^\[[^\]]*\]`)
+	// 参照サイトの日程の列見出しは onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_DATE') ..." で
+	// 並べ替える。本サイトは同じ値を ?sortkey1= に入れた href なので、どちらも sort:{キー} にして比べる
+	sortOnclick = regexp.MustCompile(`AddHiddenVal\('sortkey1',\s*'([^']*)'\)`)
 )
+
+// refreshAnchors は再読み込みボタン。参照サイトは JavaScript(Action('search') など)で動き、
+// 本サイトは JavaScript なしでも動くよう href を持つ。画面上の違いはないのでリンクとして比べない。
+const refreshAnchors = "#Refresh_OK, #Refresh_NG"
 
 // NormalizeText は連続する空白(全角空白は除く)と &nbsp; を 1 つの半角空白にし、前後を削る。
 // 参照サイトは td の末尾に空白を入れる箇所があるが、画面には出ないので比較から外す。
@@ -90,18 +97,54 @@ func linkOf(sel *goquery.Selection) string {
 	if anchor.Length() == 0 {
 		return ""
 	}
+	if anchor.Is(refreshAnchors) {
+		return ""
+	}
 	if onclick, ok := anchor.Attr("onclick"); ok {
 		if m := onclickURL.FindStringSubmatch(onclick); m != nil {
 			return NormalizeHref(m[1])
 		}
+		if m := sortOnclick.FindStringSubmatch(onclick); m != nil {
+			return "sort:" + m[1]
+		}
 	}
 	href, _ := anchor.Attr("href")
+	if parsed, err := url.Parse(href); err == nil {
+		if key := parsed.Query().Get("sortkey1"); key != "" {
+			return "sort:" + key
+		}
+	}
 	return NormalizeHref(href)
+}
+
+// linkText はナビとメニューの項目の文字。名前の空のグループへのリンクは、参照サイトが絶対 URL、
+// 本サイトがルート相対パスを文字として出すので、URL に見える文字はリンク先と同じ形にそろえる。
+func linkText(text string) string {
+	if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") ||
+		strings.HasPrefix(text, "/pscore/") {
+		return NormalizeHref(text)
+	}
+	return text
+}
+
+// cellText はセルの表示文字列。<select> は選択肢を 1 つの空白で区切って並べる(参照サイトは選択肢の
+// 間に改行があり、本サイトはないので、そのまま連結すると比べられない)。
+func cellText(td *goquery.Selection) string {
+	if td.Find("select").Length() == 0 {
+		return NormalizeText(td.Text())
+	}
+	var parts []string
+	td.Find("option").Each(func(_ int, option *goquery.Selection) {
+		parts = append(parts, NormalizeText(option.Text()))
+	})
+	return NormalizeText(strings.Join(parts, " "))
 }
 
 // Extract は HTML から比較対象を取り出す。
 func Extract(doc *goquery.Document) Page {
 	var page Page
+	// <noscript> は JavaScript が有効なブラウザには出ない(本サイトの JavaScript なし用の検索ボタン)
+	doc.Find("noscript").Remove()
 	page.Title = NormalizeText(titlePrefix.ReplaceAllString(NormalizeText(doc.Find("title").Text()), ""))
 
 	doc.Find("#score_navi li").Each(func(_ int, li *goquery.Selection) {
@@ -114,7 +157,7 @@ func Extract(doc *goquery.Document) Page {
 		if text == "" {
 			return // 幅調整用の空 li
 		}
-		page.Navi = append(page.Navi, Link{Text: text, Href: linkOf(head)})
+		page.Navi = append(page.Navi, Link{Text: linkText(text), Href: linkOf(head)})
 	})
 
 	doc.Find("#sub .menu_list li").Each(func(_ int, li *goquery.Selection) {
@@ -122,7 +165,7 @@ func Extract(doc *goquery.Document) Page {
 		if head.Length() == 0 {
 			return
 		}
-		page.Menu = append(page.Menu, Link{Text: NormalizeText(head.Text()), Href: linkOf(head)})
+		page.Menu = append(page.Menu, Link{Text: linkText(NormalizeText(head.Text())), Href: linkOf(head)})
 	})
 
 	view := doc.Find("#score_view")
@@ -148,7 +191,7 @@ func Extract(doc *goquery.Document) Page {
 			tr.ChildrenFiltered("td, th").Each(func(_ int, td *goquery.Selection) {
 				classes, _ := td.Attr("class")
 				row = append(row, Cell{
-					Text:    NormalizeText(td.Text()),
+					Text:    cellText(td),
 					Classes: normalizeClasses(classes),
 					Href:    linkOf(td),
 				})

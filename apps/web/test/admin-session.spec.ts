@@ -139,11 +139,12 @@ describe('表示の整形', () => {
       team: { id: 5, name: { ja: '左', en: '' } },
       placeholder: { code: 'A1', outcome: 'win' as const },
       score: null,
+      labelEn: '',
     }
     assert.equal(sideName(side), '左')
     assert.equal(sideName({ ...side, team: null }), '[A1-勝ち]')
     assert.equal(sideChoiceValue(side), 'A1-win')
     assert.equal(sideChoiceValue({ ...side, placeholder: null }), '5')
-    assert.equal(sideName({ team: null, placeholder: null, score: null }), '未定')
+    assert.equal(sideName({ team: null, placeholder: null, score: null, labelEn: '' }), '未定')
   })
 })

@@ -2,6 +2,7 @@ package importer
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"scoreview/api/internal/domain"
@@ -97,6 +98,8 @@ func (p *planner) addRows(rows []parse.MatchRow, dp *divPlan, gp *groupPlan) row
 		if gp != nil && gp.row.ID != 0 && mp.row.GroupID == nil {
 			mp.row.GroupID = ptr(gp.row.ID)
 		}
+		noteLabel(&mp.row.LeftLabelEn, r.Left)
+		noteLabel(&mp.row.RightLabelEn, r.Right)
 		mp.fromRow = true
 		list.plans[i] = mp
 	}
@@ -104,6 +107,21 @@ func (p *planner) addRows(rows []parse.MatchRow, dp *divPlan, gp *groupPlan) row
 }
 
 func clean(s string) string { return strings.TrimSpace(s) }
+
+// labelPattern は対戦相手の決まり方の英語表記。勝ち負け "[A1-Win]"、グループの順位 "[MA-3rd]"、
+// 枠 "(A10)"(clone-spec B 8)。参照サイトの英語版は、英語名のないチームのリンクの文字にこれを出す。
+var labelPattern = regexp.MustCompile(`^(\[[^\]]+-(Win|Lose|\d+(st|nd|rd|th))\]|\([0-9A-Za-z]+\))$`)
+
+// isLabel は英語版の一覧のチームのリンクの文字が、チーム名ではなく決まり方の表記かを返す。
+func isLabel(text string) bool { return labelPattern.MatchString(clean(text)) }
+
+// noteLabel は一覧の行の英語の文字が決まり方の表記なら、試合のその側の表記として残す。
+// 英語名のあるチームの行には名前が出るので、表記が分かるのは英語名のないチームの行だけ。
+func noteLabel(dst *string, side parse.MatchRowSide) {
+	if *dst == "" && side.TeamID != nil && isLabel(side.ShortName.EN) {
+		*dst = clean(side.ShortName.EN)
+	}
+}
 
 func (p *planner) newMatch(dp *divPlan) *matchPlan {
 	mp := &matchPlan{
@@ -198,6 +216,20 @@ func (p *planner) applyMatchPage(id int64, m *parse.Match) {
 		gp := p.ensureGroup(*bc.GroupID, mp.div, m.GroupName)
 		mp.row.GroupID = ptr(gp.row.ID)
 	}
+	// clone-spec D 2.2: 試合ページのグループ欄はグループの今の名前と違うことがある(大文字小文字、
+	// 別のグループ名、2017 年は空)ので、違うときだけ試合に持たせる
+	groupName := ""
+	if mp.row.GroupID != nil {
+		if gp := p.groupByID[*mp.row.GroupID]; gp != nil {
+			groupName = gp.row.Name
+		}
+	}
+	if clean(m.GroupName) != clean(groupName) {
+		mp.row.GroupLabel = ptr(m.GroupName)
+	}
+	mp.row.Note = m.Note
+	mp.row.HideBlocks = !m.BlockColumn
+	mp.row.HideStats = m.Stats == nil
 	if m.Code != "" {
 		mp.row.Code = m.Code
 	}
@@ -422,6 +454,59 @@ func (p *planner) planWinners() {
 	}
 }
 
+// outcomeLabel は勝ち負けの表記 "[A1-Win]" の CD と勝敗。
+var outcomeLabel = regexp.MustCompile(`^\[(.+)-(Win|Lose)\]$`)
+
+// planWinnersFromLabels は、トーナメント表から勝者の分からない同点の試合の勝者を、後の試合の
+// 決まり方の表記から決める。"[WK16-Win]" の側のチームは WK16 の勝者、"[WK16-Lose]" は敗者
+// (151 の WK16 は 7-7 で試合詳細がなく、表記だけが勝者を示す。参照サイトの成績表もそのチームの
+// 勝ちとして数える)。
+func (p *planner) planWinnersFromLabels() {
+	byCode := map[*divPlan]map[string][]*matchPlan{}
+	for _, mp := range p.matches {
+		if byCode[mp.div] == nil {
+			byCode[mp.div] = map[string][]*matchPlan{}
+		}
+		byCode[mp.div][mp.row.Code] = append(byCode[mp.div][mp.row.Code], mp)
+	}
+	for _, mp := range p.matches {
+		for _, side := range []struct {
+			team  *int64
+			label string
+		}{{mp.row.LeftTeamID, mp.row.LeftLabelEn}, {mp.row.RightTeamID, mp.row.RightLabelEn}} {
+			m := outcomeLabel.FindStringSubmatch(side.label)
+			if m == nil || side.team == nil {
+				continue
+			}
+			for _, target := range byCode[mp.div][m[1]] {
+				setWinnerOfTie(&target.row, *side.team, m[2] == "Win")
+			}
+		}
+	}
+}
+
+// setWinnerOfTie は勝者の決まっていない同点の終了試合に、team が勝った(won=false なら負けた)
+// として勝者を入れる。team の出ていない試合は変えない。
+func setWinnerOfTie(m *store.Match, team int64, won bool) {
+	if m.Status != domain.MatchFinished || m.WinnerSide != nil || m.LeftScore == nil ||
+		m.RightScore == nil || *m.LeftScore != *m.RightScore {
+		return
+	}
+	var side domain.Side
+	switch {
+	case m.LeftTeamID != nil && *m.LeftTeamID == team:
+		side = domain.SideLeft
+	case m.RightTeamID != nil && *m.RightTeamID == team:
+		side = domain.SideRight
+	default:
+		return
+	}
+	if !won {
+		side = side.Opposite()
+	}
+	m.WinnerSide = &side
+}
+
 // planEventsAndStats は試合ページの得点経過と出場選手を match_events と match_player_stats にする。
 // キャラハンはイベント(callahan=true の goal)から数えるので出場記録には入れない(migrations/00002)。
 func (p *planner) planEventsAndStats() {
@@ -483,7 +568,8 @@ func (p *planner) planEventsAndStats() {
 				Kind:     domain.EventKind(ev.Kind),
 				Callahan: ev.Callahan && ev.Kind == string(domain.EventGoal),
 			}
-			if ev.Side != nil && ev.Kind != string(domain.EventEnd) {
+			if ev.Side != nil {
+				// 試合終了の行の ★ も側として残す(clone-spec D 2.3)
 				row.Side = ptr(domain.Side(*ev.Side))
 			}
 			if ev.Kind == string(domain.EventGoal) {
