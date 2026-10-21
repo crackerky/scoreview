@@ -275,6 +275,12 @@ type BracketCell = {
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
                                            // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
   showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
+  // 以下はチーム名の下の本サイト独自の追記(requirements.md「意図的な差分」)
+  // 次の試合。matches のうち最初の試合中、なければ最初の未試合(結果の種類が normal)。大会が終了していれば null
+  nextMatchId: number | null
+  // 所属グループ(公開中のもの)のうち、いま見るべきもの。次の試合のグループ → 最後に終えた試合のグループ
+  // → group_teams の登録(ナビの並びで最初)の順に選ぶ。無ければ null
+  currentGroup: { id: number; name: I18nText; linked: boolean } | null
 }
 ```
 

@@ -221,5 +221,14 @@
       "gender": null
     }
   ],
-  "showSotg": false
+  "showSotg": false,
+  "nextMatchId": null,
+  "currentGroup": {
+    "id": 1,
+    "name": {
+      "ja": "Qualifying pool A",
+      "en": ""
+    },
+    "linked": true
+  }
 }

@@ -209,5 +209,14 @@
       "gender": "M"
     }
   ],
-  "showSotg": false
+  "showSotg": false,
+  "nextMatchId": 9003,
+  "currentGroup": {
+    "id": 1001,
+    "name": {
+      "ja": "Qualifying pool A",
+      "en": "Qualifying pool A"
+    },
+    "linked": true
+  }
 }

@@ -332,6 +332,10 @@ func toTeamPage(page store.TeamPage) teamPageDTO {
 		Staff:    make([]staffLineDTO, 0, len(page.Staff)),
 		ShowSotg: page.ShowSOTG,
 	}
+	out.NextMatchID = page.NextMatchID
+	if group := page.CurrentGroup; group != nil {
+		out.CurrentGroup = &frameGroupDTO{ID: group.ID, Name: toI18n(group.Name), Linked: group.Linked}
+	}
 	for _, line := range page.Players {
 		out.Players = append(out.Players, playerLineDTO{
 			Player: toPlayerRef(line.Player), Games: line.Games, Assists: line.Assists, Goals: line.Goals,

@@ -79,6 +79,11 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 		// clone-spec D 1.1 の 6
 		ShowSOTG: division.ShowSOTG,
 	}
+	if page.NextMatchID, page.CurrentGroup, err = teamWhereabouts(
+		ctx, db, scope, team, matches, rows,
+	); err != nil {
+		return TeamPage{}, err
+	}
 	// 出場記録のある選手が 1 人でもいれば、出場記録の取られているチーム。そのチームで記録のない選手は
 	// 欠場として灰色(ABS)にする。試合詳細のない大会のチームは全員記録がないので欠場にしない
 	// (参照サイトの全チームページで、ABS の行は出場記録のない選手と一致した)
@@ -114,4 +119,69 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 		return domain.CompareStaffRoles(a.Role.Ja, b.Role.Ja)
 	})
 	return page, nil
+}
+
+// teamWhereabouts はチームの次の試合と、いま見るべきグループを返す(本サイト独自の追記)。
+// matches と rows は同じ並び(既定の並び)であること。
+//
+// 次の試合は domain.NextMatch で、終了した大会では出さない。グループは公開中(ナビに出る)のものに限り、
+// 次の試合のグループ → 最後に終えた試合のグループ → group_teams の登録(ナビの並びで最初)の順で選ぶ。
+func teamWhereabouts(
+	ctx context.Context,
+	db *gorm.DB,
+	scope tournamentScope,
+	team Team,
+	matches []Match,
+	rows []domain.MatchRow,
+) (*int64, *FrameGroup, error) {
+	published := map[int64]FrameGroup{}
+	var order []int64
+	for _, division := range scope.frame.Divisions {
+		if division.ID != team.DivisionID {
+			continue
+		}
+		for _, group := range division.Groups {
+			published[group.ID] = group
+			order = append(order, group.ID)
+		}
+	}
+	pick := func(groupID *int64) *FrameGroup {
+		if groupID == nil {
+			return nil
+		}
+		if group, ok := published[*groupID]; ok {
+			return &group
+		}
+		return nil
+	}
+
+	var nextID *int64
+	var current *FrameGroup
+	if index := domain.NextMatch(rows); index >= 0 && scope.tournament.Status != domain.TournamentFinished {
+		nextID = &rows[index].ID
+		current = pick(matches[index].GroupID)
+	}
+	for i := len(matches) - 1; current == nil && i >= 0; i-- {
+		if matches[i].Status == domain.MatchFinished {
+			current = pick(matches[i].GroupID)
+		}
+	}
+	if current != nil || len(order) == 0 {
+		return nextID, current, nil
+	}
+	var members []GroupTeam
+	err := db.WithContext(ctx).Where(sqlByTeam, team.ID).Find(&members).Error
+	if err != nil {
+		return nil, nil, fmt.Errorf("load groups of team %d: %w", team.ID, err)
+	}
+	joined := map[int64]bool{}
+	for _, member := range members {
+		joined[member.GroupID] = true
+	}
+	for _, groupID := range order {
+		if joined[groupID] {
+			return nextID, pick(&groupID), nil
+		}
+	}
+	return nextID, nil, nil
 }

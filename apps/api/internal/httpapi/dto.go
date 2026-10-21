@@ -315,6 +315,9 @@ type teamPageDTO struct {
 	Staff   []staffLineDTO  `json:"staff"`
 	// ShowSotg は SOTG スコア一覧を出すか(行は matches から作る。値は空)
 	ShowSotg bool `json:"showSotg"`
+	// NextMatchID と CurrentGroup はチーム名の下の本サイト独自の追記(次の試合、所属グループ)
+	NextMatchID  *int64         `json:"nextMatchId"`
+	CurrentGroup *frameGroupDTO `json:"currentGroup"`
 }
 
 type teamInfoDTO struct {
