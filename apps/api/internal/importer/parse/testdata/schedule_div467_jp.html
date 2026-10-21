@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>[CJS] 2020 Makuhari Ultimate League 4on4 -ディビジョンスケジュール-</title></head>
+<body onload=''>
+<div id="top"><div id="wrapper"><div id="header">
+</div><!-- /#header -->
+<div id="contents"><div id="main"><div id="score_parts">
+<div id="score_view">
+						
+<script type="text/javascript">
+$(function() {
+
+	$("#Refresh_NG").show(500);
+	setTimeout( function() {
+		$("#Refresh_OK").show(800);
+		$("#Refresh_NG").hide(800);
+
+	}, 5000);
+});
+</script>
+
+
+<div class="ITBL">
+	<form action="" accept-charset="utf-8" method="post">		<input type="hidden" name="ediv_id" value="467" />		<input type="hidden" name="lang" value="jp" />
+		<table>
+			<tr>
+				<td class='NINI CM BOLD'  width='40px'  >日付</td>
+				<td class=''         width='120px' ><select name="ymd" class="NWAKU  WMAX"  id='ymd'   onchange="Action('search');"   >
+<option value="" selected="selected"></option>
+<option value="20200217">2020/02/17</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='NINI CM BOLD'  width='60px'  >チーム名</td>
+				<td class=''         width='180px' ><select name="team" class="NWAKU  WMAX"  id='team'    onchange="Action('search');"    >
+<option value="" selected="selected"></option>
+<option value="9828">陣太鼓</option>
+<option value="9829">VORTEX</option>
+<option value="9830">Milagroα</option>
+<option value="9831">Milagroβ</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='NINI CM BOLD'  width='60px'  >コート</td>
+				<td class=''         width='100px' ><select name="field" class="NWAKU  WMAX"  id='field'    onchange="Action('search');"    >
+<option value="" selected="selected"></option>
+<option value="A">A</option>
+<option value="B">B</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='RM'       width='120px' style="height:33px"  >					<a id='Refresh_OK'  style='display: none;'  href="#"  onclick="Action('search'); return false;"
+						><img src="https://score.clubjr.com/img/icons/refresh.png" alt="Reflesh_OK" /></a>
+					<a id='Refresh_NG'  style='display: none;'  href="#"  onclick='alert("５秒お待ちください"); return false;'
+						><img src="https://score.clubjr.com/img/icons/refresh_ng.png" alt="RefleshWait" /></a>
+						&nbsp;
+				</td>
+			</tr>
+		</table>
+		
+	</form></div>
+
+<div class="TBL">
+	<table>
+		<tr class='' >
+			<td class='MD1 CM' width= '13%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mdv.DIVISION_SORTKEY') ;  Action(&quot;sort&quot;)  ; return false; ">ディビジョン</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_DATE') ;  Action(&quot;sort&quot;)  ; return false; ">日付</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.START_TIME') ;  Action(&quot;sort&quot;)  ; return false; ">時間</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.FIELD_NO') ;  Action(&quot;sort&quot;)  ; return false; ">コート</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_CD') ;  Action(&quot;sort&quot;)  ; return false; ">CD</a></td>
+			<td class='MD1 RM' width= '17%'><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_lt_name') ;  Action(&quot;sort&quot;)  ; return false; ">チーム名</a> </td>
+			<td class='MD1 CM' width= '4%' >-</td>
+			<td class='MD1 CM' width= '3%' >VS</td>
+			<td class='MD1 CM' width= '4%' >-</td>
+			<td class='MD1 LM' width= '17%'><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_rt_name') ;  Action(&quot;sort&quot;)  ; return false; ">チーム名</a></td>
+			<td class='MD1 CM' width= '14%'>状況</td>
+		</tr>
+	
+		 
+			<tr class='H24'>
+				<td class='MC_END  CM' >オープン</td>
+				<td class='MC_END CM' >02/17</td>
+				<td class='MC_END CM' >20:15 </td>
+				<td class='MC_END CM' >A</td>
+				<td class='MC_END CM' >A4</td>
+				<td class='MC_END RM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/9829?lang=jp'; return false;">VORTEX</a></span></td>
+				<td class='MC_END CM' >4</td>
+				<td class='MC_END CM' >x</td>
+				<td class='MC_END CM' >4</td>
+				<td class='MC_END LM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/9832?lang=jp'; return false;">柴又ーず</a></span></td>
+				<td class='MC_END CM' >
+				<a href="#" class="Select_Link" onclick="document.location = 'https://score.clubjr.com/pscore/scv_match/open/23474?lang=jp'; return false;">[対戦結果]</a>				</td>
+			</tr>
+		 
+			<tr class='H24'>
+				<td class='MC_END  CM' >オープン</td>
+				<td class='MC_END CM' >02/17</td>
+				<td class='MC_END CM' >20:15 </td>
+				<td class='MC_END CM' >B</td>
+				<td class='MC_END CM' >A5</td>
+				<td class='MC_END RM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/9830?lang=jp'; return false;">Milagroα</a></span></td>
+				<td class='MC_END CM' >1</td>
+				<td class='MC_END CM' >x</td>
+				<td class='MC_END CM' >6</td>
+				<td class='MC_END LM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/9831?lang=jp'; return false;">Milagroβ</a></span></td>
+				<td class='MC_END CM' >
+				<a href="#" class="Select_Link" onclick="document.location = 'https://score.clubjr.com/pscore/scv_match/open/23475?lang=jp'; return false;">[対戦結果]</a>				</td>
+			</tr>
+		 
+			</table>
+
+</div>
+
+
+					</div>
+</div></div></div></div></div></body></html>
