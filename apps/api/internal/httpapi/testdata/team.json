@@ -216,5 +216,6 @@
       },
       "gender": null
     }
-  ]
+  ],
+  "showSotg": false
 }

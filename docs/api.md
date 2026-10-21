@@ -259,6 +259,7 @@ type BracketCell = {
   }>                                       // (得点+アシスト)降順、得点降順、背番号の数値昇順
   staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
                                            // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
+  showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
 }
 ```
 

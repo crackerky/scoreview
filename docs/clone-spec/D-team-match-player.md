@@ -62,6 +62,7 @@ URL: `https://score.clubjr.com/pscore/{scv_team|scv_match|scv_player}/open/{ID}?
 6. (任意・旧大会) `SOTGｽｺｱ一覧` 表 (2017 DISCRAFT=4990 で確認。2021/2026 のチームには無い → データ有無か大会設定で出し分け):
    - 見出し table: `td.LM(26%) > span.SCV_MIDA_M「&lt; SOTGｽｺｱ一覧 &gt;」` + `td.LM(74%) > span.SCV_SOTG_COMM`(※１･･･ルールの理解　※２･･･ファール及び身体接触　※３･･･フェアプレイ　<br />※４･･･ポジティブな姿勢およびセルフマネジメント　※５･･･相手チームのスピリットとの比較)。`.SCV_SOTG_COMM{font-size:93%;color:#ff4500;line-height:120%}`
    - 表: CD / 相手チーム / ※１ ※２ ※３ ※４ ※５ / 合計 (td.MC_END)。値セルは4990では全て空。最終行 `colspan=2 「&lt; SOTG 平均 &gt;」`(td.MD1) + 空6セル。
+   - 代表 16 大会では 224(2020 Makuhari 4on4)の 5 チームにだけある。行はチーム対戦一覧と同じ試合・同じ順(未試合を含む状態クラス)、相手チームはリンクなしの短縮名。表の後に `<hr />`、その後に選手一覧。本サイトはディビジョンの設定(divisions.show_sotg)で出す。
    - en: `&lt;SOTG ScoreList&gt;`, 凡例 `* 1 ･･･Rules Knowledge & Use  * 2 ･･･Fouls & Body Contact  * 3 ･･･Fair-Mindedness  * 4 ･･･Positive Attitude & Self-Cont...`、列 `CD / VS Team / * 1..* 5 / Total`、平均 `&lt; SOTG Avg. &gt;`。
 7. `<hr />` + `<span class='SCV_MIDA_M'>&lt; 選手一覧 &gt;</span>`(en `&lt;Players List&gt;`) + `table style='width: 100%'`:
    - 列: `#`(5%) / 選手(35%) / 試合数 / アシスト / ゴール / トータル / ブロック (各10%) / `--`(10%、中身は常に空)。

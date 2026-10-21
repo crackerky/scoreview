@@ -205,5 +205,6 @@
       },
       "gender": "M"
     }
-  ]
+  ],
+  "showSotg": false
 }

@@ -21,7 +21,12 @@ type Team struct {
 	Matches []MatchRow   `json:"matches"`
 	Players []TeamPlayer `json:"players"`
 	Staff   []TeamStaff  `json:"staff"`
+	// SOTG は SOTG スコア一覧の表があるか(224 のチームで観測。値はすべて空)。
+	SOTG bool `json:"sotg"`
 }
+
+// sotgColumns は SOTG スコア一覧の列数(CD / 相手チーム / ※１〜※５ / 合計)。
+const sotgColumns = 8
 
 // TeamRecord はチームの通算成績。順位はディビジョン内の順位で、未確定なら nil。
 type TeamRecord struct {
@@ -89,8 +94,10 @@ func ParseTeam(r io.Reader, lang site.Lang) (*Team, error) {
 		case h[0] == "試合数" || h[0] == "Games":
 			out.Record, tblErr = parseTeamRecord(table)
 		case h[0] == "CD" && len(h) == listLayout().cells:
-			// 旧大会の SOTG スコア一覧も CD 列から始まるが列数が違う(clone-spec D 1.1 の 6)ので読まない
 			out.Matches, tblErr = parseMatchRows(table, listLayout(), lang)
+		case h[0] == "CD" && len(h) == sotgColumns:
+			// 旧大会の SOTG スコア一覧(clone-spec D 1.1 の 6)。値は空なので有無だけを読む
+			out.SOTG = true
 		case h[0] == "#":
 			out.Players, tblErr = parseTeamPlayers(table, len(h), lang)
 		case h[0] == "役割" || h[0] == "Task":

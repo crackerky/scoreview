@@ -76,6 +76,8 @@ func GetTeam(ctx context.Context, db *gorm.DB, id int64) (TeamPage, error) {
 		Matches: rows,
 		Players: []PlayerLine{},
 		Staff:   []StaffLine{},
+		// clone-spec D 1.1 の 6
+		ShowSOTG: division.ShowSOTG,
 	}
 	// 出場記録のある選手が 1 人でもいれば、出場記録の取られているチーム。そのチームで記録のない選手は
 	// 欠場として灰色(ABS)にする。試合詳細のない大会のチームは全員記録がないので欠場にしない

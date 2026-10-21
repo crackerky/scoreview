@@ -392,6 +392,10 @@ func (p *planner) planTeams() {
 			tp.row.NameFullEn = page.Name.EN
 		}
 		tp.row.CommentJa, tp.row.CommentEn = page.Comment.JA, page.Comment.EN
+		if page.SOTG {
+			// clone-spec D 1.1 の 6: SOTG スコア一覧は大会の設定と推測し、ディビジョン単位で持つ
+			tp.div.row.ShowSOTG = true
+		}
 	}
 	p.planFinalRanks()
 }

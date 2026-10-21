@@ -259,6 +259,8 @@ type TeamPage struct {
 	Matches []domain.MatchRow
 	Players []PlayerLine
 	Staff   []StaffLine
+	// ShowSOTG は SOTG スコア一覧(行は Matches、値は空)を出すか(divisions.show_sotg)
+	ShowSOTG bool
 }
 
 // TeamLayout はチームページの構成。

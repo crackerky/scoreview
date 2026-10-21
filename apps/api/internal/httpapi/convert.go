@@ -314,10 +314,11 @@ func toTeamPage(page store.TeamPage) teamPageDTO {
 			ID: page.Team.ID, FullName: toI18n(page.Team.FullName), ShortName: toI18n(page.Team.ShortName),
 			Comment: toI18n(page.Team.Comment), Layout: string(page.Team.Layout),
 		},
-		Record:  teamRecordDTO{tallyDTO: toTally(page.Record), Rank: page.Rank},
-		Matches: toMatchRows(page.Matches),
-		Players: make([]playerLineDTO, 0, len(page.Players)),
-		Staff:   make([]staffLineDTO, 0, len(page.Staff)),
+		Record:   teamRecordDTO{tallyDTO: toTally(page.Record), Rank: page.Rank},
+		Matches:  toMatchRows(page.Matches),
+		Players:  make([]playerLineDTO, 0, len(page.Players)),
+		Staff:    make([]staffLineDTO, 0, len(page.Staff)),
+		ShowSotg: page.ShowSOTG,
 	}
 	for _, line := range page.Players {
 		out.Players = append(out.Players, playerLineDTO{

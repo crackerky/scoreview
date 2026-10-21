@@ -190,6 +190,8 @@ export const teamResponseSchema = z.object({
   record: tallySchema.extend({ rank: z.number().int().nullable() }),
   matches: z.array(matchRowSchema),
   players: z.array(playerLineSchema.extend({ games: z.number().int(), absent: z.boolean() })),
+  // SOTG スコア一覧(行は matches、値は空)を出すか
+  showSotg: z.boolean(),
   staff: z.array(
     z.object({
       id: z.number().int(),

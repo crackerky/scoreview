@@ -159,6 +159,18 @@ func TestBuildPlanLabelsFromEnglishRows(t *testing.T) {
 	assert.Equal(t, "Three", names[3])
 }
 
+func TestBuildPlanSOTGFromTeamPage(t *testing.T) {
+	plan, err := BuildPlan(miniBundle())
+	require.NoError(t, err)
+	assert.False(t, plan.Import.Divisions[0].Division.ShowSOTG)
+
+	b := miniBundle()
+	b.Teams[1] = &parse.Team{Name: parse.Text{JA: "チーム一"}, SOTG: true}
+	plan, err = BuildPlan(b)
+	require.NoError(t, err)
+	assert.True(t, plan.Import.Divisions[0].Division.ShowSOTG)
+}
+
 func TestBuildPlanTournamentAndDivision(t *testing.T) {
 	plan, err := BuildPlan(miniBundle())
 	require.NoError(t, err)

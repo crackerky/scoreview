@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,24 @@ func TestParseTeam(t *testing.T) {
 }
 
 // ディスクゴルフ団体のチームページは成績表と対戦一覧がなく、選手一覧は # と選手だけ(clone-spec D 1.2)
+// SOTG スコア一覧(clone-spec D 1.1 の 6): CD から始まる 8 列の表があれば SOTG=true。
+func TestParseTeamSOTG(t *testing.T) {
+	page := func(extra string) string {
+		return `<html><body><div id="score_view"><span class='SCV_MIDA_M'>架空<br></span>` + extra +
+			`</div></body></html>`
+	}
+	sotg := `<div class="TBL"><table><tr class=''>
+<td class='MD1 CM'>CD</td><td class='MD1 CM'>相手チーム</td><td class='MD1 CM'>※１</td>
+<td class='MD1 CM'>※２</td><td class='MD1 CM'>※３</td><td class='MD1 CM'>※４</td>
+<td class='MD1 CM'>※５</td><td class='MD1 CM'>合計</td></tr></table></div>`
+	with, err := ParseTeam(strings.NewReader(page(sotg)), site.LangJP)
+	require.NoError(t, err)
+	assert.True(t, with.SOTG)
+	without, err := ParseTeam(strings.NewReader(page("")), site.LangJP)
+	require.NoError(t, err)
+	assert.False(t, without.SOTG)
+}
+
 func TestParseTeamDiscGolf(t *testing.T) {
 	tm, err := ParseTeam(fixture(t, "team_17459_jp.html"), site.LangJP)
 	require.NoError(t, err)

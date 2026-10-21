@@ -2,9 +2,18 @@
   "frame": "frame-1",
   "team": {
     "id": 5003,
-    "fullName": { "ja": "架空ディスクゴルフ部", "en": "" },
-    "shortName": { "ja": "架空DG", "en": "" },
-    "comment": { "ja": "", "en": "" },
+    "fullName": {
+      "ja": "架空ディスクゴルフ部",
+      "en": ""
+    },
+    "shortName": {
+      "ja": "架空DG",
+      "en": ""
+    },
+    "comment": {
+      "ja": "",
+      "en": ""
+    },
     "layout": "roster_only"
   },
   "record": {
@@ -22,7 +31,10 @@
       "player": {
         "id": 70101,
         "number": "1",
-        "name": { "ja": "仮名 一", "en": "" },
+        "name": {
+          "ja": "仮名 一",
+          "en": ""
+        },
         "gender": "M"
       },
       "games": 0,
@@ -35,7 +47,10 @@
       "player": {
         "id": 70102,
         "number": "2",
-        "name": { "ja": "仮名 二", "en": "" },
+        "name": {
+          "ja": "仮名 二",
+          "en": ""
+        },
         "gender": "F"
       },
       "games": 0,
@@ -45,5 +60,6 @@
       "absent": false
     }
   ],
-  "staff": []
+  "staff": [],
+  "showSotg": false
 }

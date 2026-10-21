@@ -16,7 +16,7 @@ import { type TblColumn, TblHeaderRow } from './Tbl'
 // - list: グループの結果一覧とチーム対戦一覧(clone-spec C 2.1(c)、D 1.1)。区切りは全角 "Ｘ"
 // 行の全セルに状態クラス(MC_MAE / MC_NOW / MC_END)が付き、ディビジョン列だけに種別クラスが付く。
 
-const statusClass: Record<MatchStatus, string> = {
+export const statusClass: Record<MatchStatus, string> = {
   scheduled: 'MC_MAE',
   // 推測: 試合中の行は参照サイトで未観測。CSS の定義(赤字)だけがある
   live: 'MC_NOW',

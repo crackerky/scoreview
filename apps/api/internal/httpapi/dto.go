@@ -298,6 +298,8 @@ type teamPageDTO struct {
 	Matches []matchRowDTO   `json:"matches"`
 	Players []playerLineDTO `json:"players"`
 	Staff   []staffLineDTO  `json:"staff"`
+	// ShowSotg は SOTG スコア一覧を出すか(行は matches から作る。値は空)
+	ShowSotg bool `json:"showSotg"`
 }
 
 type teamInfoDTO struct {
