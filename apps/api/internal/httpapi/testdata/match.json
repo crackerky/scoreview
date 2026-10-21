@@ -1,0 +1,268 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "match": {
+    "id": 1,
+    "code": "A1",
+    "groupName": "Qualifying pool A",
+    "date": "2026-10-17",
+    "time": "09:00",
+    "field": "1",
+    "status": "finished",
+    "left": {
+      "team": {
+        "id": 1,
+        "name": {
+          "ja": "アルファ",
+          "en": "Alpha"
+        }
+      },
+      "fullName": {
+        "ja": "アルファ・スロー",
+        "en": "Alpha"
+      },
+      "score": 9
+    },
+    "right": {
+      "team": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "fullName": {
+        "ja": "ブラボー",
+        "en": "Bravo"
+      },
+      "score": 3
+    },
+    "breadcrumb": {
+      "divisionId": 1,
+      "divisionName": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
+      "groupId": 1
+    }
+  },
+  "events": [
+    {
+      "elapsedSec": 0,
+      "kind": "pull",
+      "side": "left",
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 0,
+      "rightScore": 0
+    },
+    {
+      "elapsedSec": 60,
+      "kind": "goal",
+      "side": "left",
+      "scorer": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 2,
+        "number": "10",
+        "name": {
+          "ja": "架空 十子",
+          "en": ""
+        },
+        "gender": "F"
+      },
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 0
+    },
+    {
+      "elapsedSec": 90,
+      "kind": "timeout",
+      "side": "right",
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 0
+    },
+    {
+      "elapsedSec": 120,
+      "kind": "goal",
+      "side": "right",
+      "scorer": {
+        "id": 4,
+        "number": "1",
+        "name": {
+          "ja": "架空 一太",
+          "en": "Ichita KAKU"
+        },
+        "gender": null
+      },
+      "assist": null,
+      "callahan": false,
+      "leftScore": 1,
+      "rightScore": 1
+    },
+    {
+      "elapsedSec": 180,
+      "kind": "goal",
+      "side": "left",
+      "scorer": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "assist": null,
+      "callahan": true,
+      "leftScore": 2,
+      "rightScore": 1
+    },
+    {
+      "elapsedSec": 1200,
+      "kind": "end",
+      "side": null,
+      "scorer": null,
+      "assist": null,
+      "callahan": false,
+      "leftScore": 2,
+      "rightScore": 1
+    }
+  ],
+  "lineups": {
+    "left": [
+      {
+        "player": {
+          "id": 1,
+          "number": "7",
+          "name": {
+            "ja": "架空 七郎",
+            "en": "Shichiro KAKU"
+          },
+          "gender": "M"
+        },
+        "assists": 0,
+        "goals": 2,
+        "blocks": 2
+      },
+      {
+        "player": {
+          "id": 2,
+          "number": "10",
+          "name": {
+            "ja": "架空 十子",
+            "en": ""
+          },
+          "gender": "F"
+        },
+        "assists": 1,
+        "goals": 0,
+        "blocks": 0
+      }
+    ],
+    "right": [
+      {
+        "player": {
+          "id": 4,
+          "number": "1",
+          "name": {
+            "ja": "架空 一太",
+            "en": "Ichita KAKU"
+          },
+          "gender": null
+        },
+        "assists": 0,
+        "goals": 1,
+        "blocks": 1
+      }
+    ]
+  },
+  "stats": {
+    "left": {
+      "goals": 2,
+      "fromOffense": 1,
+      "fromDefense": 1,
+      "fromTurnover": 1,
+      "timeouts": 0
+    },
+    "right": {
+      "goals": 1,
+      "fromOffense": 1,
+      "fromDefense": 0,
+      "fromTurnover": 0,
+      "timeouts": 1
+    }
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "group": {
+    "id": 4,
+    "name": "Tounament A",
+    "kind": "bracket",
+    "division": {
+      "id": 1,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      }
+    }
+  },
+  "pool": null,
+  "bracket": {
+    "pattern": "T2A",
+    "ptnName": "Fictional =Tounament A=",
+    "columns": 2,
+    "rows": [
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_yen",
+          "text": "FINAL",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "Placement",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "team",
+          "text": "",
+          "team": {
+            "id": 4,
+            "name": {
+              "ja": "デルタ",
+              "en": ""
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "game",
+          "text": "2-1",
+          "team": null,
+          "matchId": 4,
+          "status": "live"
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": true,
+            "right": false
+          },
+          "kind": "win",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": true
+          },
+          "kind": "team",
+          "text": "[A1-勝ち]",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ]
+    ]
+  },
+  "image": null,
+  "matches": [
+    {
+      "matchId": 4,
+      "hasDetail": true,
+      "code": "B1",
+      "date": "2026-10-18",
+      "time": "10:00",
+      "field": "2",
+      "status": "live",
+      "left": {
+        "team": {
+          "id": 4,
+          "name": {
+            "ja": "デルタ",
+            "en": ""
+          }
+        },
+        "placeholder": null,
+        "score": 2
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "A1",
+          "outcome": "win"
+        },
+        "score": 1
+      }
+    }
+  ]
+}

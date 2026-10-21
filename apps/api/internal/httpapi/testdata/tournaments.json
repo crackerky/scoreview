@@ -1,0 +1,28 @@
+{
+  "sections": [
+    {
+      "status": "entry_open",
+      "tournaments": [
+        {
+          "id": 3,
+          "name": {
+            "ja": "2027 架空カップ",
+            "en": "2027 Fictional Cup"
+          }
+        }
+      ]
+    },
+    {
+      "status": "finished",
+      "tournaments": [
+        {
+          "id": 1,
+          "name": {
+            "ja": "2026 架空ビーチ大会",
+            "en": "2026 Fictional Beach"
+          }
+        }
+      ]
+    }
+  ]
+}

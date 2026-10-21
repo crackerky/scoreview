@@ -1,0 +1,141 @@
+package store
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"slices"
+
+	"gorm.io/gorm"
+
+	"scoreview/api/internal/domain"
+)
+
+const (
+	// leadersLimit は得点ランキングの件数(docs/api.md。参照サイトの 949 は 30 行。clone-spec C 1.5)
+	leadersLimit = 30
+	// blockLeadersLimit はブロックランキングの件数(docs/api.md。参照サイトの 949 は 10 行)
+	blockLeadersLimit = 10
+)
+
+// GetDivisionStandings はディビジョン成績を返す。無ければ EVENT_DIVISION_ID の NotFound。
+//
+// 順位は teams.final_rank の値で、勝率から計算しない(clone-spec C 1.4)。行は順位の昇順
+// (未確定は末尾)、同順位はチームの sort_order, id 順。成績はディビジョンの終了した全試合の合算。
+func GetDivisionStandings(ctx context.Context, db *gorm.DB, id int64) (StandingsPage, error) {
+	division, err := findByID[Division](ctx, db, id, domain.ResourceDivision)
+	if err != nil {
+		return StandingsPage{}, err
+	}
+	scope, err := loadScopeOf(ctx, db, division.TournamentID)
+	if err != nil {
+		return StandingsPage{}, err
+	}
+	tx := db.WithContext(ctx)
+	var teams []Team
+	if err := tx.Where(sqlByDivision, id).Order(sqlOrderSortID).Find(&teams).Error; err != nil {
+		return StandingsPage{}, fmt.Errorf("load teams of division %d: %w", id, err)
+	}
+	var matches []Match
+	if err := tx.Where(sqlByDivision, id).Find(&matches).Error; err != nil {
+		return StandingsPage{}, fmt.Errorf("load matches of division %d: %w", id, err)
+	}
+	teamIDs := make([]int64, len(teams))
+	for i, team := range teams {
+		teamIDs[i] = team.ID
+	}
+	var players []Player
+	if len(teamIDs) > 0 {
+		if err := tx.Where(sqlByTeams, teamIDs).Order(sqlOrderID).Find(&players).Error; err != nil {
+			return StandingsPage{}, fmt.Errorf("load players of division %d: %w", id, err)
+		}
+	}
+	aggs, err := loadDivisionPlayerAggs(ctx, db, id)
+	if err != nil {
+		return StandingsPage{}, err
+	}
+
+	results := toResults(matches)
+	page := StandingsPage{
+		Frame:    scope.frame,
+		Division: DivisionRef{ID: division.ID, Name: i18n(division.NameJa, division.NameEn)},
+	}
+	page.Standings = make([]StandingRow, 0, len(teams))
+	for _, team := range teams {
+		page.Standings = append(page.Standings, StandingRow{
+			Team: teamRef(team), Tally: domain.TallyFor(team.ID, results), Rank: team.FinalRank,
+		})
+	}
+	slices.SortStableFunc(page.Standings, func(a, b StandingRow) int {
+		switch {
+		case a.Rank == nil && b.Rank == nil:
+			return 0
+		case a.Rank == nil:
+			return 1
+		case b.Rank == nil:
+			return -1
+		}
+		return cmp.Compare(*a.Rank, *b.Rank)
+	})
+	page.Leaders, page.BlockLeaders = buildLeaders(teams, players, aggs)
+	return page, nil
+}
+
+// buildLeaders は得点ランキングとブロックランキングを作る。どちらも記録が 0 の選手は除く
+// (参照サイトはデータがある節だけを出す。clone-spec C 1.1)。得点ランキングの並びは選手の並び順
+// (domain.ComparePlayers。同点の順は参照サイトで未検証)、ブロックはブロック数の降順。
+// それでも同じなら、チームの並び、選手 ID 順。
+func buildLeaders(teams []Team, players []Player, aggs playerAggs) ([]LeaderRow, []BlockLeaderRow) {
+	teamsByID := map[int64]Team{}
+	teamOrder := map[int64]int{}
+	for i, team := range teams {
+		teamsByID[team.ID] = team
+		teamOrder[team.ID] = i
+	}
+	sorted := slices.Clone(players)
+	slices.SortStableFunc(sorted, func(a, b Player) int {
+		if c := cmp.Compare(teamOrder[a.TeamID], teamOrder[b.TeamID]); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+
+	leaders := []LeaderRow{}
+	blocks := []BlockLeaderRow{}
+	for _, player := range sorted {
+		if player.IsStaff() {
+			continue
+		}
+		agg := aggs.get(player.ID)
+		team := teamRef(teamsByID[player.TeamID])
+		if agg.Goals+agg.Assists > 0 {
+			leaders = append(leaders, LeaderRow{
+				Team: team, Player: playerRef(player), Games: agg.games(), Assists: agg.Assists, Goals: agg.Goals,
+			})
+		}
+		if agg.Blocks > 0 {
+			blocks = append(
+				blocks,
+				BlockLeaderRow{Team: team, Player: playerRef(player), Games: agg.games(), Blocks: agg.Blocks},
+			)
+		}
+	}
+	domain.SortPlayers(leaders, func(leader LeaderRow) domain.PlayerSortKey {
+		return domain.PlayerSortKey{
+			Goals:   leader.Goals,
+			Assists: leader.Assists,
+			Number:  leader.Player.Number,
+		}
+	})
+	slices.SortStableFunc(
+		blocks,
+		func(a, b BlockLeaderRow) int { return cmp.Compare(b.Blocks, a.Blocks) },
+	)
+	if len(leaders) > leadersLimit {
+		leaders = leaders[:leadersLimit]
+	}
+	if len(blocks) > blockLeadersLimit {
+		blocks = blocks[:blockLeadersLimit]
+	}
+	return leaders, blocks
+}

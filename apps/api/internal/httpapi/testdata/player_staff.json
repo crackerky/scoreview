@@ -1,0 +1,115 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "player": {
+    "id": 3,
+    "number": "",
+    "name": {
+      "ja": "架空 監督",
+      "en": "Coach KAKU"
+    },
+    "gender": null,
+    "role": {
+      "ja": "マネージャ",
+      "en": "Manager"
+    }
+  },
+  "team": {
+    "id": 1,
+    "name": {
+      "ja": "アルファ",
+      "en": "Alpha"
+    }
+  },
+  "prev": {
+    "id": 2,
+    "number": "10",
+    "name": {
+      "ja": "架空 十子",
+      "en": ""
+    },
+    "gender": "F",
+    "role": null
+  },
+  "next": {
+    "id": 1,
+    "number": "7",
+    "name": {
+      "ja": "架空 七郎",
+      "en": "Shichiro KAKU"
+    },
+    "gender": "M",
+    "role": null
+  },
+  "statsKind": "ultimate",
+  "stats": {
+    "games": 0,
+    "assists": 0,
+    "goals": 0,
+    "callahans": 0,
+    "greatests": 0,
+    "blocks": 0
+  },
+  "events": []
+}

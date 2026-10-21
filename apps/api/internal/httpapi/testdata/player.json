@@ -1,0 +1,168 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "player": {
+    "id": 1,
+    "number": "7",
+    "name": {
+      "ja": "架空 七郎",
+      "en": "Shichiro KAKU"
+    },
+    "gender": "M",
+    "role": null
+  },
+  "team": {
+    "id": 1,
+    "name": {
+      "ja": "アルファ",
+      "en": "Alpha"
+    }
+  },
+  "prev": {
+    "id": 3,
+    "number": "",
+    "name": {
+      "ja": "架空 監督",
+      "en": "Coach KAKU"
+    },
+    "gender": null,
+    "role": {
+      "ja": "マネージャ",
+      "en": "Manager"
+    }
+  },
+  "next": {
+    "id": 2,
+    "number": "10",
+    "name": {
+      "ja": "架空 十子",
+      "en": ""
+    },
+    "gender": "F",
+    "role": null
+  },
+  "statsKind": "ultimate",
+  "stats": {
+    "games": 1,
+    "assists": 0,
+    "goals": 2,
+    "callahans": 1,
+    "greatests": 0,
+    "blocks": 2
+  },
+  "events": [
+    {
+      "code": "A1",
+      "date": "2026-10-17",
+      "opponent": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "elapsedSec": 60,
+      "scorer": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "assist": {
+        "id": 2,
+        "number": "10",
+        "name": {
+          "ja": "架空 十子",
+          "en": ""
+        },
+        "gender": "F"
+      }
+    },
+    {
+      "code": "A1",
+      "date": "2026-10-17",
+      "opponent": {
+        "id": 2,
+        "name": {
+          "ja": "ブラボー",
+          "en": "Bravo"
+        }
+      },
+      "elapsedSec": 180,
+      "scorer": {
+        "id": 1,
+        "number": "7",
+        "name": {
+          "ja": "架空 七郎",
+          "en": "Shichiro KAKU"
+        },
+        "gender": "M"
+      },
+      "assist": null
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "frame": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "shortName": "2026 Beach",
+    "labels": {
+      "teamList": "teams",
+      "groups": "groups"
+    },
+    "showSchedule": true,
+    "divisions": [
+      {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "groups": [
+          {
+            "id": 1,
+            "name": "Qualifying pool A",
+            "linked": true
+          },
+          {
+            "id": 4,
+            "name": "Tounament A",
+            "linked": false
+          },
+          {
+            "id": 2,
+            "name": "Temporary ranking",
+            "linked": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "groups": []
+      }
+    ],
+    "galleries": [
+      {
+        "id": 1,
+        "name": "Day2-AM"
+      }
+    ],
+    "banners": [
+      {
+        "imageUrl": "/b1.png",
+        "linkUrl": "https://example.com/"
+      },
+      {
+        "imageUrl": "/b2.png",
+        "linkUrl": null
+      }
+    ]
+  },
+  "divisions": [
+    {
+      "id": 1,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
+      "kind": "mixed",
+      "entryKind": "team",
+      "teams": [
+        {
+          "id": 1,
+          "name": {
+            "ja": "アルファ・スロー",
+            "en": "Alpha"
+          },
+          "barStyle": "mixed",
+          "memberCount": 2
+        },
+        {
+          "id": 2,
+          "name": {
+            "ja": "ブラボー",
+            "en": "Bravo"
+          },
+          "barStyle": "mixed",
+          "memberCount": 1
+        },
+        {
+          "id": 3,
+          "name": {
+            "ja": "チャーリー",
+            "en": "Charlie"
+          },
+          "barStyle": "mixed",
+          "memberCount": 0
+        },
+        {
+          "id": 4,
+          "name": {
+            "ja": "デルタ",
+            "en": ""
+          },
+          "barStyle": "mixed",
+          "memberCount": 0
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": {
+        "ja": "ウィメン",
+        "en": "Women's"
+      },
+      "kind": "women",
+      "entryKind": "team",
+      "teams": [
+        {
+          "id": 5,
+          "name": {
+            "ja": "ウィスキー",
+            "en": "Whiskey"
+          },
+          "barStyle": "mixed",
+          "memberCount": 0
+        },
+        {
+          "id": 6,
+          "name": {
+            "ja": "ヤンキー",
+            "en": "Yankee"
+          },
+          "barStyle": "mixed",
+          "memberCount": 0
+        }
+      ]
+    }
+  ]
+}
