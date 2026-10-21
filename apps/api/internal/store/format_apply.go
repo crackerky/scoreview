@@ -368,7 +368,13 @@ func violationText(v format.Violation) string {
 // ApplyFormat はディビジョンのグループと試合を、形の指定から作った Plan で置き換え、形の指定を
 // 保存する。結果の入った試合(試合中、終了)があれば ErrConflict(大会が始まった後に作り直さない)。
 // 1 つのトランザクションで、段、グループ、枠、試合、格子、形の指定を作り、シードの枠を埋める。
-func ApplyFormat(ctx context.Context, db *gorm.DB, divisionID int64, input FormatInput) (FormatPreview, error) {
+func ApplyFormat(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	divisionID int64,
+	input FormatInput,
+) (FormatPreview, error) {
 	var preview FormatPreview
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		division, err := findByID[Division](ctx, tx, divisionID, domain.ResourceDivision)
@@ -401,7 +407,8 @@ func ApplyFormat(ctx context.Context, db *gorm.DB, divisionID int64, input Forma
 			return err
 		}
 		preview = d.preview()
-		return nil
+		return auditFormatOp(ctx, tx, division.TournamentID, actor, AuditFormatApply, nil,
+			AuditFormat{Template: d.spec.Template, Teams: input.Seeds, Reason: preview.Title})
 	})
 	return preview, err
 }

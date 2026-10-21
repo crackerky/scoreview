@@ -161,6 +161,15 @@ func loadFormatState(ctx context.Context, db *gorm.DB, divisionID int64) (*forma
 	if fs.cfg, err = configFor(row); err != nil {
 		return nil, false, err
 	}
+	// 不戦勝の規定スコアは、大会の設定(記録係が不戦勝を記録するときに使う値)があればそれを使い、
+	// 無ければ形の指定の値を使う(順位計算と記録したスコアが食い違わないように)
+	tournament, err := findInternal[Tournament](ctx, db, fs.division.TournamentID, "tournament")
+	if err != nil {
+		return nil, false, err
+	}
+	if setting := tournamentForfeitScore(tournament); setting != nil {
+		fs.cfg.Forfeit = format.ForfeitScore{Winner: setting.Winner, Loser: setting.Loser}
+	}
 	if fs.plan, err = format.NewEngine().Generate(fs.spec); err != nil {
 		return nil, false, fmt.Errorf("regenerate format of division %d: %w", divisionID, err)
 	}
@@ -235,10 +244,23 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-// formatResultOf は試合の行を順位計算の結果にする。結果の種類(没収など)の列は記録係画面の担当が
-// 足す(00004)ので、ここではスコアと勝者だけを読む(通常の試合として扱う)。
+// formatResultOf は試合の行を順位計算の結果にする。結果の種類(matches.result_type)は format の
+// 種類に対応させる(不成立 no_contest は format の void)。
 func formatResultOf(m Match) format.Result {
-	return format.Result{Status: m.Status, Type: format.ResultNormal, LeftScore: m.LeftScore,
+	kind := format.ResultNormal
+	switch m.ResultType {
+	case domain.ResultForfeit:
+		kind = format.ResultForfeit
+	case domain.ResultDoubleForfeit:
+		kind = format.ResultDoubleForfeit
+	case domain.ResultNoContest:
+		kind = format.ResultVoid
+	case domain.ResultAbandoned:
+		kind = format.ResultAbandoned
+	case domain.ResultUnplayed:
+		kind = format.ResultUnplayed
+	}
+	return format.Result{Status: m.Status, Type: kind, LeftScore: m.LeftScore,
 		RightScore: m.RightScore, Winner: m.WinnerSide}
 }
 

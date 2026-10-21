@@ -59,7 +59,7 @@ func newFormatFixture(t *testing.T) formatFixture {
 		f.teams = append(f.teams, team)
 		seeds[i] = team.ID
 	}
-	preview, err := store.ApplyFormat(context.Background(), db, division.ID, pb4Input(seeds))
+	preview, err := store.ApplyFormat(context.Background(), db, f.actor, division.ID, pb4Input(seeds))
 	require.NoError(t, err)
 	require.Len(t, preview.Matches, 24)
 	return f
@@ -133,10 +133,10 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	assert.Equal(t, 1, kinds[store.TodoTie])
 
 	for _, name := range []string{"Qualifying pool A", "Qualifying pool B", "Qualifying pool C"} {
-		require.NoError(t, store.ConfirmGroup(ctx, f.db, f.groupID(t, name), false, now))
+		require.NoError(t, store.ConfirmGroup(ctx, f.db, f.actor, f.groupID(t, name), false, now))
 	}
 	poolD := f.groupID(t, "Qualifying pool D")
-	err = store.ConfirmGroup(ctx, f.db, poolD, false, now)
+	err = store.ConfirmGroup(ctx, f.db, f.actor, poolD, false, now)
 	require.ErrorIs(t, err, domain.ErrConflict, "未決があるうちは確定できない")
 	// D = シード 4, 5, 12。ブリックマーク投げで 12 → 4 → 5 の順にする
 	d := []int64{f.teams[11].ID, f.teams[3].ID, f.teams[4].ID}
@@ -144,7 +144,14 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 		store.RankDecisionInput{Teams: d[:2], Reason: "ブリックマーク投げ"}), domain.ErrBadRequest)
 	require.NoError(t, store.DecideRank(ctx, f.db, f.actor, poolD,
 		store.RankDecisionInput{Teams: d, Reason: "ブリックマーク投げ"}))
-	require.NoError(t, store.ConfirmGroup(ctx, f.db, poolD, false, now))
+	require.NoError(t, store.ConfirmGroup(ctx, f.db, f.actor, poolD, false, now))
+	var confirms, decisions int64
+	require.NoError(t, f.db.Model(&store.AuditLog{}).Where("action = ?", store.AuditGroupConfirm).
+		Count(&confirms).Error)
+	require.NoError(t, f.db.Model(&store.AuditLog{}).Where("action = ?", store.AuditGroupRankDecision).
+		Count(&decisions).Error)
+	assert.Equal(t, int64(4), confirms, "確定は監査ログに残る")
+	assert.Equal(t, int64(1), decisions)
 
 	// 1st placement(E): A1 対 B1、C1 対 D1
 	e2, e3 := f.match(t, "E2"), f.match(t, "E3")
@@ -208,7 +215,7 @@ func TestApplyFormatRefusesStartedDivision(t *testing.T) {
 	for i, team := range f.teams {
 		seeds[i] = team.ID
 	}
-	_, err := store.ApplyFormat(ctx, f.db, f.division.ID, pb4Input(seeds))
+	_, err := store.ApplyFormat(ctx, f.db, f.actor, f.division.ID, pb4Input(seeds))
 	require.ErrorIs(t, err, domain.ErrConflict)
 	_, err = store.PreviewFormat(ctx, f.db, f.division.ID, pb4Input(seeds[:11]))
 	require.ErrorIs(t, err, domain.ErrBadRequest)

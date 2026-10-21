@@ -266,13 +266,20 @@ func formatGroupOf(ctx context.Context, db *gorm.DB, groupID int64) (formatGroup
 // ConfirmGroup はプールの順位を確定し、その順位を出どころにする枠を埋める。結果待ちの試合が
 // あれば、unplayed(未消化のまま確定)が真のときだけ確定する。未決の同順位があれば確定しない
 // (運営者が DecideRank で順位を決めてから)。
-func ConfirmGroup(ctx context.Context, db *gorm.DB, groupID int64, unplayed bool, now time.Time) error {
+func ConfirmGroup(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	groupID int64,
+	unplayed bool,
+	now time.Time,
+) error {
 	row, err := formatGroupOf(ctx, db, groupID)
 	if err != nil {
 		return err
 	}
 	return runFormatOp(ctx, db, row.DivisionID, func(tx *gorm.DB, fs *formatState) error {
-		return confirmGroupIn(ctx, tx, fs, *row.FormatIndex, unplayed, now)
+		return confirmGroupIn(ctx, tx, fs, actor, *row.FormatIndex, unplayed, now)
 	})
 }
 
@@ -280,6 +287,7 @@ func confirmGroupIn(
 	ctx context.Context,
 	tx *gorm.DB,
 	fs *formatState,
+	actor domain.Actor,
 	index int,
 	unplayed bool,
 	now time.Time,
@@ -311,12 +319,20 @@ func confirmGroupIn(
 	if err != nil {
 		return writeError("confirm group", err)
 	}
-	return nil
+	return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditGroupConfirm, nil,
+		AuditFormat{Group: group.Name, Unplayed: status.State == format.GroupPlaying})
 }
 
 // ConfirmStage は段のプールをすべて確定し、段の全体順位(プールの大きさが不揃いなときの band_rank)を
 // 使えるようにする。unplayed は ConfirmGroup と同じ。
-func ConfirmStage(ctx context.Context, db *gorm.DB, stageID int64, unplayed bool, now time.Time) error {
+func ConfirmStage(
+	ctx context.Context,
+	db *gorm.DB,
+	actor domain.Actor,
+	stageID int64,
+	unplayed bool,
+	now time.Time,
+) error {
 	stage, err := findByID[Stage](ctx, db, stageID, domain.ResourceGroup)
 	if err != nil {
 		return err
@@ -330,7 +346,7 @@ func ConfirmStage(ctx context.Context, db *gorm.DB, stageID int64, unplayed bool
 			if fs.res.Groups[g].State == format.GroupPlaying {
 				played = true
 			}
-			if err := confirmGroupIn(ctx, tx, fs, g, unplayed, now); err != nil {
+			if err := confirmGroupIn(ctx, tx, fs, actor, g, unplayed, now); err != nil {
 				return err
 			}
 		}
@@ -339,7 +355,8 @@ func ConfirmStage(ctx context.Context, db *gorm.DB, stageID int64, unplayed bool
 		if err != nil {
 			return writeError("confirm stage", err)
 		}
-		return nil
+		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditStageConfirm, nil,
+			AuditFormat{Stage: stage.Name, Unplayed: played})
 	})
 }
 
@@ -371,7 +388,11 @@ func DecideRank(
 		if ranking == nil || !matchesTie(ranking.Unresolved, input.Teams) {
 			return domain.Invalid("teams", "must list exactly the teams of one unresolved tie")
 		}
-		return saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input)
+		if err := saveDecision(ctx, tx, GroupRankDecision{GroupID: &row.ID}, actor, input); err != nil {
+			return err
+		}
+		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditGroupRankDecision, nil,
+			AuditFormat{Group: row.Name, Teams: input.Teams, Reason: input.Reason})
 	})
 }
 
@@ -399,7 +420,12 @@ func DecideBandRank(
 		if !matchesTie([][]int64{tie}, input.Teams) {
 			return domain.Invalid("teams", "must list exactly the tied teams of the stage rank")
 		}
-		return saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input)
+		err := saveDecision(ctx, tx, GroupRankDecision{StageID: &stage.ID, BandRank: &rank}, actor, input)
+		if err != nil {
+			return err
+		}
+		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditStageRankDecision, nil,
+			AuditFormat{Stage: stage.Name, Rank: rank, Teams: input.Teams, Reason: input.Reason})
 	})
 }
 
@@ -463,7 +489,7 @@ func (fs *formatState) bandTie(stage, rank int) []int64 {
 
 // AlignMatchTeams は既に始まった試合の左右を、枠が解決したチームに合わせる(訂正で順位が変わり、
 // 運営者が対戦チームの差し替えを選んだとき)。スコアと状態は変えない。
-func AlignMatchTeams(ctx context.Context, db *gorm.DB, matchID int64) error {
+func AlignMatchTeams(ctx context.Context, db *gorm.DB, actor domain.Actor, matchID int64) error {
 	match, err := findByID[Match](ctx, db, matchID, domain.ResourceMatch)
 	if err != nil {
 		return err
@@ -473,6 +499,11 @@ func AlignMatchTeams(ctx context.Context, db *gorm.DB, matchID int64) error {
 		if err != nil {
 			return err
 		}
-		return syncBracketSlots(ctx, tx, changed)
+		if err := syncBracketSlots(ctx, tx, changed); err != nil {
+			return err
+		}
+		id := matchID
+		return auditFormatOp(ctx, tx, fs.division.TournamentID, actor, AuditMatchAlignTeams, &id,
+			AuditFormat{})
 	})
 }

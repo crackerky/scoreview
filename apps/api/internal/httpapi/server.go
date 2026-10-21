@@ -66,6 +66,7 @@ func (s *Server) routes() {
 	s.browseRoutes()
 	s.authRoutes()
 	s.adminRoutes()
+	s.formatRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。

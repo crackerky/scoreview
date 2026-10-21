@@ -674,6 +674,120 @@ type AssignedMatch = AdminMatch & { tournamentId: number; tournamentName: string
 | `DELETE /admin/assignments/{id}` | なし | 204 |
 | `GET /admin/me/matches` | なし | `{ matches: AssignedMatch[] }`。自分の割り当てが覆う試合(日付、時刻、コートの順)。誰でも呼べる |
 
+### 大会の形と進行
+
+大会形式エンジン(docs/format-engine.md)で、ディビジョンの形(プール、順位決定戦、時間割)を作り、当日の確定と訂正を行う。
+進行状況の読み取り(`progress`、`format/matches`)は担当大会の記録係にも許し、それ以外は管理者だけ。
+形の無いディビジョンへの進行の操作は 409。
+
+```ts
+type Sport = 'seven' | 'four' | 'beach'            // 7 人制 / 4on4 / ビーチ
+type Tiebreak = 'current' | 'current_no_h2h' | 'jfda'  // 現行方式(直接対決あり)/ 直接対決なし / JFDA 競技規則
+type FormatParams = object                          // テンプレートごとの JSON(docs/format-engine.md「形の指定の JSON」)
+type ScheduleSetting = {
+  date: string; start: string                      // "YYYY-MM-DD"、"HH:MM"
+  slotMinutes: number                               // 1 試合の枠の長さ(分)
+  courts: string[]                                  // コートの名前(この順に使う)
+  teamRestSlots: number                             // 同じチームの試合の間に空ける枠の数(4on4 は 0)
+  stageGapSlots: number                             // 段の間に空ける枠の数
+  end: string | null                                // 終了時刻 "HH:MM"
+}
+type FormatInput = {
+  template: 'pool_bands' | 'blocks' | 'round_robin'
+  params: FormatParams
+  seeds: number[]                                   // シード順のチーム。数は形のチーム数と同じ
+  tiebreak: Tiebreak                                // 省略時 'current'
+  forfeit: { winner: number; loser: number } | null // 不戦勝の規定スコア。null は 15-0。大会の設定があればそちらを順位計算に使う
+  schedule: ScheduleSetting | null                  // null なら時刻とコートを入れない
+}
+type Violation = { kind: string; codes: string[]; shortMinutes: number; detail: string }  // detail は運営者向けの文
+type FormatPreview = {
+  title: string                                     // 「4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)」
+  startLetter: string                               // 最初のグループ文字(大会内の通し)
+  teams: number; stages: string[]
+  groups: Array<{
+    index: number; letter: string; name: string; kind: GroupKind; stage: number
+    slots: Array<{ position: number; label: string; seed: number | null; team: TeamRef | null }>  // label は「シード3」「A1」「[E2-勝ち]」
+    bracket: { pattern; ptnName; columns; rows: BracketCell[][] } | null  // 閲覧用の格子と同じ形
+  }>
+  matches: Array<{
+    code: string; group: number; round: number
+    left: { label: string; team: TeamRef | null }; right: { label: string; team: TeamRef | null }
+    date: string | null; time: string | null; field: string | null
+  }>
+  courts: string[]; violations: Violation[]; end: string | null   // end は最後の試合の終了時刻
+  ruleText: string[]                                // タイブレークの案内文(参加チームへの案内にそのまま使える)
+  advancement: string[]                             // 勝ち上がりの案内文
+  ranked: number; unique: number                    // 全試合後に順位が付くチーム数、そのうち同順位でないチーム数
+  replacesGroups: number; replacesMatches: number   // 適用すると消える既存のグループと試合の数
+}
+type SavedFormat = {
+  divisionId: number; tournamentId: number; tournamentName: string; divisionName: string
+  title: string; version: number                    // version は適用のたびに増える
+  template: string; params: FormatParams; tiebreak: Tiebreak
+  forfeit: { winner: number; loser: number }; schedule: ScheduleSetting | null
+  seeds: number[]                                   // 一覧(GET /admin/formats)では空
+}
+type ProgressSide = { label: string; team: TeamRef | null; score: number | null }
+type ProgressMatch = {
+  id: number; code: string; groupName: string; date: string | null; time: string | null; field: string | null
+  status: MatchStatus; left: ProgressSide; right: ProgressSide
+}
+type Progress = {
+  divisionId: number; title: string; version: number; tiebreak: Tiebreak
+  ruleText: string[]; advancement: string[]; slotMinutes: number; courts: string[]
+  now: string                                       // 判定に使った現在時刻(ISO 8601)
+  todo: Array<{                                     // いまやること(この順に出す)
+    kind: 'tie' | 'confirm_group' | 'confirm_stage' | 'overdue' | 'court_delay' | 'mismatch'
+    text: string                                    // 運営者向けの文
+    groupId: number | null; stageId: number | null; matchId: number | null; court: string | null
+    minutes: number                                 // overdue と court_delay の遅れ(分)
+  }>
+  stages: Array<{ id; index; name; confirmed: boolean; confirmedUnplayed: boolean; needsConfirm: boolean }>
+  groups: Array<{
+    id: number; letter: string; name: string; kind: GroupKind; stage: number
+    state: 'waiting' | 'playing' | 'tied' | 'ready' | 'confirmed' | 'finished'
+    confirmedUnplayed: boolean; remaining: number   // remaining は終わっていない試合の数
+    slots: ProgressSide[]
+    rows: Array<Tally & { team: TeamRef; rank: number; points: number; reason: string; unresolved: boolean }>  // プールの順位(枠が埋まっていれば)
+    ties: TeamRef[][]                               // 未決の同順位の組
+    conditions: Array<{ team: TeamRef; text: string }>  // 進行中のプールの勝ち上がり条件「次の A3 に勝てば 1 位確定」
+  }>
+  live: ProgressMatch[]                             // 試合中
+  next: ProgressMatch[]                             // 次の時間帯(まだ始まっていない最も早い開始時刻の試合)
+  final: Array<{ rank: number; team: TeamRef; tied: boolean }>
+}
+type Impact = {
+  lines: string[]                                   // 「Qualifying pool A の 2 位と 3 位が入れ替わります(…)」
+  matches: Array<{ matchId; code; groupName; beforeLeft: TeamRef | null; beforeRight; afterLeft; afterRight; hasResult: boolean }>
+  needsApproval: boolean                            // 既に結果のある試合の対戦が変わる
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport }` | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; ranked; unique; violations }> }`(運営会社の頻出形が先頭で `recommended`) |
+| `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
+| `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
+| `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null }` |
+| `GET /admin/formats?exclude={divisionId}` | なし | `{ formats: SavedFormat[] }`(前回の大会の形のコピー元。新しい順に 30 件) |
+| `GET /admin/divisions/{id}/progress` | なし | `Progress` |
+| `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |
+| `POST /admin/groups/{id}/confirm` | `{ unplayed: boolean }` | 204。プールの順位を確定し、次の段の枠を埋める。結果待ちがあれば `unplayed: true`(未消化のまま確定)のときだけ。未決の同順位があれば 409 |
+| `POST /admin/stages/{id}/confirm` | `{ unplayed: boolean }` | 204。段の全プールを確定し、段の全体順位を使えるようにする |
+| `POST /admin/groups/{id}/rank-decisions` | `{ teamIds: number[]; reason: string }` | 204。未決の同順位の組を上位から並べる(ブリックマーク投げなど。`reason` 必須) |
+| `POST /admin/stages/{id}/rank-decisions` | `{ rank: number; teamIds: number[]; reason: string }` | 204。段の全体順位(各プールの `rank` 位どうし)の未決 |
+| `POST /admin/matches/{id}/correction-impact` | `{ score: { left; right }; winnerSide: Side \| null }` | `Impact`(保存しない) |
+| `POST /admin/matches/{id}/correction` | 上と同じ + `approved: boolean` | `Impact`。得点経過の無い試合の結果を入れる、または直す。`needsApproval` なのに `approved: false` なら 409。得点経過のある試合は 400 |
+| `POST /admin/matches/{id}/align-teams` | なし | 204。既に始まった試合の左右を、訂正後の順位のチームに差し替える(スコアは変えない) |
+| `GET /admin/divisions/{id}/schedule-check` | なし | `{ violations: Violation[] }` |
+| `POST /admin/divisions/{id}/schedule-shift` | `{ court: string \| null; minutes: number }` | `{ violations }`。まだ始まっていない試合を、そのコート(null なら全コート)の最初の未試合の時刻から `minutes` 分ずらす(-360〜360、0 以外) |
+| `POST /admin/matches/{id}/swap-schedule` | `{ otherMatchId: number }` | `{ violations }`。未試合の 2 試合の日付、時刻、コートを入れ替える |
+
+- 試合の結果が変わるたび(得点経過、状態、結果の種類の変更)に、形のあるディビジョンでは枠と下流の未試合の試合の左右、グループのチーム、プールの順位(`rank_override`)、最終順位(`teams.final_rank`)を自動で書き直す。トーナメント内の勝ち上がりは自動、プールから次の段へは確定が要る。
+- 既に始まった試合の左右は自動では変えない。食い違いは `progress.todo` の `mismatch` に出る。
+- 形の適用、確定、同順位の指定、差し替えは監査ログに残る(`format.apply`、`group.confirm`、`stage.confirm`、`group.rank_decision`、`stage.rank_decision`、`match.align_teams`)。
+
 ### ギャラリー
 
 ```ts
