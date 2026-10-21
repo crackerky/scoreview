@@ -112,7 +112,15 @@ describe('Server Actions の共通処理', () => {
     assert.equal(failureTarget('/admin/x', apiError(401, 'unauthorized')), '/admin/login')
     assert.equal(
       failureTarget('/admin/x', apiError(409, 'conflict')),
-      withNotice('/admin/x', 'error', 'conflict: message'),
+      withNotice(
+        '/admin/x',
+        'error',
+        'ほかの操作と重なったため保存できませんでした。画面を開き直してください',
+      ),
+    )
+    assert.equal(
+      failureTarget('/admin/x', apiError(503, 'unavailable')),
+      withNotice('/admin/x', 'error', '混み合っています。少し待ってから、もう一度押してください'),
     )
     const zodError = z
       .object({ name: z.string().min(1, '入力してください') })

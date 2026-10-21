@@ -251,6 +251,8 @@ const auditSnapshotSchema = z.object({
     })
     .nullable(),
   finalRank: z.number().int().nullable(),
+  /** 操作の補足(「得点経過(9-8)と違う最終スコア(11-9)で本部が確定」) */
+  note: z.string().nullable(),
 })
 export type AuditSnapshot = z.infer<typeof auditSnapshotSchema>
 
@@ -267,6 +269,7 @@ export const auditEntrySchema = z.object({
     'match.result',
     'team.final_rank',
     'match.align_teams',
+    'match.withdraw',
   ]),
   matchId: id.nullable(),
   teamId: id.nullable(),

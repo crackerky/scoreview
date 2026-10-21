@@ -28,7 +28,7 @@ func (s tournamentScope) divisionOrder() map[int64]int {
 }
 
 // loadTournamentScope は大会とディビジョン、ナビの骨格(Frame)を読む。問い合わせは大会の数に
-// よらず 4 回(ディビジョン、グループ、ギャラリー、バナー)。全ページで共有する。
+// よらず 5 回(ディビジョン、グループ、ギャラリー、バナー、中断)。全ページで共有する。
 func loadTournamentScope(
 	ctx context.Context,
 	db *gorm.DB,
@@ -60,11 +60,13 @@ func loadTournamentScope(
 	if err := tx.Where(sqlByTournament, tournament.ID).Order(sqlOrderSortID).Find(&banners).Error; err != nil {
 		return tournamentScope{}, fmt.Errorf("load banners of tournament %d: %w", tournament.ID, err)
 	}
-	return tournamentScope{
-		tournament: tournament,
-		divisions:  divisions,
-		frame:      buildFrame(tournament, divisions, groups, galleries, banners),
-	}, nil
+	frame := buildFrame(tournament, divisions, groups, galleries, banners)
+	suspension, err := GetSuspension(ctx, db, tournament.ID)
+	if err != nil {
+		return tournamentScope{}, err
+	}
+	frame.Suspension = suspension
+	return tournamentScope{tournament: tournament, divisions: divisions, frame: frame}, nil
 }
 
 // defaultMenuSuffix は略号の登録がないディビジョンの略号。参照サイトの SCORE メニューで最も多い

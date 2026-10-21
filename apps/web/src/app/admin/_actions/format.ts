@@ -3,11 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { field, idField, inputError, runAction } from '@/admin/action'
+import { operatorErrorText } from '@/admin/errorText.utils'
 import { readSessionToken } from '@/admin/session'
-import { matches, players, teams } from '@/api/admin'
+import { players, teams } from '@/api/admin'
 import { ApiError } from '@/api/client'
 import { genderSchema } from '@/api/common.types'
-import { type CorrectionBody, type Downstream, formats, type ProposalInput } from '@/api/format'
+import { formats, type ProposalInput } from '@/api/format'
 import type { FormatInput, FormatPreview, Proposal } from '@/api/format.types'
 
 // 大会の形(ウィザード)と本部の進行画面の Server Actions。ウィザードは画面を遷移せずに結果を
@@ -24,8 +25,8 @@ async function withToken<T>(run: (token: string) => Promise<T>): Promise<ActionR
     return { ok: true, data: await run(token) }
   } catch (error) {
     // 入力の誤りと状態の衝突は画面に出す。それ以外(500、通信失敗)はエラー境界へ流す
-    if (error instanceof ApiError && error.status < 500) {
-      return { ok: false, error: error.message.replace(/^(conflict|bad request): /, '') }
+    if (error instanceof ApiError && (error.status < 500 || error.code === 'unavailable')) {
+      return { ok: false, error: operatorErrorText(error.code, error.message) }
     }
     throw error
   }
@@ -183,22 +184,6 @@ export async function decideRankAction(formData: FormData): Promise<never> {
   )
 }
 
-export async function shiftScheduleAction(formData: FormData): Promise<never> {
-  return runAction(
-    formData,
-    async ({ token, form }) => {
-      const court = field(form, 'court')
-      const minutes = Number(field(form, 'minutes'))
-      if (!Number.isInteger(minutes) || minutes === 0) {
-        throw inputError('分数を入れてください')
-      }
-      await formats.shift(token, idField(form, 'divisionId'), court === '' ? null : court, minutes)
-      return undefined
-    },
-    '時刻をずらしました',
-  )
-}
-
 export async function alignTeamsAction(formData: FormData): Promise<never> {
   return runAction(
     formData,
@@ -207,44 +192,5 @@ export async function alignTeamsAction(formData: FormData): Promise<never> {
       return undefined
     },
     '対戦チームを順位どおりに差し替えました',
-  )
-}
-
-/** 結果の入力と訂正。影響の確認画面から送る */
-export async function correctMatchAction(formData: FormData): Promise<never> {
-  return runAction(
-    formData,
-    async ({ token, form }) => {
-      const winner = field(form, 'winnerSide')
-      const body: CorrectionBody = {
-        score: { left: Number(field(form, 'left')), right: Number(field(form, 'right')) },
-        winnerSide: winner === 'left' || winner === 'right' ? winner : null,
-        downstream: downstreamOf(field(form, 'downstream')),
-      }
-      await formats.correct(token, idField(form, 'matchId'), body)
-      const next = field(form, 'next')
-      return next.startsWith('/admin/') ? next : undefined
-    },
-    '結果を保存しました',
-  )
-}
-
-function downstreamOf(value: string): Downstream {
-  return value === 'keep' || value === 'reset' ? value : null
-}
-
-/** 得点経過のある終了した試合を試合中へ戻す(訂正の画面から。下流の扱いを選んで承認する) */
-export async function reopenMatchAction(formData: FormData): Promise<never> {
-  return runAction(
-    formData,
-    async ({ token, form }) => {
-      const id = idField(form, 'matchId')
-      await matches.setStatus(token, id, {
-        status: 'live',
-        downstream: downstreamOf(field(form, 'downstream')),
-      })
-      return `/admin/matches/${id}/score`
-    },
-    '試合中に戻しました。得点経過を直して試合を終えてください',
   )
 }

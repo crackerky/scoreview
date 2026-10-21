@@ -2,17 +2,22 @@ import 'server-only'
 import type { z } from 'zod'
 import { noContentSchema } from './admin.types'
 import { ApiError, apiFetch } from './client'
+import { suspensionSchema } from './common.types'
 import {
+  closingSchema,
   type FormatInput,
   formatPreviewSchema,
   impactSchema,
   progressMatchListSchema,
   progressSchema,
   proposalListSchema,
+  resumeSchema,
   type ScheduleSetting,
   savedFormatListSchema,
   savedFormatOneSchema,
+  shiftResultSchema,
   violationListSchema,
+  withdrawalSchema,
 } from './format.types'
 
 // docs/api.md「大会の形と進行」を呼ぶ関数。応答は zod で parse して返す。
@@ -49,6 +54,17 @@ export type CorrectionBody = {
   score: { left: number; right: number }
   winnerSide: 'left' | 'right' | null
   downstream: Downstream
+  /** 画面を開いたときのスコア(楽観的ロック。違えば 409 score_mismatch) */
+  expectedScore?: { left: number; right: number } | null
+  /** 得点経過を残したまま score で確定する */
+  keepEvents?: boolean
+}
+
+/** 大会の中断の入力 */
+export type SuspendBody = {
+  reason: 'thunder' | 'rain' | 'heat' | 'other'
+  note: string
+  resumeAt: string | null
 }
 
 export const formats = {
@@ -111,11 +127,33 @@ export const formats = {
     call(token, 'POST', `${admin}/matches/${matchId}/align-teams`, noContentSchema),
   checkSchedule: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/schedule-check`, violationListSchema),
-  shift: (token: string, divisionId: number, court: string | null, minutes: number) =>
-    call(token, 'POST', `${admin}/divisions/${divisionId}/schedule-shift`, violationListSchema, {
+  shift: (
+    token: string,
+    divisionId: number,
+    court: string | null,
+    minutes: number,
+    dryRun = false,
+  ) =>
+    call(token, 'POST', `${admin}/divisions/${divisionId}/schedule-shift`, shiftResultSchema, {
       court,
       minutes,
+      dryRun,
     }),
+  withdrawal: (token: string, teamId: number) =>
+    call(token, 'GET', `${admin}/teams/${teamId}/withdrawal`, withdrawalSchema),
+  withdraw: (token: string, teamId: number, matchIds: number[]) =>
+    call(token, 'POST', `${admin}/teams/${teamId}/withdrawal`, withdrawalSchema, { matchIds }),
+  closing: (token: string, divisionId: number) =>
+    call(token, 'GET', `${admin}/divisions/${divisionId}/closing`, closingSchema),
+  close: (token: string, divisionId: number, matchIds: number[], publish: boolean) =>
+    call(token, 'POST', `${admin}/divisions/${divisionId}/close`, closingSchema, {
+      matchIds,
+      publish,
+    }),
+  suspend: (token: string, tournamentId: number, body: SuspendBody) =>
+    call(token, 'POST', `${admin}/tournaments/${tournamentId}/suspension`, suspensionSchema, body),
+  resume: (token: string, tournamentId: number, minutes: number | null) =>
+    call(token, 'POST', `${admin}/tournaments/${tournamentId}/resume`, resumeSchema, { minutes }),
   swap: (token: string, matchId: number, otherMatchId: number) =>
     call(token, 'POST', `${admin}/matches/${matchId}/swap-schedule`, violationListSchema, {
       otherMatchId,

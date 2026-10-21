@@ -201,8 +201,11 @@ type formatState struct {
 	slots      map[format.SlotKey]GroupSlot
 	matches    map[string]Match
 	decisions  []GroupRankDecision
-	state      format.State
-	res        *format.Resolution
+	// closing は大会の締めの記録(締めていなければ nil)、closedRanks は締めで決めた順位(チーム → 順位)
+	closing     *DivisionClosing
+	closedRanks map[int64]int
+	state       format.State
+	res         *format.Resolution
 }
 
 // configFor は division_formats の行から順位の設定を作る。
@@ -334,7 +337,9 @@ func (fs *formatState) loadRows(ctx context.Context, db *gorm.DB) error {
 		Find(&fs.decisions).Error; err != nil {
 		return fmt.Errorf("load rank decisions of division %d: %w", id, err)
 	}
-	return nil
+	var err error
+	fs.closing, fs.closedRanks, err = loadClosing(ctx, db, id)
+	return err
 }
 
 // formatResultOf は試合の行を順位計算の結果にする。結果の種類(matches.result_type)は format の
@@ -360,6 +365,11 @@ func formatResultOf(m Match) format.Result {
 	}
 	if m.RightTeamID != nil {
 		played.Right = *m.RightTeamID
+	}
+	if kind == format.ResultUnplayed {
+		// 未消化の試合は勝者も敗者も決めないので、誰の試合だったかを照合しない(対戦相手が決まる前に
+		// 未消化にした試合を、後で枠が埋まったときに「食い違い」にしないため)
+		return format.Result{Status: m.Status, Type: kind, LeftScore: m.LeftScore, RightScore: m.RightScore}
 	}
 	return format.Result{Status: m.Status, Type: kind, LeftScore: m.LeftScore,
 		RightScore: m.RightScore, Winner: m.WinnerSide, Played: &played}
@@ -434,5 +444,6 @@ func decodeDecision(row GroupRankDecision) (format.Decision, bool) {
 	if json.Unmarshal(row.TeamIDs, &d.Order) != nil || json.Unmarshal(row.Basis, &d.Basis) != nil {
 		return d, false
 	}
+	d.Method = row.Reason
 	return d, true
 }

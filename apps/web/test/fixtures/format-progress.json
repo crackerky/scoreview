@@ -25,7 +25,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "confirm_group",
@@ -34,7 +35,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "confirm_group",
@@ -43,7 +45,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     },
     {
       "kind": "tie",
@@ -52,7 +55,8 @@
       "stageId": null,
       "matchId": null,
       "court": null,
-      "minutes": 0
+      "minutes": 0,
+      "teamId": null
     }
   ],
   "stages": [
@@ -178,7 +182,8 @@
         }
       ],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "予選 A 組"
     },
     {
       "id": 100000020,
@@ -284,7 +289,8 @@
         }
       ],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "予選 B 組"
     },
     {
       "id": 100000021,
@@ -390,7 +396,8 @@
         }
       ],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "予選 C 組"
     },
     {
       "id": 100000022,
@@ -520,7 +527,8 @@
           }
         ]
       ],
-      "conditions": []
+      "conditions": [],
+      "label": "予選 D 組"
     },
     {
       "id": 100000023,
@@ -555,7 +563,8 @@
       ],
       "rows": [],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "1〜4 位を決めるトーナメント"
     },
     {
       "id": 100000024,
@@ -590,7 +599,8 @@
       ],
       "rows": [],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "5〜8 位を決めるトーナメント"
     },
     {
       "id": 100000025,
@@ -625,7 +635,8 @@
       ],
       "rows": [],
       "ties": [],
-      "conditions": []
+      "conditions": [],
+      "label": "9〜12 位を決めるトーナメント"
     }
   ],
   "live": [],
@@ -647,7 +658,8 @@
         "label": "B1",
         "team": null,
         "score": null
-      }
+      },
+      "groupLabel": "1〜4 位を決めるトーナメント"
     },
     {
       "id": 100003307,
@@ -666,7 +678,8 @@
         "label": "D1",
         "team": null,
         "score": null
-      }
+      },
+      "groupLabel": "1〜4 位を決めるトーナメント"
     },
     {
       "id": 100003310,
@@ -685,7 +698,8 @@
         "label": "B2",
         "team": null,
         "score": null
-      }
+      },
+      "groupLabel": "5〜8 位を決めるトーナメント"
     },
     {
       "id": 100003311,
@@ -704,8 +718,12 @@
         "label": "D2",
         "team": null,
         "score": null
-      }
+      },
+      "groupLabel": "5〜8 位を決めるトーナメント"
     }
   ],
-  "final": []
+  "final": [],
+  "withdrawn": [],
+  "closedAt": null,
+  "suspension": null
 }

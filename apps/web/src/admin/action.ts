@@ -59,3 +59,43 @@ export async function runAction(
   revalidatePath('/admin', 'layout')
   redirect(target)
 }
+
+/**
+ * runAction の、行き先を run が URL(クエリつき)で決める版。run は成功の行き先を返し、失敗した操作を
+ * 元の画面へ戻すかを自分で決めたいときは、戻り先の URL を返す(楽観的ロックの「この間に変わりました」、
+ * 承認の欄の赤枠など)。投げた例外は runAction と同じく back へ文面つきで戻す。
+ */
+export async function runActionTo(
+  formData: FormData,
+  run: (ctx: ActionContext) => Promise<string>,
+): Promise<never> {
+  const form = formToObject(formData)
+  const back = safeAdminPath(form.back)
+  const token = await readSessionToken()
+  if (token === null) {
+    redirect('/admin/login')
+  }
+  let target: string
+  try {
+    target = await run({ token, form, back })
+  } catch (error) {
+    target = failureTarget(back, error)
+  }
+  revalidatePath('/admin', 'layout')
+  redirect(target)
+}
+
+/** パスにクエリを付ける(値が空のキーは付けない) */
+export function withQuery(
+  path: string,
+  query: Record<string, string | number | undefined>,
+): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value))
+    }
+  }
+  const text = params.toString()
+  return text === '' ? path : `${path}?${text}`
+}

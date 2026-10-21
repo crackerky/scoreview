@@ -18,6 +18,8 @@ type frameDTO struct {
 	Divisions    []frameDivisionDTO `json:"divisions"`
 	Galleries    []frameGalleryDTO  `json:"galleries"`
 	Banners      []bannerDTO        `json:"banners"`
+	// Suspension は大会の中断(本サイト独自の追加)。中断していなければ null
+	Suspension *suspensionDTO `json:"suspension"`
 }
 
 type labelsDTO struct {

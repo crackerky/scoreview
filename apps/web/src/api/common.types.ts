@@ -43,6 +43,15 @@ export type Side = z.infer<typeof sideSchema>
 export const genderSchema = z.enum(['M', 'F'])
 export type Gender = z.infer<typeof genderSchema>
 
+/** 雷・雨などによる大会の中断(本サイト独自の追加。docs/api.md「大会の中断」) */
+export const suspensionSchema = z.object({
+  reason: z.enum(['thunder', 'rain', 'heat', 'other']),
+  note: z.string(),
+  resumeAt: z.string().nullable(),
+  since: z.iso.datetime(),
+})
+export type Suspension = z.infer<typeof suspensionSchema>
+
 /** 大会ナビとサイドバーを描くための骨格。閲覧用の応答はすべてこれを含む。 */
 export const tournamentFrameSchema = z.object({
   id: z.number().int(),
@@ -69,6 +78,8 @@ export const tournamentFrameSchema = z.object({
   ),
   galleries: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
   banners: z.array(z.object({ imageUrl: z.string(), linkUrl: z.string().nullable() })),
+  /** 中断中なら大会の上部に帯を出す。中断していなければ null */
+  suspension: suspensionSchema.nullable(),
 })
 export type TournamentFrame = z.infer<typeof tournamentFrameSchema>
 

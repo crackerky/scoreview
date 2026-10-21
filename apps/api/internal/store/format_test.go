@@ -152,7 +152,8 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, page.Pool)
 	require.NotEmpty(t, page.Pool.Notes.Reasons)
-	assert.Equal(t, "勝ち点同数、運営者の指定で決定", page.Pool.Notes.Reasons[0].Text)
+	assert.Equal(t, "勝ち点同数、ブリックマーク投げで決定", page.Pool.Notes.Reasons[0].Text,
+		"同点の決め方を閲覧ページの根拠に出す")
 	assert.Equal(t, 1, *page.Pool.Results[2].Rank, "閲覧ページの順位も運営者の指定(シード 12 が 1 位)")
 	var confirms, decisions int64
 	require.NoError(t, f.db.Model(&store.AuditLog{}).Where("action = ?", store.AuditGroupConfirm).
@@ -175,8 +176,8 @@ func TestFormatScenarioPoolsToT4(t *testing.T) {
 		store.CorrectionInput{Score: domain.Score{Left: 1, Right: 2}})
 	require.NoError(t, err)
 	assert.False(t, impact.NeedsApproval)
-	assert.Contains(t, strings.Join(impact.Lines, "\n"), "Qualifying pool A の 2 位と 3 位が入れ替わります")
-	assert.Contains(t, strings.Join(impact.Lines, "\n"), "5th placement tournament の F2")
+	assert.Contains(t, strings.Join(impact.Lines, "\n"), "予選 A 組の 2 位と 3 位が入れ替わります")
+	assert.Contains(t, strings.Join(impact.Lines, "\n"), "5〜8 位を決めるトーナメントの F2")
 
 	// T4 を全部進める(上の枠が勝つ)
 	for _, letter := range []string{"E", "F", "G"} {

@@ -6,6 +6,7 @@ import { type Lang, pickText } from '@/i18n/lang'
 import { ScoreNavi } from './ScoreNavi'
 import { Sidebar } from './Sidebar'
 import { SiteHeader } from './SiteHeader'
+import { suspensionText } from './suspension.utils'
 
 // clone-spec A 1.1 / 1.6: 全ページ共通の外枠。
 // 大会ページ: 背景パターン、#score_navi、#sub あり。大会一覧: 黒背景、ナビとサイドバーなし。
@@ -87,6 +88,11 @@ export function SiteFrame({ variant, topMenu, year, asOf, heading, children }: S
               <div id="score_parts">
                 {topMenu !== undefined && <div id="score_topmenu">{topMenu}</div>}
                 <div id="score_view">
+                  {variant.kind === 'tournament' && variant.frame.suspension !== null && (
+                    <p className="sv_suspension" role="status" data-scoreview-addition="">
+                      {suspensionText(variant.frame.suspension, variant.lang)}
+                    </p>
+                  )}
                   {asOf !== undefined && variant.kind === 'tournament' && (
                     <p className="sv_as_of" data-scoreview-addition="">
                       {formatAsOf(asOf, variant.lang)}

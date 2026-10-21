@@ -83,6 +83,7 @@ describe('印刷物の未確定の対戦(H11)', () => {
         id: 7,
         code: 'E4',
         groupName: '1st placement tournament',
+        groupLabel: '1〜4 位を決めるトーナメント',
         date: null,
         time: null,
         field: null,

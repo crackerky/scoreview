@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -35,6 +36,8 @@ const (
 	TodoOverdue      TodoKind = "overdue"       // 予定時刻を過ぎて結果がない試合
 	TodoCourtDelay   TodoKind = "court_delay"   // 遅れているコート
 	TodoMismatch     TodoKind = "mismatch"      // 対戦チームが順位と食い違っている試合
+	TodoOverlap      TodoKind = "overlap"       // 同じチームの試合の時刻が重なっている
+	TodoWithdrawn    TodoKind = "withdrawn"     // 棄権したチームが入った試合前の試合
 )
 
 // TodoItem は「いまやること」の 1 件。対象の ID は種類に応じて入る。
@@ -44,6 +47,7 @@ type TodoItem struct {
 	GroupID *int64
 	StageID *int64
 	MatchID *int64
+	TeamID  *int64
 	Court   *string
 	Minutes int
 }
@@ -64,6 +68,11 @@ type FormatProgress struct {
 	Live        []ProgressMatch
 	Next        []ProgressMatch
 	Final       []FinalRankRow
+	// Withdrawn は棄権したチーム(ID の昇順)、ClosedAt は大会を締めた時刻(締めていなければ nil)、
+	// Suspension は大会の中断(中断していなければ nil)
+	Withdrawn  []int64
+	ClosedAt   *time.Time
+	Suspension *Suspension
 }
 
 // StageProgress は段の状態。NeedsConfirm は段の全体順位を出どころにする枠があり、まだ確定していない。
@@ -77,11 +86,12 @@ type StageProgress struct {
 }
 
 // GroupProgress はグループの状態。Rows はプールの順位(全枠が埋まっているとき)、Ties は未決の
-// 同順位の組、Conditions は勝ち上がり条件。
+// 同順位の組、Conditions は勝ち上がり条件。Label は運営の言葉の名前(format.OperatorName)。
 type GroupProgress struct {
 	ID                int64
 	Letter            string
 	Name              string
+	Label             string
 	Kind              domain.GroupKind
 	Stage             int
 	State             format.GroupState
@@ -116,17 +126,18 @@ type ProgressSide struct {
 	Score *int
 }
 
-// ProgressMatch は進行画面の試合。
+// ProgressMatch は進行画面の試合。GroupLabel はグループの運営の言葉の名前。
 type ProgressMatch struct {
-	ID        int64
-	Code      string
-	GroupName string
-	Date      *string
-	Time      *string
-	Field     *string
-	Status    domain.MatchStatus
-	Left      ProgressSide
-	Right     ProgressSide
+	ID         int64
+	Code       string
+	GroupName  string
+	GroupLabel string
+	Date       *string
+	Time       *string
+	Field      *string
+	Status     domain.MatchStatus
+	Left       ProgressSide
+	Right      ProgressSide
 }
 
 // FinalRankRow は最終順位の 1 行。
@@ -153,8 +164,16 @@ func GetFormatProgress(ctx context.Context, db *gorm.DB, divisionID int64, now t
 	if err != nil {
 		return FormatProgress{}, err
 	}
-	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone())}
-	return v.build(), nil
+	withdrawn, err := withdrawnTeams(ctx, db, divisionID)
+	if err != nil {
+		return FormatProgress{}, err
+	}
+	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone()), withdrawn: withdrawn}
+	out := v.build()
+	if out.Suspension, err = GetSuspension(ctx, db, fs.division.TournamentID); err != nil {
+		return FormatProgress{}, err
+	}
+	return out, nil
 }
 
 func (fs *formatState) loadTeams(ctx context.Context, db *gorm.DB) (map[int64]Team, error) {
@@ -173,6 +192,8 @@ type progressBuilder struct {
 	fs    *formatState
 	teams map[int64]Team
 	now   time.Time
+	// withdrawn は棄権したチームと棄権した時刻(進行画面だけが読む)
+	withdrawn map[int64]time.Time
 }
 
 func (v progressBuilder) ref(id int64) domain.TeamRef {
@@ -211,8 +232,29 @@ func (v progressBuilder) build() FormatProgress {
 	out.Stages = v.stages()
 	out.Todo = v.todo(out.Groups, out.Stages)
 	out.Live, out.Next = v.liveAndNext()
+	ranked := map[int64]bool{}
 	for _, f := range fs.res.Final {
 		out.Final = append(out.Final, FinalRankRow{Rank: f.Rank, Team: v.ref(f.TeamID), Tied: f.Tied})
+		ranked[f.TeamID] = true
+	}
+	for team, rank := range fs.closedRanks {
+		if !ranked[team] {
+			out.Final = append(out.Final, FinalRankRow{Rank: rank, Team: v.ref(team), Tied: true})
+		}
+	}
+	slices.SortStableFunc(out.Final, func(a, b FinalRankRow) int {
+		if a.Rank != b.Rank {
+			return a.Rank - b.Rank
+		}
+		return cmp.Compare(a.Team.ID, b.Team.ID)
+	})
+	for team := range v.withdrawn {
+		out.Withdrawn = append(out.Withdrawn, team)
+	}
+	slices.Sort(out.Withdrawn)
+	if fs.closing != nil {
+		at := fs.closing.ClosedAt
+		out.ClosedAt = &at
 	}
 	return out
 }
@@ -221,8 +263,8 @@ func (v progressBuilder) group(g format.Group) GroupProgress {
 	fs := v.fs
 	row := fs.groups[g.Index]
 	status := fs.res.Groups[g.Index]
-	gp := GroupProgress{ID: row.ID, Letter: g.Letter, Name: g.Name, Kind: g.Kind, Stage: g.Stage,
-		State: status.State, ConfirmedUnplayed: row.ConfirmedUnplayed}
+	gp := GroupProgress{ID: row.ID, Letter: g.Letter, Name: g.Name, Label: format.OperatorName(g), Kind: g.Kind,
+		Stage: g.Stage, State: status.State, ConfirmedUnplayed: row.ConfirmedUnplayed}
 	for _, slot := range g.Slots {
 		st := fs.res.Slots[format.SlotKey{Group: g.Index, Position: slot.Position}]
 		side := ProgressSide{Label: slot.Source.Label(fs.plan)}
@@ -331,6 +373,10 @@ func outlookText(look format.Outlook) string {
 		if c.AtLeast == 1 {
 			return fmt.Sprintf("次の %s %s 1 位確定", c.Match, verb)
 		}
+		if c.AtLeast == look.Best {
+			// これより上の順位にはなれないので「以上」ではなくその順位に決まる
+			return fmt.Sprintf("次の %s %s %d 位が確定", c.Match, verb, c.AtLeast)
+		}
 		return fmt.Sprintf("次の %s %s %d 位以上が確定", c.Match, verb, c.AtLeast)
 	}
 	return ""
@@ -369,8 +415,15 @@ func matchStart(m Match) (time.Time, bool) {
 		venueZone()), true
 }
 
+// todo は「いまやること」を緊急度の順に並べる: 時刻を過ぎて結果のない試合 → 同じチームの時刻の
+// 重なりと対戦チームの食い違い(このまま試合を始めると取り返しがつかない)→ 確定待ち → 未決の
+// 同順位 → コートの遅れ。
 func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []TodoItem {
-	var out []TodoItem
+	out := v.overdue()
+	out = append(out, v.overlaps()...)
+	out = append(out, v.mismatches()...)
+	out = append(out, v.withdrawnTodo()...)
+	var ties []TodoItem
 	for _, g := range groups {
 		id := g.ID
 		for _, tie := range g.Ties {
@@ -378,13 +431,13 @@ func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []
 			for i, t := range tie {
 				names[i] = t.Name.Ja
 			}
-			out = append(out, TodoItem{Kind: TodoTie, GroupID: &id,
-				Text: fmt.Sprintf("%s で %s が全基準で並んでいます。順位を指定してください", g.Name,
+			ties = append(ties, TodoItem{Kind: TodoTie, GroupID: &id,
+				Text: fmt.Sprintf("%sで %s が全基準で並んでいます。順位を指定してください", spaced(g.Label),
 					joinNames(names))})
 		}
 		if g.State == format.GroupReady {
 			out = append(out, TodoItem{Kind: TodoConfirmGroup, GroupID: &id,
-				Text: fmt.Sprintf("%s の全試合が終わりました。順位を確かめて確定してください", g.Name)})
+				Text: fmt.Sprintf("%sの全試合が終わりました。順位を確かめて確定してください", spaced(g.Label))})
 		}
 	}
 	for _, s := range stages {
@@ -404,10 +457,68 @@ func (v progressBuilder) todo(groups []GroupProgress, stages []StageProgress) []
 				Text: fmt.Sprintf("%s の全プールが終わりました。段を確定すると全体順位で次の組み合わせが決まります", s.Name)})
 		}
 	}
-	out = append(out, v.overdue()...)
-	out = append(out, v.courtDelays()...)
-	out = append(out, v.mismatches()...)
+	out = append(out, ties...)
+	return append(out, v.courtDelays()...)
+}
+
+// overlaps は、同じチームが時刻の重なる 2 試合に入っているもの(訂正で対戦チームが入れ替わった、
+// 時刻を手で動かした)。両方とも終わっていれば過去のことなので出さない。
+func (v progressBuilder) overlaps() []TodoItem {
+	slot := time.Duration(max(v.slotMinutes(), 1)) * time.Minute
+	type entry struct {
+		match Match
+		start time.Time
+	}
+	byTeam := map[int64][]entry{}
+	var teams []int64
+	for _, m := range v.sortedMatches() {
+		start, ok := matchStart(m)
+		if !ok {
+			continue
+		}
+		for _, team := range []*int64{m.LeftTeamID, m.RightTeamID} {
+			if team == nil {
+				continue
+			}
+			if _, seen := byTeam[*team]; !seen {
+				teams = append(teams, *team)
+			}
+			byTeam[*team] = append(byTeam[*team], entry{match: m, start: start})
+		}
+	}
+	var out []TodoItem
+	for _, team := range teams {
+		list := byTeam[team]
+		for i := 1; i < len(list); i++ {
+			prev, cur := list[i-1], list[i]
+			if !cur.start.Before(prev.start.Add(slot)) {
+				continue
+			}
+			if prev.match.Status == domain.MatchFinished && cur.match.Status == domain.MatchFinished {
+				continue
+			}
+			id := cur.match.ID
+			out = append(out, TodoItem{Kind: TodoOverlap, MatchID: &id,
+				Text: fmt.Sprintf("%s が %s の %s(%s)と %s の %s(%s)の両方に入っています。チームか時刻を直してください",
+					v.ref(team).Name.Ja, clockOf(prev.match), prev.match.Code, courtLabel(prev.match.Field),
+					clockOf(cur.match), cur.match.Code, courtLabel(cur.match.Field))})
+		}
+	}
 	return out
+}
+
+// spaced は名前の後ろに助詞を続けるときの区切り。英数字で終わる名前("Pool A")だけ空白を挟む
+// (日本語の名前「予選 A 組」には「予選 A 組の」と続ける)。
+func spaced(name string) string {
+	if r, _ := utf8.DecodeLastRuneInString(name); r < utf8.RuneSelf {
+		return name + " "
+	}
+	return name
+}
+
+// clockOf は試合の開始時刻 "HH:MM"(無ければ空)。
+func clockOf(m Match) string {
+	return deref(m.StartTime)[:min(5, len(deref(m.StartTime)))]
 }
 
 func joinNames(names []string) string {
@@ -527,6 +638,7 @@ func (v progressBuilder) match(m Match) ProgressMatch {
 	}
 	if g, ok := v.fs.plan.MatchByCode(m.Code); ok {
 		pm.GroupName = v.fs.plan.Groups[g.Group].Name
+		pm.GroupLabel = format.OperatorName(v.fs.plan.Groups[g.Group])
 		pm.Left = v.side(g, g.Left, m.LeftTeamID, m.LeftScore)
 		pm.Right = v.side(g, g.Right, m.RightTeamID, m.RightScore)
 	}

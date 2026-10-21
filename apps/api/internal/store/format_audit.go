@@ -30,6 +30,9 @@ type AuditFormat struct {
 	Teams    []int64 `json:"teams,omitempty"`
 	Reason   string  `json:"reason,omitempty"`
 	Unplayed bool    `json:"unplayed,omitempty"`
+	// Published は大会の締めで順位を公開した、Minutes は中断の再開でずらした分数
+	Published bool `json:"published,omitempty"`
+	Minutes   int  `json:"minutes,omitempty"`
 }
 
 func auditFormatOp(

@@ -27,6 +27,7 @@ const actionLabels: Record<AuditEntry['action'], string> = {
   'match.result': '結果の種類',
   'team.final_rank': '最終順位',
   'match.align_teams': '対戦チームの差し替え(本部)',
+  'match.withdraw': '棄権の一括処理',
 }
 
 const kindLabels = { goal: '得点', timeout: 'タイムアウト', pull: 'プル', end: '試合終了' } as const
@@ -108,9 +109,11 @@ export function describeAudit(entry: AuditEntry, names: Names): AuditLine {
       return { what, target: '', before: '', after: '' }
     case 'match.status':
     case 'match.result':
+    case 'match.withdraw':
       return {
         what,
-        target: '',
+        // 補足(「得点経過(9-8)と違う最終スコア(11-9)で本部が確定」「大会の締め(未消化)」)
+        target: entry.after.note ?? '',
         before: matchState(entry.before, names),
         after: matchState(entry.after, names),
       }
@@ -149,4 +152,61 @@ export function auditUser(entry: AuditEntry): string {
     return `削除された利用者 #${entry.user.id}`
   }
   return `${entry.user.name}(${entry.user.role === 'admin' ? '管理者' : '記録係'})`
+}
+
+/** 1 回の訂正(終了 → 試合中 → 終了)とみなす、同じ人の 2 つの操作の間隔の上限(ミリ秒) */
+const correctionWindowMs = 60_000
+
+function reopened(entry: AuditEntry): boolean {
+  return (
+    (entry.action === 'match.status' || entry.action === 'event.remove') &&
+    entry.before.match?.status === 'finished' &&
+    entry.after.match?.status === 'live'
+  )
+}
+
+function refinished(entry: AuditEntry): boolean {
+  return (
+    (entry.action === 'match.status' || entry.action === 'event.add') &&
+    entry.before.match?.status === 'live' &&
+    entry.after.match?.status === 'finished'
+  )
+}
+
+/**
+ * 監査ログの行を履歴の表の行にする。同じ人が 1 分以内に「終了 → 試合中」「試合中 → 終了」と続けた
+ * 2 行は、1 回の訂正として「結果の訂正 終了 11-6 → 終了 11-9」の 1 行にまとめる(レビュー L2)。
+ * entries は新しい順(api の順)。
+ */
+export function auditLines(
+  entries: readonly AuditEntry[],
+  names: Names,
+): Array<{ entry: AuditEntry; line: AuditLine }> {
+  const out: Array<{ entry: AuditEntry; line: AuditLine }> = []
+  for (let index = 0; index < entries.length; index++) {
+    const newer = entries[index]
+    const older = entries[index + 1]
+    if (newer === undefined) {
+      continue
+    }
+    const sameUser = older !== undefined && older.user?.id === newer.user?.id
+    const close =
+      older !== undefined &&
+      Math.abs(new Date(newer.at).getTime() - new Date(older.at).getTime()) <= correctionWindowMs
+    if (older !== undefined && sameUser && close && refinished(newer) && reopened(older)) {
+      out.push({
+        entry: newer,
+        line: {
+          what: '結果の訂正',
+          target: newer.after.note ?? '',
+          before: matchState(older.before, names),
+          after: matchState(newer.after, names),
+        },
+      })
+      index++
+      continue
+    }
+    out.push({ entry: newer, line: describeAudit(newer, names) })
+  }
+  return out
 }

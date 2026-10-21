@@ -283,11 +283,18 @@ func (s *Server) shiftSchedule(ctx context.Context, id int64, r *http.Request, _
 	if err := decodeBody(r, &in); err != nil {
 		return nil, err
 	}
+	moved, err := store.CountShift(ctx, s.db, id, in.Court, in.Minutes)
+	if err != nil {
+		return nil, err
+	}
+	if in.DryRun {
+		return shiftResultDTO{Violations: []violationDTO{}, Moved: moved}, nil
+	}
 	violations, err := store.ShiftFormatSchedule(ctx, s.db, id, in.Court, in.Minutes)
 	if err != nil {
 		return nil, err
 	}
-	return violationListDTO{Violations: toViolations(violations)}, nil
+	return shiftResultDTO{Violations: toViolations(violations), Moved: moved}, nil
 }
 
 func (s *Server) swapSchedule(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {

@@ -328,7 +328,8 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, page.Rows, 305)
 	assert.Equal(t, before, count.Load())
-	assert.LessOrEqual(t, before, int64(7))
+	// 7 回に大会の中断(閲覧ページの帯)の 1 回を足した
+	assert.LessOrEqual(t, before, int64(8))
 }
 
 // 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。

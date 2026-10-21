@@ -33,11 +33,12 @@ const entries: AuditEntry[] = auditListSchema.parse({
       action: 'event.update',
       matchId: 1,
       teamId: null,
-      before: { match: state('live', 1, 0), event: goal(null), finalRank: null },
+      before: { match: state('live', 1, 0), event: goal(null), finalRank: null, note: null },
       after: {
         match: state('live', 1, 0),
         event: goal({ id: 7, number: '7', name: '選手1' }),
         finalRank: null,
+        note: null,
       },
     },
     {
@@ -47,11 +48,12 @@ const entries: AuditEntry[] = auditListSchema.parse({
       action: 'match.result',
       matchId: 1,
       teamId: null,
-      before: { match: state('scheduled', null, null), event: null, finalRank: null },
+      before: { match: state('scheduled', null, null), event: null, finalRank: null, note: null },
       after: {
         match: state('finished', 15, 0, { resultType: 'forfeit', winnerSide: 'left' }),
         event: null,
         finalRank: null,
+        note: null,
       },
     },
     {
@@ -61,8 +63,8 @@ const entries: AuditEntry[] = auditListSchema.parse({
       action: 'event.add',
       matchId: 1,
       teamId: null,
-      before: { match: state('scheduled', 0, 0), event: null, finalRank: null },
-      after: { match: state('live', 1, 0), event: goal(null), finalRank: null },
+      before: { match: state('scheduled', 0, 0), event: null, finalRank: null, note: null },
+      after: { match: state('live', 1, 0), event: goal(null), finalRank: null, note: null },
     },
   ],
 }).entries
@@ -104,11 +106,12 @@ describe('監査ログの文', () => {
           action: 'event.side',
           matchId: 1,
           teamId: null,
-          before: { match: state('live', 2, 1), event: goal(null), finalRank: null },
+          before: { match: state('live', 2, 1), event: goal(null), finalRank: null, note: null },
           after: {
             match: state('live', 1, 2),
             event: { ...goal(null), side: 'right' },
             finalRank: null,
+            note: null,
           },
         },
       ],

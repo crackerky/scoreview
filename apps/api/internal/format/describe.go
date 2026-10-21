@@ -216,3 +216,29 @@ func groupPlaces(g Group) (int, int, bool) {
 	}
 	return g.RankOffset + low, g.RankOffset + high, true
 }
+
+// OperatorName は管理画面(本部)に出すグループの名前。エンジンが作った英語の名前
+// ("Qualifying pool A"、"1st placement tournament")を運営の言葉(「予選 A 組」「1〜4 位を決める
+// トーナメント」)にする。運営者が付けた名前はそのまま返す。閲覧ページはグループ名のデータを
+// 出すので、ここは管理画面だけに使う(グループ名のデータは変えない)。
+func OperatorName(g Group) string {
+	first, last, placed := groupPlaces(g)
+	places := fmt.Sprintf("%d〜%d 位", first, last)
+	if first == last {
+		places = fmt.Sprintf("%d 位", first)
+	}
+	switch {
+	case g.Name == "Qualifying pool "+g.Letter:
+		if g.Final && placed {
+			return "総当たり(" + places + "を決める)"
+		}
+		return "予選 " + g.Letter + " 組"
+	case g.Name == "Tournament "+g.Letter:
+		return g.Letter + " ブロック"
+	case g.Name == "Championship pool" && placed:
+		return "決勝リーグ(" + places + "を決める)"
+	case strings.HasSuffix(g.Name, "placement tournament") && placed:
+		return places + "を決めるトーナメント"
+	}
+	return g.Name
+}

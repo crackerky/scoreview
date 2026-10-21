@@ -16,6 +16,9 @@ type Frame struct {
 	Divisions     []FrameDivision
 	Galleries     []FrameGallery
 	Banners       []FrameBanner
+	// Suspension は雷・雨などによる大会の中断(中断していなければ nil)。閲覧ページの大会の上部に帯を
+	// 出す(本サイト独自の追加。docs/requirements.md「意図的な差分」)
+	Suspension *Suspension
 }
 
 // FrameDivision はナビのディビジョン。Groups は published のグループだけ(sort_order, id 順)。

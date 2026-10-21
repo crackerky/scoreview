@@ -1,4 +1,4 @@
-import { auditUser, describeAudit, formatAuditTime } from '@/admin/audit.utils'
+import { auditLines, auditUser, formatAuditTime } from '@/admin/audit.utils'
 import { sideChoiceValue, sideName, statusLabel } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { groups, matches, teams } from '@/api/admin'
@@ -53,7 +53,7 @@ export default async function AdminMatchPage(props: IdPageProps) {
           }}
         />
         <div className="adm-grid">
-          <Field label="試合 CD" name="code" defaultValue={match.code} />
+          <Field label="試合番号" name="code" defaultValue={match.code} />
           <Field label="日付" name="date" type="date" defaultValue={match.date} />
           <Field label="時刻" name="time" type="time" defaultValue={match.time} />
           <Field label="コート" name="field" defaultValue={match.field} />
@@ -107,8 +107,7 @@ export default async function AdminMatchPage(props: IdPageProps) {
               </tr>
             </thead>
             <tbody>
-              {audit.entries.map((entry) => {
-                const line = describeAudit(entry, names)
+              {auditLines(audit.entries, names).map(({ entry, line }) => {
                 return (
                   <tr key={entry.id}>
                     <td>{formatAuditTime(entry.at)}</td>

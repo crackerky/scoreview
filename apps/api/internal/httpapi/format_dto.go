@@ -313,6 +313,7 @@ type todoDTO struct {
 	GroupID *int64  `json:"groupId"`
 	StageID *int64  `json:"stageId"`
 	MatchID *int64  `json:"matchId"`
+	TeamID  *int64  `json:"teamId"`
 	Court   *string `json:"court"`
 	Minutes int     `json:"minutes"`
 }
@@ -350,6 +351,7 @@ type groupProgressDTO struct {
 	ID                int64                `json:"id"`
 	Letter            string               `json:"letter"`
 	Name              string               `json:"name"`
+	Label             string               `json:"label"`
 	Kind              string               `json:"kind"`
 	Stage             int                  `json:"stage"`
 	State             string               `json:"state"`
@@ -362,15 +364,16 @@ type groupProgressDTO struct {
 }
 
 type progressMatchDTO struct {
-	ID        int64           `json:"id"`
-	Code      string          `json:"code"`
-	GroupName string          `json:"groupName"`
-	Date      *string         `json:"date"`
-	Time      *string         `json:"time"`
-	Field     *string         `json:"field"`
-	Status    string          `json:"status"`
-	Left      progressSideDTO `json:"left"`
-	Right     progressSideDTO `json:"right"`
+	ID         int64           `json:"id"`
+	Code       string          `json:"code"`
+	GroupName  string          `json:"groupName"`
+	GroupLabel string          `json:"groupLabel"`
+	Date       *string         `json:"date"`
+	Time       *string         `json:"time"`
+	Field      *string         `json:"field"`
+	Status     string          `json:"status"`
+	Left       progressSideDTO `json:"left"`
+	Right      progressSideDTO `json:"right"`
 }
 
 type progressFinalDTO struct {
@@ -395,6 +398,9 @@ type progressDTO struct {
 	Live        []progressMatchDTO `json:"live"`
 	Next        []progressMatchDTO `json:"next"`
 	Final       []progressFinalDTO `json:"final"`
+	Withdrawn   []int64            `json:"withdrawn"`
+	ClosedAt    *string            `json:"closedAt"`
+	Suspension  *suspensionDTO     `json:"suspension"`
 }
 
 type progressMatchListDTO struct {
@@ -406,7 +412,8 @@ func toProgressSide(side store.ProgressSide) progressSideDTO {
 }
 
 func toProgressMatch(m store.ProgressMatch) progressMatchDTO {
-	return progressMatchDTO{ID: m.ID, Code: m.Code, GroupName: m.GroupName, Date: m.Date, Time: m.Time,
+	return progressMatchDTO{ID: m.ID, Code: m.Code, GroupName: m.GroupName, GroupLabel: m.GroupLabel,
+		Date: m.Date, Time: m.Time,
 		Field: m.Field, Status: string(m.Status), Left: toProgressSide(m.Left), Right: toProgressSide(m.Right)}
 }
 
@@ -426,13 +433,14 @@ func toProgress(p store.FormatProgress, now time.Time) progressDTO {
 		Final: []progressFinalDTO{}}
 	for _, t := range p.Todo {
 		out.Todo = append(out.Todo, todoDTO{Kind: string(t.Kind), Text: t.Text, GroupID: t.GroupID,
-			StageID: t.StageID, MatchID: t.MatchID, Court: t.Court, Minutes: t.Minutes})
+			StageID: t.StageID, MatchID: t.MatchID, TeamID: t.TeamID, Court: t.Court, Minutes: t.Minutes})
 	}
 	for _, s := range p.Stages {
 		out.Stages = append(out.Stages, stageProgressDTO(s))
 	}
 	for _, g := range p.Groups {
-		dto := groupProgressDTO{ID: g.ID, Letter: g.Letter, Name: g.Name, Kind: string(g.Kind), Stage: g.Stage,
+		dto := groupProgressDTO{ID: g.ID, Letter: g.Letter, Name: g.Name, Label: g.Label, Kind: string(g.Kind),
+			Stage: g.Stage,
 			State: string(g.State), ConfirmedUnplayed: g.ConfirmedUnplayed, Remaining: g.Remaining,
 			Slots: []progressSideDTO{}, Rows: []progressRankRowDTO{}, Ties: [][]teamRefDTO{},
 			Conditions: []teamConditionDTO{}}
@@ -458,6 +466,12 @@ func toProgress(p store.FormatProgress, now time.Time) progressDTO {
 	for _, f := range p.Final {
 		out.Final = append(out.Final, progressFinalDTO{Rank: f.Rank, Team: toTeamRef(f.Team), Tied: f.Tied})
 	}
+	out.Withdrawn = nonNil(p.Withdrawn)
+	if p.ClosedAt != nil {
+		at := formatInstant(*p.ClosedAt)
+		out.ClosedAt = &at
+	}
+	out.Suspension = toSuspension(p.Suspension)
 	return out
 }
 
@@ -489,6 +503,10 @@ type correctionInputDTO struct {
 	// Downstream は結果のある下流の試合の対戦が変わるときの承認と下流の扱い(keep / reset)。
 	// null は承認しない
 	Downstream *string `json:"downstream"`
+	// ExpectedScore は本部が画面を開いたときのスコア(違えば 409 score_mismatch)。null は確かめない
+	ExpectedScore *scoreDTO `json:"expectedScore"`
+	// KeepEvents は得点経過のある試合を、得点経過を残したまま score で確定する
+	KeepEvents bool `json:"keepEvents"`
 }
 
 func (in correctionInputDTO) toInput() (store.CorrectionInput, error) {
@@ -499,7 +517,7 @@ func (in correctionInputDTO) toInput() (store.CorrectionInput, error) {
 		return store.CorrectionInput{}, domain.Invalid("winnerSide", "must be left or right")
 	}
 	return store.CorrectionInput{Score: domain.Score{Left: in.Score.Left, Right: in.Score.Right},
-		WinnerSide: in.WinnerSide}, nil
+		WinnerSide: in.WinnerSide, ExpectedScore: in.ExpectedScore.toDomain(), KeepEvents: in.KeepEvents}, nil
 }
 
 type impactMatchDTO struct {
@@ -532,6 +550,13 @@ func toImpact(i store.CorrectionImpact) impactDTO {
 type shiftInputDTO struct {
 	Court   *string `json:"court"`
 	Minutes int     `json:"minutes"`
+	// DryRun は動く試合の数だけを返す(本部の確認画面)
+	DryRun bool `json:"dryRun"`
+}
+
+type shiftResultDTO struct {
+	Violations []violationDTO `json:"violations"`
+	Moved      int            `json:"moved"`
 }
 
 type swapInputDTO struct {
