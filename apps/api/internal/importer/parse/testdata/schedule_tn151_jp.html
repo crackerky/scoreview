@@ -1,0 +1,149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>[CJS] 2017クラブジュニア･アルティメット･ドリームカップ -全スケジュール-</title></head>
+<body onload=''>
+<div id="top"><div id="wrapper"><div id="header">
+</div><!-- /#header -->
+<div id="contents"><div id="main"><div id="score_parts">
+<div id="score_view">
+						
+<script type="text/javascript">
+$(function() {
+
+	$("#Refresh_NG").show(500);
+	setTimeout( function() {
+		$("#Refresh_OK").show(800);
+		$("#Refresh_NG").hide(800);
+
+	}, 5000);
+});
+</script>
+
+
+<div class="ITBL">
+	<form action="" accept-charset="utf-8" method="post">		<input type="hidden" name="tid" value="151" />		<input type="hidden" name="lang" value="jp" />
+		<table>
+			<tr>
+				<td class='NINI CM BOLD'  width='40px'  >日付</td>
+				<td class=''         width='120px' ><select name="ymd" class="NWAKU  WMAX"  id='ymd'   onchange="Action('search');"   >
+<option value=""></option>
+<option value="20170310">2017/03/10</option>
+<option value="20170311">2017/03/11</option>
+<option value="20170312" selected="selected">2017/03/12</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='NINI CM BOLD'  width='60px'  >チーム名</td>
+				<td class=''         width='180px' ><select name="team" class="NWAKU  WMAX"  id='team'    onchange="Action('search');"    >
+<option value="" selected="selected"></option>
+<option value="2017WG日本代表候補">2017WG日本代表候補</option>
+<option value="2018U-24日本代表ウィメン部門">2018U-24日本代表ウィメン部門</option>
+<option value="2018U-24日本代表ミックス部門">2018U-24日本代表ミックス部門</option>
+<option value="2018U-24日本代表候補メン部門">2018U-24日本代表候補メン部門</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='NINI CM BOLD'  width='60px'  >コート</td>
+				<td class=''         width='100px' ><select name="field" class="NWAKU  WMAX"  id='field'    onchange="Action('search');"    >
+<option value="" selected="selected"></option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+<option value="6">6</option>
+<option value="7">7</option>
+<option value="8">8</option>
+<option value="9">9</option>
+<option value="10">10</option>
+<option value="11">11</option>
+<option value="12">12</option>
+<option value="13">13</option>
+<option value="14">14</option>
+<option value="15">15</option>
+<option value="16">16</option>
+<option value="17">17</option>
+<option value="18">18</option>
+<option value="19">19</option>
+<option value="20">20</option>
+</select></td>
+				<td class='NINI'     width='10px'  ></td>
+				<td class='RM'       width='120px' style="height:33px"  >					<a id='Refresh_OK'  style='display: none;'  href="#"  onclick="Action('search'); return false;"
+						><img src="https://score.clubjr.com/img/icons/refresh.png" alt="Reflesh_OK" /></a>
+					<a id='Refresh_NG'  style='display: none;'  href="#"  onclick='alert("５秒お待ちください"); return false;'
+						><img src="https://score.clubjr.com/img/icons/refresh_ng.png" alt="RefleshWait" /></a>
+						&nbsp;
+				</td>
+			</tr>
+		</table>
+		
+	</form></div>
+
+<div class="TBL">
+	<table>
+		<tr class='' >
+			<td class='MD1 CM' width= '13%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mdv.DIVISION_SORTKEY') ;  Action(&quot;sort&quot;)  ; return false; ">ディビジョン</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_DATE') ;  Action(&quot;sort&quot;)  ; return false; ">日付</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.START_TIME') ;  Action(&quot;sort&quot;)  ; return false; ">時間</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.FIELD_NO') ;  Action(&quot;sort&quot;)  ; return false; ">コート</a></td>
+			<td class='MD1 CM' width= '7%' ><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_mat.MATCH_CD') ;  Action(&quot;sort&quot;)  ; return false; ">CD</a></td>
+			<td class='MD1 RM' width= '17%'><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_lt_name') ;  Action(&quot;sort&quot;)  ; return false; ">チーム名</a> </td>
+			<td class='MD1 CM' width= '4%' >-</td>
+			<td class='MD1 CM' width= '3%' >VS</td>
+			<td class='MD1 CM' width= '4%' >-</td>
+			<td class='MD1 LM' width= '17%'><a href="#" class="MD1" onclick="AddHiddenVal('sortkey1', 'ASC_rt_name') ;  Action(&quot;sort&quot;)  ; return false; ">チーム名</a></td>
+			<td class='MD1 CM' width= '14%'>状況</td>
+		</tr>
+	
+		 
+			<tr class='H24'>
+				<td class='MC_END MC_WOM CM' >ウィメン</td>
+				<td class='MC_END CM' >03/12</td>
+				<td class='MC_END CM' >08:00 </td>
+				<td class='MC_END CM' >1</td>
+				<td class='MC_END CM' >WAT11</td>
+				<td class='MC_END RM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4720?lang=jp'; return false;">壱</a></span></td>
+				<td class='MC_END CM' >13</td>
+				<td class='MC_END CM' >x</td>
+				<td class='MC_END CM' >4</td>
+				<td class='MC_END LM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4700?lang=jp'; return false;">grin</a></span></td>
+				<td class='MC_END CM' >
+				終了				</td>
+			</tr>
+		 
+			<tr class='H24'>
+				<td class='MC_END MC_WOM CM' >ウィメン</td>
+				<td class='MC_END CM' >03/12</td>
+				<td class='MC_END CM' >08:00 </td>
+				<td class='MC_END CM' >2</td>
+				<td class='MC_END CM' >WBT11</td>
+				<td class='MC_END RM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4733?lang=jp'; return false;">スワンピーバーグ</a></span></td>
+				<td class='MC_END CM' >16</td>
+				<td class='MC_END CM' >x</td>
+				<td class='MC_END CM' >3</td>
+				<td class='MC_END LM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4689?lang=jp'; return false;">NEW TAIPEI COIN</a></span></td>
+				<td class='MC_END CM' >
+				終了				</td>
+			</tr>
+		 
+			<tr class='H24'>
+				<td class='MC_END MC_MEN CM' >メン</td>
+				<td class='MC_END CM' >03/12</td>
+				<td class='MC_END CM' >09:00 </td>
+				<td class='MC_END CM' >7</td>
+				<td class='MC_END CM' >OK5</td>
+				<td class='MC_END RM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4567?lang=jp'; return false;">sallian∞joseph</a></span></td>
+				<td class='MC_END CM' >6</td>
+				<td class='MC_END CM' >x</td>
+				<td class='MC_END CM' >8</td>
+				<td class='MC_END LM' ><span class='teamLink'><a href="#" class="" onclick="document.location = 'https://score.clubjr.com/pscore/scv_team/open/4592?lang=jp'; return false;">中部大学</a></span></td>
+				<td class='MC_END CM' >
+				終了				</td>
+			</tr>
+		 
+			</table>
+
+</div>
+
+
+					</div>
+</div></div></div></div></div></body></html>
