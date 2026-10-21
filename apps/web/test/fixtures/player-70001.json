@@ -42,6 +42,24 @@
         "name": { "ja": "見本 三郎", "en": "Saburo MIHON" },
         "gender": "M"
       }
+    },
+    {
+      "code": "A6",
+      "date": "2026-10-18",
+      "opponent": { "id": 5004, "name": { "ja": "架空チームD", "en": "Fictional D" } },
+      "elapsedSec": 300,
+      "scorer": {
+        "id": 70003,
+        "number": "4",
+        "name": { "ja": "見本 花子", "en": "Hanako MIHON" },
+        "gender": "F"
+      },
+      "assist": {
+        "id": 70001,
+        "number": "7",
+        "name": { "ja": "架空 太郎", "en": "Taro KAKU" },
+        "gender": "M"
+      }
     }
   ]
 }

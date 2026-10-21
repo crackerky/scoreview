@@ -1,0 +1,28 @@
+{
+  "frame": "frame-1",
+  "player": {
+    "id": 70101,
+    "number": "1",
+    "name": { "ja": "仮名 一", "en": "" },
+    "gender": "M",
+    "role": null
+  },
+  "team": { "id": 5003, "name": { "ja": "架空DG", "en": "" } },
+  "prev": {
+    "id": 70102,
+    "number": "2",
+    "name": { "ja": "仮名 二", "en": "" },
+    "gender": "F",
+    "role": null
+  },
+  "next": {
+    "id": 70102,
+    "number": "2",
+    "name": { "ja": "仮名 二", "en": "" },
+    "gender": "F",
+    "role": null
+  },
+  "statsKind": "discgolf",
+  "stats": { "games": 0, "assists": 0, "goals": 0, "callahans": 0, "greatests": 0, "blocks": 0 },
+  "events": []
+}
