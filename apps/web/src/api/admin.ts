@@ -48,10 +48,12 @@ function call<T>(
   return apiFetch(path, schema, { method, body, sessionToken: token })
 }
 
-export function login(email: string, password: string) {
+/** clientIp は利用者の IP(api の IP 単位の試行制限に使う。分からなければ空文字) */
+export function login(email: string, password: string, clientIp: string) {
   return apiFetch(`${base}/auth/login`, loginResponseSchema, {
     method: 'POST',
     body: { email, password },
+    clientIp,
   })
 }
 
