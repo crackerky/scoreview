@@ -6,6 +6,7 @@ import { BracketTable } from './BracketTable'
 import { MatchListRows } from './MatchRowLine'
 import { PoolNotes } from './PoolNotes'
 import { PoolMatrix, PoolResults } from './PoolTables'
+import { assetSrc, referenceAssetMode } from './referenceAsset.utils'
 import { ScvMidaM } from './ScvMidaM'
 import { Tbl } from './Tbl'
 
@@ -77,8 +78,10 @@ function GroupBody({ data, lang }: { data: GroupResponse; lang: Lang }) {
       return (
         <div className="TBL">
           <img
-            src={image.url}
+            src={assetSrc(image.url, referenceAssetMode())}
             alt=""
+            width={image.width ?? undefined}
+            height={image.height ?? undefined}
             style={{
               width: image.width === null ? undefined : `${image.width}px`,
               height: image.height === null ? undefined : `${image.height}px`,

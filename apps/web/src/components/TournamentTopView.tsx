@@ -3,6 +3,7 @@ import { brand } from '@/brand/brand.config'
 import { divisionHref, divisionScheduleHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { msg } from '@/i18n/messages'
+import { assetSrc, referenceAssetMode, rewriteHtmlImages } from './referenceAsset.utils'
 import { SanitizedHtml } from './SanitizedHtml'
 import { Tbl, TblHeaderRow } from './Tbl'
 
@@ -22,12 +23,17 @@ function DivisionLink({ href, label }: { href: string | null; label: string }) {
 }
 
 export function TournamentTopView({ data, lang }: { data: TournamentTopResponse; lang: Lang }) {
+  const mode = referenceAssetMode()
   return (
     <>
       {/* clone-spec A 1.7: 見出しの大会名は lang=en でも日本語名 */}
       <div className="text_title">{data.frame.name.ja}</div>
       <div style={{ textAlign: 'center', margin: '10px 10px 15px 10px' }}>
-        <img src={data.logoUrl ?? brand.defaultTournamentLogo} alt={msg(lang, 'logoAlt')} />
+        {/* 最初の画面に入るので遅延読み込みにしない。寸法は大会ごとに違い api に無い */}
+        <img
+          src={assetSrc(data.logoUrl ?? brand.defaultTournamentLogo, mode)}
+          alt={msg(lang, 'logoAlt')}
+        />
       </div>
       <Tbl style={{ marginLeft: '80px', marginRight: '100px' }} tableStyle={{ width: '100%' }}>
         {/* 列幅は 40% + 40%。table-layout: fixed なので右の 20% は空く(参照サイトのまま) */}
@@ -64,7 +70,7 @@ export function TournamentTopView({ data, lang }: { data: TournamentTopResponse;
       <SanitizedHtml
         id="SCV_TopPage"
         style={{ marginLeft: '10px' }}
-        html={pickText(lang, data.topHtml)}
+        html={rewriteHtmlImages(pickText(lang, data.topHtml), mode)}
       />
     </>
   )

@@ -234,7 +234,7 @@ describe('画像のみ型(clone-spec E 4)', () => {
   test('見出しと div.TBL の中の img だけ', () => {
     assert.equal(
       renderHtml(<GroupView data={imageGroup} lang="jp" />),
-      '<span class="SCV_MIDA_M">&lt; ビーチミックス - Temporary ranking &gt;</span><br/><div class="TBL"><img src="/brand/photo-sample.svg" alt="" style="width:500px;height:333px"/></div>',
+      '<span class="SCV_MIDA_M">&lt; ビーチミックス - Temporary ranking &gt;</span><br/><div class="TBL"><img src="/brand/photo-sample.svg" alt="" width="500" height="333" style="width:500px;height:333px"/></div>',
     )
   })
   test('大きさが未登録なら style を付けない', () => {

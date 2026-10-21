@@ -4,6 +4,7 @@ import { divisionHref, groupHref } from '@/i18n/href'
 import type { Lang } from '@/i18n/lang'
 import { pickText } from '@/i18n/lang'
 import { groupLinkLabel } from './navi.utils'
+import { assetSrc, referenceAssetMode } from './referenceAsset.utils'
 
 // clone-spec A 1.5: 大会ページの div#sub。バナーが 0 枚でも枠だけの白い箱を出す。
 // バナーは <br /><br /> 区切りで縦に並べ、リンク先があれば <a> で囲む。
@@ -103,11 +104,25 @@ function ScoreMenu({ frame, lang }: { frame: TournamentFrame; lang: Lang }) {
   )
 }
 
+// 参照サイトのバナーは幅 160px で高さ 54〜64px(legacy.css の #sub .sub_banners img)。読み込み前の
+// 枠の比率に使う代表値で、実際の比率は画像を読んだ後に CSS の height: auto で決まる
+const bannerWidthPx = 160
+const bannerHeightPx = 60
+
 function Banners({ banners }: { banners: TournamentFrame['banners'] }) {
+  const mode = referenceAssetMode()
   return (
     <div className="sub_banners">
       {banners.map((banner, index) => {
-        const image = <img src={banner.imageUrl} alt="" />
+        const image = (
+          <img
+            src={assetSrc(banner.imageUrl, mode)}
+            alt=""
+            width={bannerWidthPx}
+            height={bannerHeightPx}
+            loading="lazy"
+          />
+        )
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: 同じ画像のバナーが並ぶことがある
           <Fragment key={index}>

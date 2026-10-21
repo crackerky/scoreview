@@ -75,8 +75,22 @@ describe('外枠', () => {
     const html = renderTournament()
     assert.match(
       html,
-      /<div class="sub_banners"><a href="https:\/\/example.com\/"><img src="\/brand\/banner-sample.svg" alt=""\/><\/a><br\/><br\/><img src="\/brand\/banner-sample.svg" alt=""\/><\/div>/,
+      /<div class="sub_banners"><a href="https:\/\/example.com\/"><img src="\/brand\/banner-sample.svg" alt="" width="160" height="60" loading="lazy"\/><\/a><br\/><br\/><img src="\/brand\/banner-sample.svg" alt="" width="160" height="60" loading="lazy"\/><\/div>/,
     )
+  })
+
+  test('参照サイトのバナー画像は(REFERENCE_ASSET_MODE が既定の block なら)プレースホルダにする', () => {
+    const reference = {
+      ...frame,
+      banners: [{ imageUrl: 'https://score.clubjr.com/zfiles/b.jpeg', linkUrl: null }],
+    }
+    const html = renderHtml(
+      <SiteFrame variant={{ kind: 'tournament', frame: reference, lang: 'jp' }} year={2026}>
+        {null}
+      </SiteFrame>,
+    )
+    assert.match(html, /<img src="\/placeholder\/reference-image.svg"/)
+    assert.doesNotMatch(html, /clubjr/)
   })
 
   test('バナー 0 枚でも枠は出る', () => {

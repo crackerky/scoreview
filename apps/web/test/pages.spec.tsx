@@ -156,7 +156,10 @@ describe('ギャラリー(clone-spec A 6)', () => {
       /^<span class="SCV_MIDA_M">&lt; Day1-AM &gt;<\/span><br\/><div class="CM" id="photo">/,
     )
     assert.equal(html.match(/<a href="\/brand\/photo-sample.svg" rel="photos">/g)?.length, 3)
-    assert.match(html, /<img src="\/brand\/photo-sample-thumb.svg" alt="" style="margin:2px"\/>/)
+    assert.match(
+      html,
+      /<img src="\/brand\/photo-sample-thumb.svg" alt="" style="margin:2px" loading="lazy"\/>/,
+    )
     assert.doesNotMatch(html, /lightbox/)
   })
 
