@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
+  assignmentFormSchema,
   bannersFormSchema,
   bracketFormSchema,
   elapsedSchema,
@@ -326,5 +327,36 @@ describe('ユーザー', () => {
       tournamentIds: [2],
     })
     assert.deepEqual(userTournamentsFormSchema.parse({}), { tournamentIds: [] })
+  })
+})
+
+describe('記録係の割り当てのフォーム', () => {
+  test('空欄の条件は null(全コート、全日程、終日)', () => {
+    assert.deepEqual(
+      assignmentFormSchema.parse({ userId: '5', field: '3', from: '10:00', to: '' }),
+      {
+        userId: 5,
+        matchId: null,
+        field: '3',
+        date: null,
+        from: '10:00',
+        to: null,
+      },
+    )
+  })
+
+  test('試合を選んだら範囲の条件は送らない。時間帯は始まりより後で終わる', () => {
+    assert.deepEqual(assignmentFormSchema.parse({ userId: '5', matchId: '9', field: '3' }), {
+      userId: 5,
+      matchId: 9,
+      field: null,
+      date: null,
+      from: null,
+      to: null,
+    })
+    assert.equal(
+      assignmentFormSchema.safeParse({ userId: '5', from: '12:00', to: '10:00' }).success,
+      false,
+    )
   })
 })

@@ -713,3 +713,44 @@ export const userTournamentsFormSchema = z
       .filter((value) => value !== '')
       .map((value) => formId.parse(value)),
   }))
+
+const optionalClock = z.preprocess(
+  (value) => (value === '' || value === undefined ? null : value),
+  z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:MM で入力してください')
+    .nullable(),
+)
+
+/**
+ * 記録係の割り当て(docs/api.md「記録係の割り当て」)。試合を選べば試合だけ、選ばなければコート、日付、
+ * 時間帯の範囲(空欄はその条件なし)。
+ */
+export const assignmentFormSchema = z
+  .object({
+    userId: formId,
+    matchId: optionalInt,
+    field: optionalText,
+    date: z.preprocess(
+      (value) => (value === '' || value === undefined ? null : value),
+      z.iso.date('YYYY-MM-DD で入力してください').nullable(),
+    ),
+    from: optionalClock,
+    to: optionalClock,
+  })
+  .refine((form) => form.from === null || form.to === null || form.from < form.to, {
+    path: ['to'],
+    message: '終わりの時刻を始まりより後にしてください',
+  })
+  .transform((form) =>
+    form.matchId === null
+      ? { ...form, matchId: null }
+      : {
+          userId: form.userId,
+          matchId: form.matchId,
+          field: null,
+          date: null,
+          from: null,
+          to: null,
+        },
+  )
