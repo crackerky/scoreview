@@ -68,8 +68,13 @@ describe('閲覧用応答のスキーマ', () => {
       time: null,
       field: null,
       status: 'scheduled',
-      left: { team: null, placeholder: { code: 'A1', outcome: 'win' }, score: null },
-      right: { team: null, placeholder: { code: 'A2', outcome: 'draw' }, score: null },
+      left: { team: null, placeholder: { code: 'A1', outcome: 'win' }, score: null, labelEn: '' },
+      right: {
+        team: null,
+        placeholder: { code: 'A2', outcome: 'draw' },
+        score: null,
+        labelEn: '',
+      },
     }
     assert.equal(matchRowSchema.safeParse(row).success, false)
     const fixed = { ...row, right: { ...row.right, placeholder: { code: 'A2', outcome: 'lose' } } }

@@ -138,6 +138,9 @@ type MatchSide struct {
 	Team        *TeamRef
 	Placeholder *Placeholder
 	Score       *int
+	// LabelEn は対戦相手の決まり方の英語表記("[A1-Win]" "[MA-3rd]" "(A10)")。英語版で
+	// チームの英語名が空のとき代わりに出す(clone-spec B 8)。なければ空
+	LabelEn string
 }
 
 // MatchRow は日程や結果一覧の 1 行。Date は "YYYY-MM-DD"、Time は "HH:MM"。

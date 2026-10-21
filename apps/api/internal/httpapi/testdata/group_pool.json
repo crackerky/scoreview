@@ -230,7 +230,8 @@
           }
         },
         "placeholder": null,
-        "score": 9
+        "score": 9,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -241,7 +242,8 @@
           }
         },
         "placeholder": null,
-        "score": 3
+        "score": 3,
+        "labelEn": ""
       }
     },
     {
@@ -261,7 +263,8 @@
           }
         },
         "placeholder": null,
-        "score": 5
+        "score": 5,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -272,7 +275,8 @@
           }
         },
         "placeholder": null,
-        "score": 5
+        "score": 5,
+        "labelEn": ""
       }
     },
     {
@@ -292,7 +296,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       },
       "right": {
         "team": {
@@ -303,7 +308,8 @@
           }
         },
         "placeholder": null,
-        "score": null
+        "score": null,
+        "labelEn": ""
       }
     }
   ]

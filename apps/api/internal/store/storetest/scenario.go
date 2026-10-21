@@ -161,6 +161,8 @@ func buildMatches(tb testing.TB, builder *Builder, sc *Scenario) {
 			row.Code, row.GroupID, row.Status = "B1", &sc.Bracket.ID, domain.MatchLive
 			row.LeftScore, row.RightScore = Ptr(2), Ptr(1)
 			row.RightPlaceholderCode, row.RightPlaceholderOutcome = Ptr("A1"), Ptr(domain.OutcomeWin)
+			// デルタは英語名がないので、英語版では決まり方の表記を出す
+			row.LeftLabelEn = "(A4)"
 		},
 	)
 	sc.MatchWomen = builder.Match(

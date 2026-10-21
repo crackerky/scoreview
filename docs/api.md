@@ -71,6 +71,9 @@ type MatchSide = {
   team: TeamRef | null
   placeholder: { code: string; outcome: 'win' | 'lose' } | null  // team が null のとき
   score: number | null
+  // 対戦相手の決まり方の英語表記("[A1-Win]" "[MA-3rd]" "(A10)")。なければ空文字。
+  // 英語版でチームの英語名が空のとき、名前の代わりに出す(参照サイトと同じ。clone-spec B 8)
+  labelEn: string
 }
 
 type MatchRow = {

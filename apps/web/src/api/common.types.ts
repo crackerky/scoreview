@@ -76,6 +76,8 @@ export const matchSideSchema = z.object({
   team: teamRefSchema.nullable(),
   placeholder: z.object({ code: z.string(), outcome: z.enum(['win', 'lose']) }).nullable(),
   score: z.number().int().nullable(),
+  // 英語版でチームの英語名が空のとき代わりに出す決まり方の表記(clone-spec B 8)。なければ空
+  labelEn: z.string(),
 })
 export type MatchSide = z.infer<typeof matchSideSchema>
 

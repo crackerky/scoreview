@@ -86,7 +86,7 @@ func toPlayerWithRole(player store.PlayerWithRole) playerWithRoleDTO {
 }
 
 func toMatchSide(side domain.MatchSide) matchSideDTO {
-	out := matchSideDTO{Team: toTeamRefPtr(side.Team), Score: side.Score}
+	out := matchSideDTO{Team: toTeamRefPtr(side.Team), Score: side.Score, LabelEn: side.LabelEn}
 	if side.Placeholder != nil {
 		out.Placeholder = &placeholderDTO{
 			Code:    side.Placeholder.Code,

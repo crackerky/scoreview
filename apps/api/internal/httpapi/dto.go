@@ -71,6 +71,7 @@ type matchSideDTO struct {
 	Team        *teamRefDTO     `json:"team"`
 	Placeholder *placeholderDTO `json:"placeholder"`
 	Score       *int            `json:"score"`
+	LabelEn     string          `json:"labelEn"`
 }
 
 type matchRowDTO struct {

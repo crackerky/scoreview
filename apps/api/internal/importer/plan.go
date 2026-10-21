@@ -111,6 +111,7 @@ func BuildPlan(b *Bundle) (*Plan, error) {
 		return nil, err
 	}
 	p.planWinners()
+	p.planWinnersFromLabels()
 	p.planEventsAndStats()
 	p.planGreatests()
 	p.planPoolMembers()
@@ -532,10 +533,19 @@ func (p *planner) planTeamNames() {
 			p.shortEN[*id] = name.EN
 		}
 	}
+	// 英語版の一覧で英語名のないチームのリンクには、名前の代わりに決まり方の表記("[A1-Win]")が
+	// 出るので、英語の短縮名として拾わない(clone-spec B 8)
+	nameOf := func(side parse.MatchRowSide) parse.Text {
+		name := side.ShortName
+		if isLabel(name.EN) {
+			name.EN = ""
+		}
+		return name
+	}
 	rows := func(rs []parse.MatchRow) {
 		for _, r := range rs {
-			note(r.Left.TeamID, r.Left.ShortName)
-			note(r.Right.TeamID, r.Right.ShortName)
+			note(r.Left.TeamID, nameOf(r.Left))
+			note(r.Right.TeamID, nameOf(r.Right))
 		}
 	}
 	for _, dp := range p.divs {

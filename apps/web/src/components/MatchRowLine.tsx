@@ -47,7 +47,9 @@ function TeamCell({
   className: string
 }) {
   if (side.team !== null) {
-    const name = pickText(lang, side.team.name)
+    // clone-spec B 8: 英語版で英語名のないチームは、名前の代わりに決まり方の表記("[A1-Win]")を出す
+    const name =
+      lang === 'en' && side.team.name.en === '' ? side.labelEn : pickText(lang, side.team.name)
     return (
       <td className={className}>
         <span className="teamLink">
