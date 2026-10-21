@@ -588,6 +588,8 @@ type MatchDetail = {
 
 `{eventId}` は得点経過の `id`(正の整数)か `clientId`(UUID)。通信が切れている間に記録した得点経過は、端末が api の `id` を知らないので `clientId` で指す。
 
+**数値の上限**: `elapsedSec` は 0〜86400(1 日)、スコア(`score.left` / `score.right`、`forfeitScore.winner`)は 0〜999、選手記録の `blocks` / `greatests` は 0〜999。超えたら 400(DB の integer を超える値で 500 にしない)。
+
 **操作 ID(`clientId`)と冪等性**: 試合を変える操作(得点経過の追加・取り消し・付け直し、状態の変更、結果の種類)には、端末が UUID の `clientId` を付けられる。
 同じ `clientId` の操作が既に適用済みなら、2 回目は何もせずに現在の `MatchDetail` を返す(得点経過の追加なら 201、他は 200)。
 端末は通信が切れている間の操作を溜め、つながったら順に送り直す。応答が届かずに送り直しても二重に登録されない。

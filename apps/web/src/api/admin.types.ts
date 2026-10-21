@@ -305,6 +305,18 @@ const optionalInt = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : null),
   z.number().int().nullable(),
 )
+// 記録の数値の上限(api の internal/domain/limits.go と同じ値。DB の integer を超えさせない)
+/** 得点経過の経過秒の上限(1 日) */
+export const MAX_ELAPSED_SEC = 24 * 60 * 60
+/** 試合のスコアと不戦勝の規定スコアの上限 */
+export const MAX_SCORE = 999
+/** 1 試合の選手のブロック数とグレイテスト数の上限 */
+export const MAX_PLAYER_STAT = 999
+
+/** 空欄なら null のスコア(0 以上 MAX_SCORE 以下) */
+const optionalScore = optionalInt.pipe(
+  z.number().int().min(0).max(MAX_SCORE, `${MAX_SCORE} 以下で入力してください`).nullable(),
+)
 /** 空欄なら 0 の整数 */
 const intOrZero = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : 0),
@@ -345,8 +357,8 @@ export const tournamentFormSchema = z
     teamListLabel: z.enum(['teams', 'entries']),
     groupLabel: z.enum(['groups', 'results']),
     showSchedule: checkbox,
-    forfeitWinner: optionalInt,
-    forfeitLoser: optionalInt,
+    forfeitWinner: optionalScore,
+    forfeitLoser: optionalScore,
   })
   .refine((form) => (form.forfeitWinner === null) === (form.forfeitLoser === null), {
     path: ['forfeitLoser'],
@@ -645,8 +657,8 @@ export const statusFormSchema = z
   .object({
     status: matchStatusSchema,
     winnerSide: optionalSide,
-    leftScore: optionalInt,
-    rightScore: optionalInt,
+    leftScore: optionalScore,
+    rightScore: optionalScore,
   })
   .refine((form) => (form.leftScore === null) === (form.rightScore === null), {
     path: ['rightScore'],
@@ -668,7 +680,11 @@ export const statusFormSchema = z
 export function playerStatsFromForm(form: Record<string, unknown>) {
   const count = z.preprocess(
     (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : 0),
-    z.number().int().min(0, '0 以上で入力してください'),
+    z
+      .number()
+      .int()
+      .min(0, '0 以上で入力してください')
+      .max(MAX_PLAYER_STAT, `${MAX_PLAYER_STAT} 以下で入力してください`),
   )
   const stats: PlayerStat[] = []
   const seen = new Set<string>()

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"scoreview/api/internal/auth"
@@ -736,6 +737,11 @@ func (s *Server) addEvent(
 	if err := decodeBody(r, &body); err != nil {
 		return nil, err
 	}
+	if body.ElapsedSec != nil {
+		if err := domain.CheckRange("elapsedSec", *body.ElapsedSec, 0, domain.MaxElapsedSec); err != nil {
+			return nil, err
+		}
+	}
 	input := store.EventInput{
 		NewEvent: domain.NewEvent{
 			Kind: domain.EventKind(body.Kind), Side: toSidePtr(body.Side),
@@ -784,6 +790,9 @@ func (s *Server) putPlayerStats(
 	}
 	stats := make([]store.PlayerStatFields, len(body.Stats))
 	for i, stat := range body.Stats {
+		if err := checkPlayerStat(i, stat); err != nil {
+			return nil, err
+		}
 		stats[i] = store.PlayerStatFields{
 			PlayerID:  stat.PlayerID,
 			Side:      domain.Side(stat.Side),
@@ -796,6 +805,15 @@ func (s *Server) putPlayerStats(
 		return nil, err
 	}
 	return toMatchDetail(detail), nil
+}
+
+// checkPlayerStat は選手記録の数が 0 以上 MaxPlayerStat 以下であることを確かめる。
+func checkPlayerStat(index int, stat playerStatDTO) error {
+	field := fmt.Sprintf("stats[%d].", index)
+	if err := domain.CheckRange(field+"blocks", stat.Blocks, 0, domain.MaxPlayerStat); err != nil {
+		return err
+	}
+	return domain.CheckRange(field+"greatests", stat.Greatests, 0, domain.MaxPlayerStat)
 }
 
 func (s *Server) changeStatus(
@@ -814,6 +832,12 @@ func (s *Server) changeStatus(
 		ClientID:   body.ClientID,
 	}
 	if body.Score != nil {
+		if err := domain.CheckRange("score.left", body.Score.Left, 0, domain.MaxScore); err != nil {
+			return nil, err
+		}
+		if err := domain.CheckRange("score.right", body.Score.Right, 0, domain.MaxScore); err != nil {
+			return nil, err
+		}
 		input.Score = &domain.Score{Left: body.Score.Left, Right: body.Score.Right}
 	}
 	detail, err := store.ChangeMatchStatus(ctx, s.db, actorOf(user), id, input)

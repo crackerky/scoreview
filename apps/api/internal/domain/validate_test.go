@@ -38,3 +38,11 @@ func TestCheckRequiredAndClock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 18, day.Day())
 }
+
+func TestCheckRangeAndForfeitScoreLimit(t *testing.T) {
+	assert.NoError(t, domain.CheckRange("n", domain.MaxScore, 0, domain.MaxScore))
+	assert.ErrorIs(t, domain.CheckRange("n", domain.MaxScore+1, 0, domain.MaxScore), domain.ErrBadRequest)
+	assert.ErrorIs(t, domain.CheckRange("n", -1, 0, domain.MaxScore), domain.ErrBadRequest)
+	assert.NoError(t, domain.ForfeitScore{Winner: domain.MaxScore}.Validate("f"))
+	assert.ErrorIs(t, domain.ForfeitScore{Winner: domain.MaxScore + 1}.Validate("f"), domain.ErrBadRequest)
+}

@@ -3,6 +3,7 @@ import {
   type AdminEvent,
   type AdminPlayer,
   forfeitScoreSchema,
+  MAX_ELAPSED_SEC,
   type MatchDetail,
 } from '@/api/admin.types'
 import {
@@ -27,7 +28,7 @@ const eventAddSchema = z.object({
   opId,
   kind: z.enum(['goal', 'timeout', 'pull', 'end']),
   side: sideSchema.nullable(),
-  elapsedSec: z.number().int().min(0),
+  elapsedSec: z.number().int().min(0).max(MAX_ELAPSED_SEC),
   scorerId: nullableId,
   assistId: nullableId,
   callahan: z.boolean(),
@@ -292,12 +293,15 @@ export function newOpId(source: Pick<Crypto, 'getRandomValues'> & Partial<Crypto
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-/** 経過秒。startedAt(ミリ秒)が無ければ 0(最初の記録が経過 0 秒になる) */
+/**
+ * 経過秒。startedAt(ミリ秒)が無ければ 0(最初の記録が経過 0 秒になる)。端末の時計が飛んでも
+ * api の上限(MAX_ELAPSED_SEC)を超えないように抑える(超えると操作が送れず、保存した列も読めない)
+ */
 export function elapsedSeconds(startedAt: number | null, now: number): number {
   if (startedAt === null || now <= startedAt) {
     return 0
   }
-  return Math.floor((now - startedAt) / 1000)
+  return Math.min(MAX_ELAPSED_SEC, Math.floor((now - startedAt) / 1000))
 }
 
 /** 結果の種類の文言(画面と印刷に出す。「状態」のような内部の言葉を出さない) */
