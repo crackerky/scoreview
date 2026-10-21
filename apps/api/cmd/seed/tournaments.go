@@ -15,7 +15,7 @@ const beachTopHTML = `<p><span class="SCV_MIDA_M" style="background-color: rgb(2
 	`padding: 4px 10px; border-radius: 4px;">【Web Site】</span></p>` +
 	`<p><a href="https://example.com/fictional-beach" target="_blank">https://example.com/fictional-beach</a></p>` +
 	`<p><span class="SCV_MIDA_M">【Result】</span><br><strong>■1st place：ブラボー</strong><br>` +
-	`<img src="https://placehold.co/600x400?text=1st" style="width: 600px; height: 400px;"></p>`
+	`<img src="/brand/photo-sample.svg" style="width: 600px; height: 400px;"></p>`
 
 func nato(names ...string) []teamName {
 	out := make([]teamName, 0, len(names))
@@ -31,9 +31,7 @@ func (s *seeder) beachLeague() error {
 	tour, err := s.tournament(store.Tournament{
 		NameJa: "2026 架空ビーチリーグ", NameEn: "2026 Fictional Beach League", ShortName: "2026 F-Beach",
 		Status: domain.TournamentFinished, Listed: true, StartDate: date("2026-10-17"),
-		LogoURL: ptr(
-			image(600, 213, "Fictional+Beach"),
-		), TopHTMLJa: beachTopHTML, TopHTMLEn: beachTopHTML,
+		LogoURL: ptr(sampleLogo), TopHTMLJa: beachTopHTML, TopHTMLEn: beachTopHTML,
 		ShowSchedule: true,
 	})
 	if err != nil {
@@ -41,7 +39,7 @@ func (s *seeder) beachLeague() error {
 	}
 	for idx := 1; idx <= 3; idx++ {
 		banner := store.TournamentBanner{
-			TournamentID: tour.ID, ImageURL: image(160, 64, fmt.Sprintf("Banner+%d", idx)), SortOrder: idx,
+			TournamentID: tour.ID, ImageURL: sampleBanner, SortOrder: idx,
 		}
 		if idx == 1 {
 			banner.LinkURL = ptr("https://example.com/")
@@ -56,9 +54,8 @@ func (s *seeder) beachLeague() error {
 			return err
 		}
 		for num := 1; num <= 6; num++ {
-			text := fmt.Sprintf("%s+%d", session, num)
 			photo := store.GalleryPhoto{
-				GalleryID: gallery.ID, ThumbURL: image(120, 80, text), FullURL: image(945, 630, text), SortOrder: num,
+				GalleryID: gallery.ID, ThumbURL: sampleThumb, FullURL: samplePhoto, SortOrder: num,
 			}
 			if err := s.create(&photo); err != nil {
 				return err
@@ -130,7 +127,7 @@ func (s *seeder) beachMixed(tour store.Tournament) error {
 	}
 	_, err = s.group(store.Group{
 		DivisionID: mixed.ID, Name: "Temporary ranking", Kind: domain.GroupImage, Linked: true, Published: true,
-		SortOrder: 3, ImageURL: ptr(image(500, 695, "Temporary+ranking")), ImageWidth: ptr(500), ImageHeight: ptr(695),
+		SortOrder: 3, ImageURL: ptr(samplePhoto), ImageWidth: ptr(500), ImageHeight: ptr(695),
 	}, nil)
 	if err != nil {
 		return err

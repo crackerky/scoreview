@@ -12,8 +12,14 @@ import (
 	"scoreview/api/internal/store"
 )
 
-// placeholderImage は架空データの画像 URL。実在の大会の素材を使わないため、寸法と文字だけの画像にする。
-const placeholderImage = "https://placehold.co/%dx%d?text=%s"
+// 架空データの画像は web の public/brand の見本画像を使う。実在の大会の素材を使わないため。外部の画像
+// サービス(以前は placehold.co)は閲覧ページの CSP(img-src 'self')で読み込めず、画像が壊れて見える
+const (
+	sampleLogo   = "/brand/logo-default-tournament.svg"
+	sampleBanner = "/brand/banner-sample.svg"
+	samplePhoto  = "/brand/photo-sample.svg"
+	sampleThumb  = "/brand/photo-sample-thumb.svg"
+)
 
 // ErrNotEmpty は DB に大会が既にあることを表す(-replace なしで二重に投入しないため)。
 var ErrNotEmpty = errors.New("database already has tournaments; use -replace to overwrite")
@@ -71,10 +77,6 @@ func date(value string) *time.Time {
 		panic(fmt.Sprintf("seed: bad date %q", value))
 	}
 	return &day
-}
-
-func image(width, height int, text string) string {
-	return fmt.Sprintf(placeholderImage, width, height, text)
 }
 
 func (s *seeder) all() error {
