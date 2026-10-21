@@ -53,6 +53,18 @@
   text-align: right;
 }
 
+/* 雷・雨などによる大会の中断の帯(本部が「中断する」を押している間、大会の全ページの本文の上に出す) */
+#main p.sv_suspension {
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border: 2px solid #c62828;
+  background: #fff1f0;
+  color: #c62828;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
 /* 大会トップのディビジョン表の下の会場図へのリンク(表の左端 80px + 余白に揃える) */
 #main p.sv_venue_map {
   margin: 6px 0 0 90px;

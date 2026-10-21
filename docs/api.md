@@ -736,6 +736,7 @@ type AuditEntry = {
   user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
   action: 'event.add' | 'event.remove' | 'event.update' | 'event.side' | 'match.status' | 'match.result' | 'team.final_rank'
     | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
+    | 'match.withdraw'               // 棄権の一括処理(下記「チームの棄権」。teamId は棄権したチーム)
   matchId: number | null; teamId: number | null
   // 変更の前と後。試合の操作は match(と得点経過の操作なら event)、最終順位は finalRank を持つ
   // note は操作の補足(「得点経過(9-8)と違う最終スコア(11-9)で本部が確定」「棄権の一括処理」)。無ければ null

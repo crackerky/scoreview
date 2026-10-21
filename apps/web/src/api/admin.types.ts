@@ -269,6 +269,7 @@ export const auditEntrySchema = z.object({
     'match.result',
     'team.final_rank',
     'match.align_teams',
+    'match.withdraw',
   ]),
   matchId: id.nullable(),
   teamId: id.nullable(),

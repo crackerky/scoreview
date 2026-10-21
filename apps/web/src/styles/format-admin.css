@@ -300,3 +300,156 @@
   border-color: var(--adm-danger);
   background: #fff5f5;
 }
+
+/* 本部の進行画面の見出しの行(自動更新の時刻とリンク) */
+.adm .hq-head a,
+.adm .hq-todo a,
+.adm .hq-group a,
+.adm .hq-box a,
+.adm .hq-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+}
+
+.adm .hq-updated {
+  color: var(--adm-muted);
+  font-size: 0.875rem;
+}
+
+/* 中断中の帯(どのタブでも上に出す) */
+.adm .hq-suspended {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--adm-gap);
+  align-items: center;
+  margin: 0 0 var(--adm-gap);
+  padding: 10px 12px;
+  border: 2px solid var(--adm-danger);
+  border-radius: 8px;
+  background: #fff1f0;
+  color: var(--adm-danger);
+}
+
+.adm .hq-suspended form {
+  color: var(--adm-fg);
+}
+
+.adm .hq-suspend {
+  margin: 0 0 var(--adm-gap);
+}
+
+.adm .hq-suspend summary,
+.adm .hq-group summary {
+  min-height: var(--adm-tap);
+  line-height: var(--adm-tap);
+  cursor: pointer;
+}
+
+/* 確認や補足の囲み */
+.adm .hq-box {
+  margin: 0 0 var(--adm-gap);
+  padding: 8px 12px;
+  border: 1px solid var(--adm-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.adm .hq-box.danger {
+  border: 2px solid var(--adm-danger);
+  background: #fff5f5;
+}
+
+.adm .hq-box h2 {
+  margin-top: 0;
+}
+
+.adm a.hq-button {
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--adm-accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+/* 下流の扱いの承認。選ばずに保存したら赤で囲んで理由を出す(レビュー M6) */
+.adm .hq-approval.missing {
+  padding: 8px;
+  border: 3px solid var(--adm-danger);
+  border-radius: 6px;
+  background: #fff5f5;
+}
+
+.adm .hq-approval-why {
+  margin: 0 0 6px;
+  color: var(--adm-danger);
+  font-weight: bold;
+}
+
+.adm .hq-withdraw {
+  margin-left: 6px;
+  font-size: 0.8125rem;
+}
+
+.adm .hq-ties {
+  margin: 0 0 8px;
+  color: #b35900;
+  font-weight: bold;
+}
+
+.adm .hq-todo > li.overlap,
+.adm .hq-todo > li.withdrawn {
+  border-left-color: var(--adm-danger);
+  background: #fff5f5;
+}
+
+/* スマートフォンのタブ(レビュー M7)。パソコンではタブを隠して全部を縦に並べる */
+.adm .hq-tabs {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .adm .hq-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0 0 var(--adm-gap);
+    padding: 4px 0;
+    background: #fff;
+    border-bottom: 1px solid var(--adm-line);
+  }
+
+  .adm .hq-tabs a {
+    flex: 1 1 40%;
+    justify-content: center;
+    padding: 0 8px;
+    border: 1px solid var(--adm-line);
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .adm .hq-tabs a[aria-current="page"] {
+    background: var(--adm-accent);
+    border-color: var(--adm-accent);
+    color: #fff;
+  }
+
+  .adm .hq-sections > .hq-section {
+    display: none;
+  }
+
+  .adm .hq-active-todo > .hq-section[data-tab="todo"],
+  .adm .hq-active-matches > .hq-section[data-tab="matches"],
+  .adm .hq-active-groups > .hq-section[data-tab="groups"],
+  .adm .hq-active-delay > .hq-section[data-tab="delay"] {
+    display: block;
+  }
+
+  .adm .hq-groups {
+    grid-template-columns: 1fr;
+  }
+}
