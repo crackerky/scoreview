@@ -38,7 +38,9 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("set goose dialect: %w", err)
 	}
-	if err := goose.UpContext(ctx, sqlDB, "."); err != nil {
+	// 並行する作業がマイグレーションの番号を帯で分けて使う(00003〜 と 00010〜)ので、後から入った
+	// 小さい番号も当てる。既定の goose は適用済みより小さい未適用の番号があるとエラーにする
+	if err := goose.UpContext(ctx, sqlDB, ".", goose.WithAllowMissing()); err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 	return nil
