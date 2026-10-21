@@ -33,20 +33,38 @@ export const proposalSchema = z.object({
   ranked: z.number().int(),
   unique: z.number().int(),
   violations: z.number().int(),
+  /** 最後の試合が何日目か(1 から) */
+  endDay: z.number().int(),
+  /** 会場の時間に収まらない試合の数と、その説明(「17:00 までにあと 6 試合が収まりません」) */
+  overflow: z.number().int(),
+  fitNote: z.string().nullable(),
 })
 export type Proposal = z.infer<typeof proposalSchema>
 
 /** POST /admin/divisions/{id}/format/proposals */
 export const proposalListSchema = z.object({ proposals: z.array(proposalSchema) })
 
-export const scheduleSettingSchema = z.object({
+export const scheduleDaySchema = z.object({
   date: z.string(),
   start: z.string(),
+  end: z.string().nullable(),
+})
+export type ScheduleDay = z.infer<typeof scheduleDaySchema>
+
+export const scheduleSettingSchema = z.object({
+  /** 1 日目(days[0])と同じ値 */
+  date: z.string(),
+  start: z.string(),
+  /** 1 試合の枠の長さ(分)。記録係の画面は試合時間として使う */
   slotMinutes: z.number().int(),
   courts: z.array(z.string()),
   teamRestSlots: z.number().int(),
   stageGapSlots: z.number().int(),
   end: z.string().nullable(),
+  days: z.array(scheduleDaySchema),
+  lunch: z.object({ start: z.string(), minutes: z.number().int() }).nullable(),
+  stageDays: z.boolean(),
+  sport: sportSchema.nullable(),
 })
 export type ScheduleSetting = z.infer<typeof scheduleSettingSchema>
 
@@ -122,6 +140,8 @@ export const formatPreviewSchema = z.object({
   courts: z.array(z.string()),
   violations: z.array(violationSchema),
   end: z.string().nullable(),
+  endDay: z.number().int().nullable(),
+  fitNote: z.string().nullable(),
   ruleText: z.array(z.string()),
   advancement: z.array(z.string()),
   ranked: z.number().int(),
@@ -148,7 +168,11 @@ export const savedFormatSchema = z.object({
 export type SavedFormat = z.infer<typeof savedFormatSchema>
 
 /** GET /admin/divisions/{id}/format */
-export const savedFormatOneSchema = z.object({ format: savedFormatSchema.nullable() })
+export const savedFormatOneSchema = z.object({
+  format: savedFormatSchema.nullable(),
+  /** 大会のコピーで作った部門(形がまだ無い)のコピー元の形。シードはこの部門のチーム */
+  inherited: savedFormatSchema.nullable(),
+})
 /** GET /admin/formats */
 export const savedFormatListSchema = z.object({ formats: z.array(savedFormatSchema) })
 

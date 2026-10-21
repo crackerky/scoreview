@@ -1,22 +1,17 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { ZodError } from 'zod'
-import { field, idField, runAction } from '@/admin/action'
-import { parseRoster } from '@/admin/format.utils'
+import { z } from 'zod'
+import { field, idField, inputError, runAction } from '@/admin/action'
 import { readSessionToken } from '@/admin/session'
-import { matches, teams } from '@/api/admin'
+import { matches, players, teams } from '@/api/admin'
 import { ApiError } from '@/api/client'
+import { genderSchema } from '@/api/common.types'
 import { type CorrectionBody, type Downstream, formats, type ProposalInput } from '@/api/format'
 import type { FormatInput, FormatPreview, Proposal } from '@/api/format.types'
 
 // 大会の形(ウィザード)と本部の進行画面の Server Actions。ウィザードは画面を遷移せずに結果を
 // 受け取るので、値を返す action にする。進行画面の操作はフォームの送信で、通知つきで元の画面へ戻す。
-
-/** 入力の誤り。runAction が文面つきで元の画面へ戻す(ZodError として扱われる) */
-function inputError(message: string): ZodError {
-  return new ZodError([{ code: 'custom', message, path: [], input: undefined }])
-}
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -59,6 +54,34 @@ export async function applyFormatAction(
   return result
 }
 
+const teamRowsSchema = z
+  .array(z.object({ fullName: z.string().trim().min(1), shortName: z.string().trim().min(1) }))
+  .max(512)
+const playerRowsSchema = z
+  .array(
+    z.object({
+      teamId: z.number().int().positive(),
+      number: z.string().trim(),
+      name: z.string().trim().min(1),
+      gender: genderSchema.nullable(),
+    }),
+  )
+  .max(4096)
+
+/** 貼り付けのプレビュー(RosterImport)で確かめた行を読む。欄 rows に JSON で入る */
+function rosterRows<T>(form: Record<string, string | string[]>, schema: z.ZodType<T>): T {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(field(form, 'rows') || '[]')
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw inputError('名簿を読めませんでした。貼り付け直してください')
+    }
+    throw error
+  }
+  return schema.parse(parsed)
+}
+
 /** 名簿の貼り付けからチームをまとめて登録する(行の順がシード順の初期値になる) */
 export async function createTeamsFromRosterAction(formData: FormData): Promise<never> {
   return runAction(
@@ -66,20 +89,55 @@ export async function createTeamsFromRosterAction(formData: FormData): Promise<n
     async ({ token, form }) => {
       const divisionId = idField(form, 'divisionId')
       const start = Number(field(form, 'startOrder')) || 0
-      const lines = parseRoster(field(form, 'roster'))
-      if (lines.length === 0) {
+      const rows = rosterRows(form, teamRowsSchema)
+      if (rows.length === 0) {
         throw inputError('名簿が空です')
       }
-      for (const [index, line] of lines.entries()) {
+      for (const [index, row] of rows.entries()) {
         await teams.create(token, divisionId, {
-          fullName: { ja: line.fullName, en: '' },
-          shortName: { ja: line.shortName, en: '' },
+          fullName: { ja: row.fullName, en: '' },
+          shortName: { ja: row.shortName, en: '' },
           sortOrder: start + index,
         })
       }
       return undefined
     },
     'チームを登録しました',
+  )
+}
+
+/** 選手名簿の貼り付けから選手をまとめて登録する(チームは貼り付けのチーム名で見つけたもの) */
+export async function createPlayersFromRosterAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      const rows = rosterRows(form, playerRowsSchema)
+      if (rows.length === 0) {
+        throw inputError('登録できる選手がいません(チーム名の列を確かめてください)')
+      }
+      for (const row of rows) {
+        await players.create(token, row.teamId, {
+          number: row.number,
+          name: { ja: row.name, en: '' },
+          gender: row.gender,
+          role: null,
+        })
+      }
+      return undefined
+    },
+    '選手を登録しました',
+  )
+}
+
+/** 試合の無い部門のチームをまとめて削除する(名簿の貼り間違いのやり直し) */
+export async function deleteDivisionTeamsAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      await teams.removeAll(token, idField(form, 'divisionId'))
+      return undefined
+    },
+    'チームをまとめて削除しました',
   )
 }
 

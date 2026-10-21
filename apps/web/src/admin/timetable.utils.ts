@@ -1,4 +1,8 @@
+import { sideName } from '@/admin/labels.utils'
 import type { AdminMatch } from '@/api/admin.types'
+import type { MatchSide } from '@/api/common.types'
+import type { ProgressMatch } from '@/api/format.types'
+import { describeSide } from './formatWizard.utils'
 
 // 時間割(コート × 時刻の表)の組み立て。会場に貼る紙と本部の控えに使う。
 
@@ -70,4 +74,28 @@ export function buildTimetable(matches: TimetableMatch[]): TimetableDay[] {
       unplaced,
     }
   })
+}
+
+/** 試合 ID → 左右の決まり方(「A1」「[E2-勝ち]」)。大会の形のある部門の試合だけ入る */
+export type SideLabels = Map<number, { left: string; right: string }>
+
+/** 大会の形の試合一覧(プレビューと同じ決まり方の情報源)から SideLabels を作る */
+export function sideLabelsOf(matches: readonly ProgressMatch[]): SideLabels {
+  return new Map(
+    matches.map((match) => [match.id, { left: match.left.label, right: match.right.label }]),
+  )
+}
+
+/**
+ * 印刷物の試合の片側。チームが決まっていなければ「A組1位」「E2 の勝者」のように決まり方を運営の言葉で
+ * 出す(運営者レビュー H11: 印刷した時間割の順位決定戦が「未定 / 未定」だった)。
+ */
+export function sideText(side: MatchSide, label: string | undefined): string {
+  if (side.team) {
+    return side.team.name.ja
+  }
+  if (label !== undefined && label !== '') {
+    return describeSide(label)
+  }
+  return describeSide(sideName(side))
 }

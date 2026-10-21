@@ -4,7 +4,7 @@
     "tournamentId": 100000012,
     "tournamentName": "WP9 架空 4on4 カップ",
     "divisionName": "4on4 オープン",
-    "title": "4 プール(各 3 チーム) → T4 × 3(1st / 5th / 9th)",
+    "title": "4 プール(各 3 チーム) → 4 チームのトーナメント × 3(1〜4 位、5〜8 位、9〜12 位)",
     "version": 1,
     "template": "pool_bands",
     "params": {
@@ -43,11 +43,22 @@
       "courts": ["1", "2", "3", "4"],
       "teamRestSlots": 0,
       "stageGapSlots": 0,
-      "end": null
+      "end": null,
+      "days": [
+        {
+          "date": "2026-10-21",
+          "start": "09:00",
+          "end": null
+        }
+      ],
+      "lunch": null,
+      "stageDays": false,
+      "sport": null
     },
     "seeds": [
       100000109, 100000110, 100000111, 100000112, 100000113, 100000114, 100000115, 100000116,
       100000117, 100000118, 100000119, 100000120
     ]
-  }
+  },
+  "inherited": null
 }

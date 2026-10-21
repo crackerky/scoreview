@@ -1,5 +1,7 @@
 import { loadAdmin, requireUser } from '@/admin/session'
+import { sideLabelsOf } from '@/admin/timetable.utils'
 import { divisions, matches } from '@/api/admin'
+import { formats } from '@/api/format'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { PrintButton } from '@/components/admin/PrintButton'
@@ -13,9 +15,14 @@ export default async function DivisionSheetsPage(props: IdPageProps) {
   const query = await props.searchParams
   const date = typeof query.date === 'string' && query.date !== '' ? query.date : null
   const { token } = await requireUser('any')
-  const [division, list] = await loadAdmin(() =>
-    Promise.all([divisions.get(token, id), matches.list(token, id)]),
+  const [division, list, formatList] = await loadAdmin(() =>
+    Promise.all([
+      divisions.get(token, id),
+      matches.list(token, id),
+      formats.matchesIfFormatted(token, id),
+    ]),
   )
+  const labels = sideLabelsOf(formatList?.matches ?? [])
   const dates = [...new Set(list.matches.flatMap((match) => (match.date ? [match.date] : [])))]
   const targets = list.matches.filter((match) => date === null || match.date === date)
   const details = await loadAdmin(() =>
@@ -25,7 +32,7 @@ export default async function DivisionSheetsPage(props: IdPageProps) {
     <div className="pr">
       <title>{`${division.name.ja} スコアシート`}</title>
       <div className="pr-toolbar">
-        <a href={`/admin/divisions/${id}`}>← ディビジョンに戻る</a>
+        <a href={`/admin/divisions/${id}`}>← 部門に戻る</a>
         <PrintButton />
         <span>
           {details.length} 試合 / A4 縦 1 試合 1 枚{dates.length > 1 ? ' / 日付: ' : ''}
@@ -39,7 +46,7 @@ export default async function DivisionSheetsPage(props: IdPageProps) {
           : null}
       </div>
       {details.map((detail) => (
-        <ScoreSheet key={detail.match.id} detail={detail} />
+        <ScoreSheet key={detail.match.id} detail={detail} labels={labels.get(detail.match.id)} />
       ))}
     </div>
   )

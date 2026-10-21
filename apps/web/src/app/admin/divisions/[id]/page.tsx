@@ -9,7 +9,8 @@ import {
 } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, groups, matches, teams, tournaments } from '@/api/admin'
-import type { AdminMatch } from '@/api/admin.types'
+import type { AdminMatch, AdminTeam } from '@/api/admin.types'
+import { formats } from '@/api/format'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import {
   createGroupAction,
@@ -27,21 +28,36 @@ export default async function AdminDivisionPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const { user, token } = await requireUser('any')
   const division = await loadAdmin(() => divisions.get(token, id))
-  const [tournament, matchList] = await loadAdmin(() =>
-    Promise.all([tournaments.get(token, division.tournamentId), matches.list(token, id)]),
+  const isAdmin = user.role === 'admin'
+  const [tournament, matchList, saved] = await loadAdmin(() =>
+    Promise.all([
+      tournaments.get(token, division.tournamentId),
+      matches.list(token, id),
+      // 形の有無は管理者だけが読める(記録係には形を決めるリンクを出さない)
+      isAdmin ? formats.get(token, id) : null,
+    ]),
   )
   const crumbs = [{ href: `/admin/tournaments/${tournament.id}`, label: tournament.name.ja }]
+  // 準備中(形がまだ無い)は「形を決める」を先頭に。本部の進行画面は形を決めた後に使う
+  const preparing = isAdmin && saved?.format === null
   return (
     <AdminShell user={user} title={division.name.ja} notice={notice} crumbs={crumbs}>
       <h2>試合</h2>
-      <p className="adm-actions">
-        <a href={`/admin/divisions/${id}/progress`}>本部の進行画面</a>
-        {user.role === 'admin' ? (
-          <a href={`/admin/divisions/${id}/format`}>大会の形を決める(プールと順位決定戦)</a>
-        ) : null}
-        <a href={`/admin/divisions/${id}/sheets`}>スコアシートをまとめて印刷</a>
-        <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
-      </p>
+      {preparing ? (
+        <p className="adm-actions">
+          <a className="adm-primary-link" href={`/admin/divisions/${id}/format`}>
+            まず大会の形を決める(チームの登録、組、順位決定戦、時間割)
+          </a>
+          <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
+        </p>
+      ) : (
+        <p className="adm-actions">
+          <a href={`/admin/divisions/${id}/progress`}>本部の進行画面</a>
+          {isAdmin ? <a href={`/admin/divisions/${id}/format`}>大会の形(組と順位決定戦)</a> : null}
+          <a href={`/admin/divisions/${id}/sheets`}>スコアシートをまとめて印刷</a>
+          <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
+        </p>
+      )}
       <MatchTable matches={matchList.matches} isAdmin={user.role === 'admin'} />
       {user.role === 'admin' ? (
         <AdminSections
@@ -55,6 +71,16 @@ export default async function AdminDivisionPage(props: IdPageProps) {
   )
 }
 
+/** 最終順位の入力欄の並び: 順位の順、同順位は登録順、順位の無いチームは最後(運営者レビュー M10) */
+function byFinalRank(list: AdminTeam[]): AdminTeam[] {
+  return [...list].sort((a, b) => {
+    if (a.finalRank === null || b.finalRank === null) {
+      return a.finalRank === b.finalRank ? 0 : a.finalRank === null ? 1 : -1
+    }
+    return a.finalRank - b.finalRank
+  })
+}
+
 function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin: boolean }) {
   if (list.length === 0) {
     return <p className="adm-muted">試合がありません。</p>
@@ -64,7 +90,7 @@ function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin
       <table className="adm-table">
         <thead>
           <tr>
-            <th>CD</th>
+            <th>試合番号</th>
             <th>日時・コート</th>
             <th>対戦</th>
             <th>状態</th>
@@ -119,12 +145,12 @@ async function AdminSections({
       <form action={createMatchAction}>
         <Hidden values={{ back, divisionId: id, hasDetail: 'on' }} />
         <div className="adm-grid">
-          <Field label="試合 CD(例 A1)" name="code" />
+          <Field label="試合番号(例 A1)" name="code" />
           <Field label="日付" name="date" type="date" />
           <Field label="時刻" name="time" type="time" />
           <Field label="コート" name="field" />
           <Select
-            label="グループ"
+            label="組"
             name="groupId"
             options={[
               { value: '', label: 'なし' },
@@ -142,7 +168,7 @@ async function AdminSections({
         <button type="submit">試合を作る</button>
       </form>
 
-      <h2>グループ</h2>
+      <h2>組(プールとトーナメント)</h2>
       <ul className="adm-list">
         {groupList.groups.map((group) => (
           <li key={group.id}>
@@ -159,15 +185,25 @@ async function AdminSections({
       <form action={createGroupAction}>
         <Hidden values={{ back, divisionId: id, linked: 'on', published: 'on' }} />
         <div className="adm-grid">
-          <Field label="グループ名" name="name" required />
+          <Field label="組の名前" name="name" required />
           <Select label="種類" name="kind" options={groupKindOptions} defaultValue="pool" />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
-          <Field label="画像 URL(画像のみの型)" name="imageUrl" />
         </div>
-        <button type="submit">グループを作る</button>
+        <details>
+          <summary>詳しい設定</summary>
+          <div className="adm-grid">
+            <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
+            <Field label="画像 URL(組の表を画像で出すとき)" name="imageUrl" />
+          </div>
+        </details>
+        <button type="submit">組を作る</button>
       </form>
 
       <h2>チーム</h2>
+      <p className="adm-muted">
+        名簿をまとめて貼り付けるときは{' '}
+        <a href={`/admin/divisions/${id}/format`}>大会の形を決める</a>{' '}
+        の画面から(貼る前に確かめられます)。
+      </p>
       <ul className="adm-list">
         {teamList.teams.map((team) => (
           <li key={team.id}>
@@ -185,19 +221,30 @@ async function AdminSections({
         <div className="adm-grid">
           <Field label="正式名(日本語)" name="fullNameJa" required />
           <Field label="短縮名(日本語)" name="shortNameJa" required />
-          <Field label="正式名(英語)" name="fullNameEn" />
-          <Field label="短縮名(英語)" name="shortNameEn" />
-          <Select label="色帯" name="barStyle" options={barStyleOptions} defaultValue="default" />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
         </div>
+        <details>
+          <summary>詳しい設定(英語の名前、チーム一覧の色、並び順)</summary>
+          <div className="adm-grid">
+            <Field label="正式名(英語)" name="fullNameEn" />
+            <Field label="短縮名(英語)" name="shortNameEn" />
+            <Select
+              label="チーム一覧の色"
+              name="barStyle"
+              options={barStyleOptions}
+              defaultValue="default"
+            />
+            <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
+          </div>
+        </details>
         <button type="submit">チームを作る</button>
       </form>
 
       <h2>最終順位</h2>
       <form action={putFinalRanksAction}>
         <Hidden values={{ back, id }} />
+        <p className="adm-muted">順位の順に並べ、順位が未決のチームは最後に出します。</p>
         <div className="adm-grid">
-          {teamList.teams.map((team) => (
+          {byFinalRank(teamList.teams).map((team) => (
             <Field
               key={team.id}
               label={team.shortName.ja}
@@ -215,7 +262,7 @@ async function AdminSections({
         <button type="submit">順位を保存</button>
       </form>
 
-      <h2>ディビジョンの設定</h2>
+      <h2>部門の設定</h2>
       <form action={updateDivisionAction}>
         <Hidden values={{ back, id }} />
         <div className="adm-grid">
@@ -227,20 +274,30 @@ async function AdminSections({
             options={divisionKindOptions}
             defaultValue={division.kind}
           />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={division.sortOrder} />
-          <Select
-            label="参加単位"
-            name="entryKind"
-            options={entryKindOptions}
-            defaultValue={division.entryKind}
-          />
-          <Select
-            label="成績表の型"
-            name="statsKind"
-            options={statsKindOptions}
-            defaultValue={division.statsKind}
-          />
         </div>
+        <details>
+          <summary>詳しい設定(並び順、参加単位、競技の種類)</summary>
+          <div className="adm-grid">
+            <Field
+              label="並び順"
+              name="sortOrder"
+              type="number"
+              defaultValue={division.sortOrder}
+            />
+            <Select
+              label="参加単位"
+              name="entryKind"
+              options={entryKindOptions}
+              defaultValue={division.entryKind}
+            />
+            <Select
+              label="成績の数え方(競技)"
+              name="statsKind"
+              options={statsKindOptions}
+              defaultValue={division.statsKind}
+            />
+          </div>
+        </details>
         <Check
           label="大会トップの [スケジュール] をリンクにする"
           name="scheduleEnabled"
@@ -256,7 +313,7 @@ async function AdminSections({
       <DeleteForm
         action={deleteDivisionAction}
         values={{ back, id, tournamentId: division.tournamentId }}
-        label="このディビジョン"
+        label="この部門"
       />
     </>
   )

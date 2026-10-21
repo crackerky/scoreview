@@ -22,12 +22,14 @@ import {
   auditListSchema,
   bannersSchema,
   bracketTemplateListSchema,
+  deletedTeamsSchema,
   loginResponseSchema,
   matchDetailSchema,
   meResponseSchema,
   noContentSchema,
   type PasswordChangeInput,
   scorerResultSchema,
+  type TournamentCopyInput,
   userListSchema,
 } from './admin.types'
 import { apiFetch } from './client'
@@ -92,6 +94,9 @@ export const tournaments = {
     call(token, 'GET', `${admin}/tournaments/${id}/banners`, bannersSchema),
   putBanners: (token: string, id: number, body: unknown) =>
     call(token, 'PUT', `${admin}/tournaments/${id}/banners`, bannersSchema, body),
+  /** 大会をコピーして新しい大会を作る(チームと結果以外。withTeams ならチームと選手も) */
+  copy: (token: string, id: number, body: TournamentCopyInput) =>
+    call(token, 'POST', `${admin}/tournaments/${id}/copy`, adminTournamentSchema, body),
 }
 
 export const divisions = {
@@ -143,6 +148,9 @@ export const teams = {
     call(token, 'PATCH', `${admin}/teams/${id}`, adminTeamSchema, body),
   remove: (token: string, id: number) =>
     call(token, 'DELETE', `${admin}/teams/${id}`, noContentSchema),
+  /** 試合の無い部門のチームをまとめて消す(試合があれば 409) */
+  removeAll: (token: string, divisionId: number) =>
+    call(token, 'DELETE', `${admin}/divisions/${divisionId}/teams`, deletedTeamsSchema),
 }
 
 export const players = {

@@ -70,7 +70,7 @@ func (fs *formatState) scheduleConfig() (format.ScheduleConfig, error) {
 		return format.ScheduleConfig{}, fmt.Errorf("%w: 時間割の設定がありません。形を適用するときに時間割を作ってください",
 			domain.ErrConflict)
 	}
-	return fs.schedule.config()
+	return fs.schedule.Config()
 }
 
 // assignments は保存済みの試合の時刻とコート。時刻が無い試合は含めない(検査で「時刻なし」になる)。
@@ -101,7 +101,7 @@ func CheckFormatSchedule(ctx context.Context, db *gorm.DB, divisionID int64) ([]
 		return nil, err
 	}
 	// 終了時刻は当日の遅れで超えるのが普通なので、再検査では見ない(生成時だけ見る)
-	cfg.End = time.Time{}
+	cfg = cfg.WithoutEnd()
 	if cfg.Busy, err = otherDivisionBusy(ctx, db, fs.division, cfg.SlotMinutes); err != nil {
 		return nil, err
 	}

@@ -46,8 +46,12 @@ type FormatPreview struct {
 	Matches     []PreviewMatch
 	Courts      []string
 	Violations  []ScheduleViolation
-	// End は最後の試合の終了時刻("HH:MM")。時間割が無ければ nil
-	End         *string
+	// End は最後の試合の終了時刻("HH:MM")、EndDay はそれが何日目か(1 から)。時間割が無ければ nil
+	End    *string
+	EndDay *int
+	// FitNote は会場の時間に収まらない試合の説明(「17:00 までにあと 6 試合が収まりません」)。
+	// 収まっていれば nil
+	FitNote     *string
 	RuleText    []string
 	Advancement []string
 	// Ranked は最終順位が付くチーム数、Unique はそのうち同順位でないチーム数
@@ -110,7 +114,9 @@ type formatDraft struct {
 	plan     *format.Plan
 	cfg      format.Config
 	schedule *format.Schedule
-	teams    map[int64]Team
+	// scheduleCfg は時間割を組んだ条件(schedule があるときだけ)
+	scheduleCfg format.ScheduleConfig
+	teams       map[int64]Team
 }
 
 func draftFormat(ctx context.Context, db *gorm.DB, division Division, input FormatInput) (*formatDraft, error) {
@@ -140,10 +146,11 @@ func draftFormat(ctx context.Context, db *gorm.DB, division Division, input Form
 	d := &formatDraft{input: input, spec: spec, plan: plan,
 		cfg: format.Config{Tiebreak: rule, Band: format.BandRule(), Forfeit: new(input.Forfeit)}}
 	if input.Schedule != nil {
-		cfg, err := input.Schedule.config()
+		cfg, err := input.Schedule.Config()
 		if err != nil {
 			return nil, err
 		}
+		d.scheduleCfg = cfg
 		// 同じ大会の他のディビジョンの試合が使うコートと時刻を避ける
 		if cfg.Busy, err = otherDivisionBusy(ctx, db, division, cfg.SlotMinutes); err != nil {
 			return nil, err
@@ -284,15 +291,15 @@ func (d *formatDraft) preview() FormatPreview {
 	assigned := map[string]format.Assignment{}
 	if d.schedule != nil {
 		p.Courts = d.input.Schedule.Courts
-		var end time.Time
 		for _, a := range d.schedule.Assignments {
 			assigned[a.Code] = a
-			if finish := a.Start.Add(time.Duration(d.input.Schedule.SlotMinutes) * time.Minute); finish.After(end) {
-				end = finish
-			}
 		}
-		clock := end.Format("15:04")
-		p.End = &clock
+		end, day := format.EndOf(d.scheduleCfg, d.schedule)
+		clock, endDay := end.Format("15:04"), day+1
+		p.End, p.EndDay = &clock, &endDay
+		if note := format.OverflowNote(d.scheduleCfg, d.schedule); note != "" {
+			p.FitNote = &note
+		}
 		p.Violations = toViolations(d.schedule.Violations)
 	}
 	for _, m := range d.plan.Matches {
@@ -363,8 +370,6 @@ func violationText(v format.Violation) string {
 		return fmt.Sprintf("%s が、対戦相手の決まる %s より前に始まります", codes[1], codes[0])
 	case format.ViolationStageGap:
 		return fmt.Sprintf("段の切り替え(%s → %s)の間が %d 分足りません", codes[0], codes[1], v.ShortMinutes)
-	case format.ViolationAfterEnd:
-		return fmt.Sprintf("%s が終了時刻を %d 分過ぎます", codes[0], v.ShortMinutes)
 	}
 	return v.Detail
 }

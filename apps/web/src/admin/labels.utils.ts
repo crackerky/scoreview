@@ -29,7 +29,7 @@ export const statsKindOptions = [
 export const groupKindOptions = [
   { value: 'pool', label: '総当たり' },
   { value: 'bracket', label: 'トーナメント' },
-  { value: 'image', label: '画像のみ' },
+  { value: 'image', label: '画像(組の表を画像で出す)' },
 ] as const
 
 export const barStyleOptions = [
