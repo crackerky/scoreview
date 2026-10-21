@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="168" height="80" viewBox="0 0 168 80"><title>SCORE VIEW</title>
+  <rect width="168" height="80" fill="#fff"/>
+  <circle cx="30" cy="40" r="20" fill="#ff8a1f"/>
+  <ellipse cx="30" cy="40" rx="20" ry="7" fill="none" stroke="#fff" stroke-width="3"/>
+  <text x="58" y="38" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="#333">SCORE</text>
+  <text x="58" y="58" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="bold" fill="#ff6600">VIEW</text>
+</svg>

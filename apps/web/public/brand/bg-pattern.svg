@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="245" viewBox="0 0 360 245"><title>Background pattern</title>
+  <rect width="360" height="245" fill="#fff"/>
+  <g fill="none" stroke="#f1ece4" stroke-width="2">
+    <ellipse cx="60" cy="50" rx="34" ry="11"/>
+    <ellipse cx="250" cy="120" rx="34" ry="11"/>
+    <ellipse cx="120" cy="200" rx="34" ry="11"/>
+    <ellipse cx="320" cy="225" rx="24" ry="8"/>
+  </g>
+</svg>

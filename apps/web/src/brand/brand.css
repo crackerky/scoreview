@@ -1,0 +1,29 @@
+/*
+ * ブランドの色と画像。legacy.css はこの変数を参照する。
+ * 初期値は clone-spec A 2 の参照サイトの値(画像は public/brand/ の自作素材に置き換え)。
+ */
+:root {
+  /* フッター背景(参照 #f18700) */
+  --brand-footer-bg: #f18700;
+  /* 表の見出し・区分見出し(TeamListMIDA、TD.MD1、RM_MD1 など。参照 #ffa000) */
+  --brand-heading-bg: #ffa000;
+  /* 橙バッジ(SCV_MIDA_M、TG_MD1 など。参照 #FF6600) */
+  --brand-badge-bg: #ff6600;
+  /* #main 内のリンク色(参照 #0172AB) */
+  --brand-link: #0172ab;
+  /* 大会ナビの文字色とホバー色(参照 #008080 / #ffd973) */
+  --brand-navi-text: #008080;
+  --brand-navi-hover: #ffd973;
+  /* ヘッダー下段の 4 項目(参照は画像スプライト。ここでは文字ボタンで置き換える) */
+  --brand-header-menu-bg: #ff8a1f;
+  --brand-header-menu-hover: #d96500;
+  /* 背景 */
+  --brand-header-bg: url("/brand/header-bg.svg");
+  --brand-body-bg: url("/brand/bg-pattern.svg");
+  --brand-list-body-bg: #000;
+  --brand-title-bg: url("/brand/title-bg.svg");
+  --brand-navi-arrow-down: url("/brand/navi-arrow-down.svg");
+  --brand-navi-arrow-right: url("/brand/navi-arrow-right.svg");
+  /* サイドバーの枠(参照は 09_menu_outline_*.jpg の画像。ここでは罫線で置き換える) */
+  --brand-sidebar-frame: #c8c8c8;
+}
