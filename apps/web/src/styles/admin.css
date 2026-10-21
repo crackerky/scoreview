@@ -469,3 +469,35 @@
   color: var(--adm-muted);
   font-size: 0.8125rem;
 }
+
+/* 次にやることへのリンク(準備中の部門の「まず大会の形を決める」など)。ボタンと同じ見た目 */
+.adm a.adm-primary-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--adm-accent);
+  color: #fff;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* 大会の公開・非公開の切り替え */
+.adm-publish {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+
+.adm-publish .adm-notice {
+  margin: 0;
+}
+
+/* 大会一覧の絞り込み */
+.adm-search {
+  align-items: end;
+  margin: 0 0 8px;
+}
