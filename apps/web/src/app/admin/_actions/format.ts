@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { ZodError } from 'zod'
 import { field, idField, runAction } from '@/admin/action'
+import { operatorErrorText } from '@/admin/errorText.utils'
 import { parseRoster } from '@/admin/format.utils'
 import { readSessionToken } from '@/admin/session'
 import { matches, teams } from '@/api/admin'
@@ -29,8 +30,8 @@ async function withToken<T>(run: (token: string) => Promise<T>): Promise<ActionR
     return { ok: true, data: await run(token) }
   } catch (error) {
     // 入力の誤りと状態の衝突は画面に出す。それ以外(500、通信失敗)はエラー境界へ流す
-    if (error instanceof ApiError && error.status < 500) {
-      return { ok: false, error: error.message.replace(/^(conflict|bad request): /, '') }
+    if (error instanceof ApiError && (error.status < 500 || error.code === 'unavailable')) {
+      return { ok: false, error: operatorErrorText(error.code, error.message) }
     }
     throw error
   }

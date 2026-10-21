@@ -1,4 +1,5 @@
 import { ZodError } from 'zod'
+import { operatorErrorText } from './errorText.utils'
 
 // Server Actions の共通処理(フォームの読み取り、戻り先の決定、エラーの文面)。Next.js に依存しない。
 
@@ -58,8 +59,9 @@ export function failureTarget(back: string, error: unknown): string {
     if (error.status === 401) {
       return '/admin/login'
     }
-    if (error.status < 500) {
-      return withNotice(back, 'error', `${error.code}: ${error.message}`)
+    // 503(混雑)は待てば通るので、エラー画面ではなく元の画面に文面つきで戻す
+    if (error.status < 500 || error.code === 'unavailable') {
+      return withNotice(back, 'error', operatorErrorText(error.code, error.message))
     }
   }
   if (error instanceof ZodError) {
