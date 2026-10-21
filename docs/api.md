@@ -309,6 +309,7 @@ type BracketCell = {
   events: Array<{
     code: string; date: string | null; opponent: TeamRef | null
     elapsedSec: number
+    callahan: boolean               // キャラハンゴール(イベント名に使う)
     scorer: PlayerRef | null; assist: PlayerRef | null
   }>
 }

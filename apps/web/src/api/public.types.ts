@@ -277,6 +277,7 @@ export const playerResponseSchema = z.object({
       date: z.string().nullable(),
       opponent: teamRefSchema.nullable(),
       elapsedSec: z.number().int(),
+      callahan: z.boolean(),
       scorer: playerRefSchema.nullable(),
       assist: playerRefSchema.nullable(),
     }),

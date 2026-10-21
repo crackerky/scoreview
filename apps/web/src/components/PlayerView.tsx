@@ -195,7 +195,9 @@ function EventsTable({ events, lang }: { events: PlayerResponse['events']; lang:
             )}
           </td>
           <td className="TG_EVMOJ CM">{formatElapsed(event.elapsedSec)}</td>
-          <td className="TG_EVMOJ CM">{msg(lang, 'eventGoal')}</td>
+          <td className="TG_EVMOJ CM">
+            {msg(lang, event.callahan ? 'eventCallahan' : 'eventGoal')}
+          </td>
           <td className="TG_EVMOJ LM">
             <EventPlayer player={event.scorer} lang={lang} />
           </td>

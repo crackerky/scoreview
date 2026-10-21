@@ -147,7 +147,7 @@ func playerEvents(
 		}
 		lines = append(lines, PlayerEventLine{
 			Code: match.Code, Date: formatDate(match), Opponent: opponent, ElapsedSec: ev.ElapsedSec,
-			Scorer: scorer, Assist: assist,
+			Callahan: ev.Callahan, Scorer: scorer, Assist: assist,
 		})
 	}
 	return lines, nil

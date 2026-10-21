@@ -406,7 +406,7 @@ func toPlayerPage(page store.PlayerPage) playerPageDTO {
 	for _, event := range page.Events {
 		out.Events = append(out.Events, playerEventLineDTO{
 			Code: event.Code, Date: event.Date, Opponent: toTeamRefPtr(event.Opponent), ElapsedSec: event.ElapsedSec,
-			Scorer: toPlayerRefPtr(event.Scorer), Assist: toPlayerRefPtr(event.Assist),
+			Callahan: event.Callahan, Scorer: toPlayerRefPtr(event.Scorer), Assist: toPlayerRefPtr(event.Assist),
 		})
 	}
 	return out

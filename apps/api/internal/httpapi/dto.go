@@ -429,6 +429,7 @@ type playerEventLineDTO struct {
 	Date       *string       `json:"date"`
 	Opponent   *teamRefDTO   `json:"opponent"`
 	ElapsedSec int           `json:"elapsedSec"`
+	Callahan   bool          `json:"callahan"`
 	Scorer     *playerRefDTO `json:"scorer"`
 	Assist     *playerRefDTO `json:"assist"`
 }

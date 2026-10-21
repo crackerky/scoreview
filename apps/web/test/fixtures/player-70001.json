@@ -30,6 +30,7 @@
       "date": "2026-10-18",
       "opponent": { "id": 5002, "name": { "ja": "架空チームB", "en": "Fictional B" } },
       "elapsedSec": 240,
+      "callahan": false,
       "scorer": {
         "id": 70001,
         "number": "7",
@@ -48,6 +49,7 @@
       "date": "2026-10-18",
       "opponent": { "id": 5004, "name": { "ja": "架空チームD", "en": "Fictional D" } },
       "elapsedSec": 300,
+      "callahan": false,
       "scorer": {
         "id": 70003,
         "number": "4",

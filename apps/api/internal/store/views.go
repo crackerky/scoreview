@@ -392,8 +392,10 @@ type PlayerEventLine struct {
 	Date       *string
 	Opponent   *domain.TeamRef
 	ElapsedSec int
-	Scorer     *domain.PlayerRef
-	Assist     *domain.PlayerRef
+	// Callahan はキャラハンゴール。選手ページのイベント名に使う
+	Callahan bool
+	Scorer   *domain.PlayerRef
+	Assist   *domain.PlayerRef
 }
 
 // GalleryPage はギャラリー。
