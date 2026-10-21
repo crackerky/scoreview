@@ -13,6 +13,8 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrForbidden    = errors.New("forbidden")
 	ErrConflict     = errors.New("conflict")
+	// ErrTooManyRequests はログイン試行の制限を超えたことを表す
+	ErrTooManyRequests = errors.New("too_many_requests")
 )
 
 // Resource は存在しない ID を報告するときの種別名。参照サイトのエラー画面の文面
