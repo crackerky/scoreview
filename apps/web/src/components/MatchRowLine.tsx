@@ -70,7 +70,27 @@ function TeamCell({
   )
 }
 
+// 本サイト独自(requirements の意図的な差分): 通常以外の結果は状況列に種類を出す。参照サイトは
+// 不戦勝も通常の試合と同じ「[対戦結果]」で表示し、観戦者には区別がつかない
+const resultTypeLabel: Record<Exclude<MatchRow['resultType'], 'normal'>, MessageKey> = {
+  forfeit: 'resultForfeit',
+  double_forfeit: 'resultDoubleForfeit',
+  no_contest: 'resultNoContest',
+  abandoned: 'resultAbandoned',
+  unplayed: 'resultUnplayed',
+}
+
 function StatusContent({ row, lang }: { row: MatchRow; lang: Lang }) {
+  if (row.resultType !== 'normal') {
+    const text = msg(lang, resultTypeLabel[row.resultType])
+    return row.hasDetail && row.status === 'finished' ? (
+      <a className="Select_Link" href={matchHref(row.matchId, lang)}>
+        {text}
+      </a>
+    ) : (
+      text
+    )
+  }
   if (row.status === 'scheduled') {
     return msg(lang, 'statusWaiting')
   }

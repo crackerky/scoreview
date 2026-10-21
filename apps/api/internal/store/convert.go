@@ -249,15 +249,16 @@ func toMatchRow(match Match, teams map[int64]Team) (domain.MatchRow, error) {
 	}
 	left.LabelEn, right.LabelEn = match.LeftLabelEn, match.RightLabelEn
 	return domain.MatchRow{
-		ID:        match.ID,
-		HasDetail: match.HasDetail,
-		Code:      match.Code,
-		Date:      formatDate(match),
-		Time:      formatClock(match),
-		Field:     match.Field,
-		Status:    match.Status,
-		Left:      left,
-		Right:     right,
+		ID:         match.ID,
+		HasDetail:  match.HasDetail,
+		Code:       match.Code,
+		Date:       formatDate(match),
+		Time:       formatClock(match),
+		Field:      match.Field,
+		Status:     match.Status,
+		ResultType: match.ResultType,
+		Left:       left,
+		Right:      right,
 	}, nil
 }
 

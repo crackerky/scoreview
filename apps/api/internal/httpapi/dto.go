@@ -76,15 +76,17 @@ type matchSideDTO struct {
 }
 
 type matchRowDTO struct {
-	MatchID   int64        `json:"matchId"`
-	HasDetail bool         `json:"hasDetail"`
-	Code      string       `json:"code"`
-	Date      *string      `json:"date"`
-	Time      *string      `json:"time"`
-	Field     *string      `json:"field"`
-	Status    string       `json:"status"`
-	Left      matchSideDTO `json:"left"`
-	Right     matchSideDTO `json:"right"`
+	MatchID   int64   `json:"matchId"`
+	HasDetail bool    `json:"hasDetail"`
+	Code      string  `json:"code"`
+	Date      *string `json:"date"`
+	Time      *string `json:"time"`
+	Field     *string `json:"field"`
+	Status    string  `json:"status"`
+	// ResultType は normal / forfeit / double_forfeit / no_contest / abandoned / unplayed
+	ResultType string       `json:"resultType"`
+	Left       matchSideDTO `json:"left"`
+	Right      matchSideDTO `json:"right"`
 }
 
 type tallyDTO struct {

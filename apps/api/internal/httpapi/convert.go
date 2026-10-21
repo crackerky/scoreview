@@ -99,15 +99,16 @@ func toMatchSide(side domain.MatchSide) matchSideDTO {
 
 func toMatchRow(row domain.MatchRow) matchRowDTO {
 	return matchRowDTO{
-		MatchID:   row.ID,
-		HasDetail: row.HasDetail,
-		Code:      row.Code,
-		Date:      row.Date,
-		Time:      row.Time,
-		Field:     row.Field,
-		Status:    string(row.Status),
-		Left:      toMatchSide(row.Left),
-		Right:     toMatchSide(row.Right),
+		MatchID:    row.ID,
+		HasDetail:  row.HasDetail,
+		Code:       row.Code,
+		Date:       row.Date,
+		Time:       row.Time,
+		Field:      row.Field,
+		Status:     string(row.Status),
+		ResultType: resultTypeOrNormal(row.ResultType),
+		Left:       toMatchSide(row.Left),
+		Right:      toMatchSide(row.Right),
 	}
 }
 
@@ -441,4 +442,13 @@ func toGalleryPage(page store.GalleryPage) galleryPageDTO {
 		Frame:   toFrame(page.Frame),
 		Gallery: galleryDTO{ID: page.ID, Name: page.Name, Photos: photos},
 	}
+}
+
+// resultTypeOrNormal は結果の種類を返す。行を組み立てる経路によっては種類が空のまま届く
+// (列の既定値が normal なので、空は通常の試合を意味する)。
+func resultTypeOrNormal(t domain.ResultType) string {
+	if t == "" {
+		return string(domain.ResultNormal)
+	}
+	return string(t)
 }

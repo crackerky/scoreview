@@ -103,6 +103,15 @@ export const matchRowSchema = z.object({
   // コートは数字とは限らない(参照サイトのディビジョン 467 は "A" "B")
   field: z.string().nullable(),
   status: matchStatusSchema,
+  // 結果の種類。通常以外は状況列に種類を出す(本サイト独自)
+  resultType: z.enum([
+    'normal',
+    'forfeit',
+    'double_forfeit',
+    'no_contest',
+    'abandoned',
+    'unplayed',
+  ]),
   left: matchSideSchema,
   right: matchSideSchema,
 })

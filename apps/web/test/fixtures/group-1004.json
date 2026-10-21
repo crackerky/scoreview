@@ -712,6 +712,7 @@
     {
       "matchId": 9101,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "E1",
       "date": "2026-10-18",
       "time": "13:00",
@@ -745,6 +746,7 @@
     {
       "matchId": 9102,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "E2",
       "date": "2026-10-18",
       "time": "13:00",
@@ -778,6 +780,7 @@
     {
       "matchId": 9103,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "E3",
       "date": "2026-10-18",
       "time": "14:00",
@@ -811,6 +814,7 @@
     {
       "matchId": 9104,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "E4",
       "date": "2026-10-18",
       "time": "14:00",

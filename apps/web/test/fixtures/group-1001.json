@@ -94,6 +94,7 @@
     {
       "matchId": 9001,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",

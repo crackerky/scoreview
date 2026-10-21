@@ -153,6 +153,8 @@ type MatchRow struct {
 	Time      *string
 	Field     *string
 	Status    MatchStatus
-	Left      MatchSide
-	Right     MatchSide
+	// ResultType は結果の種類。通常以外(不戦勝など)は閲覧ページの状況列に種類を出す
+	ResultType ResultType
+	Left       MatchSide
+	Right      MatchSide
 }

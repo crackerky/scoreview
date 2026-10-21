@@ -39,6 +39,7 @@
     {
       "matchId": 9001,
       "hasDetail": true,
+      "resultType": "normal",
       "code": "A1",
       "date": "2026-10-18",
       "time": "09:00",
@@ -80,6 +81,7 @@
     {
       "matchId": 9002,
       "hasDetail": false,
+      "resultType": "normal",
       "code": "A2",
       "date": "2026-10-18",
       "time": "10:00",
@@ -121,6 +123,7 @@
     {
       "matchId": 9003,
       "hasDetail": false,
+      "resultType": "normal",
       "code": "B1",
       "date": "2026-10-18",
       "time": "11:00",
