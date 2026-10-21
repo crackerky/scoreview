@@ -1,0 +1,837 @@
+{
+  "frame": "frame-1",
+  "group": {
+    "id": 1004,
+    "name": "1st placement tournament",
+    "kind": "bracket",
+    "division": {
+      "id": 101,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      }
+    }
+  },
+  "pool": null,
+  "bracket": {
+    "pattern": "T4E",
+    "ptnName": "Sample 4 =1st placement tournament=",
+    "columns": 3,
+    "rows": [
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_yen",
+          "text": "Semifinals",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_yen",
+          "text": "FINAL",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "Placement",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "team",
+          "text": "",
+          "team": {
+            "id": 5001,
+            "name": {
+              "ja": "架空チームA",
+              "en": "Fictional A"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "game",
+          "text": "8-3",
+          "team": null,
+          "matchId": 9101,
+          "status": "finished"
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": true,
+            "right": false
+          },
+          "kind": "win",
+          "text": "",
+          "team": {
+            "id": 5001,
+            "name": {
+              "ja": "架空チームA",
+              "en": "Fictional A"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": true
+          },
+          "kind": "team",
+          "text": "",
+          "team": {
+            "id": 5002,
+            "name": {
+              "ja": "架空チームB",
+              "en": "Fictional B"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": true,
+            "right": true
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": true,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "game",
+          "text": "3-9",
+          "team": null,
+          "matchId": 9103,
+          "status": "finished"
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": true,
+            "right": false
+          },
+          "kind": "win",
+          "text": "",
+          "team": {
+            "id": 5004,
+            "name": {
+              "ja": "架空チームD",
+              "en": ""
+            }
+          },
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "team",
+          "text": "",
+          "team": {
+            "id": 5003,
+            "name": {
+              "ja": "架空大学",
+              "en": "Fictional Univ"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": true,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "1st",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "game",
+          "text": "1-7",
+          "team": null,
+          "matchId": 9102,
+          "status": "finished"
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": true,
+            "right": true
+          },
+          "kind": "win",
+          "text": "",
+          "team": {
+            "id": 5004,
+            "name": {
+              "ja": "架空チームD",
+              "en": ""
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": true,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": true
+          },
+          "kind": "team",
+          "text": "",
+          "team": {
+            "id": 5004,
+            "name": {
+              "ja": "架空チームD",
+              "en": ""
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": true,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "lose",
+          "text": "",
+          "team": {
+            "id": 5001,
+            "name": {
+              "ja": "架空チームA",
+              "en": "Fictional A"
+            }
+          },
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "2nd",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_and",
+          "text": "3rd - 4th",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "lose",
+          "text": "",
+          "team": {
+            "id": 5002,
+            "name": {
+              "ja": "架空チームB",
+              "en": "Fictional B"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": true
+          },
+          "kind": "game",
+          "text": "3-8",
+          "team": null,
+          "matchId": 9104,
+          "status": "finished"
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": true,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "win",
+          "text": "",
+          "team": {
+            "id": 5003,
+            "name": {
+              "ja": "架空大学",
+              "en": "Fictional Univ"
+            }
+          },
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": true
+          },
+          "kind": "lose",
+          "text": "",
+          "team": {
+            "id": 5003,
+            "name": {
+              "ja": "架空大学",
+              "en": "Fictional Univ"
+            }
+          },
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": true,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "3rd",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": true,
+            "left": false,
+            "right": false
+          },
+          "kind": "lose",
+          "text": "",
+          "team": {
+            "id": 5002,
+            "name": {
+              "ja": "架空チームB",
+              "en": "Fictional B"
+            }
+          },
+          "matchId": null,
+          "status": null
+        }
+      ],
+      [
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": false,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "",
+          "text": "",
+          "team": null,
+          "matchId": null,
+          "status": null
+        },
+        {
+          "borders": {
+            "top": true,
+            "bottom": false,
+            "left": false,
+            "right": false
+          },
+          "kind": "txt_sharp",
+          "text": "4th",
+          "team": null,
+          "matchId": null,
+          "status": null
+        }
+      ]
+    ]
+  },
+  "image": null,
+  "matches": [
+    {
+      "matchId": 9101,
+      "hasDetail": true,
+      "code": "E1",
+      "date": "2026-10-18",
+      "time": "13:00",
+      "field": "1",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
+        "placeholder": null,
+        "score": 8
+      },
+      "right": {
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
+        "placeholder": null,
+        "score": 3
+      }
+    },
+    {
+      "matchId": 9102,
+      "hasDetail": true,
+      "code": "E2",
+      "date": "2026-10-18",
+      "time": "13:00",
+      "field": "2",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5003,
+          "name": {
+            "ja": "架空大学",
+            "en": "Fictional Univ"
+          }
+        },
+        "placeholder": null,
+        "score": 1
+      },
+      "right": {
+        "team": {
+          "id": 5004,
+          "name": {
+            "ja": "架空チームD",
+            "en": ""
+          }
+        },
+        "placeholder": null,
+        "score": 7
+      }
+    },
+    {
+      "matchId": 9103,
+      "hasDetail": true,
+      "code": "E3",
+      "date": "2026-10-18",
+      "time": "14:00",
+      "field": "1",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
+        "placeholder": null,
+        "score": 3
+      },
+      "right": {
+        "team": {
+          "id": 5004,
+          "name": {
+            "ja": "架空チームD",
+            "en": ""
+          }
+        },
+        "placeholder": null,
+        "score": 9
+      }
+    },
+    {
+      "matchId": 9104,
+      "hasDetail": true,
+      "code": "E4",
+      "date": "2026-10-18",
+      "time": "14:00",
+      "field": "2",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
+        "placeholder": null,
+        "score": 3
+      },
+      "right": {
+        "team": {
+          "id": 5003,
+          "name": {
+            "ja": "架空大学",
+            "en": "Fictional Univ"
+          }
+        },
+        "placeholder": null,
+        "score": 8
+      }
+    }
+  ]
+}

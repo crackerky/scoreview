@@ -99,11 +99,8 @@ export function MatchRowLine({
   return (
     <tr className="H24">
       {variant.kind === 'schedule' && (
-        <td
-          className={[state, divisionKindClass[variant.division.kind], 'CM']
-            .filter((name) => name !== null)
-            .join(' ')}
-        >
+        // clone-spec B 6: 種別クラスが無いときも区切りの空白は残る('MC_END  CM' と空白 2 つ)
+        <td className={`${state} ${divisionKindClass[variant.division.kind] ?? ''} CM`}>
           {trimToWidth(pickText(lang, variant.division.name), scheduleDivisionWidth)}
         </td>
       )}

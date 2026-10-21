@@ -73,7 +73,7 @@ describe('スケジュールの行(clone-spec B 5〜8)', () => {
     assert.match(renderScheduleRow(2, 'en'), /\[A1-Win\].*\[A2-Lose\].*Waiting/)
   })
 
-  test('種別のないディビジョンは種別クラスを付けない', () => {
+  test('種別のないディビジョンは種別クラスを付けず、空白 2 つが残る', () => {
     const row = rowAt(0)
     const html = renderHtml(
       <table>
@@ -86,7 +86,7 @@ describe('スケジュールの行(clone-spec B 5〜8)', () => {
         </tbody>
       </table>,
     )
-    assert.match(html, /<td class="MC_END CM">Beach Mixe<\/td>/)
+    assert.match(html, /<td class="MC_END {2}CM">Beach Mixe<\/td>/)
   })
 
   test('チーム名は表示幅 16 で切り詰める', () => {
