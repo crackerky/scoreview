@@ -2,6 +2,8 @@ module scoreview/api
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/fergusstrange/embedded-postgres v1.34.0

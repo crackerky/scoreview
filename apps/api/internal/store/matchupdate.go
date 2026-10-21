@@ -147,7 +147,7 @@ func runApprovedMatchOp(
 		if err != nil {
 			return err
 		}
-		applied, err := opApplied(ctx, tx, clientID)
+		applied, err := opApplied(ctx, tx, matchID, clientID)
 		if err != nil || applied {
 			return err
 		}

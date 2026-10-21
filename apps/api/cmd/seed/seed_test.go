@@ -57,6 +57,11 @@ func TestSeedCoversVariants(t *testing.T) {
 		assert.Positive(t, count(t, db, &store.Match{}, "status = ?", status), status)
 	}
 	assert.Positive(t, count(t, db, &store.Match{}, "NOT has_detail"))
+	for _, result := range []domain.ResultType{
+		domain.ResultForfeit, domain.ResultDoubleForfeit, domain.ResultAbandoned, domain.ResultUnplayed,
+	} {
+		assert.Positive(t, count(t, db, &store.Match{}, "result_type = ?", result), result)
+	}
 	assert.Positive(
 		t,
 		count(t, db, &store.Match{}, "status = 'finished' AND left_score = right_score"),
@@ -100,7 +105,11 @@ func TestSeedIsReadable(t *testing.T) {
 	require.NoError(t, db.Find(&groups).Error)
 	for _, group := range groups {
 		_, err := store.GetGroup(ctx, db, group.ID)
-		require.NoError(t, err, group.Name)
+		if group.Published {
+			require.NoError(t, err, group.Name)
+		} else {
+			require.ErrorIs(t, err, domain.ErrNotFound, group.Name)
+		}
 	}
 	var players []store.Player
 	require.NoError(t, db.Find(&players).Error)

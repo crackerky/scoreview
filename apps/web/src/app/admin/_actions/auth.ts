@@ -1,28 +1,40 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { failureTarget, formToObject, withNotice } from '@/admin/form.utils'
+import { runAction } from '@/admin/action'
+import { formToObject } from '@/admin/form.utils'
+import { loginErrorCode, loginErrorPath } from '@/admin/login.utils'
+import { clientIpFrom, LoginFailureLimiter } from '@/admin/loginLimit.utils'
 import { clearSession, readSessionToken, saveSession } from '@/admin/session'
 import { safeNext } from '@/admin/session.utils'
-import { login, logout } from '@/api/admin'
-import { loginFormSchema } from '@/api/admin.types'
+import { changePassword, login, logout } from '@/api/admin'
+import { loginFormSchema, passwordChangeFormSchema } from '@/api/admin.types'
+
+// IP ごとのログインの失敗。サーバーのプロセス(Vercel では関数のインスタンス)の中で共有する
+const loginFailures = new LoginFailureLimiter()
 
 export async function loginAction(formData: FormData): Promise<never> {
   // ログインの前に開いていた画面(記録画面など)へ戻す
   const next = safeNext(formData.get('next'))
+  const ip = clientIpFrom(await headers())
+  if (!loginFailures.allows(ip, Date.now())) {
+    redirect(loginErrorPath('limited', next))
+  }
   let target = next
   try {
     const input = loginFormSchema.parse(formToObject(formData))
-    const session = await login(input.email, input.password)
+    const session = await login(input.email, input.password, ip)
     await saveSession(session.token, session.expiresAt)
   } catch (error) {
-    // 401 は failureTarget ではログイン画面へ戻すだけなので、ここで文面を付ける。
-    // 文面はメールアドレスの有無を区別しない(api と同じ)
-    target = failureTarget('/admin/login', error)
-    if (target === '/admin/login') {
-      const failed = withNotice('/admin/login', 'error', 'メールアドレスかパスワードが違います')
-      target = next === '/admin' ? failed : `${failed}&${new URLSearchParams({ next })}`
+    const code = loginErrorCode(error)
+    if (code === null) {
+      throw error
     }
+    if (code === 'invalid') {
+      loginFailures.recordFailure(ip, Date.now())
+    }
+    target = loginErrorPath(code, next)
   }
   redirect(target)
 }
@@ -37,4 +49,17 @@ export async function logoutAction(): Promise<never> {
   }
   await clearSession()
   redirect('/admin/login')
+}
+
+/** 本人のパスワードの変更。このセッションは残り、他の端末はログインし直しになる */
+export async function changePasswordAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      const ip = clientIpFrom(await headers())
+      await changePassword(token, passwordChangeFormSchema.parse(form), ip)
+      return undefined
+    },
+    'パスワードを変更しました。他の端末はログインし直しになります',
+  )
 }

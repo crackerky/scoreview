@@ -121,17 +121,30 @@ func writeAudit(ctx context.Context, tx *gorm.DB, entry auditEntry) error {
 	return nil
 }
 
-// opApplied は端末の操作 ID の操作が既に適用済み(監査ログにある)かどうか。nil なら false。
-func opApplied(ctx context.Context, tx *gorm.DB, clientID *string) (bool, error) {
+// opApplied は端末の操作 ID の操作が、この試合に既に適用済み(監査ログにある)かどうか。nil なら false。
+// 同じ操作 ID が別の試合の操作に使われていれば ErrConflict にする(操作 ID は端末が作る UUID で、
+// 衝突は端末の不具合か書き換え。適用済みとして黙って捨てると、記録が消えたことに誰も気づかない)。
+func opApplied(ctx context.Context, tx *gorm.DB, matchID int64, clientID *string) (bool, error) {
 	if clientID == nil {
 		return false, nil
 	}
-	var count int64
-	err := tx.WithContext(ctx).Model(&AuditLog{}).Where(sqlByClientID, *clientID).Count(&count).Error
+	var rows []AuditLog
+	err := tx.WithContext(ctx).
+		Select("match_id").
+		Where(sqlByClientID, *clientID).
+		Limit(1).
+		Find(&rows).
+		Error
 	if err != nil {
 		return false, fmt.Errorf("find operation %s: %w", *clientID, err)
 	}
-	return count > 0, nil
+	if len(rows) == 0 {
+		return false, nil
+	}
+	if rows[0].MatchID == nil || *rows[0].MatchID != matchID {
+		return false, fmt.Errorf("%w: clientId is already used by another operation", domain.ErrConflict)
+	}
+	return true, nil
 }
 
 func auditMatchState(match Match) *AuditMatchState {

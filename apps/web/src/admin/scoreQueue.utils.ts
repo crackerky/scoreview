@@ -149,3 +149,20 @@ export function nextOp(queue: DeviceQueue): { matchId: number; op: ScoreOp } | n
   }
   return null
 }
+
+/** 端末に溜めた未送信の操作の数(全試合。版 1 の試合ごとのキーも含める) */
+export function pendingTotal(store: KeyValueStore): number {
+  let total = 0
+  for (const count of pendingCounts(readDeviceQueue(store)).values()) {
+    total += count
+  }
+  return total
+}
+
+/**
+ * 端末の未送信の操作を全て消す(ログアウトのとき)。溜めた操作は利用者に結び付いていないので、
+ * 残すと次にログインした人のセッションで送られる(セキュリティ点検 L-9)
+ */
+export function clearDeviceQueue(store: KeyValueStore): void {
+  writeDeviceQueue(store, { version: 2, matches: {} })
+}

@@ -1,5 +1,6 @@
-import { Fragment } from 'react'
+import { Fragment, Suspense } from 'react'
 import { brand } from '@/brand/brand.config'
+import { LangSwitch } from './LangSwitch'
 
 // clone-spec A 1.2: div#outer1 > div#header(id が入れ子で重複する)> table。
 // ロゴ、SNS アイコン、文字リンク列、4 項目のナビ。lang に関係なく同じものを出す。
@@ -8,16 +9,21 @@ import { brand } from '@/brand/brand.config'
 const fullWidthSpace = '　'
 
 function HeaderBar() {
-  // 先頭が "|　"、以降は "　|　" で区切る(末尾には付けない)
+  // 先頭が "|　"、以降は "　|　" で区切る(末尾には付けない)。参照サイトで "English" があった右端には、
+  // 本サイト独自の言語切替を置く(LangSwitch)。クエリを読むので、静的に描くページ(404)では
+  // Suspense の fallback(何も出さない)になる
   return (
     <td id="header_bar">
       {`|${fullWidthSpace}`}
-      {brand.headerLinks.map((link, index) => (
+      {brand.headerLinks.map((link) => (
         <Fragment key={link.href}>
-          {index > 0 && `${fullWidthSpace}|${fullWidthSpace}`}
           <a href={link.href}>{link.label}</a>
+          {`${fullWidthSpace}|${fullWidthSpace}`}
         </Fragment>
       ))}
+      <Suspense fallback={null}>
+        <LangSwitch />
+      </Suspense>
     </td>
   )
 }

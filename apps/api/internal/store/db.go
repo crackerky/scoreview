@@ -6,6 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"gorm.io/driver/postgres"
@@ -18,7 +22,7 @@ import (
 // Open は PostgreSQL へ接続する。
 func Open(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: NewLogger(os.Stdout),
 		// 明示しない限り関連を書き込まない。意図しない INSERT/UPDATE を防ぐ
 		FullSaveAssociations: false,
 	})
@@ -26,6 +30,21 @@ func Open(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 	return db, nil
+}
+
+// slowQueryThreshold は遅い問い合わせとして警告を出す時間。GORM の既定(logger.Default)と同じ値。
+const slowQueryThreshold = 200 * time.Millisecond
+
+// NewLogger は GORM のログを w に書くロガーを返す。警告(遅い問い合わせ)とエラーだけを出し、
+// SQL の値はプレースホルダのまま出す(ParameterizedQueries)。値にはパスワードのハッシュ、
+// メールアドレス、選手の実名が入るので、ログを読める人に見せない。
+func NewLogger(w io.Writer) logger.Interface {
+	return logger.New(log.New(w, "\r\n", log.LstdFlags), logger.Config{
+		SlowThreshold:        slowQueryThreshold,
+		LogLevel:             logger.Warn,
+		ParameterizedQueries: true,
+		Colorful:             false,
+	})
 }
 
 // Migrate は埋め込んだ goose の SQL を最新まで適用する。

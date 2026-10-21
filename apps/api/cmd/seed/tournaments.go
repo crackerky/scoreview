@@ -326,6 +326,14 @@ func (s *seeder) beachOthers(tour store.Tournament) error {
 		}
 		// コートが数字でない会場(大会 224 の "A" "B")。ここでは詳細のない終了試合も混ぜる
 		results[0].noDetail = true
+		if idx == 0 {
+			// 通常以外の結果(不戦勝、両者不戦敗、途中打ち切り、未消化)。打ち切りは途中までの得点経過あり
+			results[1] = exceptional(domain.ResultForfeit, ptr(domain.SideRight))
+			results[3] = exceptional(domain.ResultDoubleForfeit, nil)
+			results[4] = exceptional(domain.ResultAbandoned, nil)
+			results[4].scores = [2]int{4, 7}
+			results[5] = exceptional(domain.ResultUnplayed, nil)
+		}
 		prefix := []string{"M", "W", "O"}[idx]
 		if err := s.roundRobin(division, pool, teams, prefix, "2026-10-18", results, players); err != nil {
 			return err

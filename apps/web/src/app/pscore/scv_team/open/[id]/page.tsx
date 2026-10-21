@@ -10,11 +10,15 @@ import { pickText } from '@/i18n/lang'
 export default async function TeamPage(props: IdPageProps) {
   const { id, lang } = await readIdPage(props)
   const data = await loadPageData(id, getTeam)
+  // 本文の上の「HH:MM 時点」(api から読み終えた時刻)
+  const now = new Date()
   const title = tournamentPageTitle(data.frame, lang, `-${pickText(lang, data.team.fullName)}-`)
   return (
     <>
       <title>{title}</title>
       <SiteFrame
+        heading={pickText(lang, data.team.fullName)}
+        asOf={now}
         variant={{ kind: 'tournament', frame: data.frame, lang, scoreMenu: true }}
         topMenu={null}
       >

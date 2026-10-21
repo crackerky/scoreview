@@ -19,6 +19,11 @@ type loginBodyDTO struct {
 	Password string `json:"password"`
 }
 
+type passwordChangeBodyDTO struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 type adminUserDTO struct {
 	ID            int64   `json:"id"`
 	Email         string  `json:"email"`

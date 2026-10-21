@@ -3,6 +3,7 @@
 import type { MatchDetail } from '@/api/admin.types'
 import { newOpId, type ScoreOp } from './scoreOps.utils'
 import {
+  clearDeviceQueue,
   deviceIdKey,
   deviceQueueKey,
   enqueueOp,
@@ -157,6 +158,12 @@ export function enqueueAndSend(matchId: number, op: ScoreOp, startedAt: number |
   emit(queueChangeEvent, null)
   void requestSend()
   return storageIsDurable()
+}
+
+/** 端末の未送信の操作を全て消す(ログアウトのとき。scoreQueue.utils.ts の clearDeviceQueue) */
+export function discardPending(): void {
+  clearDeviceQueue(browserStore())
+  emit(queueChangeEvent, null)
 }
 
 /** 試合の未送信の操作(画面に重ねて見込みの状態を出すため) */

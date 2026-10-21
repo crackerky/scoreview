@@ -209,9 +209,16 @@ describe('端末への保存と送信', () => {
     const request = (headers: Record<string, string>) =>
       new Request('http://localhost:3003/admin/api/matches/1/ops', { method: 'POST', headers })
     const json = { 'content-type': 'application/json', host: 'localhost:3003' }
-    assert.equal(isSameOriginJson(request({ ...json, origin: 'http://localhost:3003' })), true)
-    assert.equal(isSameOriginJson(request({ ...json, origin: 'https://evil.example' })), false)
-    assert.equal(isSameOriginJson(request(json)), false)
+    const site = ['http://localhost:3003']
+    assert.equal(
+      isSameOriginJson(request({ ...json, origin: 'http://localhost:3003' }), site),
+      true,
+    )
+    assert.equal(
+      isSameOriginJson(request({ ...json, origin: 'https://evil.example' }), site),
+      false,
+    )
+    assert.equal(isSameOriginJson(request(json), site), false)
     assert.equal(
       isSameOriginJson(
         request({
@@ -219,6 +226,7 @@ describe('端末への保存と送信', () => {
           host: 'localhost:3003',
           origin: 'http://localhost:3003',
         }),
+        site,
       ),
       false,
     )

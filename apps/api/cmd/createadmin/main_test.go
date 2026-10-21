@@ -42,7 +42,9 @@ func TestCreateAdmin(t *testing.T) {
 	assert.Equal(t, domain.RoleAdmin, user.Role)
 	assert.Equal(t, "admin@example.com", user.Email)
 
-	session, err := auth.Login(ctx, db, "admin@example.com", "a long admin password", time.Now())
+	gate := auth.NewPasswordGate(1, time.Second)
+	attempt := auth.Attempt{Email: "admin@example.com", Password: "a long admin password"}
+	session, err := auth.Login(ctx, db, gate, attempt, time.Now())
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, session.User.ID)
 

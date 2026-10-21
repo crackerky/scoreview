@@ -1,8 +1,11 @@
+import { Fragment } from 'react'
 import type { TournamentTopResponse } from '@/api/public.types'
 import { brand } from '@/brand/brand.config'
 import { divisionHref, divisionScheduleHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { msg } from '@/i18n/messages'
+import { isVenueMapBanner, venueMapLabel } from './banner.utils'
+import { assetSrc, referenceAssetMode, rewriteHtmlImages } from './referenceAsset.utils'
 import { SanitizedHtml } from './SanitizedHtml'
 import { Tbl, TblHeaderRow } from './Tbl'
 
@@ -21,13 +24,47 @@ function DivisionLink({ href, label }: { href: string | null; label: string }) {
   )
 }
 
+/**
+ * 本サイト独自の追記(docs/requirements.md「意図的な差分」): サイドバーの会場図のバナー(リンク先が PDF)
+ * への文字のリンク。スマートフォンではサイドバーが画面の外にあり、会場図に辿り着けないため。
+ * 該当するバナーが無ければ何も出さない。
+ */
+function VenueMapLinks({
+  banners,
+  lang,
+}: {
+  banners: TournamentTopResponse['frame']['banners']
+  lang: Lang
+}) {
+  const maps = banners.filter(isVenueMapBanner)
+  if (maps.length === 0) {
+    return null
+  }
+  return (
+    <p className="sv_venue_map" data-scoreview-addition="">
+      {maps.map((banner, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: 同じリンク先の会場図が並ぶことがある
+        <Fragment key={index}>
+          {index > 0 && ' '}
+          <a href={banner.linkUrl ?? undefined}>{venueMapLabel(lang)}</a>
+        </Fragment>
+      ))}
+    </p>
+  )
+}
+
 export function TournamentTopView({ data, lang }: { data: TournamentTopResponse; lang: Lang }) {
+  const mode = referenceAssetMode()
   return (
     <>
       {/* clone-spec A 1.7: 見出しの大会名は lang=en でも日本語名 */}
       <div className="text_title">{data.frame.name.ja}</div>
       <div style={{ textAlign: 'center', margin: '10px 10px 15px 10px' }}>
-        <img src={data.logoUrl ?? brand.defaultTournamentLogo} alt={msg(lang, 'logoAlt')} />
+        {/* 最初の画面に入るので遅延読み込みにしない。寸法は大会ごとに違い api に無い */}
+        <img
+          src={assetSrc(data.logoUrl ?? brand.defaultTournamentLogo, mode)}
+          alt={msg(lang, 'logoAlt')}
+        />
       </div>
       <Tbl style={{ marginLeft: '80px', marginRight: '100px' }} tableStyle={{ width: '100%' }}>
         {/* 列幅は 40% + 40%。table-layout: fixed なので右の 20% は空く(参照サイトのまま) */}
@@ -57,6 +94,7 @@ export function TournamentTopView({ data, lang }: { data: TournamentTopResponse;
           </tr>
         ))}
       </Tbl>
+      <VenueMapLinks banners={data.frame.banners} lang={lang} />
       <br />
       <hr />
       <br />
@@ -64,7 +102,7 @@ export function TournamentTopView({ data, lang }: { data: TournamentTopResponse;
       <SanitizedHtml
         id="SCV_TopPage"
         style={{ marginLeft: '10px' }}
-        html={pickText(lang, data.topHtml)}
+        html={rewriteHtmlImages(pickText(lang, data.topHtml), mode)}
       />
     </>
   )

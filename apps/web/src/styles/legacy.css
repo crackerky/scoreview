@@ -889,6 +889,14 @@ body:has(> #top) > #footer_ue {
   font-size: 123.1%;
 }
 
+/* 本サイト独自(docs/requirements.md「意図的な差分」): 参照サイトは .tnmt_play_now と .RM_NOW_Link に
+   赤を指定しているが、#main a(ID の詳細度)に負けて試合中も通常のリンク色になる。試合中を目立たせる
+   という CSS の意図のほうを実現する */
+#main a.tnmt_play_now,
+#main a.RM_NOW_Link {
+  color: #f00;
+}
+
 .teamimg_big img {
   margin: 0 10px 3px 0;
   vertical-align: bottom;
@@ -908,6 +916,21 @@ body:has(> #top) > #footer_ue {
 /* ===== 表(TBL) ===== */
 .TBL {
   margin: 0 10px;
+}
+
+/*
+ * 本サイト独自: セルにリンクが 1 つだけあるとき(チーム名、[対戦結果]、選手名、対戦表のスコア、
+ * チーム一覧の帯)、リンクをセルの幅いっぱいにして押せる範囲を広げる。セルの大きさと文字の位置は
+ * 変わらない(揃えは td の text-align を継ぐ。[対戦結果] だけ文字が 1px 上下する)。リンクが 2 つ以上
+ * あるセル(大会トップの [スケジュール] [最終順位]、得点経過の得点者とアシスト)は縦に並ばないよう
+ * 対象外。トーナメント表(TN_TMPL)は block にすると行の高さが変わり罫線の山が崩れるので対象外
+ */
+.TBL td > a:only-child,
+.TBL td > span:only-child:has(> a:only-child),
+.TBL td > span:only-child > a:only-child,
+.TeamListBLOCK span.teamimg_rnk:only-child:has(> a:only-child),
+.TeamListBLOCK span.teamimg_rnk:only-child > a:only-child {
+  display: block;
 }
 
 .TBL table {
@@ -1408,10 +1431,16 @@ ul#score_navi li > ul {
   clip-path: inset(0 0 100% 0);
 }
 
-ul#score_navi li:hover > ul {
+/* 本サイト独自: タップとキーボードでも開く(見出しの p は tabindex=0。docs/requirements.md「意図的な差分」) */
+ul#score_navi li:hover > ul,
+ul#score_navi li:focus-within > ul {
   display: block;
   opacity: 1;
   clip-path: inset(-20px -1000px -1000px -1000px);
+}
+
+ul#score_navi li p[role="button"] {
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1423,7 +1452,8 @@ ul#score_navi li:hover > ul {
   }
 
   @starting-style {
-    ul#score_navi li:hover > ul {
+    ul#score_navi li:hover > ul,
+    ul#score_navi li:focus-within > ul {
       opacity: 0;
       clip-path: inset(0 0 100% 0);
     }
