@@ -40,7 +40,8 @@ type SiteFrameProps = {
   asOf?: Date
   /**
    * 視覚的に隠した h1 の、大会名の後ろに付ける文字(「チーム一覧」やチーム名)。支援技術でページの
-   * 内容が分かるようにする。大会一覧では使わない(サイト名の一覧の見出しになる)
+   * 内容が分かるようにする。大会一覧では渡さない(サイト名の一覧の見出しになる)。案内ページ
+   * (InfoPage)では、大会名の代わりにページの題名そのものになる
    */
   heading?: string
   children: ReactNode
@@ -54,7 +55,7 @@ const bodyStyles = {
 /** 視覚的に隠した h1 の文字。英語名の無い大会は日本語名を使う(見出しを空にしない)。 */
 function pageHeading(variant: FrameVariant, heading: string | undefined): string {
   if (variant.kind === 'list') {
-    return brand.tournamentListTitle
+    return heading === undefined || heading === '' ? brand.tournamentListTitle : heading
   }
   const name = pickText(variant.lang, variant.frame.name) || variant.frame.name.ja
   return heading === undefined || heading === '' ? name : `${name} ${heading}`

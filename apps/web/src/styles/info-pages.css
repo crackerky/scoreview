@@ -13,7 +13,9 @@
   margin: 0 0 20px;
 }
 
+/* legacy.css の #main h2 は幅 100% に padding を足すので、box-sizing を変えないと狭い画面で右にはみ出す */
 .sv_doc h2.TeamListMIDA {
+  box-sizing: border-box;
   margin: 0 0 8px;
   text-align: left;
 }

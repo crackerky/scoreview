@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { tournamentFrameSchema } from '../src/api/common.types.ts'
 import { brand } from '../src/brand/brand.config.ts'
@@ -57,6 +58,12 @@ describe('外枠', () => {
     assert.match(en, />架空大会 Team List<\/h1>/)
     const list = renderHtml(<SiteFrame variant={{ kind: 'list' }}>{null}</SiteFrame>)
     assert.match(list, /<h1 class="sv_sr" data-scoreview-addition="">SCORE VIEW大会一覧<\/h1>/)
+    const info = renderHtml(
+      <SiteFrame variant={{ kind: 'list' }} heading="見方ガイド">
+        {null}
+      </SiteFrame>,
+    )
+    assert.match(info, /<h1 class="sv_sr" data-scoreview-addition="">見方ガイド<\/h1>/)
   })
 
   test('topMenu=null なら空の #score_topmenu を出す', () => {
@@ -84,10 +91,15 @@ describe('外枠', () => {
     assert.doesNotMatch(html, /clubjr|CLUB Jr/i)
   })
 
-  test('ヘッダーのリンクは全部サイトの中に行き先がある(仮の外部 URL や mailto を残さない)', () => {
+  test('ヘッダーのリンクは全部サイトの中のページに行き先がある(仮の外部 URL や mailto を残さない)', () => {
     const links = [...brand.headerLinks, ...brand.navigation].map((link) => link.href)
     for (const href of links) {
-      assert.match(href, /^\/(about|guide|privacy|contact|sctnmt)(#[a-z]+)?$/, href)
+      assert.match(href, /^\/[a-z]+(#[a-z]+)?$/, href)
+      const page = new URL(
+        `../src/app${new URL(href, 'http://x').pathname}/page.tsx`,
+        import.meta.url,
+      )
+      assert.ok(existsSync(page), `${href} のページ(${page.pathname})が無い`)
     }
   })
 

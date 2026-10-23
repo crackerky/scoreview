@@ -61,7 +61,7 @@ export default function AboutPage() {
           <dd>SCORE VIEW 運営事務局(デモ版のため、運営会社の情報は正式公開のときに載せます)</dd>
           <dt>お問い合わせ</dt>
           <dd>
-            <a href="/contact">お問い合わせフォーム</a>
+            <a href="/contact">お問い合わせ</a>
           </dd>
           <dt>個人情報の扱い</dt>
           <dd>

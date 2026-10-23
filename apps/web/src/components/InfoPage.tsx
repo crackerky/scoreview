@@ -16,7 +16,7 @@ export function InfoPage({ title, children }: InfoPageProps) {
   return (
     <>
       <title>{infoPageTitle(title)}</title>
-      <SiteFrame variant={{ kind: 'list' }}>
+      <SiteFrame variant={{ kind: 'list' }} heading={title}>
         <div className="text_title">{title}</div>
         <div className="sv_doc">{children}</div>
       </SiteFrame>
