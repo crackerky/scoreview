@@ -173,4 +173,27 @@
     max-width: 100%;
     height: auto;
   }
+
+  /* 試合ページの出場選手。2 チームの表を左右に並べる外側の表(clone-spec D 2.4)は、上の横スクロールの
+     規則が効くと各チームの表が半分の幅に押し込まれ、折り返さない列名と選手名が重なる。縦に並べる */
+  #main table:has(.TG_PlayersList_Ult),
+  #main table:has(.TG_PlayersList_Ult) > tbody,
+  #main table:has(.TG_PlayersList_Ult) > tbody > tr,
+  #main table:has(.TG_PlayersList_Ult) > tbody > tr > td {
+    display: block;
+    width: auto;
+    white-space: normal;
+  }
+
+  /* 試合ページの統計(幅 80% をインラインで指定。clone-spec D 2.5)。横スクロールで右が切れるので、
+     画面の幅に広げ、項目名を折り返して収める */
+  #main .TBL > table[style="width:80%"] {
+    display: table;
+    /* biome-ignore lint/complexity/noImportantStyles: 幅 80% が table のインラインの style にある */
+    width: 100% !important;
+  }
+
+  #main .TBL > table[style="width:80%"] > * > tr > td {
+    white-space: normal;
+  }
 }
