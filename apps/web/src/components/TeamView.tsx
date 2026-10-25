@@ -32,8 +32,8 @@ function recordColumns(lang: Lang): TblColumn[] {
   const keys = [
     'colGames',
     'colWins',
-    'colDraws',
     'colLosses',
+    'colDraws',
     'colGoalsFor',
     'colGoalsAgainst',
     'colGoalsDiff',
@@ -48,8 +48,8 @@ function RecordTable({ record, lang }: { record: TeamResponse['record']; lang: L
   const cells = [
     String(record.games),
     String(record.wins),
-    String(record.draws),
     String(record.losses),
+    String(record.draws),
     `${record.goalsFor}${trailing}`,
     `${record.goalsAgainst}${trailing}`,
     `${record.goalsFor - record.goalsAgainst}${trailing}`,

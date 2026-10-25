@@ -119,7 +119,7 @@ describe('プール型(clone-spec C 2.1)', () => {
     assert.doesNotMatch(html, /勝ち点/)
     assert.match(
       html,
-      /<tr><td class="MD1 LM"><span class="teamimg_rnk"><a href="\/pscore\/scv_team\/open\/5002\?lang=jp">架空チームB<\/a><\/span><\/td><td class="CM HL1">1<\/td><td class="CM">0<\/td><td class="CM">0<\/td><td class="CM">1<\/td><td class="CM">3 <\/td><td class="CM">9 <\/td><td class="CM HL1">-6 <\/td><td class="CM HL2">2 <\/td><\/tr>/,
+      /<tr><td class="MD1 LM"><span class="teamimg_rnk"><a href="\/pscore\/scv_team\/open\/5002\?lang=jp">架空チームB<\/a><\/span><\/td><td class="CM HL1">1<\/td><td class="CM">0<\/td><td class="CM">1<\/td><td class="CM">0<\/td><td class="CM">3 <\/td><td class="CM">9 <\/td><td class="CM HL1">-6 <\/td><td class="CM HL2">2 <\/td><\/tr>/,
     )
   })
 

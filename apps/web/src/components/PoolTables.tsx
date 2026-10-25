@@ -133,8 +133,8 @@ function resultColumns(lang: Lang): TblColumn[] {
   const rest = [
     'colGames',
     'colWins',
-    'colDraws',
     'colLosses',
+    'colDraws',
     'colGoalsFor',
     'colGoalsAgainst',
     'colGoalsDiff',
@@ -158,8 +158,8 @@ export function PoolResults({ pool, lang }: { pool: Pool; lang: Lang }) {
           </td>
           <td className="CM HL1">{line.games}</td>
           <td className="CM">{line.wins}</td>
-          <td className="CM">{line.draws}</td>
           <td className="CM">{line.losses}</td>
+          <td className="CM">{line.draws}</td>
           <td className="CM">{`${line.goalsFor} `}</td>
           <td className="CM">{`${line.goalsAgainst} `}</td>
           <td className="CM HL1">{`${line.goalsFor - line.goalsAgainst} `}</td>

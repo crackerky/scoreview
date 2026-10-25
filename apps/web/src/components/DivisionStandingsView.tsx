@@ -31,8 +31,8 @@ function standingsColumns(lang: Lang): TblColumn[] {
   const rest = [
     'colGames',
     'colWins',
-    'colDraws',
     'colLosses',
+    'colDraws',
     'colGoalsFor',
     'colGoalsAgainst',
     'colGoalsDiff',
@@ -58,8 +58,8 @@ function StandingsTable({ data, lang }: { data: StandingsResponse; lang: Lang })
           </td>
           <td className="CM HL1">{line.games}</td>
           <td className="CM">{line.wins}</td>
-          <td className="CM">{line.draws}</td>
           <td className="CM">{line.losses}</td>
+          <td className="CM">{line.draws}</td>
           <td className="CM">{spaced(line.goalsFor)}</td>
           <td className="CM">{spaced(line.goalsAgainst)}</td>
           <td className="CM HL1">{spaced(line.goalsFor - line.goalsAgainst)}</td>

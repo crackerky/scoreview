@@ -549,7 +549,7 @@ function RankTable({
           <th>順位</th>
           <th>チーム</th>
           <th className="num">勝点</th>
-          <th className="num">勝-分-負</th>
+          <th className="num">勝-負-分</th>
           <th className="num">得失</th>
         </tr>
       </thead>
@@ -572,7 +572,7 @@ function RankTable({
             </td>
             <td className="num">{row.points}</td>
             <td className="num">
-              {row.wins}-{row.draws}-{row.losses}
+              {row.wins}-{row.losses}-{row.draws}
             </td>
             <td className="num">{row.goalsFor - row.goalsAgainst}</td>
           </tr>

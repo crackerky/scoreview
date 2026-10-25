@@ -69,7 +69,7 @@ describe('チームページ(clone-spec D 1.1)', () => {
     assert.match(html, /<td class="MD1 CM" width="9.444%">試合数<\/td>/)
     assert.match(
       html,
-      /<tr><td class="CM">5<\/td><td class="CM">3<\/td><td class="CM">0<\/td><td class="CM">2<\/td><td class="CM">27 {2}<\/td><td class="CM">28 {2}<\/td><td class="CM">-1 {2}<\/td><td class="CM">60%<\/td><td class="CM">4 {2}<\/td><\/tr>/,
+      /<tr><td class="CM">5<\/td><td class="CM">3<\/td><td class="CM">2<\/td><td class="CM">0<\/td><td class="CM">27 {2}<\/td><td class="CM">28 {2}<\/td><td class="CM">-1 {2}<\/td><td class="CM">60%<\/td><td class="CM">4 {2}<\/td><\/tr>/,
     )
   })
 

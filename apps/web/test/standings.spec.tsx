@@ -36,6 +36,18 @@ describe('ディビジョン成績の順位表(clone-spec C 1.1〜1.4)', () => {
     )
   })
 
+  test('勝敗は「○勝○敗○分」と読む順に、勝ち数、負け数、分け数で並べる(参照サイトは勝・分・負)', () => {
+    const [first, ...rest] = standings.standings
+    assert.ok(first)
+    const data = { ...standings, standings: [{ ...first, wins: 3, losses: 2, draws: 1 }, ...rest] }
+    const out = renderHtml(<DivisionStandingsView data={data} lang="jp" />)
+    assert.match(out, />勝ち数<\/td><td [^>]*>負け数<\/td><td [^>]*>分け数<\/td>/)
+    assert.match(
+      out,
+      /<td class="CM">3<\/td><td class="CM">2<\/td><td class="CM">1<\/td><td class="CM">38 <\/td>/,
+    )
+  })
+
   test('英語の見出しは空白なしの山括弧と改行入りの列名', () => {
     const en = renderHtml(<DivisionStandingsView data={standings} lang="en" />)
     assert.match(en, /^<span class="SCV_MIDA_M">&lt;Beach Mixed Standings&gt;<\/span>/)
