@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,28 +27,69 @@ func setup(t *testing.T) (*gorm.DB, *storetest.Builder, storetest.Scenario) {
 
 func ptr[T any](v T) *T { return &v }
 
+// listNow は大会一覧の「今日」。シナリオの大会の区分が日付で変わらない日にする
+func listNow() time.Time { return time.Date(2026, 10, 25, 9, 0, 0, 0, time.FixedZone("JST", 9*60*60)) }
+
 func TestListTournaments(t *testing.T) {
 	db, b, sc := setup(t)
 	undated := b.Tournament(func(row *store.Tournament) { row.NameJa = "日付未定の大会" })
 
-	sections, err := store.ListTournaments(context.Background(), db)
+	sections, err := store.ListTournaments(context.Background(), db, listNow())
 	require.NoError(t, err)
-	require.Len(t, sections, 2, "entry_closed has no tournament and is omitted")
-	assert.Equal(t, domain.TournamentEntryOpen, sections[0].Status)
-	assert.Equal(
-		t,
-		[]store.TournamentSummary{
-			{ID: sc.Upcoming.ID, Name: domain.I18nText{Ja: "2027 架空カップ", En: "2027 Fictional Cup"}},
-		},
-		sections[0].Tournaments,
-	)
-	assert.Equal(t, domain.TournamentFinished, sections[1].Status)
+	require.Len(t, sections, 2, "in_progress and entry_closed have no tournament and are omitted")
+	assert.Equal(t, domain.SectionEntryOpen, sections[0].Section)
+	require.Len(t, sections[0].Tournaments, 1)
+	upcoming := sections[0].Tournaments[0]
+	assert.Equal(t, sc.Upcoming.ID, upcoming.ID)
+	assert.Equal(t, domain.I18nText{Ja: "2027 架空カップ", En: "2027 Fictional Cup"}, upcoming.Name)
+	assert.Equal(t, "2027-05-01", upcoming.StartDate.Format(time.DateOnly))
+	assert.Equal(t, domain.SectionFinished, sections[1].Section)
 	// 開催日の新しい順で、未定は先頭。一覧に載せない大会は出ない
 	var ids []int64
 	for _, tour := range sections[1].Tournaments {
 		ids = append(ids, tour.ID)
 	}
 	assert.Equal(t, []int64{undated.ID, sc.Tournament.ID}, ids)
+	assert.Nil(t, sections[1].Tournaments[0].StartDate)
+}
+
+func TestListTournamentsDecidesSectionsFromMatchesAndCountsEntries(t *testing.T) {
+	db, b, _ := setup(t)
+	night := b.Tournament(func(row *store.Tournament) {
+		row.NameJa, row.Status = "架空ナイト", domain.TournamentEntryClosed
+		row.StartDate = storetest.Date(t, "2026-10-25")
+	})
+	division := b.Division(night.ID)
+	left, right, withdrawn := b.Team(division), b.Team(division), b.Team(division)
+	require.NoError(t, db.Create(&store.TeamWithdrawal{TeamID: withdrawn.ID}).Error)
+	b.Match(division, &left, &right, storetest.At(t, "2026-10-25", "19:00", "1"), storetest.Finished(3, 2))
+	b.Match(division, &left, &withdrawn, storetest.At(t, "2026-10-26", "19:00", "1"))
+
+	sectionOf := func(now time.Time) (domain.ListSection, store.TournamentSummary) {
+		t.Helper()
+		sections, err := store.ListTournaments(context.Background(), db, now)
+		require.NoError(t, err)
+		for _, section := range sections {
+			for _, tour := range section.Tournaments {
+				if tour.ID == night.ID {
+					return section.Section, tour
+				}
+			}
+		}
+		require.FailNow(t, "the tournament is not listed")
+		return "", store.TournamentSummary{}
+	}
+
+	before, summary := sectionOf(listNow().AddDate(0, 0, -1))
+	assert.Equal(t, domain.SectionEntryClosed, before)
+	assert.Equal(t, 2, summary.TeamCount, "the withdrawn team is not counted")
+	during, _ := sectionOf(listNow())
+	assert.Equal(t, domain.SectionInProgress, during)
+	after, _ := sectionOf(listNow().AddDate(0, 0, 2))
+	assert.Equal(t, domain.SectionFinished, after)
+	sections, err := store.ListTournaments(context.Background(), db, listNow())
+	require.NoError(t, err)
+	assert.Equal(t, domain.SectionInProgress, sections[0].Section, "in_progress comes first")
 }
 
 func TestGetTournamentTopAndFrame(t *testing.T) {

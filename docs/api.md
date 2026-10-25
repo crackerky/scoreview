@@ -123,11 +123,21 @@ type Tally = {
 
 大会一覧。`listed=true` の大会だけを返す。
 
+区分(`section`)は大会の状態と試合から api が決める(本サイト独自。参照サイトは状態の 3 区分だけ)。
+管理者が終了にした大会は `finished`。それ以外は、全試合が終わったか最終日(試合の日付の最後)を
+過ぎたら `finished`、試合中の試合があるか今日が試合のある期間に入っていれば `in_progress`、
+どちらでもなければ大会の状態(`entry_open` / `entry_closed`)。今日は日本時間の日付。
+
 ```ts
 {
   sections: Array<{
-    status: TournamentStatus        // entry_open, entry_closed, finished の順。大会が 0 件の区分は返さない
-    tournaments: Array<{ id: number; name: I18nText }>  // start_date 降順(NULL は先頭)、同日は id 降順
+    section: 'in_progress' | 'entry_open' | 'entry_closed' | 'finished'  // この順。大会が 0 件の区分は返さない
+    tournaments: Array<{   // start_date 降順(NULL は先頭)、同日は id 降順
+      id: number
+      name: I18nText
+      startDate: string | null  // 開催日 "YYYY-MM-DD"。未定なら null
+      teamCount: number         // エントリー数(棄権したチームを除く)
+    }>
   }>
 }
 ```

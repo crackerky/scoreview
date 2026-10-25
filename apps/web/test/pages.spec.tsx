@@ -44,14 +44,44 @@ describe('大会一覧(clone-spec A 3)', () => {
     const html = renderHtml(<TournamentListView data={list} lang="jp" />)
     assert.match(
       html,
-      /^<div style="clear:both;height:10px"><\/div><div style="margin:2px;padding:1px;border-color:#cccccc;border-width:0px;border-style:solid"><div class="TeamListMIDA">エントリー受付中<\/div><\/div>/,
+      /^<div style="clear:both;height:10px"><\/div><div style="margin:2px;padding:1px;border-color:#cccccc;border-width:0px;border-style:solid"><div class="TeamListMIDA">開催中<\/div><\/div>/,
     )
     assert.match(
       html,
-      /<div style="margin-left:14px;margin-top:10px"><div class="TeamListBLOCK" style="margin:2px 0px;width:98%"><div style="padding:4px;color:white" class="px12 FTitle"><span class="teamimg_rnk"><a href="\/scview\/3\?lang=jp">2027 架空フリースタイル<\/a><\/span><\/div><\/div><\/div>/,
+      /<div style="margin-left:14px;margin-top:10px"><div class="TeamListBLOCK" style="margin:2px 0px;width:98%"><div style="padding:4px;color:white" class="px12 FTitle"><span class="teamimg_rnk"><a href="\/scview\/3\?lang=jp">2027 架空フリースタイル<\/a><\/span><\/div><\/div>/,
     )
+    assert.match(html, /<div class="TeamListMIDA">エントリー受付中<\/div>/)
     assert.match(html, /<div class="TeamListMIDA">大会終了<\/div>/)
     assert.doesNotMatch(html, /エントリー締切り/)
+  })
+
+  test('受付中の大会だけ、帯の下にエントリー数とチーム一覧へのリンクを出す', () => {
+    const html = renderHtml(<TournamentListView data={list} lang="jp" />)
+    assert.match(
+      html,
+      /<\/div><\/div><div class="sv_list_entries" data-scoreview-addition=""><a href="\/pscore\/scv_team_list\/open\/3\?lang=jp">エントリー 12 チーム<\/a><\/div><\/div>/,
+    )
+    assert.equal(html.match(/sv_list_entries/g)?.length, 1)
+    const en = renderHtml(<TournamentListView data={list} lang="en" />)
+    assert.match(en, />12 teams entered<\/a>/)
+  })
+
+  test('終了した大会は最近の 5 件を並べ、それより前を年ごとにたたむ', () => {
+    const finished = Array.from({ length: 8 }, (_, index) => ({
+      id: 100 + index,
+      name: { ja: `大会${index}`, en: '' },
+      startDate: index < 6 ? '2026-06-01' : '2025-06-01',
+      teamCount: 4,
+    }))
+    const data = { sections: [{ section: 'finished' as const, tournaments: finished }] }
+    const html = renderHtml(<TournamentListView data={data} lang="jp" />)
+    const [recent, folded] = html.split('<details')
+    assert.equal(recent?.match(/TeamListBLOCK/g)?.length, 5)
+    assert.match(
+      html,
+      /<details class="sv_list_year" data-scoreview-addition=""><summary>2026年\(1 大会\)<\/summary>.*大会5<\/a>.*<\/details><details class="sv_list_year" data-scoreview-addition=""><summary>2025年\(2 大会\)<\/summary>/,
+    )
+    assert.ok(folded)
   })
 
   test('lang=en: 区分見出しは日本語のまま、英語名が空の大会はリンクの中身が空', () => {

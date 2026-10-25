@@ -20,6 +20,11 @@ const jp = {
   sectionEntryOpen: 'エントリー受付中',
   sectionEntryClosed: 'エントリー締切り',
   sectionFinished: '大会終了',
+  // 本サイト独自: 開催中の区分、受付中のエントリー数、終了した大会の年ごとのまとめ({n} などを埋める)
+  sectionInProgress: '開催中',
+  listEntryCount: 'エントリー {n} チーム',
+  listYearGroup: '{year}年({n} 大会)',
+  listUndated: '開催日未定',
 
   // 大会トップ(clone-spec A 4)
   logoAlt: 'ロゴ',
@@ -179,6 +184,10 @@ const en: Record<MessageKey, string> = {
   sectionEntryOpen: 'エントリー受付中',
   sectionEntryClosed: 'エントリー締切り',
   sectionFinished: '大会終了',
+  sectionInProgress: '開催中',
+  listEntryCount: '{n} teams entered',
+  listYearGroup: '{year} ({n})',
+  listUndated: 'Date TBA',
 
   logoAlt: 'ロゴ',
   topDivision: 'Division',

@@ -1,6 +1,10 @@
 package store
 
-import "scoreview/api/internal/domain"
+import (
+	"time"
+
+	"scoreview/api/internal/domain"
+)
 
 // このファイルはページ単位の読み取り結果(ビュー型)。docs/api.md の閲覧用エンドポイントと 1 対 1 に
 // 対応し、httpapi はこれを DTO に写すだけにする。スライスは nil にせず、空なら長さ 0 で返す。
@@ -59,14 +63,17 @@ type DivisionRef struct {
 
 // TournamentSection は大会一覧の区分。
 type TournamentSection struct {
-	Status      domain.TournamentStatus
+	Section     domain.ListSection
 	Tournaments []TournamentSummary
 }
 
-// TournamentSummary は大会一覧の 1 件。
+// TournamentSummary は大会一覧の 1 件。StartDate は開催日(未定なら nil)、TeamCount は棄権を除く
+// エントリー数。
 type TournamentSummary struct {
-	ID   int64
-	Name domain.I18nText
+	ID        int64
+	Name      domain.I18nText
+	StartDate *time.Time
+	TeamCount int
 }
 
 // TournamentTopPage は大会トップ。TopHTML は DB の値そのままで、無害化は呼び出し側で行う。

@@ -47,7 +47,7 @@ func pathID(r *http.Request) (int64, error) {
 }
 
 func (s *Server) listTournaments(r *http.Request) (any, error) {
-	sections, err := store.ListTournaments(r.Context(), s.db)
+	sections, err := store.ListTournaments(r.Context(), s.db, s.now())
 	if err != nil {
 		return nil, err
 	}

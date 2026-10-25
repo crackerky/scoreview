@@ -1,26 +1,30 @@
 {
   "sections": [
     {
-      "status": "entry_open",
+      "section": "entry_open",
       "tournaments": [
         {
           "id": 3,
           "name": {
             "ja": "2027 架空カップ",
             "en": "2027 Fictional Cup"
-          }
+          },
+          "startDate": "2027-05-01",
+          "teamCount": 0
         }
       ]
     },
     {
-      "status": "finished",
+      "section": "finished",
       "tournaments": [
         {
           "id": 1,
           "name": {
             "ja": "2026 架空ビーチ大会",
             "en": "2026 Fictional Beach"
-          }
+          },
+          "startDate": "2026-10-17",
+          "teamCount": 6
         }
       ]
     }

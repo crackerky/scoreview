@@ -1,16 +1,42 @@
 {
   "sections": [
     {
-      "status": "entry_open",
+      "section": "in_progress",
       "tournaments": [
-        { "id": 3, "name": { "ja": "2027 架空フリースタイル", "en": "2027 Fictional Freestyle" } }
+        {
+          "id": 4,
+          "name": { "ja": "2026 架空ナイトリーグ", "en": "2026 Fictional Night League" },
+          "startDate": "2026-10-25",
+          "teamCount": 8
+        }
       ]
     },
     {
-      "status": "finished",
+      "section": "entry_open",
       "tournaments": [
-        { "id": 1, "name": { "ja": "2026 架空ビーチカップ", "en": "2026 Fictional Beach Cup" } },
-        { "id": 2, "name": { "ja": "2026 架空ディスクゴルフ大会", "en": "" } }
+        {
+          "id": 3,
+          "name": { "ja": "2027 架空フリースタイル", "en": "2027 Fictional Freestyle" },
+          "startDate": "2027-05-03",
+          "teamCount": 12
+        }
+      ]
+    },
+    {
+      "section": "finished",
+      "tournaments": [
+        {
+          "id": 1,
+          "name": { "ja": "2026 架空ビーチカップ", "en": "2026 Fictional Beach Cup" },
+          "startDate": "2026-10-17",
+          "teamCount": 17
+        },
+        {
+          "id": 2,
+          "name": { "ja": "2026 架空ディスクゴルフ大会", "en": "" },
+          "startDate": "2026-06-01",
+          "teamCount": 6
+        }
       ]
     }
   ]

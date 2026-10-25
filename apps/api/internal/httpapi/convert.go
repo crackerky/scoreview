@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"time"
+
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/store"
 )
@@ -132,13 +134,21 @@ func toTally(tally domain.Tally) tallyDTO {
 func toTournamentList(sections []store.TournamentSection) tournamentListDTO {
 	out := tournamentListDTO{Sections: make([]tournamentSectionDTO, 0, len(sections))}
 	for _, section := range sections {
-		list := make([]idI18nDTO, 0, len(section.Tournaments))
+		list := make([]tournamentSummaryDTO, 0, len(section.Tournaments))
 		for _, tournament := range section.Tournaments {
-			list = append(list, toIDI18n(tournament.ID, tournament.Name))
+			var startDate *string
+			if tournament.StartDate != nil {
+				formatted := tournament.StartDate.Format(time.DateOnly)
+				startDate = &formatted
+			}
+			list = append(list, tournamentSummaryDTO{
+				ID: tournament.ID, Name: toI18n(tournament.Name),
+				StartDate: startDate, TeamCount: tournament.TeamCount,
+			})
 		}
 		out.Sections = append(
 			out.Sections,
-			tournamentSectionDTO{Status: string(section.Status), Tournaments: list},
+			tournamentSectionDTO{Section: string(section.Section), Tournaments: list},
 		)
 	}
 	return out

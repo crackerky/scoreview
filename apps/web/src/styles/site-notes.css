@@ -111,3 +111,29 @@
   font-size: 11px;
   color: #555;
 }
+
+/* 大会一覧: 受付中の大会のエントリー数(チーム一覧へのリンク)。大会名の帯は float なので下に回り込ませない */
+.sv_list_entries {
+  clear: both;
+  margin: 2px 0 0 4px;
+  font-size: 12px;
+}
+
+/* 大会一覧: 最近の 5 件より前の終了した大会を年ごとにたたむ */
+.sv_list_year {
+  clear: both;
+  margin: 10px 0 0 14px;
+}
+
+.sv_list_year > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+}
+
+.sv_list_year::after {
+  content: "";
+  display: block;
+  clear: both;
+}

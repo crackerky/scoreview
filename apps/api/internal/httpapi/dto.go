@@ -109,8 +109,15 @@ type tournamentListDTO struct {
 }
 
 type tournamentSectionDTO struct {
-	Status      string      `json:"status"`
-	Tournaments []idI18nDTO `json:"tournaments"`
+	Section     string                 `json:"section"`
+	Tournaments []tournamentSummaryDTO `json:"tournaments"`
+}
+
+type tournamentSummaryDTO struct {
+	ID        int64   `json:"id"`
+	Name      i18nDTO `json:"name"`
+	StartDate *string `json:"startDate"`
+	TeamCount int     `json:"teamCount"`
 }
 
 // GET /api/v1/tournaments/{id}

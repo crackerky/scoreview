@@ -15,18 +15,29 @@ import {
   teamBarStyleSchema,
   teamRefSchema,
   tournamentFrameSchema,
-  tournamentStatusSchema,
 } from './common.types'
 
 // docs/api.md「閲覧用エンドポイント」の応答。エンドポイントごとに 1 スキーマ。
 
+/** GET /api/v1/tournaments の区分。開催中は api が試合と日付から決める(docs/api.md) */
+export const listSectionSchema = z.enum(['in_progress', 'entry_open', 'entry_closed', 'finished'])
+export type ListSection = z.infer<typeof listSectionSchema>
+
+export const tournamentSummarySchema = z.object({
+  id: z.number().int(),
+  name: i18nTextSchema,
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
+  teamCount: z.number().int().nonnegative(),
+})
+export type TournamentSummary = z.infer<typeof tournamentSummarySchema>
+
 /** GET /api/v1/tournaments */
 export const tournamentListResponseSchema = z.object({
   sections: z.array(
-    z.object({
-      status: tournamentStatusSchema,
-      tournaments: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
-    }),
+    z.object({ section: listSectionSchema, tournaments: z.array(tournamentSummarySchema) }),
   ),
 })
 export type TournamentListResponse = z.infer<typeof tournamentListResponseSchema>
