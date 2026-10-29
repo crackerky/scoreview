@@ -92,6 +92,17 @@ export const formats = {
     call(token, 'GET', `${admin}/formats?exclude=${exclude}`, savedFormatListSchema),
   progress: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/progress`, progressSchema),
+  /** 形の無い部門(409)なら null。大会単位の本部が、形を決めた部門だけを集めるため */
+  progressIfFormatted: async (token: string, divisionId: number) => {
+    try {
+      return await call(token, 'GET', `${admin}/divisions/${divisionId}/progress`, progressSchema)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        return null
+      }
+      throw error
+    }
+  },
   matches: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/format/matches`, progressMatchListSchema),
   /** 形の無い部門(409)なら null。印刷物で未確定の対戦の決まり方を出すため(記録係も呼べる) */

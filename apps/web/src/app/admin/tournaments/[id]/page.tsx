@@ -1,259 +1,153 @@
-import { divisionKindOptions, tournamentStatusOptions } from '@/admin/labels.utils'
+import { buildAlerts, courtCards } from '@/admin/hqBoard.utils'
+import { loadBoards } from '@/admin/hqData'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { assignments, divisions, galleries, matches, tournaments, users } from '@/api/admin'
+import { japaneseDate, jstToday } from '@/admin/tournamentList.utils'
+import { assignments, groups, matches, teams, tournaments } from '@/api/admin'
+import type { AdminDivision, AdminMatch } from '@/api/admin.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
-import {
-  createDivisionAction,
-  createGalleryAction,
-  deleteTournamentAction,
-  putBannersAction,
-  setListedAction,
-  updateTournamentAction,
-} from '@/app/admin/_actions/tournament'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import {
-  AdminShell,
-  Check,
-  DeleteForm,
-  Field,
-  Hidden,
-  Select,
-  TextArea,
-} from '@/components/admin/AdminParts'
-import { AssignmentSection } from '@/components/admin/AssignmentSection'
+import { AdminShell, EntryCard, type PrimaryAction, Stat } from '@/components/admin/AdminParts'
+
+// 大会ホーム(Claude Design「Score View Admin」)。上の画面は要約と入口だけにし、フォームを置かない。
+// 数字の要約(試合中、終わった試合、本部の知らせ)と、本部、部門、時間割、記録係、写真とバナー、
+// 大会の設定への入口。記録係(staff)には部門と時間割だけを出す。
+
+type DivisionSummary = {
+  division: AdminDivision
+  teams: number
+  groups: number
+  matches: AdminMatch[]
+}
 
 export default async function AdminTournamentPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const { user, token } = await requireUser('any')
-  const [tournament, divisionList] = await loadAdmin(() =>
-    Promise.all([tournaments.get(token, id), divisions.list(token, id)]),
-  )
-  const back = `/admin/tournaments/${id}`
   const isAdmin = user.role === 'admin'
+  const today = jstToday(new Date())
+  const [tournament, board, assignmentList] = await loadAdmin(() =>
+    Promise.all([
+      tournaments.get(token, id),
+      loadBoards(token, id),
+      isAdmin ? assignments.list(token, id) : null,
+    ]),
+  )
+  const summaries: DivisionSummary[] = await loadAdmin(() =>
+    Promise.all(
+      board.divisions.map(async (division) => {
+        const [teamList, groupList, matchList] = await Promise.all([
+          teams.list(token, division.id),
+          groups.list(token, division.id),
+          matches.list(token, division.id),
+        ])
+        return {
+          division,
+          teams: teamList.teams.length,
+          groups: groupList.groups.length,
+          matches: matchList.matches,
+        }
+      }),
+    ),
+  )
+  const allMatches = summaries.flatMap((summary) => summary.matches)
+  const live = allMatches.filter((match) => match.status === 'live').length
+  const finished = allMatches.filter((match) => match.status === 'finished').length
+  const keepers = assignmentList?.assignments ?? []
+  const alerts = buildAlerts(board.boards, id, keepers, today)
+  const freeCourts = courtCards(board.boards, keepers, today)
+    .filter((card) => card.keeper === null)
+    .map((card) => card.name)
+  const kicker = [
+    tournament.startDate ? japaneseDate(tournament.startDate) : '開催日未定',
+    tournament.listed ? '公開中' : '非公開(準備中)',
+  ].join(' ・ ')
+  const hasBoard = board.boards.length > 0
+  const primary: PrimaryAction | undefined = hasBoard
+    ? { label: '本部を開く', href: `/admin/tournaments/${id}/hq` }
+    : isAdmin && board.divisions.length === 0
+      ? { label: '部門を作る', href: `/admin/tournaments/${id}/divisions/new` }
+      : undefined
   return (
-    <AdminShell user={user} title={tournament.name.ja} notice={notice}>
-      {isAdmin ? (
-        <form action={setListedAction} className="adm-publish">
-          <Hidden values={{ back, id, listed: tournament.listed ? '' : 'on' }} />
-          {tournament.listed ? (
-            <>
-              <span>公開中(大会一覧に載っています)</span>
-              <button type="submit" className="secondary">
-                非公開にする
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="adm-notice">
-                準備中です。閲覧ページは URL を知っている人だけが見られ、大会一覧には載りません。
-              </span>
-              <button type="submit">公開する</button>
-            </>
-          )}
-        </form>
-      ) : null}
-      <p className="adm-actions">
-        <a href={`/scview/${id}`}>閲覧ページを開く</a>
-        <a href={`/admin/tournaments/${id}/timetable`}>時間割を印刷</a>
-      </p>
-      <h2>部門</h2>
-      <ul className="adm-list">
-        {divisionList.divisions.map((division) => (
-          <li key={division.id}>
-            <a href={`/admin/divisions/${division.id}`}>
-              {division.name.ja}
-              {division.name.en ? ` / ${division.name.en}` : ''}
-            </a>
-          </li>
-        ))}
-      </ul>
-      {isAdmin ? (
-        <AdminSections
-          id={id}
-          token={token}
-          tournament={tournament}
-          divisionIds={divisionList.divisions.map((division) => division.id)}
-          back={back}
+    <AdminShell
+      user={user}
+      title={tournament.name.ja}
+      kicker={kicker}
+      notice={notice}
+      primary={primary}
+    >
+      <div className="adm-stats">
+        <Stat label="いま試合中" value={String(live)} tone={live > 0 ? 'live' : undefined} />
+        <Stat label="終わった試合" value={`${finished} / ${allMatches.length}`} />
+        <Stat
+          label="本部の知らせ"
+          value={String(alerts.length)}
+          tone={alerts.length > 0 ? 'warn' : undefined}
         />
-      ) : null}
+      </div>
+      <div className="adm-entries">
+        {hasBoard ? (
+          <EntryCard
+            href={`/admin/tournaments/${id}/hq`}
+            label="本部"
+            sub="当日の進行。結果の入力、遅れの調整、組の確定"
+            badge={alerts.length > 0 ? `知らせ ${alerts.length}` : undefined}
+            highlight
+          />
+        ) : null}
+        {summaries.map((summary) => (
+          <EntryCard
+            key={summary.division.id}
+            href={`/admin/divisions/${summary.division.id}`}
+            label={summary.division.name.ja}
+            sub={divisionSub(summary, board.unformatted.includes(summary.division))}
+            badge={
+              isAdmin && board.unformatted.includes(summary.division) ? '形を決める' : undefined
+            }
+          />
+        ))}
+        {isAdmin ? (
+          <EntryCard
+            href={`/admin/tournaments/${id}/divisions/new`}
+            label="＋ 部門を作る"
+            sub="オープン、女子など、順位を別に出す部門を足します"
+          />
+        ) : null}
+        <EntryCard
+          href={`/admin/tournaments/${id}/timetable`}
+          label="時間割と印刷"
+          sub="コートごとの時間割と、掲示用の印刷"
+        />
+        {isAdmin ? (
+          <>
+            <EntryCard
+              href={`/admin/tournaments/${id}/staff`}
+              label="記録係"
+              sub={`割り当て ${keepers.length} 件。当日の交代もここから`}
+              badge={
+                hasBoard && freeCourts.length > 0 ? `${freeCourts.join('・')}が空き` : undefined
+              }
+              tone="live"
+            />
+            <EntryCard
+              href={`/admin/tournaments/${id}/media`}
+              label="写真とバナー"
+              sub="スポンサーのバナーと、大会のギャラリー"
+            />
+            <EntryCard
+              href={`/admin/tournaments/${id}/settings`}
+              label="大会の設定"
+              sub="公開、名前と日付、お知らせ、削除"
+            />
+          </>
+        ) : null}
+      </div>
+      <p className="adm-muted">
+        <a href={`/scview/${id}`}>閲覧ページを開く</a>
+      </p>
     </AdminShell>
   )
 }
 
-async function AdminSections({
-  id,
-  token,
-  tournament,
-  divisionIds,
-  back,
-}: {
-  id: number
-  token: string
-  tournament: Awaited<ReturnType<typeof tournaments.get>>
-  divisionIds: number[]
-  back: string
-}) {
-  const [banners, galleryList, assignmentList, userList, matchLists] = await loadAdmin(() =>
-    Promise.all([
-      tournaments.banners(token, id),
-      galleries.list(token, id),
-      assignments.list(token, id),
-      users.list(token),
-      Promise.all(divisionIds.map((divisionId) => matches.list(token, divisionId))),
-    ]),
-  )
-  const bannerLines = banners.banners
-    .map((banner) => [banner.imageUrl, banner.linkUrl ?? ''].join(' ').trim())
-    .join('\n')
-  return (
-    <>
-      <h3>部門を作る</h3>
-      <form action={createDivisionAction}>
-        <Hidden
-          values={{
-            back,
-            tournamentId: id,
-            scheduleEnabled: 'on',
-            entryKind: 'team',
-            statsKind: 'ultimate',
-          }}
-        />
-        <div className="adm-grid">
-          <Field label="名前(日本語)" name="nameJa" required />
-          <Field label="名前(英語)" name="nameEn" />
-          <Select
-            label="区分(日程の色)"
-            name="kind"
-            options={divisionKindOptions}
-            defaultValue="mixed"
-          />
-        </div>
-        <details>
-          <summary>詳しい設定</summary>
-          <div className="adm-grid">
-            <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
-          </div>
-        </details>
-        <button type="submit">作成</button>
-      </form>
-
-      <AssignmentSection
-        tournamentId={id}
-        back={back}
-        assignments={assignmentList.assignments}
-        staff={userList.users.filter((user) => user.role === 'staff')}
-        matches={matchLists.flatMap((list) => list.matches)}
-      />
-
-      <h2>基本情報</h2>
-      <form action={updateTournamentAction}>
-        <Hidden values={{ back, id }} />
-        <div className="adm-grid">
-          <Field label="大会名(日本語)" name="nameJa" defaultValue={tournament.name.ja} required />
-          <Select
-            label="区分"
-            name="status"
-            options={tournamentStatusOptions}
-            defaultValue={tournament.status}
-          />
-          <Field label="開催日" name="startDate" type="date" defaultValue={tournament.startDate} />
-          <Field
-            label="不戦勝のスコア(勝ったチーム)"
-            name="forfeitWinner"
-            type="number"
-            defaultValue={tournament.forfeitScore?.winner ?? null}
-          />
-          <Field
-            label="不戦勝のスコア(負けたチーム)"
-            name="forfeitLoser"
-            type="number"
-            defaultValue={tournament.forfeitScore?.loser ?? null}
-          />
-        </div>
-        <p className="adm-muted">
-          不戦勝のスコアは大会の規程に合わせて入れてください(例 15 と
-          0)。空欄のままだと、記録係が不戦勝を記録するときにスコアの入力を求めます。
-        </p>
-        <Check label="大会一覧に載せる(公開)" name="listed" defaultChecked={tournament.listed} />
-        <TextArea
-          label="大会トップのお知らせ欄(日本語。HTML も書けます。保存時に安全な形に直します)"
-          name="topHtmlJa"
-          defaultValue={tournament.topHtml.ja}
-          rows={8}
-        />
-        <details>
-          <summary>詳しい設定(英語の名前、ロゴ、大会メニューの言い方)</summary>
-          <div className="adm-grid">
-            <Field label="大会名(英語)" name="nameEn" defaultValue={tournament.name.en} />
-            <Field label="短い名前" name="shortName" defaultValue={tournament.shortName} />
-            <Field label="ロゴ URL" name="logoUrl" defaultValue={tournament.logoUrl} />
-            <Select
-              label="大会メニューのチーム一覧の名前"
-              name="teamListLabel"
-              options={[
-                { value: 'teams', label: 'チーム一覧' },
-                { value: 'entries', label: 'エントリー一覧' },
-              ]}
-              defaultValue={tournament.labels.teamList}
-            />
-            <Select
-              label="大会メニューの組の成績の名前"
-              name="groupLabel"
-              options={[
-                { value: 'groups', label: 'グループ成績' },
-                { value: 'results', label: '成績' },
-              ]}
-              defaultValue={tournament.labels.groups}
-            />
-          </div>
-          <Check
-            label="大会メニューにスケジュールと部門の成績を出す"
-            name="showSchedule"
-            defaultChecked={tournament.showSchedule}
-          />
-          <TextArea
-            label="大会トップのお知らせ欄(英語)"
-            name="topHtmlEn"
-            defaultValue={tournament.topHtml.en}
-            rows={8}
-          />
-        </details>
-        <button type="submit">保存</button>
-      </form>
-
-      <h2>バナー</h2>
-      <form action={putBannersAction}>
-        <Hidden values={{ back, id }} />
-        <TextArea
-          label="1 行に「画像 URL リンク URL(省略可)」を空白区切りで(表示順)"
-          name="banners"
-          defaultValue={bannerLines}
-        />
-        <button type="submit">保存</button>
-      </form>
-
-      <h2>ギャラリー</h2>
-      <ul className="adm-list">
-        {galleryList.galleries.map((gallery) => (
-          <li key={gallery.id}>
-            <a href={`/admin/galleries/${gallery.id}`}>
-              {gallery.name}(写真 {gallery.photos.length} 枚)
-            </a>
-          </li>
-        ))}
-      </ul>
-      <form action={createGalleryAction}>
-        <Hidden values={{ back, tournamentId: id }} />
-        <div className="adm-grid">
-          <Field label="ギャラリー名" name="name" required />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
-        </div>
-        <button type="submit">ギャラリーを作る</button>
-      </form>
-
-      <h2>大会の削除</h2>
-      <p className="adm-muted">部門、チーム、試合、ギャラリーも全部消えます。</p>
-      <DeleteForm action={deleteTournamentAction} values={{ back, id }} label="この大会" />
-    </>
-  )
+function divisionSub(summary: DivisionSummary, unformatted: boolean): string {
+  const counts = `${summary.teams}チーム ・ ${summary.groups}組 ・ ${summary.matches.length}試合`
+  return unformatted ? `${counts}。大会の形がまだ決まっていません` : counts
 }
