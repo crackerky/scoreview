@@ -501,9 +501,11 @@
 }
 
 /* 行の一覧(大会一覧、試合、コピー元など) */
-.adm-section-title {
+.adm .adm-section-title {
   display: block;
   margin: 0 0 8px;
+  padding: 0;
+  border: 0;
   font-size: 13px;
   font-weight: 800;
   color: var(--adm-muted);
@@ -1060,7 +1062,20 @@
   margin: 0;
 }
 
-/* 大会一覧の絞り込み */
+/* 大会一覧の絞り込み(名前で探す) */
+.adm-search-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--adm-gap);
+  margin: 0 0 20px;
+}
+
+.adm-search-row .adm-field {
+  flex: 1;
+  margin: 0;
+}
+
+/* 大会一覧の絞り込み(旧) */
 .adm-search {
   align-items: end;
   margin: 0 0 8px;
