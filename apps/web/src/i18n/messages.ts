@@ -25,6 +25,7 @@ const jp = {
   listEntryCount: 'エントリー {n} チーム',
   listYearGroup: '{year}年({n} 大会)',
   listUndated: '開催日未定',
+  liveAppLink: '観戦アプリで見る(スマートフォン向け。試合中の点数と得点の流れ)',
 
   // 大会トップ(clone-spec A 4)
   logoAlt: 'ロゴ',
@@ -188,6 +189,7 @@ const en: Record<MessageKey, string> = {
   listEntryCount: '{n} teams entered',
   listYearGroup: '{year} ({n})',
   listUndated: 'Date TBA',
+  liveAppLink: 'Open the live view (for phones)',
 
   logoAlt: 'ロゴ',
   topDivision: 'Division',

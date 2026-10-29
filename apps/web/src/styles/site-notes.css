@@ -137,3 +137,11 @@
   display: block;
   clear: both;
 }
+
+/* 大会トップ: 観戦アプリへの入口 */
+#main p.sv_live_link {
+  margin: 0 10px 15px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: bold;
+}

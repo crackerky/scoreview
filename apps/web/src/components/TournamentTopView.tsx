@@ -66,6 +66,10 @@ export function TournamentTopView({ data, lang }: { data: TournamentTopResponse;
           alt={msg(lang, 'logoAlt')}
         />
       </div>
+      {/* 本サイト独自: スマートフォン向けの観戦アプリ(/live/{id})への入口 */}
+      <p className="sv_live_link" data-scoreview-addition="">
+        <a href={`/live/${data.frame.id}`}>{msg(lang, 'liveAppLink')}</a>
+      </p>
       <Tbl style={{ marginLeft: '80px', marginRight: '100px' }} tableStyle={{ width: '100%' }}>
         {/* 列幅は 40% + 40%。table-layout: fixed なので右の 20% は空く(参照サイトのまま) */}
         <TblHeaderRow

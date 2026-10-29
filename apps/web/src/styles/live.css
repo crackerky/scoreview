@@ -1,0 +1,1164 @@
+/*
+ * 観戦アプリ(/live/{id}。Claude Design「StageCam」)の見た目。閲覧ページの CSS(legacy.css)は全ページに
+ * 読み込まれるので、.live の中だけで決める。動き(カードの輪の回転、点が入った演出)は、動きを減らす
+ * 設定の端末では止める(最後の @media)。押せる要素は 44px 以上。
+ */
+.live {
+  --live-fg: #f2f3f5;
+  --live-muted: #9aa3ad;
+  --live-faint: #6b7480;
+  --live-accent: #ff8a1f;
+  --live-line: rgba(255, 255, 255, 0.08);
+  --live-sched: #19a7a0;
+  --live-done: #9aa6b4;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  background: #05070b;
+  color: var(--live-fg);
+  font-family: var(--live-font-body), "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+.live * {
+  box-sizing: border-box;
+}
+
+.live button {
+  font: inherit;
+  color: inherit;
+}
+
+.live a {
+  color: inherit;
+}
+
+.live-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(120% 60% at 50% 0%, #1a2233 0%, #0a0d14 60%);
+}
+
+.live-num {
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-stage-font {
+  font-family: var(--live-font-stage), "Dela Gothic One", sans-serif;
+}
+
+.live-card-font {
+  font-family: var(--live-font-card), "M PLUS 2", sans-serif;
+  font-weight: 800;
+}
+
+/* 上の帯(メニュー、大会名、その他)とタブ */
+.live-chrome {
+  flex: none;
+  padding-top: env(safe-area-inset-top);
+  transition: opacity 0.3s;
+}
+
+.live-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 48px;
+  padding: 0 6px;
+}
+
+.live-icon-button {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.live-burger {
+  gap: 5px;
+}
+
+.live-burger span {
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: #fff;
+}
+
+.live-kebab {
+  gap: 3px;
+}
+
+.live-kebab span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.live-title-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-title-button span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-caret {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.25s;
+}
+
+.live-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 44px;
+}
+
+.live-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 800;
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.live-tab[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.live-tab-bar {
+  width: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: #fff;
+  transition: width 0.3s;
+}
+
+.live-tab[aria-pressed="true"] .live-tab-bar {
+  width: 20px;
+}
+
+.live-counter {
+  position: absolute;
+  right: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* カードの輪 */
+.live-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  perspective: 1000px;
+  perspective-origin: 50% 46%;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.live-viewport:focus-visible {
+  outline: 2px solid var(--live-accent);
+  outline-offset: -4px;
+}
+
+.live-rig {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.live-world {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+
+.live-field {
+  position: absolute;
+  left: -260px;
+  top: -260px;
+  width: 520px;
+  height: 980px;
+  transform-origin: 50% 260px;
+  transform: translateY(178px) rotateX(90deg);
+  background-color: #164a2e;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0 40px,
+    transparent 40px 80px
+  );
+  transition: opacity 0.3s;
+}
+
+.live-field-lines {
+  position: absolute;
+  left: 30px;
+  top: 150px;
+  width: 460px;
+  height: 220px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+.live-field-lines::before,
+.live-field-lines::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+.live-field-lines::before {
+  left: 19%;
+}
+
+.live-field-lines::after {
+  right: 19%;
+}
+
+.live-sponsor {
+  position: absolute;
+  left: -74px;
+  top: -318px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 148px;
+  transition: opacity 0.3s;
+}
+
+.live-sponsor-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 148px;
+  height: 76px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 0 0 3px var(--live-accent),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.live-sponsor-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.live-sponsor-label {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--live-muted);
+}
+
+.live-card {
+  position: absolute;
+  left: -98px;
+  top: -136px;
+  width: 196px;
+  height: 272px;
+  transform-style: preserve-3d;
+}
+
+.live-card-edge {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  width: 16px;
+}
+
+.live-card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-width: 9px;
+  border-style: solid;
+  border-radius: 14px;
+  background: #11141a;
+  transform: translateZ(8px);
+}
+
+.live-card-half {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+  padding: 10px 12px;
+}
+
+.live-card-name {
+  font-size: 14px;
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+
+.live-card-score {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 58px;
+  font-weight: 700;
+  line-height: 0.85;
+}
+
+.live-card-mid {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  gap: 8px;
+  padding: 5px 0;
+  background: #0b0d12;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.live-card-mid .live-num {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.live-card-dim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.live-card-status {
+  position: absolute;
+  left: 50%;
+  top: -11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #111;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  transform: translateX(-50%) translateZ(10px);
+}
+
+.live-star {
+  color: #ffd27a;
+}
+
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+.live-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--live-muted);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.live-intro {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 34%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  animation: live-intro-out 2.7s forwards;
+}
+
+.live-intro-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.live-intro-letter {
+  display: inline-block;
+  color: #fff;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  animation: live-letter-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* 下の帯(時刻ごとの点) */
+.live-strip-wrap {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: 0 16px calc(26px + env(safe-area-inset-bottom));
+  transition: opacity 0.3s;
+}
+
+.live-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.live-strip-group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.live-strip-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+}
+
+.live-strip-dot {
+  padding: 0;
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.live-strip-time {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 大きく開いた試合 */
+.live-zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  transition: opacity 0.28s ease;
+}
+
+.live-zoom-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.live-zoom-half.top {
+  top: 0;
+  padding: calc(104px + env(safe-area-inset-top)) 24px 46px;
+}
+
+.live-zoom-half.bottom {
+  bottom: 0;
+  padding: 46px 24px 96px;
+}
+
+.live-zoom-team {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-zoom-sub {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.live-zoom-name {
+  font-size: 27px;
+  line-height: 1.2;
+  text-wrap: pretty;
+}
+
+.live-zoom-score {
+  display: inline-block;
+  font-size: 150px;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-zoom-seam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.live-zoom-seam span {
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.live-zoom-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: env(safe-area-inset-top);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 6px 0 12px;
+}
+
+.live-pill-button {
+  flex: none;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-crumb {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-fav-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-sweep {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  color: #fff;
+  font-size: 54px;
+  white-space: nowrap;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: live-sweep 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.live-sheet {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  transition: background 0.3s;
+}
+
+.live-sheet-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.live-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #111;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.live-sheet-body {
+  display: grid;
+  transition: grid-template-rows 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.live-sheet-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.live-sheet-scroll {
+  max-height: 470px;
+  overflow-y: auto;
+  padding: 0 12px 14px;
+  scrollbar-width: none;
+}
+
+.live-flow-empty {
+  padding: 6px 4px 8px;
+  color: #c9d0d8;
+  font-size: 13px;
+}
+
+.live-flow-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 2px;
+  border-top: 1px solid var(--live-line);
+}
+
+.live-flow-time {
+  color: var(--live-muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.live-flow-who {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.live-flow-scorer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.live-flow-team {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.live-flow-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-flow-assist {
+  color: #c9d0d8;
+  font-size: 12px;
+}
+
+.live-flow-score {
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 引き出し(順位表と決勝トーナメント) */
+.live-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+  transition: opacity 0.3s;
+}
+
+.live-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 41;
+  width: min(300px, 85%);
+  overflow-y: auto;
+  padding: calc(56px + env(safe-area-inset-top)) 0 24px;
+  background: #11151c;
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.4);
+  scrollbar-width: none;
+  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.live-drawer-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 20px 18px;
+}
+
+.live-drawer-head strong {
+  font-size: 18px;
+}
+
+.live-acc {
+  border-top: 1px solid #222832;
+}
+
+.live-acc-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.live-acc-badge {
+  color: var(--live-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.live-acc-body {
+  display: grid;
+  transition: grid-template-rows 0.32s ease;
+}
+
+.live-acc-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.live-acc-rows {
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px 14px;
+}
+
+.live-acc-row {
+  display: grid;
+  grid-template-columns: 40px 8px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid #1c2129;
+}
+
+.live-acc-row.cut {
+  border-bottom: 1.5px solid #4a525e;
+}
+
+.live-acc-row .live-num {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.live-acc-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.live-acc-right {
+  color: #c9d0d8;
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.live-team-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.live-drawer-link {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  padding: 0 20px;
+  border-top: 1px solid #222832;
+  color: var(--live-accent);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+/* 白い浮きメニュー(大会の切り替え、その他)と、マイチームを選ぶ画面 */
+.live-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+}
+
+.live-pop {
+  position: absolute;
+  z-index: 21;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+  color: #1f2328;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  transition:
+    opacity 0.2s,
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.live-pop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 16px;
+  border: 0;
+  border-top: 1px solid #eceef1;
+  background: #fff;
+  color: #1f2328;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.live-pop-item:first-child {
+  border-top: 0;
+}
+
+.live-pop-item[aria-current="page"] {
+  background: #fff6ee;
+}
+
+.live-pop-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-pop-meta {
+  color: #59636e;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.live-modal-back {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  transition: opacity 0.22s;
+}
+
+.live-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-height: 100%;
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff;
+  color: #1f2328;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.live-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.live-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 1.5px solid #e3e6ea;
+  border-radius: 12px;
+  background: #fff;
+  color: #1f2328;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.live-pick[aria-pressed="true"] {
+  border-color: #ff6600;
+  background: #fff6ee;
+}
+
+.live-pick-star {
+  flex: none;
+  width: 22px;
+  color: #c4cad1;
+  font-size: 18px;
+  text-align: center;
+}
+
+.live-pick[aria-pressed="true"] .live-pick-star {
+  color: #ff6600;
+}
+
+.live-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.live-modal-actions button {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live-modal-cancel {
+  border: 1.5px solid #d0d7de;
+  background: #fff;
+  color: #1f2328;
+}
+
+.live-modal-save {
+  border: 0;
+  background: #1f2328;
+  color: #fff;
+}
+
+.live-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  z-index: 60;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f2328;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  transform: translateX(-50%);
+}
+
+.live-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes live-letter-in {
+  0% {
+    transform: translateY(-46px) rotate(-10deg) scale(1.3);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(5px) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes live-intro-out {
+  0%,
+  72% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+}
+
+@keyframes live-slam {
+  0% {
+    transform: scale(1.8);
+    opacity: 0;
+    filter: blur(6px);
+  }
+  55% {
+    transform: scale(0.92);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes live-sweep {
+  0% {
+    transform: translate(40%, -50%) skewX(-14deg);
+    opacity: 0;
+  }
+  22% {
+    transform: translate(-50%, -50%) skewX(-14deg);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(-56%, -50%) skewX(-14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-150%, -50%) skewX(-14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes live-draw {
+  from {
+    stroke-dashoffset: 1400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes live-pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes live-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.5;
+  }
+}
+
+/* 動きを減らす設定の端末では、回転や演出を止めて結果だけを出す */
+@media (prefers-reduced-motion: reduce) {
+  .live *,
+  .live *::before,
+  .live *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: 動きの多くは要素のインラインの style にあるので、それより強く止める */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: 同上 */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: 同上 */
+    transition-duration: 0.01ms !important;
+  }
+}
