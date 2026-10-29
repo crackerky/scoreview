@@ -1,3 +1,4 @@
+import { runsDayOf } from '@/admin/access.utils'
 import { sideName } from '@/admin/labels.utils'
 import { courtLabel } from '@/admin/scoreKeeper.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
@@ -19,7 +20,7 @@ export default async function AdminScorePage(props: IdPageProps) {
     Promise.all([matches.detail(token, id), matches.mine(token)]),
   )
   // 記録係は自分の割り当てが覆う試合だけを記録できる(api が最終的に判定する。ここは表示のため)
-  const canScore = user.role === 'admin' || mine.matches.some((match) => match.id === id)
+  const canScore = runsDayOf(user) || mine.matches.some((match) => match.id === id)
   return (
     <>
       <title>{`${detail.match.code || '試合'} 記録 - 管理画面`}</title>
@@ -31,7 +32,7 @@ export default async function AdminScorePage(props: IdPageProps) {
       </noscript>
       <ScoreKeeper
         initial={detail}
-        isAdmin={user.role === 'admin'}
+        isAdmin={runsDayOf(user)}
         canScore={canScore}
         userId={user.id}
         nextMatch={nextAssigned(mine.matches, id)}

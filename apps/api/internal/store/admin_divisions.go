@@ -172,6 +172,34 @@ func TournamentOfMatch(ctx context.Context, db *gorm.DB, id int64) (int64, error
 	return division.TournamentID, nil
 }
 
+// TournamentOfGroup は組の大会 ID を返す(本部スタッフの権限の判定に使う)。
+func TournamentOfGroup(ctx context.Context, db *gorm.DB, id int64) (int64, error) {
+	group, err := findByID[Group](ctx, db, id, domain.ResourceGroup)
+	if err != nil {
+		return 0, err
+	}
+	return TournamentOfDivision(ctx, db, group.DivisionID)
+}
+
+// TournamentOfStage は段の大会 ID を返す(本部スタッフの権限の判定に使う)。段の資源名は組と同じ
+// (format_progress.go の段の確定と同じ扱い)。
+func TournamentOfStage(ctx context.Context, db *gorm.DB, id int64) (int64, error) {
+	stage, err := findByID[Stage](ctx, db, id, domain.ResourceGroup)
+	if err != nil {
+		return 0, err
+	}
+	return TournamentOfDivision(ctx, db, stage.DivisionID)
+}
+
+// TournamentOfTeam はチームの大会 ID を返す(本部スタッフの権限の判定に使う)。
+func TournamentOfTeam(ctx context.Context, db *gorm.DB, id int64) (int64, error) {
+	team, err := findByID[Team](ctx, db, id, domain.ResourceTeam)
+	if err != nil {
+		return 0, err
+	}
+	return team.TournamentID, nil
+}
+
 // GalleryFields はギャラリーの編集できる値。
 type GalleryFields struct {
 	Name      string

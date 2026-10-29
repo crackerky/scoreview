@@ -47,8 +47,8 @@ func ValidTransition(from, to MatchStatus, role Role) error {
 	case toRank > fromRank:
 		return nil
 	case from == MatchFinished && to == MatchLive:
-		if role != RoleAdmin {
-			return fmt.Errorf("%w: only admin can reopen a finished match", ErrForbidden)
+		if !role.RunsDayOf() {
+			return fmt.Errorf("%w: only admin or hq can reopen a finished match", ErrForbidden)
 		}
 		return nil
 	default:

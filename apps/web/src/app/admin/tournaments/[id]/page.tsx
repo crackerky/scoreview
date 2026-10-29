@@ -1,3 +1,4 @@
+import { runsDayOf } from '@/admin/access.utils'
 import { buildAlerts, courtCards } from '@/admin/hqBoard.utils'
 import { loadBoards } from '@/admin/hqData'
 import { loadAdmin, requireUser } from '@/admin/session'
@@ -14,35 +15,38 @@ import { AdminShell, EntryCard, type PrimaryAction, Stat } from '@/components/ad
 
 type DivisionSummary = {
   division: AdminDivision
-  teams: number
-  groups: number
+  teams: number | null
+  groups: number | null
   matches: AdminMatch[]
 }
 
 export default async function AdminTournamentPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const { user, token } = await requireUser('any')
+  // 大会の作成、設定は管理者だけ。本部と記録係の割り当ては本部スタッフもできる
   const isAdmin = user.role === 'admin'
+  const canRun = runsDayOf(user)
   const today = jstToday(new Date())
   const [tournament, board, assignmentList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, id),
       loadBoards(token, id),
-      isAdmin ? assignments.list(token, id) : null,
+      canRun ? assignments.list(token, id) : null,
     ]),
   )
   const summaries: DivisionSummary[] = await loadAdmin(() =>
     Promise.all(
       board.divisions.map(async (division) => {
+        // チームと組の一覧は記録係には読めないので、数は本部の役割にだけ出す
         const [teamList, groupList, matchList] = await Promise.all([
-          teams.list(token, division.id),
-          groups.list(token, division.id),
+          canRun ? teams.list(token, division.id) : null,
+          canRun ? groups.list(token, division.id) : null,
           matches.list(token, division.id),
         ])
         return {
           division,
-          teams: teamList.teams.length,
-          groups: groupList.groups.length,
+          teams: teamList?.teams.length ?? null,
+          groups: groupList?.groups.length ?? null,
           matches: matchList.matches,
         }
       }),
@@ -116,17 +120,17 @@ export default async function AdminTournamentPage(props: IdPageProps) {
           label="時間割と印刷"
           sub="コートごとの時間割と、掲示用の印刷"
         />
+        {canRun ? (
+          <EntryCard
+            href={`/admin/tournaments/${id}/staff`}
+            label="記録係"
+            sub={`割り当て ${keepers.length} 件。当日の交代もここから`}
+            badge={hasBoard && freeCourts.length > 0 ? `${freeCourts.join('・')}が空き` : undefined}
+            tone="live"
+          />
+        ) : null}
         {isAdmin ? (
           <>
-            <EntryCard
-              href={`/admin/tournaments/${id}/staff`}
-              label="記録係"
-              sub={`割り当て ${keepers.length} 件。当日の交代もここから`}
-              badge={
-                hasBoard && freeCourts.length > 0 ? `${freeCourts.join('・')}が空き` : undefined
-              }
-              tone="live"
-            />
             <EntryCard
               href={`/admin/tournaments/${id}/media`}
               label="写真とバナー"
@@ -148,6 +152,12 @@ export default async function AdminTournamentPage(props: IdPageProps) {
 }
 
 function divisionSub(summary: DivisionSummary, unformatted: boolean): string {
-  const counts = `${summary.teams}チーム ・ ${summary.groups}組 ・ ${summary.matches.length}試合`
+  const counts = [
+    summary.teams === null ? null : `${summary.teams}チーム`,
+    summary.groups === null ? null : `${summary.groups}組`,
+    `${summary.matches.length}試合`,
+  ]
+    .filter(Boolean)
+    .join(' ・ ')
   return unformatted ? `${counts}。大会の形がまだ決まっていません` : counts
 }

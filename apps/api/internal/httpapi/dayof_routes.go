@@ -13,12 +13,12 @@ import (
 func (s *Server) dayOfRoutes() {
 	const base = "/api/v1/admin"
 	ok := http.StatusOK
-	s.admin("GET "+base+"/teams/{id}/withdrawal", adminOnly(), ok, withPathID(s.getWithdrawal))
-	s.admin("POST "+base+"/teams/{id}/withdrawal", adminOnly(), ok, withPathID(s.withdrawTeam))
-	s.admin("GET "+base+"/divisions/{id}/closing", adminOnly(), ok, withPathID(s.getClosing))
-	s.admin("POST "+base+"/divisions/{id}/close", adminOnly(), ok, withPathID(s.closeDivision))
-	s.admin("POST "+base+"/tournaments/{id}/suspension", adminOnly(), ok, withPathID(s.suspendTournament))
-	s.admin("POST "+base+"/tournaments/{id}/resume", adminOnly(), ok, withPathID(s.resumeTournament))
+	s.admin("GET "+base+"/teams/{id}/withdrawal", hqOfTeam(), ok, withPathID(s.getWithdrawal))
+	s.admin("POST "+base+"/teams/{id}/withdrawal", hqOfTeam(), ok, withPathID(s.withdrawTeam))
+	s.admin("GET "+base+"/divisions/{id}/closing", hqOfDivision(), ok, withPathID(s.getClosing))
+	s.admin("POST "+base+"/divisions/{id}/close", hqOfDivision(), ok, withPathID(s.closeDivision))
+	s.admin("POST "+base+"/tournaments/{id}/suspension", hqOfTournament(), ok, withPathID(s.suspendTournament))
+	s.admin("POST "+base+"/tournaments/{id}/resume", hqOfTournament(), ok, withPathID(s.resumeTournament))
 }
 
 type withdrawalMatchDTO struct {

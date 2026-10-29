@@ -35,7 +35,7 @@ type ShellProps = {
   children: ReactNode
 }
 
-const roleLabel = { admin: '管理者', staff: '記録係' } as const
+const roleLabel = { admin: '管理者', staff: '記録係', hq: '本部スタッフ' } as const
 
 // 管理画面の外枠(Claude Design「Score View Admin」)。上から、黒い帯(サイト名と役割とメニュー)、
 // 今いる場所(大会 › 大会名 › …)、見出しと主な操作、タブ、本文。主な操作は画面に 1 つだけで、

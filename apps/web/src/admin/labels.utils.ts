@@ -49,6 +49,7 @@ export const matchStatusOptions = [
 
 export const roleOptions = [
   { value: 'staff', label: '記録係' },
+  { value: 'hq', label: '本部スタッフ' },
   { value: 'admin', label: '管理者' },
 ] as const
 

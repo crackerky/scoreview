@@ -1,3 +1,4 @@
+import { runsDayOf } from '@/admin/access.utils'
 import { updatedAtText } from '@/admin/hq.utils'
 import {
   buildAlerts,
@@ -47,7 +48,7 @@ export default async function TournamentHqPage(props: IdPageProps) {
   const query = await props.searchParams
   const tab: Tab = tabs.find((item) => item.id === query.tab)?.id ?? 'now'
   const { user, token } = await requireUser('any')
-  const isAdmin = user.role === 'admin'
+  const isAdmin = runsDayOf(user)
   const now = new Date()
   const today = jstToday(now)
   const [tournament, board, assignmentList] = await loadAdmin(() =>

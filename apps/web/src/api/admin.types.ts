@@ -23,7 +23,7 @@ const id = z.number().int()
 
 // ===== 応答 =====
 
-export const roleSchema = z.enum(['admin', 'staff'])
+export const roleSchema = z.enum(['admin', 'staff', 'hq'])
 export type Role = z.infer<typeof roleSchema>
 
 export const adminUserSchema = z.object({

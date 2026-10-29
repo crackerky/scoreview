@@ -26,18 +26,18 @@ func (s *Server) formatRoutes() {
 	s.admin("GET "+base+"/divisions/{id}/progress", staffOfDivision(), ok, withPathID(s.getProgress))
 	s.admin("GET "+base+"/divisions/{id}/format/matches", staffOfDivision(), ok,
 		withPathID(s.listFormatMatches))
-	s.admin("POST "+base+"/groups/{id}/confirm", adminOnly(), noContent, withPathID(s.confirmGroup))
-	s.admin("POST "+base+"/stages/{id}/confirm", adminOnly(), noContent, withPathID(s.confirmStage))
-	s.admin("POST "+base+"/groups/{id}/rank-decisions", adminOnly(), noContent, withPathID(s.decideRank))
-	s.admin("POST "+base+"/stages/{id}/rank-decisions", adminOnly(), noContent,
+	s.admin("POST "+base+"/groups/{id}/confirm", hqOfGroup(), noContent, withPathID(s.confirmGroup))
+	s.admin("POST "+base+"/stages/{id}/confirm", hqOfStage(), noContent, withPathID(s.confirmStage))
+	s.admin("POST "+base+"/groups/{id}/rank-decisions", hqOfGroup(), noContent, withPathID(s.decideRank))
+	s.admin("POST "+base+"/stages/{id}/rank-decisions", hqOfStage(), noContent,
 		withPathID(s.decideBandRank))
-	s.admin("POST "+base+"/matches/{id}/correction-impact", adminOnly(), ok,
+	s.admin("POST "+base+"/matches/{id}/correction-impact", hqOfMatch(), ok,
 		withPathID(s.correctionImpact))
-	s.admin("POST "+base+"/matches/{id}/correction", adminOnly(), ok, withPathID(s.applyCorrection))
-	s.admin("POST "+base+"/matches/{id}/align-teams", adminOnly(), noContent, withPathID(s.alignTeams))
-	s.admin("GET "+base+"/divisions/{id}/schedule-check", adminOnly(), ok, withPathID(s.checkSchedule))
-	s.admin("POST "+base+"/divisions/{id}/schedule-shift", adminOnly(), ok, withPathID(s.shiftSchedule))
-	s.admin("POST "+base+"/matches/{id}/swap-schedule", adminOnly(), ok, withPathID(s.swapSchedule))
+	s.admin("POST "+base+"/matches/{id}/correction", hqOfMatch(), ok, withPathID(s.applyCorrection))
+	s.admin("POST "+base+"/matches/{id}/align-teams", hqOfMatch(), noContent, withPathID(s.alignTeams))
+	s.admin("GET "+base+"/divisions/{id}/schedule-check", hqOfDivision(), ok, withPathID(s.checkSchedule))
+	s.admin("POST "+base+"/divisions/{id}/schedule-shift", hqOfDivision(), ok, withPathID(s.shiftSchedule))
+	s.admin("POST "+base+"/matches/{id}/swap-schedule", hqOfMatch(), ok, withPathID(s.swapSchedule))
 	s.setupRoutes()
 }
 

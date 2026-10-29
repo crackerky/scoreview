@@ -47,7 +47,7 @@ export default async function AdminUserPage(props: IdPageProps) {
         <button type="submit">保存</button>
       </form>
 
-      <h2>担当大会(記録係がスコアを入力できる大会)</h2>
+      <h2>担当大会(記録係はスコアを入力でき、本部スタッフは当日の進行ができる大会)</h2>
       <form action={putUserTournamentsAction}>
         <Hidden values={{ back, id }} />
         {tournamentList.tournaments.map((tournament) => (

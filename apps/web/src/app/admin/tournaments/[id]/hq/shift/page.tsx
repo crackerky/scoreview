@@ -27,7 +27,7 @@ function pick(value: string | string[] | undefined): string {
 export default async function ShiftPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const query = await props.searchParams
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const [tournament, board] = await loadAdmin(() =>
     Promise.all([tournaments.get(token, id), loadBoards(token, id)]),
   )

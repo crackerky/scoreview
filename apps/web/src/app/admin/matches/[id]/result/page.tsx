@@ -84,7 +84,7 @@ function DownstreamChoice({ missing }: { missing: boolean }) {
 export default async function MatchResultPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const query = await props.searchParams
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const detail = await loadAdmin(() => matches.detail(token, id))
   const match = detail.match
   const left = scoreOf(pick(query.left))

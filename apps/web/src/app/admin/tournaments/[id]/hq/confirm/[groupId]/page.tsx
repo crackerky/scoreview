@@ -22,7 +22,7 @@ export default async function ConfirmGroupPage(props: Props) {
   }
   const id = Number(params.id)
   const groupId = Number(params.groupId)
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const [tournament, board] = await loadAdmin(() =>
     Promise.all([tournaments.get(token, id), loadBoards(token, id)]),
   )

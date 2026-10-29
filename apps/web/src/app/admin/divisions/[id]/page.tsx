@@ -1,3 +1,4 @@
+import { runsDayOf } from '@/admin/access.utils'
 import {
   barStyleOptions,
   divisionKindOptions,
@@ -59,7 +60,11 @@ export default async function AdminDivisionPage(props: IdPageProps) {
           <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
         </p>
       )}
-      <MatchTable matches={matchList.matches} isAdmin={user.role === 'admin'} />
+      <MatchTable
+        matches={matchList.matches}
+        isAdmin={user.role === 'admin'}
+        runsDayOf={runsDayOf(user)}
+      />
       {user.role === 'admin' ? (
         <AdminSections
           token={token}
@@ -87,7 +92,15 @@ function missingEnglish(list: AdminTeam[]): number {
   return list.filter((team) => team.fullName.en === '' || team.shortName.en === '').length
 }
 
-function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin: boolean }) {
+function MatchTable({
+  matches: list,
+  isAdmin,
+  runsDayOf: canFix,
+}: {
+  matches: AdminMatch[]
+  isAdmin: boolean
+  runsDayOf: boolean
+}) {
   if (list.length === 0) {
     return <p className="adm-muted">試合がありません。</p>
   }
@@ -121,7 +134,7 @@ function MatchTable({ matches: list, isAdmin }: { matches: AdminMatch[]; isAdmin
                 <a href={`/admin/matches/${match.id}/score`}>スコア入力</a>
                 <a href={`/admin/matches/${match.id}/sheet`}>印刷</a>
                 {isAdmin ? <a href={`/admin/matches/${match.id}`}>編集</a> : null}
-                {isAdmin && match.status === 'finished' ? (
+                {canFix && match.status === 'finished' ? (
                   // 確定後の訂正は影響の表示と下流の扱い(keep / reset)のある画面で行う
                   <a
                     href={`/admin/matches/${match.id}/result?next=${encodeURIComponent(

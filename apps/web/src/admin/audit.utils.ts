@@ -144,6 +144,8 @@ export function formatAuditTime(at: string): string {
 }
 
 /** 操作した人(消された利用者は「削除された利用者」) */
+
+const roleNames = { admin: '管理者', staff: '記録係', hq: '本部スタッフ' } as const
 export function auditUser(entry: AuditEntry): string {
   if (entry.user === null) {
     return '不明'
@@ -151,7 +153,7 @@ export function auditUser(entry: AuditEntry): string {
   if (entry.user.role === null) {
     return `削除された利用者 #${entry.user.id}`
   }
-  return `${entry.user.name}(${entry.user.role === 'admin' ? '管理者' : '記録係'})`
+  return `${entry.user.name}(${roleNames[entry.user.role]})`
 }
 
 /** 1 回の訂正(終了 → 試合中 → 終了)とみなす、同じ人の 2 つの操作の間隔の上限(ミリ秒) */

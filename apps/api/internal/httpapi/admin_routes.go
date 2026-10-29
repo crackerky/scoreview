@@ -53,7 +53,7 @@ func (s *Server) adminRoutes() {
 	s.admin("DELETE "+base+"/divisions/{id}", adminOnly(), noContent, withPathID(s.deleteDivision))
 	s.admin("PUT "+base+"/divisions/{id}/final-ranks", adminOnly(), ok, withPathID(s.putFinalRanks))
 
-	s.admin("GET "+base+"/divisions/{id}/groups", adminOnly(), ok, withPathID(s.listGroups))
+	s.admin("GET "+base+"/divisions/{id}/groups", hqOfDivision(), ok, withPathID(s.listGroups))
 	s.admin("POST "+base+"/divisions/{id}/groups", adminOnly(), created, withPathID(s.createGroup))
 	s.admin("GET "+base+"/groups/{id}", adminOnly(), ok, withPathID(s.getGroupAdmin))
 	s.admin("PATCH "+base+"/groups/{id}", adminOnly(), ok, withPathID(s.patchGroup))
@@ -62,7 +62,7 @@ func (s *Server) adminRoutes() {
 	s.admin("POST "+base+"/groups/{id}/bracket", adminOnly(), ok, withPathID(s.generateBracket))
 	s.admin("GET "+base+"/bracket-templates", adminOnly(), ok, s.listBracketTemplates)
 
-	s.admin("GET "+base+"/divisions/{id}/teams", adminOnly(), ok, withPathID(s.listTeams))
+	s.admin("GET "+base+"/divisions/{id}/teams", hqOfDivision(), ok, withPathID(s.listTeams))
 	s.admin("POST "+base+"/divisions/{id}/teams", adminOnly(), created, withPathID(s.createTeam))
 	s.admin("GET "+base+"/teams/{id}", adminOnly(), ok, withPathID(s.getTeamAdmin))
 	s.admin("PATCH "+base+"/teams/{id}", adminOnly(), ok, withPathID(s.patchTeam))
@@ -118,19 +118,19 @@ func (s *Server) adminRoutes() {
 	s.admin("GET "+base+"/me/matches", anyUser(), ok, s.myMatches)
 	s.admin(
 		"GET "+base+"/tournaments/{id}/assignments",
-		adminOnly(),
+		hqOfTournament(),
 		ok,
 		withPathID(s.listAssignments),
 	)
 	s.admin(
 		"POST "+base+"/tournaments/{id}/assignments",
-		adminOnly(),
+		hqOfTournament(),
 		created,
 		withPathID(s.createAssignment),
 	)
 	s.admin(
 		"DELETE "+base+"/assignments/{id}",
-		adminOnly(),
+		hqOfAssignment(),
 		noContent,
 		withPathID(s.deleteAssignment),
 	)
@@ -147,7 +147,7 @@ func (s *Server) adminRoutes() {
 	s.admin("DELETE "+base+"/galleries/{id}", adminOnly(), noContent, withPathID(s.deleteGallery))
 	s.admin("PUT "+base+"/galleries/{id}/photos", adminOnly(), ok, withPathID(s.putPhotos))
 
-	s.admin("GET "+base+"/users", adminOnly(), ok, s.listUsers)
+	s.admin("GET "+base+"/users", hqAnywhere(), ok, s.listUsers)
 	s.admin("POST "+base+"/users", adminOnly(), created, s.createUser)
 	s.admin("GET "+base+"/users/{id}", adminOnly(), ok, withPathID(s.getUser))
 	s.admin("PATCH "+base+"/users/{id}", adminOnly(), ok, withPathID(s.patchUser))

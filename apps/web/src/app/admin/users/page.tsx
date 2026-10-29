@@ -18,7 +18,9 @@ export default async function AdminUsersPage({ searchParams }: SearchProps) {
               {item.displayName || item.email}
               <span className="adm-muted">
                 ({item.email}、
-                {item.role === 'admin' ? '管理者' : `記録係 担当 ${item.tournamentIds.length} 大会`}
+                {item.role === 'admin'
+                  ? '管理者'
+                  : `${item.role === 'hq' ? '本部スタッフ' : '記録係'} 担当 ${item.tournamentIds.length} 大会`}
                 )
               </span>
             </a>

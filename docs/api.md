@@ -401,6 +401,20 @@ type BracketCell = {
 - 変更: 試合の状態、結果の種類、得点経過の追加・取り消し・得点者の付け直し、試合ごとの選手記録。
   ただし**記録係の割り当て**(`staff_assignments`)が覆う試合だけ。割り当ての無い試合を変えると 403
 
+本部スタッフ(hq)は `tournament_staff` に登録された大会について、記録係のできることを全部(試合ごとの
+割り当てなしで、大会の全試合を記録できる)と、次の当日の進行ができる。それ以外は 403(`forbidden`)。
+
+- 結果の訂正(`correction-impact`、`correction`)、順位どおりのチームへの差し替え(`align-teams`)、
+  試合の時刻の入れ替え(`swap-schedule`)、終わった試合を試合中に戻す
+- 組と段の確定、同順位の決定(`groups/{id}/confirm`、`groups/{id}/rank-decisions`、
+  `stages/{id}/confirm`、`stages/{id}/rank-decisions`)
+- 時間をずらす(`schedule-shift`)、時間割の点検(`schedule-check`)、中断と再開、棄権、大会の締め
+- 記録係の割り当ての一覧、作成、削除と、記録係を選ぶためのユーザー一覧(`GET /admin/users`)
+- 部門のチーム一覧と組の一覧の読み取り
+
+大会、部門、組、チーム、選手、試合、ギャラリー、ユーザーの作成、設定、削除と、大会の形の決定は
+管理者だけができる。
+
 パスの資源が存在しなければ、権限の判定より先に 404 を返す。
 
 ### 共通の規則
@@ -419,7 +433,7 @@ type BracketCell = {
 
 ```ts
 type AdminUser = {
-  id: number; email: string; displayName: string; role: 'admin' | 'staff'
+  id: number; email: string; displayName: string; role: 'admin' | 'staff' | 'hq'
   tournamentIds: number[]          // 担当大会(tournament_staff)。昇順
 }
 ```
@@ -463,7 +477,7 @@ type Banner = { imageUrl: string; linkUrl: string | null }
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `GET /admin/tournaments` | なし | `{ tournaments: AdminTournament[] }`(開催日の新しい順。staff は担当大会だけ) |
+| `GET /admin/tournaments` | なし | `{ tournaments: AdminTournament[] }`(開催日の新しい順。staff と hq は担当大会だけ) |
 | `POST /admin/tournaments` | `TournamentInput` | `AdminTournament` |
 | `GET` / `PATCH` / `DELETE /admin/tournaments/{id}` | `PATCH` は `TournamentInput` の一部 | `AdminTournament` / 204。削除は配下を全部消す |
 | `GET /admin/tournaments/{id}/banners` | なし | `{ banners: Banner[] }`(表示順) |
@@ -754,7 +768,7 @@ type AuditEvent = {
 type AuditEntry = {
   id: number
   at: string                         // RFC 3339(UTC)
-  user: { id: number; name: string; role: 'admin' | 'staff' | null } | null  // 消された利用者は name が空、role が null
+  user: { id: number; name: string; role: 'admin' | 'staff' | 'hq' | null } | null  // 消された利用者は name が空、role が null
   action: 'event.add' | 'event.remove' | 'event.update' | 'event.side' | 'match.status' | 'match.result' | 'team.final_rank'
     | 'match.align_teams'            // 対戦チームの差し替え(下記「大会の形と進行」)
     | 'match.withdraw'               // 棄権の一括処理(下記「チームの棄権」。teamId は棄権したチーム)

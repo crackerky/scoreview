@@ -30,7 +30,7 @@ function MatchRows({ matches }: { matches: WithdrawalMatch[] }) {
 export default async function WithdrawPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const query = await props.searchParams
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const withdrawal = await loadAdmin(() => formats.withdrawal(token, id))
   const progress = `/admin/divisions/${withdrawal.divisionId}/progress`
   const nextRaw = typeof query.next === 'string' ? query.next : ''

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { ZodError, z } from 'zod'
-import { canScore, decideAccess } from '../src/admin/access.utils.ts'
+import { canScore, decideAccess, runsDayOf } from '../src/admin/access.utils.ts'
 import {
   describeZodError,
   failureTarget,
@@ -65,6 +65,16 @@ describe('権限によるリダイレクトの判定', () => {
     assert.deepEqual(decideAccess(staff, 'admin'), { kind: 'forbidden' })
     assert.deepEqual(decideAccess(staff, 'any'), { kind: 'ok', user: staff })
     assert.deepEqual(decideAccess(admin, 'admin'), { kind: 'ok', user: admin })
+  })
+
+  test('本部スタッフは当日の進行の画面に入れるが、管理者用のページには入れない', () => {
+    const hq = { ...staff, role: 'hq' as const }
+    assert.deepEqual(decideAccess(hq, 'hq'), { kind: 'ok', user: hq })
+    assert.deepEqual(decideAccess(admin, 'hq'), { kind: 'ok', user: admin })
+    assert.deepEqual(decideAccess(staff, 'hq'), { kind: 'forbidden' })
+    assert.deepEqual(decideAccess(hq, 'admin'), { kind: 'forbidden' })
+    assert.equal(runsDayOf(hq), true)
+    assert.equal(runsDayOf(staff), false)
   })
 
   test('スコア入力は担当大会だけ(管理者は全大会)', () => {

@@ -8,7 +8,7 @@ import { AssignmentSection } from '@/components/admin/AssignmentSection'
 // 記録係の割り当て(大会ホームの入口から)。コートと時間帯、または試合ごとに割り当てる
 export default async function TournamentStaffPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const [tournament, divisionList, assignmentList, userList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, id),

@@ -14,7 +14,7 @@ import '@/styles/format-admin.css'
 
 export default async function CloseDivisionPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
-  const { user, token } = await requireUser('admin')
+  const { user, token } = await requireUser('hq')
   const [division, closing] = await loadAdmin(() =>
     Promise.all([divisions.get(token, id), formats.closing(token, id)]),
   )

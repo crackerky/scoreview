@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"scoreview/api/internal/auth"
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/store"
@@ -27,11 +29,47 @@ const maxBodyBytes = 1 << 20
 type policy struct {
 	// staffTournament が nil ならadmin 専用。nil でなければ、staff はこれが返す大会の担当なら許す
 	staffTournament func(*Server, *http.Request) (int64, error)
+	// hqTournament が nil でなければ、本部スタッフ(hq)はこれが返す大会の担当なら許す。nil なら
+	// staffTournament で判定する(本部スタッフは記録係のできることを全部できる)
+	hqTournament func(*Server, *http.Request) (int64, error)
+	// hqAny なら本部スタッフには大会を問わず許す(記録係を選ぶためのユーザー一覧)
+	hqAny bool
 	// anyUser なら役割を問わずログインしていればよい(応答の絞り込みはハンドラが行う)
 	anyUser bool
 	// scoreMatch なら、staff はパスの {id} の試合を覆う割り当て(staff_assignments)も要る
+	// (本部スタッフは割り当てなしで大会の全試合を記録できる)
 	scoreMatch bool
 }
+
+type tournamentOf func(ctx context.Context, db *gorm.DB, id int64) (int64, error)
+
+// hqVia は、パスの {id} から of で大会を引き、本部スタッフにはその大会の担当なら許す(admin は常に)。
+func hqVia(of tournamentOf) policy {
+	return policy{hqTournament: func(s *Server, r *http.Request) (int64, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return 0, err
+		}
+		return of(r.Context(), s.db, id)
+	}}
+}
+
+// hqOfTournament は本部スタッフにも、パスの {id} の大会の担当なら許す。
+func hqOfTournament() policy {
+	return policy{hqTournament: func(_ *Server, r *http.Request) (int64, error) { return pathID(r) }}
+}
+
+// hqOfDivision、hqOfMatch、hqOfGroup、hqOfStage、hqOfTeam、hqOfAssignment は、パスの {id} の
+// 資源の大会の本部スタッフにも許す。
+func hqOfDivision() policy   { return hqVia(store.TournamentOfDivision) }
+func hqOfMatch() policy      { return hqVia(store.TournamentOfMatch) }
+func hqOfGroup() policy      { return hqVia(store.TournamentOfGroup) }
+func hqOfStage() policy      { return hqVia(store.TournamentOfStage) }
+func hqOfTeam() policy       { return hqVia(store.TournamentOfTeam) }
+func hqOfAssignment() policy { return hqVia(store.TournamentOfAssignment) }
+
+// hqAnywhere は本部スタッフにも大会を問わず許す(読むだけのもの)。
+func hqAnywhere() policy { return policy{hqAny: true} }
 
 // adminOnly は管理者だけに許す。
 func adminOnly() policy { return policy{} }
@@ -121,10 +159,55 @@ func (s *Server) authorize(r *http.Request, user domain.User, rule policy) error
 	if user.Role == domain.RoleAdmin || rule.anyUser {
 		return nil
 	}
+	if user.Role == domain.RoleHQ {
+		return s.authorizeHQ(r, user, rule)
+	}
 	if user.Role != domain.RoleStaff || rule.staffTournament == nil {
 		return fmt.Errorf("%w: admin only", domain.ErrForbidden)
 	}
-	tournamentID, err := rule.staffTournament(s, r)
+	if err := s.requireTournamentStaff(r, user, rule.staffTournament); err != nil {
+		return err
+	}
+	if !rule.scoreMatch {
+		return nil
+	}
+	matchID, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	ok, err := store.CanScoreMatch(r.Context(), s.db, user.ID, matchID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: match %d is not assigned to this staff", domain.ErrForbidden, matchID)
+	}
+	return nil
+}
+
+// authorizeHQ は本部スタッフの判定。本部の操作か記録係のできる操作で、担当の大会のものだけを許す
+// (記録の操作でも試合ごとの割り当ては見ない)。
+func (s *Server) authorizeHQ(r *http.Request, user domain.User, rule policy) error {
+	if rule.hqAny {
+		return nil
+	}
+	tournamentOf := rule.hqTournament
+	if tournamentOf == nil {
+		tournamentOf = rule.staffTournament
+	}
+	if tournamentOf == nil {
+		return fmt.Errorf("%w: admin only", domain.ErrForbidden)
+	}
+	return s.requireTournamentStaff(r, user, tournamentOf)
+}
+
+// requireTournamentStaff は利用者が tournamentOf の返す大会の担当(tournament_staff)かを確かめる。
+func (s *Server) requireTournamentStaff(
+	r *http.Request,
+	user domain.User,
+	tournamentOf func(*Server, *http.Request) (int64, error),
+) error {
+	tournamentID, err := tournamentOf(s, r)
 	if err != nil {
 		return err
 	}
@@ -134,20 +217,6 @@ func (s *Server) authorize(r *http.Request, user domain.User, rule policy) error
 	}
 	if !ok {
 		return fmt.Errorf("%w: not a staff of tournament %d", domain.ErrForbidden, tournamentID)
-	}
-	if !rule.scoreMatch {
-		return nil
-	}
-	matchID, err := pathID(r)
-	if err != nil {
-		return err
-	}
-	ok, err = store.CanScoreMatch(r.Context(), s.db, user.ID, matchID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("%w: match %d is not assigned to this staff", domain.ErrForbidden, matchID)
 	}
 	return nil
 }

@@ -1,3 +1,4 @@
+import { runsDayOf } from '@/admin/access.utils'
 import { operatorErrorText } from '@/admin/errorText.utils'
 import { decisionReasons, groupStateLabels, roundUpToFive } from '@/admin/format.utils'
 import { describeSide } from '@/admin/formatWizard.utils'
@@ -49,7 +50,9 @@ export default async function ProgressPage(props: IdPageProps) {
     Promise.all([tournaments.get(token, division.tournamentId), formats.progress(token, id)]),
   )
   const back = `/admin/divisions/${id}/progress`
-  const isAdmin = user.role === 'admin'
+  // 本部の操作(知らせの作業、確定、締め)は本部スタッフもできる。大会の形のリンクは管理者だけ
+  const isAdmin = runsDayOf(user)
+  const canEditFormat = user.role === 'admin'
   const tab = hqTabOf(pick(query, 'tab'))
   const now = new Date(progress.now)
   const sharedFinal = sharedRanks(progress.final)
@@ -65,7 +68,7 @@ export default async function ProgressPage(props: IdPageProps) {
         <AutoRefresh updatedAt={updatedAtText(now)} />
         <a href={`${back}?tab=${tab}`}>今すぐ更新</a>
         <a href={`/pscore/scv_division/open/${id}`}>閲覧ページの成績</a>
-        {isAdmin ? <a href={`/admin/divisions/${id}/format`}>大会の形</a> : null}
+        {canEditFormat ? <a href={`/admin/divisions/${id}/format`}>大会の形</a> : null}
       </p>
       <p className="adm-muted">{progress.title}</p>
 

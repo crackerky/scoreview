@@ -43,11 +43,11 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
   return (
     <AdminShell
       user={user}
-      title={isAdmin ? '大会' : '自分の担当試合'}
+      title={user.role === 'staff' ? '自分の担当試合' : '大会'}
       notice={notice}
       primary={isAdmin ? { label: '大会を作る', href: '/admin/tournaments/new' } : undefined}
     >
-      {isAdmin && mine.matches.length === 0 ? null : (
+      {user.role !== 'staff' && mine.matches.length === 0 ? null : (
         <MyMatches list={mine.matches} labels={labels} />
       )}
       {list.tournaments.length > 5 ? (
