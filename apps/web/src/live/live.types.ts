@@ -23,8 +23,10 @@ export const liveMatchSchema = z.object({
   time: z.string(),
   court: z.string(),
   status: liveStatusSchema,
-  /** 組の名前(「Qualifying pool A」)。組に入っていない試合は部門名 */
+  /** 何を決める試合か(「予選 A 組」「1〜4位 準決勝」「3位決定戦」)。形の無い部門は組の名前 */
   stage: z.string(),
+  /** 組の ID(順位表の組とつなぐ)。組に入っていない試合は null */
+  groupId: z.number().int().nullable(),
   pool: z.boolean(),
   divisionName: z.string(),
   left: liveSideSchema,
@@ -34,6 +36,7 @@ export type LiveMatch = z.infer<typeof liveMatchSchema>
 
 export const livePoolSchema = z.object({
   id: z.number().int(),
+  /** 組の名前。形を決めた部門は運営の言葉(「予選 A 組」) */
   name: z.string(),
   done: z.boolean(),
   rows: z.array(

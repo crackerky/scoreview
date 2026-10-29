@@ -12,10 +12,12 @@ import {
   elapsedText,
   flowEvents,
   leadPoints,
+  placements,
   scoreHits,
   tabMatches,
   teamColor,
   timeGroups,
+  winnerOf,
 } from '../src/live/live.utils.ts'
 import { loadFixture } from './fixtures/load.ts'
 
@@ -48,6 +50,30 @@ test('試合は組の名前、コート、状態、決まっていないチー�
   assert.equal(data.tournament.date, '2026-10-17')
 })
 
+test('決まっていないチームは元の試合の名前で呼び、同じ名前の試合はコートで見分ける', () => {
+  const stages: Record<string, string> = {
+    A1: '1〜4位 準決勝',
+    A2: '1〜4位 準決勝',
+    B1: '1位決定戦',
+  }
+  const named = {
+    ...schedule,
+    rows: schedule.rows.map((row) => ({ ...row, stage: stages[row.code] ?? null })),
+  }
+  const final = buildLiveData(named, [], null).matches.find((item) => item.code === 'B1')
+  assert.equal(final?.left.name, '準決勝(1コート)の勝者')
+  assert.equal(final?.right.name, '準決勝(2コート)の負けチーム')
+  assert.equal(final?.stage, '1位決定戦')
+  // 別の幅の準決勝があれば幅を残す
+  const crossed = {
+    ...named,
+    rows: named.rows.map((row) => (row.code === 'A2' ? { ...row, stage: '5〜8位 準決勝' } : row)),
+  }
+  const mixed = buildLiveData(crossed, [], null).matches.find((item) => item.code === 'B1')
+  assert.equal(mixed?.left.name, '1〜4位 準決勝の勝者')
+  assert.equal(mixed?.right.name, '5〜8位 準決勝の負けチーム')
+})
+
 test('コートは「1コート」の形にし、もともと「コート」で始まる名前はそのまま', () => {
   assert.equal(courtName('1'), '1コート')
   assert.equal(courtName('コートA'), 'コートA')
@@ -75,7 +101,8 @@ function match(
     time,
     court: '1コート',
     status,
-    stage: '予選',
+    stage: '予選 A 組',
+    groupId: 1,
     pool: true,
     divisionName: 'オープン',
     left: side(left),
@@ -141,4 +168,47 @@ test('得点の流れ: 得点だけを古い順に、経過時間は「分:秒�
   assert.equal(points.length, events.length)
   assert.equal(points.at(-1)?.x, 300)
   assert.ok(points.every((point) => point.y >= 0 && point.y <= 100))
+})
+
+test('勝った側: 終わった試合の点の多い側。終わっていない試合と引き分けは null', () => {
+  const finished = match(1, 'done', 1, 2)
+  assert.equal(
+    winnerOf({
+      ...finished,
+      left: { ...finished.left, score: 7 },
+      right: { ...finished.right, score: 5 },
+    }),
+    'left',
+  )
+  assert.equal(
+    winnerOf({
+      ...finished,
+      left: { ...finished.left, score: 5 },
+      right: { ...finished.right, score: 5 },
+    }),
+    null,
+  )
+  assert.equal(winnerOf(match(2, 'live', 1, 2)), null)
+})
+
+test('順位決定戦: 「N位決定戦」だけを順位の順に、終わった試合は勝者を N 位、敗者を N+1 位にする', () => {
+  const final = { ...match(1, 'done', 1, 2), stage: '1位決定戦' }
+  const third = { ...match(2, 'sched', 3, 4), stage: '3位決定戦' }
+  const semi = { ...match(3, 'done', 1, 3), stage: '1〜4位 準決勝' }
+  const scored = {
+    ...final,
+    left: { ...final.left, score: 4 },
+    right: { ...final.right, score: 6 },
+  }
+  const list = placements([third, semi, scored])
+  assert.deepEqual(
+    list.map((item) => [
+      item.place,
+      item.result?.map((row) => `${row.place}位 ${row.name}`) ?? null,
+    ]),
+    [
+      [1, ['1位 チーム2', '2位 チーム1']],
+      [3, null],
+    ],
+  )
 })

@@ -92,17 +92,6 @@
   cursor: pointer;
 }
 
-.live-burger {
-  gap: 5px;
-}
-
-.live-burger span {
-  width: 20px;
-  height: 2px;
-  border-radius: 1px;
-  background: #fff;
-}
-
 .live-kebab {
   gap: 3px;
 }
@@ -360,20 +349,15 @@
 }
 
 .live-card-mid {
-  display: flex;
   flex: none;
-  justify-content: center;
-  gap: 8px;
-  padding: 5px 0;
+  overflow: hidden;
+  padding: 6px 8px;
   background: #0b0d12;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.live-card-mid .live-num {
-  font-size: 14px;
-  font-weight: 700;
 }
 
 .live-card-dim {
@@ -831,10 +815,6 @@
   border-bottom: 1px solid #1c2129;
 }
 
-.live-acc-row.cut {
-  border-bottom: 1.5px solid #4a525e;
-}
-
 .live-acc-row .live-num {
   font-size: 17px;
   font-weight: 700;
@@ -1161,4 +1141,103 @@
     /* biome-ignore lint/complexity/noImportantStyles: 同上 */
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 順位の引き出しを開くボタン(記号だけのメニューは何が出るか分からないので、言葉で示す) */
+.live-rank-button {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* 終わった試合の勝ったチームの印 */
+.live-win {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #ffd23f;
+  color: #111;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.5;
+  vertical-align: 2px;
+}
+
+.live-win.big {
+  align-self: flex-start;
+  margin: 0;
+  padding: 3px 12px;
+  font-size: 15px;
+}
+
+.live-drawer-section {
+  border-top: 1px solid #222832;
+}
+
+.live-drawer-section h2 {
+  margin: 0;
+  padding: 16px 20px 6px;
+  color: var(--live-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.live-drawer-section .live-acc:first-of-type {
+  border-top: 0;
+}
+
+.live-place {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 0;
+  border-bottom: 1px solid #1c2129;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.live-place-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.live-place-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.live-place-when {
+  color: var(--live-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.live-place-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.live-place-rank {
+  width: 34px;
+  font-size: 16px;
+}
+
+.live-place-pair {
+  color: #c9d0d8;
 }

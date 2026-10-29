@@ -1,5 +1,10 @@
 import type { MatchSide } from '@/api/common.types'
-import type { GroupResponse, MatchResponse, ScheduleResponse } from '@/api/public.types'
+import type {
+  GroupResponse,
+  MatchResponse,
+  ScheduleResponse,
+  ScheduleRow,
+} from '@/api/public.types'
 import type { FlowEvent, LiveData, LiveMatch, LivePool, LiveSide, LiveStatus } from './live.types'
 
 // 観戦アプリ(/live/{大会ID}。Claude Design「StageCam」)の、api の応答を画面の形に直す決まり。
@@ -32,21 +37,50 @@ const statusOf: Record<'scheduled' | 'live' | 'finished', LiveStatus> = {
   finished: 'done',
 }
 
-/** 決まっていないチームの表記(「E2 の勝者」「E3 の負けチーム」) */
-function pendingName(side: MatchSide): string {
+/**
+ * 決まっていないチームの元になる試合の呼び名。「E2」のような試合番号は観客に通じないので、
+ * 元の試合の名前から順位の幅を落として使う(「1〜4位 準決勝」→「準決勝」。幅は行き先の試合の名前で
+ * 分かる)。ただし別の幅の同じ回戦があれば幅を残す。同じ名前の試合が部門に複数あれば、コート(コートが重なれば時刻)で見分ける。
+ * 形を決めていない部門(名前が無い)は試合番号のまま。
+ */
+function sourceLabel(code: string, divisionId: number, rows: ScheduleRow[]): string {
+  const source = rows.find((row) => row.division.id === divisionId && row.code === code)
+  if (!source?.stage) {
+    return `${code} `
+  }
+  const short = source.stage.replace(/^\d+〜\d+位 /, '')
+  // 幅を落とすと別の幅の試合(「5〜8位 準決勝」)と同じ呼び名になるなら、幅を残す
+  const clash = rows.some(
+    (row) =>
+      row.division.id === divisionId &&
+      row.stage !== null &&
+      row.stage !== source.stage &&
+      row.stage.replace(/^\d+〜\d+位 /, '') === short,
+  )
+  const name = clash ? source.stage : short
+  const same = rows.filter((row) => row.division.id === divisionId && row.stage === source.stage)
+  if (same.length < 2) {
+    return name
+  }
+  const courts = same.map((row) => row.field ?? '')
+  const tell = new Set(courts).size === same.length ? courtName(source.field) : (source.time ?? '')
+  return tell === '' ? name : `${name}(${tell})`
+}
+
+/** 決まっていないチームの表記(「準決勝(1コート)の勝者」「準決勝(2コート)の負けチーム」) */
+function pendingName(side: MatchSide, divisionId: number, rows: ScheduleRow[]): string {
   if (side.placeholder) {
-    return side.placeholder.outcome === 'win'
-      ? `${side.placeholder.code} の勝者`
-      : `${side.placeholder.code} の負けチーム`
+    const source = sourceLabel(side.placeholder.code, divisionId, rows)
+    return side.placeholder.outcome === 'win' ? `${source}の勝者` : `${source}の負けチーム`
   }
   return '未定'
 }
 
-function liveSide(side: MatchSide): LiveSide {
+function liveSide(side: MatchSide, divisionId: number, rows: ScheduleRow[]): LiveSide {
   const team = side.team
   return {
     teamId: team?.id ?? null,
-    name: team ? team.name.ja : pendingName(side),
+    name: team ? team.name.ja : pendingName(side, divisionId, rows),
     pending: team === null,
     color: teamColor(team?.id ?? null),
     score: side.score,
@@ -69,14 +103,26 @@ export function buildLiveData(
   groups: GroupResponse[],
   tournamentDate: string | null,
 ): LiveData {
-  const stageOf = new Map<number, { name: string; pool: boolean }>()
+  const groupOf = new Map<number, { id: number; name: string; pool: boolean }>()
   for (const group of groups) {
     for (const row of group.matches) {
-      stageOf.set(row.matchId, { name: group.group.name, pool: group.group.kind === 'pool' })
+      groupOf.set(row.matchId, {
+        id: group.group.id,
+        name: group.group.name,
+        pool: group.group.kind === 'pool',
+      })
+    }
+  }
+  // 組の表示名: 形を決めた部門ではその組の試合の名前(「予選 A 組」)。無ければ組の名前のまま
+  const groupLabel = new Map<number, string>()
+  for (const row of schedule.rows) {
+    const group = groupOf.get(row.matchId)
+    if (group?.pool && row.stage !== null && !groupLabel.has(group.id)) {
+      groupLabel.set(group.id, row.stage)
     }
   }
   const matches: LiveMatch[] = schedule.rows.map((row) => {
-    const stage = stageOf.get(row.matchId)
+    const group = groupOf.get(row.matchId)
     return {
       id: row.matchId,
       code: row.code,
@@ -84,18 +130,19 @@ export function buildLiveData(
       time: row.time ?? '',
       court: courtName(row.field),
       status: statusOf[row.status],
-      stage: stage?.name ?? row.division.name.ja,
-      pool: stage?.pool ?? false,
+      stage: row.stage ?? group?.name ?? row.division.name.ja,
+      groupId: group?.id ?? null,
+      pool: group?.pool ?? false,
       divisionName: row.division.name.ja,
-      left: liveSide(row.left),
-      right: liveSide(row.right),
+      left: liveSide(row.left, row.division.id, schedule.rows),
+      right: liveSide(row.right, row.division.id, schedule.rows),
     }
   })
   const pools: LivePool[] = groups
     .filter((group) => group.pool !== null)
     .map((group) => ({
       id: group.group.id,
-      name: group.group.name,
+      name: groupLabel.get(group.group.id) ?? group.group.name,
       done: group.matches.length > 0 && group.matches.every((row) => row.status === 'finished'),
       // 組のページの結果は登録順なので、順位の順に並べ直す(順位の無いチームは最後)
       rows: [...(group.pool?.results ?? [])]
@@ -222,4 +269,49 @@ export function leadPoints(events: FlowEvent[], width: number, height: number): 
     y: middle - ((event.leftScore - event.rightScore) * middle) / maxLead,
     side: event.side,
   }))
+}
+
+/** 終わった試合の勝った側。引き分け、終わっていない、点の無い試合は null */
+export function winnerOf(match: LiveMatch): 'left' | 'right' | null {
+  if (match.status !== 'done' || match.left.score === null || match.right.score === null) {
+    return null
+  }
+  if (match.left.score === match.right.score) {
+    return null
+  }
+  return match.left.score > match.right.score ? 'left' : 'right'
+}
+
+export type Placement = {
+  match: LiveMatch
+  /** この試合の勝者の順位(「3位決定戦」なら 3) */
+  place: number
+  /** 終わっていれば、順位ごとのチーム(勝者が place 位、敗者が place+1 位) */
+  result: Array<{ place: number; name: string; color: string }> | null
+}
+
+/** 「N位決定戦」の試合を順位の順に。終わった試合は勝者と敗者の順位を付ける(引き出しの順位決定戦) */
+export function placements(matches: LiveMatch[]): Placement[] {
+  return matches
+    .flatMap((match) => {
+      const found = /^(\d+)位決定戦$/.exec(match.stage)
+      if (!found) {
+        return []
+      }
+      const place = Number(found[1])
+      const winner = winnerOf(match)
+      const result =
+        winner === null
+          ? null
+          : [
+              { place, name: match[winner].name, color: match[winner].color },
+              {
+                place: place + 1,
+                name: match[winner === 'left' ? 'right' : 'left'].name,
+                color: match[winner === 'left' ? 'right' : 'left'].color,
+              },
+            ]
+      return [{ match, place, result }]
+    })
+    .sort((a, b) => a.place - b.place)
 }

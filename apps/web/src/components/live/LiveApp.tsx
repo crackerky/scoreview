@@ -18,7 +18,15 @@ import {
   liveDataSchema,
   liveMatchDetailSchema,
 } from '@/live/live.types'
-import { type LiveTab, type ScoreHits, scoreHits, tabMatches, timeGroups } from '@/live/live.utils'
+import {
+  type LiveTab,
+  placements,
+  type ScoreHits,
+  scoreHits,
+  tabMatches,
+  timeGroups,
+  winnerOf,
+} from '@/live/live.utils'
 import type { SwitchTournament } from '@/live/liveData'
 import { LeadChart } from './LeadChart'
 
@@ -48,7 +56,16 @@ const frameColors = {
   done: ['#9aa6b4', '#5f6975'],
 } as const
 
-const statusWords = { live: '試合中', sched: 'このあと', done: '終了' } as const
+/** カードの上の札。これからの試合は始まる時刻を出す */
+function statusWord(match: LiveMatch): string {
+  if (match.status === 'live') {
+    return '試合中'
+  }
+  if (match.status === 'done') {
+    return '終了'
+  }
+  return match.time === '' ? 'このあと' : `${match.time} 開始`
+}
 
 /** 色を暗くする(負けたチームの地の色) */
 function shade(hex: string, amount: number): string {
@@ -89,6 +106,7 @@ function prefersReducedMotion(): boolean {
 type SideView = {
   name: string
   sub: string
+  won: boolean
   background: string
   opacity: number
   score: string
@@ -97,15 +115,16 @@ type SideView = {
 
 function sideView(match: LiveMatch, side: 'left' | 'right', favorites: number[]): SideView {
   const own: LiveSide = match[side]
-  const other: LiveSide = side === 'left' ? match.right : match.left
-  const finished = match.status === 'done'
-  const lost = finished && (own.score ?? 0) < (other.score ?? 0)
-  const won = finished && (own.score ?? 0) > (other.score ?? 0)
+  const winner = winnerOf(match)
+  const won = winner === side
+  // 終わった試合は、どちらが勝ったかをひと目で分かるように負けた側を暗く沈める
+  const lost = winner !== null && !won
   return {
     name: own.name,
-    sub: own.pending ? '未定' : won ? '勝ち' : '',
-    background: lost ? shade(own.color, 0.5) : own.color,
-    opacity: lost ? 0.6 : 1,
+    sub: own.pending ? '未定' : '',
+    won,
+    background: lost ? shade(own.color, 0.62) : own.color,
+    opacity: lost ? 0.45 : 1,
     score: match.status === 'sched' || own.score === null ? '' : String(own.score),
     star: own.teamId !== null && favorites.includes(own.teamId),
   }
@@ -471,17 +490,14 @@ export function LiveApp({
           <div className="live-bar">
             <button
               type="button"
-              className="live-icon-button live-burger"
-              aria-label="順位表と決勝トーナメント"
+              className="live-rank-button"
               onClick={() => {
                 setDrawer(true)
                 setPull(false)
                 setKebab(false)
               }}
             >
-              <span />
-              <span />
-              <span />
+              順位
             </button>
             <button
               type="button"
@@ -737,6 +753,10 @@ export function LiveApp({
           sections={open}
           onToggle={(key) => setOpen({ ...open, [key]: !open[key] })}
           onClose={() => setDrawer(false)}
+          onOpenMatch={(match) => {
+            setDrawer(false)
+            openZoom(match)
+          }}
         />
 
         {picker ? (
@@ -789,6 +809,10 @@ function KebabButton({ onClick }: { onClick: () => void }) {
       <span />
     </button>
   )
+}
+
+function WinMark({ big = false }: { big?: boolean }) {
+  return <span className={big ? 'live-win big' : 'live-win'}>勝ち</span>
 }
 
 function uniqueTeams(matches: LiveMatch[]): Array<{ id: number; name: string; color: string }> {
@@ -878,6 +902,7 @@ function Card({
       >
         <div className="live-card-half" style={{ background: left.background }}>
           <span className="live-card-name live-card-font" style={{ opacity: left.opacity }}>
+            {left.won ? <WinMark /> : null}
             {left.name}
             {left.star ? <span className="live-star"> ★</span> : null}
           </span>
@@ -891,10 +916,8 @@ function Card({
             {left.score}
           </span>
         </div>
-        <div className="live-card-mid">
-          <span className="live-num">{match.time}</span>
-          <span style={{ color: '#9aa3ad' }}>{match.court}</span>
-        </div>
+        {/* 真ん中の帯は「何の試合か」だけ。時刻とコートは試合を開いたときに出す */}
+        <div className="live-card-mid">{match.stage}</div>
         <div className="live-card-half" style={{ background: right.background }}>
           <span
             className="live-card-score live-num"
@@ -906,6 +929,7 @@ function Card({
             {right.score}
           </span>
           <span className="live-card-name live-card-font" style={{ opacity: right.opacity }}>
+            {right.won ? <WinMark /> : null}
             {right.name}
             {right.star ? <span className="live-star"> ★</span> : null}
           </span>
@@ -914,7 +938,7 @@ function Card({
       </div>
       <div className="live-card-status" style={{ background: frame }}>
         {match.status === 'live' ? <span className="live-dot" /> : null}
-        {statusWords[match.status]}
+        {statusWord(match)}
       </div>
     </div>
   )
@@ -979,7 +1003,7 @@ function ZoomView({
     >
       <div className="live-zoom-half top" style={{ background: left.background }}>
         <div className="live-zoom-team" style={{ opacity: left.opacity }}>
-          <span className="live-zoom-sub">{left.sub}</span>
+          {left.won ? <WinMark big /> : <span className="live-zoom-sub">{left.sub}</span>}
           <span className="live-zoom-name live-stage-font">
             {left.name}
             {left.star ? <span className="live-star"> ★</span> : null}
@@ -1014,14 +1038,11 @@ function ZoomView({
             {right.name}
             {right.star ? <span className="live-star"> ★</span> : null}
           </span>
-          <span className="live-zoom-sub">{right.sub}</span>
+          {right.won ? <WinMark big /> : <span className="live-zoom-sub">{right.sub}</span>}
         </div>
       </div>
       <div className="live-zoom-seam">
-        <span className="live-num" style={{ fontSize: 20 }}>
-          {match.status === 'sched' ? match.time : match.court}
-        </span>
-        <span>{match.status === 'sched' ? match.court : match.stage}</span>
+        <span>{match.stage}</span>
       </div>
       {hit ? (
         <div key={hit.key} className="live-sweep live-stage-font">
@@ -1032,8 +1053,11 @@ function ZoomView({
         <button type="button" className="live-pill-button" onClick={onClose}>
           ‹ {tabLabel}
         </button>
-        <span className="live-crumb">› {match.stage}</span>
-        <span className="live-crumb">› {match.court}</span>
+        <span className="live-crumb live-num">{match.time}</span>
+        <span className="live-crumb">{match.court}</span>
+        {match.stage !== match.divisionName ? (
+          <span className="live-crumb">{match.divisionName}</span>
+        ) : null}
         <span style={{ marginLeft: 'auto' }}>
           <KebabButton onClick={onKebab} />
         </span>
@@ -1141,58 +1165,33 @@ function FlowList({ match, flow }: { match: LiveMatch; flow: FlowEvent[] | null 
   )
 }
 
+function placeStatus(match: LiveMatch): string {
+  if (match.status === 'live') {
+    return '試合中'
+  }
+  if (match.status === 'done') {
+    return '終了'
+  }
+  return [match.time, match.court].filter((item) => item !== '').join(' ')
+}
+
 function Drawer({
   open,
   data,
   sections,
   onToggle,
   onClose,
+  onOpenMatch,
 }: {
   open: boolean
   data: LiveData
   sections: Record<string, boolean>
   onToggle: (key: string) => void
   onClose: () => void
+  onOpenMatch: (match: LiveMatch) => void
 }) {
-  const knockout = data.matches.filter((match) => !match.pool)
-  const items = [
-    ...data.pools.map((pool, index) => ({
-      key: `pool-${pool.id}`,
-      title: `順位表 ${pool.name}`,
-      badge: pool.done ? '確定' : '途中経過',
-      // 最初の組だけ開いておく
-      defaultOpen: index === 0,
-      rows: pool.rows.map((row, rowIndex) => ({
-        key: String(row.teamId),
-        left: row.rank === null ? '' : String(row.rank),
-        dot: row.color,
-        name: row.name,
-        right: `${row.points}点`,
-        cut: rowIndex === 1,
-      })),
-    })),
-    ...(knockout.length > 0
-      ? [
-          {
-            key: 'knockout',
-            title: '順位決定戦',
-            badge: knockout[0]?.time ? `${knockout[0].time}〜` : '',
-            defaultOpen: false,
-            rows: knockout.map((match) => ({
-              key: String(match.id),
-              left: match.time,
-              dot: frameColors[match.status][0],
-              name: `${match.stage}　${match.left.name} 対 ${match.right.name}`,
-              right:
-                match.status === 'sched'
-                  ? match.court
-                  : `${match.left.score ?? 0}-${match.right.score ?? 0}`,
-              cut: false,
-            })),
-          },
-        ]
-      : []),
-  ]
+  const finals = placements(data.matches)
+  const tab = open ? 0 : -1
   return (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: 引き出しの外を押したら閉じる(閉じるボタンもある) */}
@@ -1204,7 +1203,7 @@ function Drawer({
       />
       <nav
         className="live-drawer"
-        aria-label="順位表と順位決定戦"
+        aria-label="順位"
         aria-hidden={!open}
         style={{ transform: `translateX(${open ? '0%' : '-105%'})` }}
       >
@@ -1214,53 +1213,98 @@ function Drawer({
             <span style={{ fontSize: 12, color: '#9aa3ad' }}>{data.tournament.date}</span>
           ) : null}
         </div>
-        {items.map((item) => {
-          const expanded = sections[item.key] ?? item.defaultOpen
-          return (
-            <div key={item.key} className="live-acc">
-              <button
-                type="button"
-                className="live-acc-toggle"
-                aria-expanded={expanded}
-                tabIndex={open ? 0 : -1}
-                onClick={() => onToggle(item.key)}
-              >
-                <span>{item.title}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="live-acc-badge">{item.badge}</span>
-                  <span
-                    className="live-caret"
-                    style={{ fontSize: 10, transform: `rotate(${expanded ? 180 : 0}deg)` }}
+        {data.pools.length > 0 ? (
+          <section className="live-drawer-section">
+            <h2>予選の順位</h2>
+            {data.pools.map((pool, index) => {
+              const key = `pool-${pool.id}`
+              // 組は閉じておき、順位決定戦まで一目で見渡せるようにする(順位決定戦が無ければ最初の組を開く)
+              const expanded = sections[key] ?? (finals.length === 0 && index === 0)
+              return (
+                <div key={key} className="live-acc">
+                  <button
+                    type="button"
+                    className="live-acc-toggle"
+                    aria-expanded={expanded}
+                    tabIndex={tab}
+                    onClick={() => onToggle(key)}
                   >
-                    ▼
-                  </span>
-                </span>
-              </button>
-              <div className="live-acc-body" style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}>
-                <div>
-                  <div className="live-acc-rows">
-                    {item.rows.map((row) => (
-                      <div key={row.key} className={`live-acc-row${row.cut ? ' cut' : ''}`}>
-                        <span className="live-num">{row.left}</span>
-                        <span className="live-team-dot" style={{ background: row.dot }} />
-                        <span className="live-acc-name">{row.name}</span>
-                        <span className="live-acc-right live-num">{row.right}</span>
+                    <span>{pool.name}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span className="live-acc-badge">{pool.done ? '確定' : '途中経過'}</span>
+                      <span
+                        className="live-caret"
+                        style={{ fontSize: 10, transform: `rotate(${expanded ? 180 : 0}deg)` }}
+                      >
+                        ▼
+                      </span>
+                    </span>
+                  </button>
+                  <div
+                    className="live-acc-body"
+                    style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+                  >
+                    <div>
+                      <div className="live-acc-rows">
+                        {pool.rows.map((row) => (
+                          <div key={row.teamId} className="live-acc-row">
+                            <span className="live-num">
+                              {row.rank === null ? '' : `${row.rank}位`}
+                            </span>
+                            <span className="live-team-dot" style={{ background: row.color }} />
+                            <span className="live-acc-name">{row.name}</span>
+                            <span className="live-acc-right live-num">{row.points}点</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })}
+          </section>
+        ) : null}
+        {finals.length > 0 ? (
+          <section className="live-drawer-section">
+            <h2>順位決定戦</h2>
+            {finals.map((item) => (
+              <button
+                key={item.match.id}
+                type="button"
+                className="live-place"
+                tabIndex={tab}
+                onClick={() => onOpenMatch(item.match)}
+              >
+                <span className="live-place-head">
+                  <span className="live-place-title">{item.match.stage}</span>
+                  <span className="live-place-when">{placeStatus(item.match)}</span>
+                </span>
+                {item.result ? (
+                  item.result.map((row) => (
+                    <span key={row.place} className="live-place-row">
+                      <span className="live-place-rank live-num">{row.place}位</span>
+                      <span className="live-team-dot" style={{ background: row.color }} />
+                      <span>{row.name}</span>
+                    </span>
+                  ))
+                ) : item.match.left.pending || item.match.right.pending ? null : (
+                  // 勝ち上がりが決まるまではチーム名を出さない(何位決定戦かと時刻だけで足りる)
+                  <span className="live-place-row live-place-pair">
+                    {item.match.left.name} 対 {item.match.right.name}
+                  </span>
+                )}
+              </button>
+            ))}
+          </section>
+        ) : null}
         <a
           className="live-drawer-link"
           href={`/scview/${data.tournament.id}?lang=jp`}
-          tabIndex={open ? 0 : -1}
+          tabIndex={tab}
         >
           いつもの表示で見る ›
         </a>
-        <a className="live-drawer-link" href="/sctnmt" tabIndex={open ? 0 : -1}>
+        <a className="live-drawer-link" href="/sctnmt" tabIndex={tab}>
           大会一覧へ ›
         </a>
         <button
@@ -1273,7 +1317,7 @@ function Drawer({
             background: 'transparent',
             cursor: 'pointer',
           }}
-          tabIndex={open ? 0 : -1}
+          tabIndex={tab}
           onClick={onClose}
         >
           閉じる
