@@ -41,6 +41,9 @@ type ScheduleDivision struct {
 type ScheduleRow struct {
 	MatchRow
 	Division ScheduleDivision
+	// Stage は何を決める試合かが分かる名前(「予選 A 組」「1〜4位 準決勝」「3位決定戦」。
+	// format.MatchStageName)。大会の形を決めていないディビジョンの試合は空
+	Stage string
 }
 
 // ScheduleSort は利用者が選んだ並び替え。

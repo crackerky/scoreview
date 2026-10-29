@@ -210,7 +210,12 @@ type Tally = {
     selected: { ymd: string; team: string; field: string }  // 実際に適用した値(既定値を含む)
   }
   sort: { key: string; dir: 'asc' | 'desc' } | null
-  rows: Array<MatchRow & { division: { id: number; name: I18nText; kind: DivisionKind } }>
+  rows: Array<MatchRow & {
+    division: { id: number; name: I18nText; kind: DivisionKind }
+    // 何を決める試合かが分かる名前(本サイト独自。観戦アプリ用)。「予選 A 組」「1〜4位 準決勝」
+    // 「3位決定戦」。大会の形を決めていないディビジョンの試合は null
+    stage: string | null
+  }>
 }
 ```
 

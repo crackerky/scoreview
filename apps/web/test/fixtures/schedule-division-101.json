@@ -79,7 +79,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     }
   ]
 }

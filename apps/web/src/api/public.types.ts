@@ -82,6 +82,8 @@ export type TeamListResponse = z.infer<typeof teamListResponseSchema>
 
 export const scheduleRowSchema = matchRowSchema.extend({
   division: z.object({ id: z.number().int(), name: i18nTextSchema, kind: divisionKindSchema }),
+  /** 何を決める試合か(「1〜4位 準決勝」「3位決定戦」)。形を決めていない部門は null */
+  stage: z.string().nullable(),
 })
 export type ScheduleRow = z.infer<typeof scheduleRowSchema>
 

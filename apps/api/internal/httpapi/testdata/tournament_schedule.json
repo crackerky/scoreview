@@ -184,7 +184,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     },
     {
       "matchId": 5,
@@ -227,7 +228,8 @@
           "en": "Women's"
         },
         "kind": "women"
-      }
+      },
+      "stage": null
     },
     {
       "matchId": 4,
@@ -267,7 +269,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     }
   ]
 }

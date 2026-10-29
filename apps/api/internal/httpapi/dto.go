@@ -195,6 +195,7 @@ type scheduleSortDTO struct {
 type scheduleRowDTO struct {
 	matchRowDTO
 	Division scheduleDivisionDTO `json:"division"`
+	Stage    *string             `json:"stage"`
 }
 
 type scheduleDivisionDTO struct {

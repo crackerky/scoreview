@@ -274,3 +274,19 @@ func TestSecondDivisionContinuesGroupLetters(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 }
+
+// スケジュールの行は、形を決めた部門の試合に何を決める試合かの名前を持つ(観戦アプリ)
+func TestScheduleRowsHaveStageNames(t *testing.T) {
+	f := newFormatFixture(t)
+	page, err := store.GetDivisionSchedule(context.Background(), f.db, f.division.ID, store.ScheduleFilter{})
+	require.NoError(t, err)
+	stages := map[string]string{}
+	for _, row := range page.Rows {
+		stages[row.Code] = row.Stage
+	}
+	assert.Equal(t, "予選 A 組", stages["A1"])
+	assert.Equal(t, "1〜4位 準決勝", stages["E2"])
+	assert.Equal(t, "1位決定戦", stages["E1"])
+	assert.Equal(t, "3位決定戦", stages["E4"])
+	assert.Equal(t, "7位決定戦", stages["F4"])
+}

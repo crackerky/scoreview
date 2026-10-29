@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/format"
 )
 
 // GetTournamentSchedule は大会全体のスケジュールを返す(参照サイトの scv_search_tn)。
@@ -170,6 +171,10 @@ func buildSchedule(ctx context.Context, db *gorm.DB, in scheduleInput) (Schedule
 		Sort:     in.filter.Sort,
 		Rows:     []domain.ScheduleRow{},
 	}
+	stages, err := stageNames(ctx, db, in.matches)
+	if err != nil {
+		return SchedulePage{}, err
+	}
 	for _, match := range in.matches {
 		if !scheduleMatches(match, ymd, in.filter, teamsByID, in.teamMatches) {
 			continue
@@ -186,7 +191,9 @@ func buildSchedule(ctx context.Context, db *gorm.DB, in scheduleInput) (Schedule
 				match.DivisionID,
 			)
 		}
-		page.Rows = append(page.Rows, domain.ScheduleRow{MatchRow: row, Division: division})
+		page.Rows = append(page.Rows, domain.ScheduleRow{
+			MatchRow: row, Division: division, Stage: stages[match.DivisionID][match.Code],
+		})
 	}
 	domain.SortSchedule(page.Rows, in.filter.Sort)
 	return page, nil
@@ -259,4 +266,42 @@ func matchFields(matches []Match) []string {
 	}
 	slices.SortFunc(fields, domain.CompareFields)
 	return fields
+}
+
+// stageNames は、試合のあるディビジョンのうち大会の形を決めたものについて、試合番号ごとの
+// 何を決める試合かの名前(format.MatchStageName)を返す。形は保存した指定から作り直す(結果は読まない)。
+func stageNames(ctx context.Context, db *gorm.DB, matches []Match) (map[int64]map[string]string, error) {
+	seen := map[int64]bool{}
+	var divisionIDs []int64
+	for _, match := range matches {
+		if !seen[match.DivisionID] {
+			seen[match.DivisionID] = true
+			divisionIDs = append(divisionIDs, match.DivisionID)
+		}
+	}
+	out := map[int64]map[string]string{}
+	if len(divisionIDs) == 0 {
+		return out, nil
+	}
+	// 部門の数によらず 1 回で読む(日程の問い合わせ数を部門や試合の数で増やさない)
+	var rows []DivisionFormat
+	if err := db.WithContext(ctx).Where(sqlFormatsOfDivisions, divisionIDs).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load formats for schedule: %w", err)
+	}
+	for _, row := range rows {
+		spec, err := specOf(row)
+		if err != nil {
+			return nil, err
+		}
+		plan, err := format.NewEngine().Generate(spec)
+		if err != nil {
+			return nil, fmt.Errorf("regenerate format of division %d: %w", row.DivisionID, err)
+		}
+		names := map[string]string{}
+		for _, planned := range plan.Matches {
+			names[planned.Code] = format.MatchStageName(plan, planned)
+		}
+		out[row.DivisionID] = names
+	}
+	return out, nil
 }

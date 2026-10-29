@@ -178,7 +178,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     },
     {
       "matchId": 4,
@@ -218,7 +219,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     },
     {
       "matchId": 1,
@@ -261,7 +263,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     },
     {
       "matchId": 3,
@@ -304,7 +307,8 @@
           "en": "Beach Mixed"
         },
         "kind": "mixed"
-      }
+      },
+      "stage": null
     }
   ]
 }
