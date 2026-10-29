@@ -1024,6 +1024,184 @@
   text-align: center;
 }
 
+/* 大会を作る 3 ステップ */
+.adm-steps {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-step {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--adm-faint);
+}
+
+.adm-step::before {
+  content: "";
+  height: 4px;
+  border-radius: 2px;
+  background: var(--adm-line);
+}
+
+.adm-step.done,
+.adm-step[aria-current="step"] {
+  color: var(--adm-fg);
+}
+
+.adm-step.done::before,
+.adm-step[aria-current="step"]::before {
+  background: var(--adm-primary);
+}
+
+.adm-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: var(--adm-line-soft);
+  overflow: hidden;
+}
+
+.adm .adm-radio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: var(--adm-fg);
+  font-weight: normal;
+  text-align: left;
+}
+
+.adm .adm-radio[aria-pressed="true"] {
+  background: var(--adm-primary-soft);
+}
+
+.adm-radio-ring {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #c4cad1;
+  border-radius: 50%;
+}
+
+.adm-radio[aria-pressed="true"] .adm-radio-ring {
+  border-color: #ff6600;
+}
+
+.adm-radio[aria-pressed="true"] .adm-radio-ring::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff6600;
+}
+
+.adm-radio-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm-radio-label {
+  font-weight: 800;
+}
+
+.adm-radio-sub {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--adm-muted);
+}
+
+.adm-team-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 6px 8px 6px 16px;
+}
+
+.adm-team-no {
+  flex: none;
+  width: 22px;
+  font-size: 16px;
+  color: var(--adm-faint);
+}
+
+.adm-team-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.adm input.adm-team-input {
+  flex: 1;
+  min-width: 0;
+  border: 1.5px solid var(--adm-primary);
+  background: var(--adm-primary-soft);
+}
+
+.adm .adm-link-button {
+  min-width: 96px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--adm-accent);
+  font-weight: 800;
+}
+
+.adm-summary {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: var(--adm-line-soft);
+  overflow: hidden;
+}
+
+.adm-summary dt,
+.adm-summary dd {
+  margin: 0;
+  padding: 12px 16px;
+  background: #fff;
+}
+
+.adm-summary dt {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--adm-muted);
+}
+
+.adm-summary dd {
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.adm-wizard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* スマートフォンの幅: 余白を詰め、主な操作を画面の下に固定する */
 @media (max-width: 640px) {
   .adm-wrap {
@@ -1050,6 +1228,11 @@
 
   .adm-match-where {
     width: auto;
+  }
+
+  .adm-wizard-actions .adm-primary {
+    width: 100%;
+    min-height: 52px;
   }
 
   .adm-match-end {
