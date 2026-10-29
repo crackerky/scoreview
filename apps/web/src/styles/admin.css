@@ -6,29 +6,48 @@
 :root {
   --adm-tap: 44px;
   --adm-gap: 12px;
+  /* 色は Claude Design「Score View Admin」。主な操作はオレンジ 1 つ、リンクは濃いオレンジ */
   --adm-fg: #1f2328;
   --adm-muted: #59636e;
-  --adm-line: #d0d7de;
-  --adm-bg: #f6f8fa;
-  --adm-accent: #0b63c5;
+  --adm-faint: #8c959f;
+  --adm-line: #e3e6ea;
+  --adm-line-soft: #eef0f2;
+  --adm-field-line: #d0d7de;
+  --adm-bg: #f6f7f9;
+  --adm-primary: #ff8a1f;
+  --adm-primary-soft: #fff6ee;
+  --adm-accent: #b84800;
   --adm-danger: #c62828;
   --adm-ok: #1a7f37;
   --adm-left: #0b63c5;
   --adm-right: #b35900;
+  --adm-radius: 12px;
+}
+
+/* 管理画面全体の地(閲覧ページの legacy.css の body の色を覆う) */
+.adm-app {
+  min-height: 100vh;
+  background: var(--adm-bg);
+  color: var(--adm-fg);
+  font-family: var(--adm-font-body), "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.adm-wrap {
+  box-sizing: border-box;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: 32px;
+  padding-right: 32px;
 }
 
 .adm {
   box-sizing: border-box;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 var(--adm-gap) 48px;
+  padding-top: 28px;
+  padding-bottom: 48px;
   color: var(--adm-fg);
-  font:
-    16px / 1.5 system-ui,
-    -apple-system,
-    "Hiragino Sans",
-    "Noto Sans JP",
-    sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
   letter-spacing: normal;
 }
 
@@ -60,38 +79,569 @@
   margin: 16px 0 8px;
 }
 
-.adm-header {
+/* 黒い帯: サイト名、役割、メニュー */
+.adm-top {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px var(--adm-gap);
-  padding: 8px 0;
-  border-bottom: 1px solid var(--adm-line);
+  gap: 10px;
+  height: 52px;
+  padding: 0 32px;
+  background: #1f2328;
+  color: #fff;
 }
 
-.adm-header nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px var(--adm-gap);
-  flex: 1;
+.adm-top a.adm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
-.adm-header nav a,
-.adm-header .adm-user {
+.adm-logo {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--adm-primary);
+}
+
+.adm-logo::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7px;
+  height: 8px;
+  border: 2px solid #1f2328;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.adm-brand-accent {
+  color: var(--adm-primary);
+}
+
+.adm-brand-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b8bfc7;
+}
+
+.adm-role {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.adm-menu {
+  position: relative;
+}
+
+.adm-menu > summary {
   display: inline-flex;
   align-items: center;
   min-height: var(--adm-tap);
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
 }
 
-.adm-header .adm-user {
-  color: var(--adm-muted);
-  font-size: 0.875rem;
+.adm-menu > summary::-webkit-details-marker {
+  display: none;
 }
 
-.adm-crumbs {
-  margin: 8px 0 0;
-  font-size: 0.875rem;
+.adm-menu-panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  color: var(--adm-fg);
+}
+
+.adm-menu-panel a {
+  display: flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+  padding: 0 8px;
+  color: var(--adm-fg);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.adm-menu-user {
+  padding: 4px 8px;
+  font-size: 12px;
   color: var(--adm-muted);
+}
+
+.adm-menu-panel form {
+  margin: 4px 0 0;
+}
+
+.adm-menu-panel button {
+  width: 100%;
+  min-height: var(--adm-tap);
+  padding: 8px 16px;
+  border: 1px solid var(--adm-field-line);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* 今いる場所(大会 › 大会名 › 本部) */
+.adm-crumbbar {
+  background: #fff;
+  border-bottom: 1px solid var(--adm-line);
+}
+
+.adm-crumbbar ol {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0 auto;
+  list-style: none;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  font-size: 13px;
+}
+
+.adm-crumbbar li {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.adm-crumbbar li + li::before {
+  content: "›";
+  padding: 0 6px;
+  color: var(--adm-faint);
+  font-size: 12px;
+}
+
+.adm-crumbbar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--adm-accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.adm-crumbbar li[aria-current="page"] {
+  font-weight: 800;
+}
+
+/* 見出しと主な操作 */
+.adm-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 20px;
+}
+
+.adm-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.adm-kicker {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--adm-muted);
+}
+
+.adm .adm-head h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.adm .adm-primary,
+.adm a.adm-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--adm-primary);
+  color: var(--adm-fg);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.adm .adm-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* タブ(本部の「いま／試合／組」) */
+.adm-tabs {
+  display: flex;
+  gap: 4px;
+  margin: -6px 0 20px;
+  border-bottom: 1px solid var(--adm-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.adm .adm-tabs a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border-bottom: 3px solid transparent;
+  color: var(--adm-muted);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.adm .adm-tabs a[aria-current="page"] {
+  border-bottom-color: var(--adm-primary);
+  color: var(--adm-fg);
+}
+
+.adm-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--adm-primary);
+  color: var(--adm-fg);
+  font-size: 11.5px;
+}
+
+/* 札(状態) */
+.adm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.adm-chip.live {
+  background: #fdecec;
+  color: #9b1c1c;
+}
+
+.adm-chip.done {
+  background: #eceef1;
+  color: #3d444d;
+}
+
+.adm-chip.sched,
+.adm-chip.ok {
+  background: #e2f2f1;
+  color: #006a6b;
+}
+
+.adm-chip.warn {
+  background: #fff4dd;
+  color: #7a4f00;
+}
+
+.adm-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: adm-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes adm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-live-dot {
+    animation: none;
+  }
+}
+
+/* 数字の要約と入口のカード(大会ホーム) */
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.adm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+}
+
+.adm-stat-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--adm-muted);
+}
+
+.adm-stat-value,
+.adm-num {
+  font-family: var(--adm-font-number), "Barlow Condensed", sans-serif;
+  font-weight: 700;
+}
+
+.adm-stat-value {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.adm-stat-value.live {
+  color: var(--adm-danger);
+}
+
+.adm-stat-value.warn {
+  color: var(--adm-accent);
+}
+
+.adm-entries {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.adm a.adm-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--adm-fg);
+  text-decoration: none;
+}
+
+.adm a.adm-entry.highlight {
+  border: 2px solid var(--adm-primary);
+}
+
+.adm-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.adm-entry-label {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.adm-entry-sub {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--adm-muted);
+}
+
+.adm-chevron {
+  margin-left: auto;
+  color: var(--adm-faint);
+  font-size: 16px;
+}
+
+/* 行の一覧(大会一覧、試合、コピー元など) */
+.adm-section-title {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--adm-muted);
+}
+
+.adm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: var(--adm-line-soft);
+  overflow: hidden;
+}
+
+.adm-rows > li {
+  background: #fff;
+}
+
+.adm .adm-rows a.adm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 16px;
+  color: var(--adm-fg);
+  text-decoration: none;
+}
+
+.adm-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm-row-title {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.adm-row-meta {
+  font-size: 12.5px;
+  color: var(--adm-muted);
+}
+
+/* カード(本部の知らせ、コート、組) */
+.adm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+}
+
+.adm .adm-go {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--adm-accent);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.adm .adm-go::after {
+  content: " ›";
+  white-space: pre;
+}
+
+.adm-danger-zone {
+  margin-top: 40px;
+}
+
+.adm-top .adm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.adm-login {
+  max-width: 440px;
+}
+
+.adm-login form {
+  padding: 20px;
+  border: 1px solid var(--adm-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.adm-login .adm-primary {
+  width: 100%;
+}
+
+/* スマートフォンの幅: 余白を詰め、主な操作を画面の下に固定する */
+@media (max-width: 640px) {
+  .adm-wrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .adm-top {
+    height: 48px;
+    padding: 0 16px;
+  }
+
+  .adm {
+    padding-top: 16px;
+  }
+
+  .adm .adm-head h1 {
+    font-size: 22px;
+  }
+
+  .adm-app.has-primary .adm {
+    padding-bottom: 110px;
+  }
+
+  .adm-app.has-primary .adm-head .adm-primary {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 20;
+    min-height: 52px;
+    border-radius: 12px;
+    font-size: 16px;
+    box-shadow: 0 -4px 0 16px #fff;
+  }
 }
 
 .adm-notice {
@@ -152,6 +702,7 @@
 .adm input[type="date"],
 .adm input[type="time"],
 .adm input[type="url"],
+.adm input[type="search"],
 .adm select,
 .adm textarea {
   width: 100%;
@@ -186,18 +737,20 @@
   min-height: var(--adm-tap);
   min-width: var(--adm-tap);
   padding: 8px 16px;
-  border: 1px solid var(--adm-accent);
-  border-radius: 6px;
-  background: var(--adm-accent);
-  color: #fff;
+  border: 1px solid var(--adm-primary);
+  border-radius: 10px;
+  background: var(--adm-primary);
+  color: var(--adm-fg);
   font: inherit;
   font-weight: bold;
   cursor: pointer;
 }
 
-.adm button.secondary {
+.adm button.secondary,
+.adm-menu-panel button.secondary {
+  border-color: var(--adm-field-line);
   background: #fff;
-  color: var(--adm-accent);
+  color: var(--adm-fg);
 }
 
 .adm button.danger {
@@ -487,9 +1040,9 @@
   align-items: center;
   min-height: var(--adm-tap);
   padding: 8px 16px;
-  border-radius: 6px;
-  background: var(--adm-accent);
-  color: #fff;
+  border-radius: 10px;
+  background: var(--adm-primary);
+  color: var(--adm-fg);
   font-weight: bold;
   text-decoration: none;
 }
