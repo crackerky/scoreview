@@ -609,6 +609,421 @@
   width: 100%;
 }
 
+/* 本部(大会単位) */
+.adm-hq-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.adm-hq-main {
+  display: flex;
+  flex: 2 1 520px;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.adm-hq-side {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.adm .adm-block-title {
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.adm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adm-stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.adm-alert-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adm-alert-head strong {
+  font-size: 15px;
+}
+
+.adm-alert-body {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #3d444d;
+}
+
+.adm-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 18px;
+}
+
+.adm-courts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.adm-court {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+  overflow: hidden;
+}
+
+.adm-court-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--adm-line-soft);
+}
+
+.adm-court-keeper {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--adm-muted);
+  white-space: nowrap;
+}
+
+.adm-court-keeper.none {
+  color: #9b1c1c;
+}
+
+.adm .adm-court-now {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 76px;
+  padding: 10px 14px;
+  color: var(--adm-fg);
+  text-decoration: none;
+}
+
+.adm-court-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--adm-muted);
+}
+
+.adm-court-state.live {
+  color: var(--adm-danger);
+}
+
+.adm-court-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.adm-court-match > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-court-score {
+  font-size: 26px;
+  white-space: nowrap;
+}
+
+.adm-court-next {
+  padding: 8px 14px;
+  border-top: 1px solid var(--adm-line-soft);
+  font-size: 12.5px;
+  color: var(--adm-muted);
+}
+
+.adm-time-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.adm-time {
+  font-size: 22px;
+}
+
+.adm-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-height: 60px;
+  padding: 8px 16px;
+}
+
+.adm-match-where {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 120px;
+  font-size: 13px;
+}
+
+.adm-match-where > span:last-child {
+  font-size: 12px;
+}
+
+.adm-match-teams {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.adm-match-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.adm-match-score {
+  min-width: 40px;
+  font-size: 22px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.adm-match-end .adm-go {
+  min-width: 88px;
+  justify-content: flex-end;
+}
+
+.adm-match-wait {
+  min-width: 88px;
+  font-size: 12.5px;
+  color: var(--adm-faint);
+  text-align: right;
+}
+
+.adm-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.adm-standings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+}
+
+.adm-standings table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adm-standings th {
+  padding: 6px 4px;
+  border-top: 1px solid var(--adm-line-soft);
+  border-bottom: 1px solid var(--adm-line-soft);
+  font-size: 11.5px;
+  color: var(--adm-muted);
+  text-align: center;
+}
+
+.adm-standings td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--adm-line-soft);
+  text-align: center;
+  font-size: 17px;
+}
+
+.adm-standings th:nth-child(2),
+.adm-standings td.adm-standings-team {
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.adm-standings .adm-points {
+  font-size: 19px;
+}
+
+.adm-division-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 32px;
+}
+
+/* 本部から進む作業の画面(時間をずらす、組の確定) */
+.adm-narrow {
+  max-width: 640px;
+}
+
+.adm-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adm .adm-choice {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 48px;
+  padding: 4px 10px;
+  border: 2px solid var(--adm-field-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--adm-fg);
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.adm .adm-choice[aria-current="true"] {
+  border-color: var(--adm-primary);
+  background: var(--adm-primary-soft);
+}
+
+.adm-choice-sub {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #7a4f00;
+}
+
+.adm-faint {
+  color: var(--adm-faint);
+}
+
+.adm-shift-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 16px;
+}
+
+.adm-shift-before {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--adm-muted);
+  text-decoration: line-through;
+}
+
+.adm-shift-after {
+  font-size: 22px;
+  color: var(--adm-accent);
+}
+
+.adm-shift-what {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adm-effect-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
+  font-weight: 700;
+}
+
+/* 結果の入力の点数(＋と−) */
+.adm-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--adm-line);
+  border-radius: 14px;
+  background: var(--adm-line-soft);
+  overflow: hidden;
+}
+
+.adm-stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 84px;
+  padding: 0 16px;
+  background: #fff;
+}
+
+.adm-stepper-bar {
+  flex: none;
+  width: 8px;
+  height: 36px;
+  border-radius: 3px;
+  background: var(--adm-left);
+}
+
+.adm-stepper.right .adm-stepper-bar {
+  background: var(--adm-right);
+}
+
+.adm-stepper-team {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.adm-stepper-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.adm .adm-stepper-button {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 1.5px solid var(--adm-field-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--adm-fg);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.adm-stepper-value {
+  width: 52px;
+  font-size: 42px;
+  line-height: 1;
+  text-align: center;
+}
+
 /* スマートフォンの幅: 余白を詰め、主な操作を画面の下に固定する */
 @media (max-width: 640px) {
   .adm-wrap {
@@ -631,6 +1046,15 @@
 
   .adm-app.has-primary .adm {
     padding-bottom: 110px;
+  }
+
+  .adm-match-where {
+    width: auto;
+  }
+
+  .adm-match-end {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .adm-app.has-primary .adm-head .adm-primary {

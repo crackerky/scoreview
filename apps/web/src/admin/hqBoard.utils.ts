@@ -1,5 +1,6 @@
 import type { Assignment } from '@/api/admin.types'
 import type { GroupProgress, Progress, ProgressMatch, ProgressSide, Todo } from '@/api/format.types'
+import { describeSide } from './formatWizard.utils'
 import { courtLabel } from './scoreKeeper.utils'
 
 // 大会単位の本部(Claude Design「Score View Admin」の本部)。部門ごとの進行状況(api の progress)を
@@ -33,8 +34,9 @@ export const staleDelayMinutes = 12 * 60
 /** 知らせに並べる試合の数の上限(それより多いときは「ほか N 試合」) */
 const listedMatches = 4
 
+/** 試合の片側。チームが決まっていなければ「A組1位」「E2 の勝者」のように決まり方を出す */
 export function sideName(side: ProgressSide): string {
-  return side.team?.name.ja ?? side.label
+  return side.team?.name.ja ?? describeSide(side.label)
 }
 
 export function hqPath(tournamentId: number): string {
@@ -55,6 +57,12 @@ function matchList(list: ProgressMatch[]): string {
     .map((match) => `${matchWhen(match)}「${sideName(match.left)} 対 ${sideName(match.right)}」`)
   const rest = list.length - shown.length
   return rest > 0 ? `${shown.join('、')} ほか ${rest} 試合` : shown.join('、')
+}
+
+/** 知らせの中の結果の入力へのリンク。同じコートの試合が並んでも見分けられるよう試合番号を付ける */
+function resultLinkLabel(match: ProgressMatch): string {
+  const court = courtLabel(match.field)
+  return `${match.code}${court ? `(${court})` : ''}の結果を入れる`
 }
 
 function byClock(a: ProgressMatch, b: ProgressMatch): number {
@@ -132,10 +140,7 @@ export function buildAlerts(
       title: `終わる時刻を過ぎて結果が入っていない試合が ${overdue.length} 件あります`,
       body: `${matchList(overdue)}。`,
       links: overdue.slice(0, listedMatches).map((match) => ({
-        label:
-          overdue.length > 1
-            ? `${courtLabel(match.field) || match.code}の結果を入れる`
-            : '結果を入れる',
+        label: overdue.length > 1 ? resultLinkLabel(match) : '結果を入れる',
         href: resultHref(match.id, tournamentId),
       })),
     })
@@ -151,10 +156,7 @@ export function buildAlerts(
       title: `記録係のいない試合が ${noKeeper.length} 件あります`,
       body: `${matchList(noKeeper)}。終わったら本部で結果を入れてください。`,
       links: noKeeper.slice(0, listedMatches).map((match) => ({
-        label:
-          noKeeper.length > 1
-            ? `${courtLabel(match.field) || match.code}の結果を入れる`
-            : '結果を入れる',
+        label: noKeeper.length > 1 ? resultLinkLabel(match) : '結果を入れる',
         href: resultHref(match.id, tournamentId),
       })),
     })
@@ -366,4 +368,69 @@ export function matchesByTime(boards: DivisionBoard[]): MatchTimeGroup[] {
 /** 結果を入れられる試合(両チームが決まっている) */
 export function decided(match: ProgressMatch): boolean {
   return match.left.team !== null && match.right.team !== null
+}
+
+/** "09:40" に分を足す(日をまたいだら 24 時以降のまま出す。大会は 1 日の中で終わる) */
+export function addMinutes(time: string, minutes: number): string {
+  const [hour, minute] = time.split(':').map(Number)
+  if (hour === undefined || minute === undefined || Number.isNaN(hour) || Number.isNaN(minute)) {
+    return time
+  }
+  const total = hour * 60 + minute + minutes
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+export type ShiftLine = { match: ProgressMatch; before: string; after: string }
+
+/** コートのまだ始まっていない試合と、ずらした後の時刻(時間をずらす画面の下見) */
+export function shiftPreview(boards: DivisionBoard[], court: string, minutes: number): ShiftLine[] {
+  return allMatches(boards)
+    .filter((match) => match.field === court && match.status === 'scheduled' && match.time !== null)
+    .map((match) => {
+      const before = match.time ?? ''
+      return { match, before, after: addMinutes(before, minutes) }
+    })
+}
+
+/** コートに、まだ始まっていない試合のある部門(ずらす api は部門ごと) */
+export function divisionsOnCourt(boards: DivisionBoard[], court: string): number[] {
+  return boards
+    .filter((board) =>
+      board.matches.some((match) => match.field === court && match.status === 'scheduled'),
+    )
+    .map((board) => board.divisionId)
+}
+
+/** 遅れの分数に合う、ずらす時間の初めの選択(5 分刻みで切り上げ、最大 20 分) */
+export function suggestedShift(delay: number | null): number {
+  if (delay === null || delay <= 0) {
+    return 10
+  }
+  return Math.min(20, Math.max(5, Math.ceil(delay / 5) * 5))
+}
+
+export type ConfirmEffect = { match: ProgressMatch; left: string; right: string }
+
+/**
+ * 組を確定すると入る先(組の確定の画面)。片側が「A組1位」のようにこの組の順位を指す、まだチームの
+ * 決まっていない試合を挙げ、今の順位で入るチームを「湘南(A組1位)」の形で出す。
+ */
+export function confirmEffects(board: DivisionBoard, group: GroupProgress): ConfirmEffect[] {
+  const pattern = new RegExp(`^${group.letter}(\\d+)$`)
+  const sideWith = (side: ProgressSide): string | null => {
+    const found = side.team === null ? pattern.exec(side.label) : null
+    if (!found) {
+      return null
+    }
+    const row = group.rows.find((item) => item.rank === Number(found[1]))
+    return row ? `${row.team.name.ja}(${describeSide(side.label)})` : describeSide(side.label)
+  }
+  return board.matches
+    .filter((match) => sideWith(match.left) !== null || sideWith(match.right) !== null)
+    .sort(byClock)
+    .map((match) => ({
+      match,
+      left: sideWith(match.left) ?? sideName(match.left),
+      right: sideWith(match.right) ?? sideName(match.right),
+    }))
 }

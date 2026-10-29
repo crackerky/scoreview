@@ -4,7 +4,7 @@ import { forfeitScoreText } from '@/admin/hq.utils'
 import { resultTypeLabels } from '@/admin/scoreOps.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { sideText } from '@/admin/timetable.utils'
-import { matches } from '@/api/admin'
+import { divisions, matches, tournaments } from '@/api/admin'
 import type { MatchDetail } from '@/api/admin.types'
 import { ApiError } from '@/api/client'
 import { formats } from '@/api/format'
@@ -12,7 +12,8 @@ import type { Impact } from '@/api/format.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { correctMatchAction, reopenMatchAction, setResultAction } from '@/app/admin/_actions/hq'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import { AdminShell, Hidden } from '@/components/admin/AdminParts'
+import { AdminShell, Hidden, type PrimaryAction } from '@/components/admin/AdminParts'
+import { ScoreStepper } from '@/components/admin/ScoreStepper'
 import '@/styles/format-admin.css'
 
 // 本部の結果の入力と訂正(docs/operations/operator-experience.md「当日」5)。スコアを入れて「影響を
@@ -121,25 +122,37 @@ export default async function MatchResultPage(props: IdPageProps) {
   const leftName = sideText(match.left, undefined)
   const rightName = sideText(match.right, undefined)
   const finished = match.status === 'finished'
+  const division = await loadAdmin(() => divisions.get(token, match.divisionId))
+  const tournament = await loadAdmin(() => tournaments.get(token, division.tournamentId))
   const crumbs = [
-    { href: `/admin/divisions/${match.divisionId}/progress`, label: '本部の進行画面' },
+    { href: `/admin/tournaments/${tournament.id}`, label: tournament.name.ja },
+    next.startsWith(`/admin/tournaments/${tournament.id}/hq`)
+      ? { href: next, label: '本部' }
+      : { href: next, label: `${division.name.ja}の進行画面` },
   ]
+  const showImpact = impact !== null && left !== null && right !== null
+  // 主な操作: まだ結果の無い試合はそのまま保存し、結果のある試合を直すときは影響を確かめてから保存する
+  // (docs/operations/operator-experience.md「当日」5)
+  const primary: PrimaryAction | undefined =
+    changed || !decided
+      ? undefined
+      : showImpact
+        ? { label: `${left}-${right} で保存する`, form: 'result-save' }
+        : finished
+          ? { label: '影響を確かめる', form: 'result-check' }
+          : { label: '結果を保存', form: 'result' }
   return (
     <AdminShell
       user={user}
-      title={`${match.code} の結果を${finished ? '直す' : '入れる'}`}
+      title={finished ? '結果を直す' : '結果の入力'}
+      kicker={[match.code, match.time, match.field ? `コート ${match.field}` : '']
+        .filter(Boolean)
+        .join(' ・ ')}
       notice={notice}
       crumbs={crumbs}
+      primary={primary}
     >
-      <p>
-        {match.date ?? ''} {match.time ?? ''} {match.field ? `コート ${match.field}` : ''}
-        <br />
-        <strong>
-          {leftName} 対 {rightName}
-        </strong>
-        <br />
-        今の結果: {resultText(detail)}
-      </p>
+      <p className="adm-muted">今の結果: {resultText(detail)}</p>
 
       {changed ? (
         <ChangedMeanwhile
@@ -184,52 +197,41 @@ export default async function MatchResultPage(props: IdPageProps) {
         </form>
       ) : null}
 
-      {decided && !changed ? (
-        <form method="get" action={back}>
-          <h2>スコアで結果を入れる</h2>
-          <Hidden values={{ next, seen }} />
-          <div className="hq-inline">
-            <label className="adm-field">
-              <span>{leftName}</span>
-              <input
-                type="number"
-                name="left"
-                min={0}
-                inputMode="numeric"
-                defaultValue={left ?? match.left.score ?? ''}
-                required
-              />
-            </label>
-            <label className="adm-field">
-              <span>{rightName}</span>
-              <input
-                type="number"
-                name="right"
-                min={0}
-                inputMode="numeric"
-                defaultValue={right ?? match.right.score ?? ''}
-                required
-              />
-            </label>
-            {detail.inBracket ? (
-              <label className="adm-field">
-                <span>同点のときの勝者(サドンデス等)</span>
-                <select name="winner" defaultValue={winnerSide ?? ''}>
-                  <option value="">スコアで決める</option>
-                  <option value="left">{leftName}</option>
-                  <option value="right">{rightName}</option>
-                </select>
-              </label>
-            ) : null}
-          </div>
-          {hasEvents ? (
-            <label className="adm-check">
-              <input type="checkbox" name="keep" value="1" defaultChecked={keepEvents} required />
-              <span>得点経過を残したまま、この最終スコアで確定する</span>
-            </label>
-          ) : null}
-          <button type="submit">影響を確かめる</button>
-        </form>
+      {decided && !changed && !showImpact ? (
+        finished ? (
+          // 結果のある試合の訂正: 影響を確かめてから保存する(入力をクエリに載せて開き直す)
+          <form id="result-check" method="get" action={back} className="adm-narrow">
+            <Hidden values={{ next, seen }} />
+            <ScoreFields
+              leftName={leftName}
+              rightName={rightName}
+              left={left ?? match.left.score ?? 0}
+              right={right ?? match.right.score ?? 0}
+              names={{ left: 'left', right: 'right', winner: 'winner', keep: 'keep' }}
+              inBracket={detail.inBracket}
+              winnerSide={winnerSide}
+              hasEvents={hasEvents}
+              keepEvents={keepEvents}
+            />
+          </form>
+        ) : (
+          // まだ結果の無い試合: そのまま保存する。既に結果のある下流に響くときだけ、api が承認を求めて戻す
+          <form id="result" action={correctMatchAction} className="adm-narrow">
+            <Hidden values={{ back, next, seen, matchId: id }} />
+            <ScoreFields
+              leftName={leftName}
+              rightName={rightName}
+              left={left ?? match.left.score ?? 0}
+              right={right ?? match.right.score ?? 0}
+              names={{ left: 'left', right: 'right', winner: 'winnerSide', keep: 'keepEvents' }}
+              inBracket={detail.inBracket}
+              winnerSide={winnerSide}
+              hasEvents={hasEvents}
+              keepEvents={keepEvents}
+            />
+            <p className="adm-muted">保存すると、閲覧ページの速報と順位表にすぐ出ます。</p>
+          </form>
+        )
       ) : null}
 
       {impactError ? (
@@ -249,7 +251,7 @@ export default async function MatchResultPage(props: IdPageProps) {
               ))}
             </ul>
           </section>
-          <form action={correctMatchAction}>
+          <form id="result-save" action={correctMatchAction}>
             <Hidden
               values={{
                 back,
@@ -263,17 +265,65 @@ export default async function MatchResultPage(props: IdPageProps) {
               }}
             />
             {impact.needsApproval ? <DownstreamChoice missing={approval === 'missing'} /> : null}
-            <button type="submit" className={impact.needsApproval ? 'danger' : ''}>
-              この結果で保存する
-            </button>
           </form>
         </>
       ) : null}
 
-      {decided && !finished && !changed ? (
-        <ExceptionalResult detail={detail} back={back} next={next} seen={seen} />
+      {decided && !finished && !changed && !showImpact ? (
+        <details className="adm-narrow">
+          <summary>試合をしなかったとき(不戦勝、不成立、未消化)</summary>
+          <ExceptionalResult detail={detail} back={back} next={next} seen={seen} />
+        </details>
       ) : null}
     </AdminShell>
+  )
+}
+
+/** 点数の入力(＋と−)。同点のトーナメントの試合は勝者を選び、得点経過のある試合は残す確認を求める */
+function ScoreFields({
+  leftName,
+  rightName,
+  left,
+  right,
+  names,
+  inBracket,
+  winnerSide,
+  hasEvents,
+  keepEvents,
+}: {
+  leftName: string
+  rightName: string
+  left: number
+  right: number
+  names: { left: string; right: string; winner: string; keep: string }
+  inBracket: boolean
+  winnerSide: 'left' | 'right' | null
+  hasEvents: boolean
+  keepEvents: boolean
+}) {
+  return (
+    <div className="adm-stack">
+      <div className="adm-steppers">
+        <ScoreStepper name={names.left} team={leftName} initial={left} side="left" />
+        <ScoreStepper name={names.right} team={rightName} initial={right} side="right" />
+      </div>
+      {inBracket ? (
+        <label className="adm-field">
+          <span>同点のときの勝者(トーナメントは引き分けで終われません。サドンデス等の勝者)</span>
+          <select name={names.winner} defaultValue={winnerSide ?? ''}>
+            <option value="">スコアで決める</option>
+            <option value="left">{leftName}</option>
+            <option value="right">{rightName}</option>
+          </select>
+        </label>
+      ) : null}
+      {hasEvents ? (
+        <label className="adm-check">
+          <input type="checkbox" name={names.keep} value="1" defaultChecked={keepEvents} required />
+          <span>得点経過を残したまま、この最終スコアで確定する</span>
+        </label>
+      ) : null}
+    </div>
   )
 }
 

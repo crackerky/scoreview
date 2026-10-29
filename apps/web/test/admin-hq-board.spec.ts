@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  addMinutes,
   buildAlerts,
+  confirmEffects,
   courtCards,
   type DivisionBoard,
+  divisionsOnCourt,
   groupCards,
   matchesByTime,
+  shiftPreview,
   staleDelayMinutes,
+  suggestedShift,
 } from '../src/admin/hqBoard.utils.ts'
 import type { Assignment } from '../src/api/admin.types.ts'
 import type { GroupProgress, Progress, ProgressMatch, Todo } from '../src/api/format.types.ts'
@@ -143,7 +148,7 @@ test('結果待ちは 1 件にまとめ、試合ごとに結果の入力への�
   assert.equal(alert?.title, '終わる時刻を過ぎて結果が入っていない試合が 2 件あります')
   assert.deepEqual(
     alert?.links.map((link) => link.label),
-    ['コート 1の結果を入れる', 'コート 2の結果を入れる'],
+    ['M1(コート 1)の結果を入れる', 'M2(コート 2)の結果を入れる'],
   )
   assert.equal(
     alert?.links[0]?.href,
@@ -236,5 +241,45 @@ test('試合は日付と時刻ごとにまとめ、時刻順に並べる', () =>
       ['10:00', [1, 3]],
       ['11:00', [2]],
     ],
+  )
+})
+
+test('時間をずらす下見: そのコートのまだ始まっていない試合だけを、時刻を足して並べる', () => {
+  const boards = [
+    board(1, [], [match(1, '1', '09:40', 'live'), match(2, '1', '10:00', 'scheduled')]),
+    board(2, [], [match(3, '1', '10:20', 'scheduled'), match(4, '2', '10:20', 'scheduled')]),
+  ]
+  assert.deepEqual(
+    shiftPreview(boards, '1', 15).map((line) => [line.match.id, line.before, line.after]),
+    [
+      [2, '10:00', '10:15'],
+      [3, '10:20', '10:35'],
+    ],
+  )
+  assert.deepEqual(divisionsOnCourt(boards, '1'), [1, 2])
+  assert.deepEqual(divisionsOnCourt(boards, '2'), [2])
+})
+
+test('時刻の足し算と、遅れに合うずらす時間の初めの選択', () => {
+  assert.equal(addMinutes('09:50', 15), '10:05')
+  assert.equal(addMinutes('23:50', 20), '24:10')
+  assert.equal(suggestedShift(null), 10)
+  assert.equal(suggestedShift(12), 15)
+  assert.equal(suggestedShift(3), 5)
+  assert.equal(suggestedShift(80), 20)
+})
+
+test('組を確定すると入る先: この組の順位を指す試合に、今の順位のチームを添える', () => {
+  const pending = (id: number, left: string, right: string): ProgressMatch => ({
+    ...match(id, '1', '10:40', 'scheduled', null),
+    groupLabel: '1〜4 位を決めるトーナメント',
+    left: { label: left, team: null, score: null },
+    right: { label: right, team: null, score: null },
+  })
+  const target = board(1, [], [pending(1, 'A1', 'B2'), pending(2, 'C1', 'D2')], [group(7, 'ready')])
+  const effects = confirmEffects(target, group(7, 'ready'))
+  assert.deepEqual(
+    effects.map((effect) => [effect.match.id, effect.left, effect.right]),
+    [[1, '湘南(A組1位)', 'B組2位']],
   )
 })
