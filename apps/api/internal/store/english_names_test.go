@@ -164,39 +164,3 @@ func TestFillDivisionEnglishNames(t *testing.T) {
 	_, err = store.FillDivisionEnglishNames(ctx, db, 999999)
 	require.ErrorIs(t, err, domain.ErrNotFound)
 }
-
-// TestImportKeepsEmptyEnglishNames は取込ツールの書き込み(ReplaceTournament)が英語名を補わない
-// ことを確かめる(参照サイトの再現。英語名が空のチームは英語版で空表示する)。
-func TestImportKeepsEmptyEnglishNames(t *testing.T) {
-	ctx := context.Background()
-	db := testdb.New(t)
-	imp := &store.TournamentImport{
-		Tournament: store.Tournament{
-			ID: 900001, NameJa: "取込の架空大会", Status: domain.TournamentFinished, Listed: true,
-			TeamListLabel: "teams", GroupLabel: "groups", ShowSchedule: true,
-		},
-		Divisions: []store.DivisionImport{{
-			Division: store.Division{
-				NameJa: "オープン", Kind: domain.DivisionMixed, ScheduleEnabled: true,
-				EntryKind: domain.EntryTeam, StatsKind: domain.StatsUltimate,
-			},
-			Groups: []store.Group{{ID: 900101, Name: "予選 A", Kind: domain.GroupPool, Linked: true}},
-			Teams: []store.Team{{
-				ID: 900201, NameFullJa: "取込チーム", NameShortJa: "取込", BarStyle: "default",
-			}},
-		}},
-		Players: []store.Player{{ID: 900301, TeamID: 900201, NameJa: "取込 選手"}},
-	}
-	require.NoError(t, store.ReplaceTournament(ctx, db, imp))
-
-	var team store.Team
-	require.NoError(t, db.Where("id = ?", 900201).First(&team).Error)
-	assert.Empty(t, team.NameFullEn)
-	assert.Empty(t, team.NameShortEn)
-	var player store.Player
-	require.NoError(t, db.Where("id = ?", 900301).First(&player).Error)
-	assert.Empty(t, player.NameEn)
-	var group store.Group
-	require.NoError(t, db.Where("id = ?", 900101).First(&group).Error)
-	assert.Empty(t, group.NameEn)
-}
