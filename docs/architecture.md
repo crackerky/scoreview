@@ -6,30 +6,30 @@
 
 | 軸 | 差し替え可能にするもの | 置き場所 |
 |---|---|---|
-| ブランド | サイト名、ロゴ、ヘッダーのリンク、SNS、フッター、配色 | `apps/web/src/brand/`(設定 1 ファイル + CSS 変数) |
 | ブラケットの形 | トーナメント表の格子を生成するテンプレート(4、8、16 チーム、順位決定戦つきなど) | `apps/api/internal/bracket/`(テンプレートごとに 1 ファイル、登録は Functional Options) |
-| データの入口 | 管理画面からの入力、参照サイトからの取込、架空データの生成 | `apps/api/internal/importer/`、`apps/api/cmd/seed/`。どれも同じ store を通して書く |
+| データの入口 | 管理画面からの入力、架空データの生成、フェーズ 3 の LINE からのエントリー | `apps/api/cmd/seed/` と管理用エンドポイント。どれも同じ store を通して書く |
 | 画像の置き場 | フェーズ 1 は URL を登録するだけ。フェーズ 2 でアップロード先(Vercel Blob など)を差し込む | `apps/api/internal/media/`(フェーズ 2) |
 | ログイン方法 | フェーズ 1 はパスワード。フェーズ 3 で LINE ログインを足す | `apps/api/internal/auth/`。セッションはユーザーに結びつけ、ログイン方法に結びつけない |
 | 通知 | フェーズ 3 で LINE 公式アカウントからの配信を足す | 試合の状態を変える store の関数のトランザクション内で通知ジョブを積む([line-integration.md](line-integration.md)) |
 
-変えないものは、ページの URL 体系、データモデル(大会 → ディビジョン → グループ → 試合)、順位とスコアの計算規則である。
-これらは参照サイトの調査で確定した仕様であり、作り変えの段階でも利用者が慣れた情報の並びを保つ。
+変えないものは、データモデル(大会 → ディビジョン → グループ → 試合)と、順位とスコアの計算規則である。
+これらは参照サイトの調査で確定した仕様である。
+参照サイトを模倣した閲覧ページと取込ツールは 2026 年 11 月に削除し、公開する画面は大会の一覧(`/`)と観戦アプリ(`/live/{大会ID}`)にした。
 
 ## 全体構成
 
 ```
 ブラウザ ──▶ Vercel ──▶ web サービス(Next.js)──binding──▶ api サービス(Go)──▶ PostgreSQL(Neon)
                           │                                   ▲
-                          └ /sctnmt, /scview, /pscore/*, /admin │
-                                                              取込ツール、シード(Go コマンド。手元か CI で実行)
+                          └ /, /live/*, /privacy, /admin      │
+                                                              シード(Go コマンド。手元か CI で実行)
 ```
 
 - 公開するのは web サービスだけである。api サービスには Vercel の公開ルートを付けず、web サービスの binding(内部 URL)からだけ呼ぶ。
 - api は全リクエストで `X-Internal-Token` を検証する。binding はネットワーク到達性を与えるだけで、呼び出し元の認証にはならないためである。
 - 管理画面の操作は、Next.js の Server Actions が受けて api の管理用エンドポイントへ中継する。ログインのセッショントークンは Next.js が httpOnly Cookie に保存し、api へは `Authorization: Bearer` で渡す。
 
-- web は全ページに Content-Security-Policy を付ける(`apps/web/src/proxy.ts`、`src/security/csp.utils.ts`)。管理画面は要求ごとの nonce でスクリプトを限り、閲覧ページは画像の読み込み先を自サイトに限る(`REFERENCE_ASSET_MODE=allow` のときだけ参照サイトの画像の置き場も許す)。どちらも埋め込み、`<base>`、他サイトへのフォーム送信を禁じる。Permissions-Policy と HSTS は `next.config.ts` で付ける。
+- web は全ページに Content-Security-Policy を付ける(`apps/web/src/proxy.ts`、`src/security/csp.utils.ts`)。管理画面は要求ごとの nonce でスクリプトを限り、大会の一覧と観戦アプリは画像の読み込み先を自サイトに限る(`REFERENCE_ASSET_MODE=allow` のときだけ参照サイトの画像の置き場も許す)。どちらも埋め込み、`<base>`、他サイトへのフォーム送信を禁じる。Permissions-Policy と HSTS は `next.config.ts` で付ける。
 
 ### 環境変数
 
@@ -48,7 +48,7 @@
 ```
 apps/api:  domain ◀── store(GORM) ◀── httpapi ◀── cmd/api
              ▲            ▲
-             │            └──── importer, seed(cmd/importer, cmd/seed)
+             │            └──── seed(cmd/seed)
              └── bracket(テンプレート)
 apps/web:  api クライアント(zod で応答を検証)◀── ページ、管理画面
 ```
@@ -84,29 +84,23 @@ users 1─* sessions、users *─* tournaments(tournament_staff)
 - 引き分けのスコアでもトーナメントでは勝者が決まる例がある(4-4 で勝者あり)。`matches.winner_side` で明示的に持つ。
 - 得点経過の各時点のスコアは保存せず、イベントの順番から計算する。オフェンスから始まった得点かどうかもプルの向きから計算できる。ターンオーバーからの得点もディフェンス開始からの得点と同じ数として計算する(参照サイトの実データ 12 試合すべてで一致。migrations/00002)。キャラハンゴールは得点イベントの `callahan` で持ち、選手のキャラハン数はこれを数える。
 - コート(`matches.field`)は数字とは限らない("A" など)ので文字列で持ち、自然順(数字を数値順で先に)で並べる。
-- ID は参照サイトの ID と揃えられるように、取込時は明示した ID で登録する。参照サイトに ID がない行と管理画面からの登録は自動採番し、衝突しないようにシーケンスを 100,000,000 以上に進める(`store.ReserveGeneratedIDRange`)。
+- ID は自動採番する。取込ツールがあった間は参照サイトの ID を明示して登録し、自動採番のシーケンスを 100,000,000 以上に進めていた(手元の開発用 DB に残っている)。
 
 スキーマの正本は `apps/api/migrations/` の SQL である。
 
 ## 主要な流れ
 
-### 閲覧ページの表示
+### 観戦アプリの表示
 
-1. Next.js のページ(Server Component)が、URL の ID と `lang` を読む。
-2. api の閲覧用エンドポイントを 1 回呼ぶ。応答には、そのページの本文データと、大会ナビとサイドバーの描画に要る `frame`(大会の骨格情報)が両方入っている。ページが大会 ID を知らなくても(試合 ID しか知らなくても)1 往復で描ける。
-3. zod で応答を検証し、言語に応じて日英の値を選び、参照サイトと同じ DOM 構造で描く。
+1. 観戦アプリのページ(Server Component)が、大会のスケジュール、組、「表で見る」の形を api の閲覧用エンドポイントから読む。
+2. zod で応答を検証し、観戦アプリのデータ(`apps/web/src/live/`)に組み立てて描く。
+3. 開いたあとは、ブラウザが `/live/{id}/data` を 15 秒ごとに取り直す。
 
 ### スコア入力
 
 1. 記録係が管理画面の試合ページで「得点」を押し、得点者とアシストを選ぶ。
 2. Server Action が api の `POST /api/v1/admin/matches/{id}/events` を呼ぶ。
 3. api は権限を確かめ、イベントを追加し、同じトランザクションで `matches` のスコアと状態を更新する。スコアはイベントから計算した値で上書きするので、イベントとスコアが食い違わない。
-
-### 参照サイトからの取込
-
-1. `go run ./cmd/importer -tournament 525` を実行する。
-2. 取込ツールは大会トップ、チーム一覧、日程、各グループ、各チーム、各試合のページを 1.2 秒間隔で取得し、`.local/import-cache/` に保存する。
-3. ページごとのパーサが HTML を `importer` の中間表現に変え、store を通して DB に書く。
 
 ## リポジトリ構成
 
@@ -115,18 +109,16 @@ scoreview/
 ├── vercel.json                 Vercel Services の定義(web と api)
 ├── apps/
 │   ├── web/                    Next.js(@scoreview/web)
-│   │   ├── src/app/            ページ(参照サイトと同じパス)と /admin
+│   │   ├── src/app/            大会の一覧、観戦アプリ(/live)、管理画面(/admin)
 │   │   ├── src/api/            api クライアントと zod スキーマ(*.types.ts)
-│   │   ├── src/components/     外枠、大会ナビ、表などの部品
-│   │   ├── src/brand/          ブランド設定(可変点)
-│   │   ├── src/styles/         参照サイトの見た目を再現する CSS
+│   │   ├── src/components/     観戦アプリ、管理画面、サイトの入口の部品
+│   │   ├── src/styles/         画面ごとの CSS(site、live、admin)
 │   │   ├── src/i18n/           画面文言の日英辞書
 │   │   └── test/               *.spec.ts
 │   └── api/                    Go モジュール
 │       ├── cmd/api/            HTTP サーバー(Vercel のエントリポイント)
 │       ├── cmd/migrate/        マイグレーション実行
 │       ├── cmd/devdb/          開発用 PostgreSQL の起動
-│       ├── cmd/importer/       参照サイトからの取込
 │       ├── cmd/seed/           架空データの生成
 │       ├── internal/domain/    純粋なドメイン型と計算
 │       ├── internal/store/     GORM モデルとリポジトリ
@@ -134,11 +126,10 @@ scoreview/
 │       ├── internal/auth/      パスワードとセッション
 │       ├── internal/bracket/   トーナメント表のテンプレート
 │       ├── internal/sanitize/  自由記述 HTML の無害化
-│       ├── internal/importer/  取込ツールのパーサ
 │       ├── internal/testdb/    テスト用 PostgreSQL
 │       └── migrations/         goose の SQL
 ├── docs/
-└── .local/                     調査と取込のキャッシュ(git 管理外。実在の個人名を含む)
+└── .local/                     参照サイトの調査のキャッシュ(git 管理外。実在の個人名を含む)
 ```
 
 ## テスト戦略
@@ -147,10 +138,8 @@ scoreview/
 |---|---|
 | domain(順位、統計、表記) | テーブル駆動の単体テスト。参照サイトで確認した実例(949 の順位、6511 の直接対決など)をケースにする |
 | store と httpapi | embedded-postgres に実マイグレーションを当て、ハンドラを `httptest` で叩く統合テスト |
-| importer | 参照サイトの HTML から個人名を除いて縮めたフィクスチャでパーサを検証する |
 | web の整形関数(表示幅の切り詰め、勝率、平均) | Node 標準テストランナー |
-| web のページ | api をモックした状態でページの HTML を生成し、主要な DOM(クラス名、列数、文言)を検証する |
-| 見た目 | Playwright で参照サイトと本サイトを同じ ID で撮り、差分画像を `.local/visual-diff/` に出す(手元で実行。CI では実行しない。参照サイトへ負荷をかけないため) |
+| web の観戦アプリと管理画面 | api の応答の fixture からデータを組み立てる関数を検証する。画面は手元のヘッドレスブラウザで操作して確かめる |
 
 ## 実装の順序
 

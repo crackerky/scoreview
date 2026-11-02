@@ -1,24 +1,22 @@
 ---
 name: scoreview-design
-description: scoreview(score.clubjr.com を模倣するスコアサイト)の設計判断の基準。依存の向き、模倣の再現度の線引き、API 契約、GORM の安全な書き方、ドメイン計算の置き場所、エラー設計、テスト方針を定める。Use when このリポジトリで機能・API・テーブル・ページを設計/実装するとき、参照サイトの挙動をどこまで再現するか迷ったとき、取込ツールやブラケット表に手を入れるとき。
+description: scoreview(フライングディスク大会の観戦アプリと運営管理画面)の設計判断の基準。依存の向き、API 契約、GORM の安全な書き方、ドメイン計算の置き場所、エラー設計、テスト方針を定める。Use when このリポジトリで機能・API・テーブル・ページを設計/実装するとき、ブラケット表や大会の形に手を入れるとき。
 ---
 
 # scoreview の設計判断
 
-背景と詳細は docs/(requirements, tech-stack, architecture, api)と docs/clone-spec/ にある。
+背景と詳細は docs/(requirements, tech-stack, architecture, api, line-integration)にある。docs/clone-spec/ は、削除した模倣ページのための参照サイトの調査記録で、データの意味(順位、表記)の根拠として残している。
 ここには実装中に毎回参照する判断基準だけを置く。
 
-## 1. 模倣の再現度
+## 1. 画面の方針
 
-- 閲覧ページの仕様は docs/clone-spec/ である。DOM 構造、クラス名、列幅、文言(日英)、条件分岐は記録どおりに再現する。参照サイトの誤綴り(`Tounament`, `Reague Result`, `21th`, `Reflesh_OK`)も、データや固定文言として出ているものはそのまま出す。
-- 再現しない挙動は requirements.md の「意図的な差分」表にあるものだけ(エラー時の 500、`href="#"`+onclick、POST による絞り込み、無害化しない HTML、他社ブランド素材)。新しく差分を作るときは、この表に理由つきで追記してから実装する。
-- 参照サイトの CSS と画像はコピーしない。clone-spec に記録した値(色、幅、余白)で CSS を書き直し、ブランド素材は `apps/web/src/brand/` の設定値を使う。
-- clone-spec に「未観測」とある状態(試合中 MC_NOW、未開始の試合ページ、没収試合)は、CSS 定義と既存の文言体系から最小限に作り、推測であることをコードコメントに書く。
+- 公開する画面は大会の一覧(`/`)、観戦アプリ(`/live/{id}`)、個人情報保護方針だけ。参照サイトの模倣ページは 2026-11 に削除したので、参照サイトの DOM や文言に合わせる理由はもう無い。見た目は Claude Design(「StageCam」「Score View Admin」)に合わせる。
+- 次の機能は LINE からのエントリーと通知、記録係の LINE からの入力(docs/line-integration.md)。URL は LINE のメッセージに埋め込むと変えられないので、`/live/{id}` と line-integration.md に書いたパスを固定する。
 
 ## 2. 依存の向き
 
 ```
-api:  domain ◀ store ◀ httpapi ◀ cmd/*      bracket ▶ domain、importer ▶ store
+api:  domain ◀ store ◀ httpapi ◀ cmd/*      bracket ▶ domain
 web:  src/api(クライアント + zod)◀ src/components ◀ src/app
 ```
 
@@ -40,7 +38,6 @@ web:  src/api(クライアント + zod)◀ src/components ◀ src/app
 - `db.Raw` と `db.Exec` は golangci-lint(forbidigo)で禁止している。`Where`/`Order`/`Select`/`Joins` などの第 1 引数は文字列リテラルか定数にし、値は `?` で渡す(`internal/store/sqlsafety_test.go` が検査する)。
 - 並び順のように実行時に選ぶ列は、許可リストの map(`sqlOrderBy := map[string]string{...}`)から定数を引く。利用者の入力を列名に使わない。
 - 複数テーブルの更新(試合イベントの追加とスコアの更新など)は `db.Transaction` の中で行う。
-- 取込ツールは参照サイトの ID をそのまま主キーに入れる。入れた後で `setval` 相当の処理(シーケンスを最大 ID に進める)を store の関数として用意し、そこだけ理由を書いて `//nolint:forbidigo` を許す。
 
 ## 5. ドメインの規則(参照サイトで確認済み)
 
@@ -54,7 +51,7 @@ web:  src/api(クライアント + zod)◀ src/components ◀ src/app
 ## 6. エラー
 
 - Go: domain の sentinel(`ErrNotFound` など)と構造化エラー(`NotFoundError{Resource, ID}`)を返し、`%w` で包む。HTTP ステータスへの変換は `httpapi.writeError` だけで行う。ハンドラで `http.Error` を書かない。
-- web: `apiFetch` が `ApiError` を投げる。`not_found` は参照サイトと同じ文面のエラー画面(HTTP 404)にする。それ以外は握りつぶさず Next.js のエラー境界へ流す。
+- web: `apiFetch` が `ApiError` を投げる。`not_found` は `notFound()` で「ページが見つかりません」の画面(HTTP 404。`src/app/not-found.tsx`)にする。それ以外は握りつぶさず Next.js のエラー境界へ流す。
 - 失敗を空配列や 0 で隠さない。
 
 ## 7. セキュリティ
@@ -77,10 +74,10 @@ web:  src/api(クライアント + zod)◀ src/components ◀ src/app
 
 - Go: domain はテーブル駆動の単体テスト(clone-spec の実例をケースにする)。store と httpapi は `testdb.New(t)` の実 PostgreSQL で統合テスト。
 - web: `node --import tsx --test`。整形関数と、モック応答からのコンポーネント描画(renderToStaticMarkup)で DOM のクラス名と文言を検証する。
-- 取込ツールのパーサのテストには、参照サイトの HTML から個人名を除いた最小のフィクスチャを使う。`.local/` の生データをテストから読まない(CI に存在しないため)。
+- `.local/` の生データをテストから読まない(CI に存在しないため)。
 
 ## 10. 禁止事項
 
-- 新しい lint/format ツール、テストランナー、CSS フレームワーク(Tailwind 等)を足さない。見た目は参照サイトのクラス名を持つ素の CSS で書く。
+- 新しい lint/format ツール、テストランナー、CSS フレームワーク(Tailwind 等)を足さない。見た目は画面ごとの素の CSS(site.css、live.css、admin.css)で書く。
 - `.local/` のデータ(実在の個人名を含む)をコミットしない、公開環境の DB に入れない。
-- 参照サイトへの自動アクセスは取込ツールと画面比較だけにし、間隔を 1 秒以上空ける。
+- 参照サイトへ自動でアクセスしない(取込ツールと画面比較は削除した)。

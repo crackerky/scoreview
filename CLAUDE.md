@@ -1,8 +1,8 @@
 # CLAUDE.md — scoreview
 
-score.clubjr.com の大会スコア速報サイトを模倣し、自社仕様へ作り変えるためのリポジトリ。
+フライングディスク大会のスコア速報(観戦アプリ)と大会運営の管理画面のリポジトリ。もとは score.clubjr.com の模倣から始め、模倣の閲覧ページは 2026-11 に削除した。
 web = Next.js 16(TypeScript、`apps/web`)、api = Go 1.26 + GORM(`apps/api`)、Vercel Services で同時デプロイ。
-設計判断(依存の向き、模倣の線引き、API 契約、GORM の安全な書き方、ドメイン規則)は **scoreview-design スキル**を参照。閲覧ページの仕様は `docs/clone-spec/`、API の正本は `docs/api.md`。
+設計判断(依存の向き、API 契約、GORM の安全な書き方、ドメイン規則)は **scoreview-design スキル**を参照。API の正本は `docs/api.md`、LINE 連携の設計は `docs/line-integration.md`。`docs/clone-spec/` は参照サイトの調査記録(データの意味の根拠として残す)。
 
 ## TypeScript の規律
 
@@ -64,6 +64,5 @@ Node は 22 以上(`.nvmrc`)。シェルで pnpm が見つからないときは 
 
 - golangci-lint は PATH ではなく `$(go env GOPATH)/bin/golangci-lint` にある(`pnpm go:lint` はこのパスを使う)。
 - Go のテストは embedded-postgres で本物の PostgreSQL を起動する。初回はバイナリを `~/.cache/scoreview-embedded-postgres` にダウンロードするので時間がかかる。テストは `testdb.Run` を `TestMain` で呼ぶパッケージでだけ DB を使える。
-- `.local/` は git 管理外で、参照サイトの生 HTML と取込データ(実在の個人名を含む)がある。コミットしない、公開環境に入れない、テストから読まない。
-- 参照サイト(score.clubjr.com)へ自動でアクセスするときは 1 秒以上の間隔を空ける。取込ツールは `.local/import-cache/` に保存し、同じページを取り直さない。
-- 大会一覧のパスは `/sctnmt`(`/` はそこへリダイレクト)。各ページの URL は参照サイトと同じなので、同じ ID で両方を開いて見比べられる。
+- `.local/` は git 管理外で、参照サイトの生 HTML と以前の取込データ(実在の個人名を含む)がある。コミットしない、公開環境に入れない、テストから読まない。
+- 公開する画面は `/`(大会の一覧)、`/live/{id}`(観戦アプリ)、`/privacy` だけ。消した模倣ページの URL(`/sctnmt`、`/scview/{id}`、`/pscore/*`)は `apps/web/next.config.ts` のリダイレクトで送る。外部に貼られたリンクのために残す。

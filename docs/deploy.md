@@ -54,11 +54,11 @@ DATABASE_URL='<直結の接続文字列>' go run ./cmd/createadmin -email <管�
 DATABASE_URL='<直結の接続文字列>' go run ./cmd/seed
 ```
 
-参照サイトから取り込んだデータ(`go run ./cmd/importer`)は実在の個人名を含むので、Preview にも本番にも入れない。開発用 DB(`go run ./cmd/devdb`)だけで使う。
+手元の開発用 DB(`go run ./cmd/devdb`)には、以前の取込ツールで入れた実在の個人名を含むデータが残っていることがある。Preview にも本番にも移さない。
 
 ## 5. デプロイ後の確認
 
-- `/sctnmt` が開き、大会一覧が出る。
+- `/` が開き、大会の一覧が出る。大会を押すと観戦アプリが開く。
 - `/admin` でログインできる。ログイン試行の制限(同じアドレスで 5 回失敗した後は間隔が延びる)が働く。
 - api の URL を直接開けない(公開されていない)ことを確かめる。
 - 応答ヘッダーに `Content-Security-Policy`、`Strict-Transport-Security`、`Permissions-Policy`、`X-Robots-Tag: noindex, nofollow` が付いている(noindex は正式公開のときに `next.config.ts` から外す)。
