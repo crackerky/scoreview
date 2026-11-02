@@ -1,10 +1,16 @@
 import { ApiError } from '@/api/client'
-import { getGroup, getMatch, getTournamentSchedule, getTournaments } from '@/api/public'
+import {
+  getGroup,
+  getLiveTables,
+  getMatch,
+  getTournamentSchedule,
+  getTournaments,
+} from '@/api/public'
 import type { LiveData, LiveMatchDetail } from './live.types'
 import { buildLiveData, flowEvents } from './live.utils'
 
 // 観戦アプリのデータを api から集める(ページの初回の描画と、ブラウザが取り直すデータの口で共有)。
-// スケジュール(全日程)と、ナビに出す組(順位表と試合の組の名前)だけを読む。
+// スケジュール(全日程)と、ナビに出す組(順位表と試合の組の名前)、「表で見る」の見せ方と形を読む。
 
 export type SwitchTournament = { id: number; name: string; meta: string }
 
@@ -43,8 +49,11 @@ export async function loadLiveData(tournamentId: number, date: string | null): P
   const groupIds = schedule.frame.divisions.flatMap((division) =>
     division.groups.filter((group) => group.linked).map((group) => group.id),
   )
-  const groups = await Promise.all(groupIds.map((groupId) => getGroup(groupId)))
-  return buildLiveData(schedule, groups, date)
+  const [groups, tables] = await Promise.all([
+    Promise.all(groupIds.map((groupId) => getGroup(groupId))),
+    getLiveTables(tournamentId),
+  ])
+  return buildLiveData(schedule, groups, date, tables)
 }
 
 /** 試合の得点の流れ。試合がその大会のものでなければ null(別の大会の試合を出さない) */

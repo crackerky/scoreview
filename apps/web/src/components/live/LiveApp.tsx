@@ -29,6 +29,7 @@ import {
 } from '@/live/live.utils'
 import type { SwitchTournament } from '@/live/liveData'
 import { LeadChart } from './LeadChart'
+import { type TableKind, TablesPanel, tableKinds, tableNames } from './LiveTables'
 
 // 観戦アプリ(Claude Design「StageCam」)。今日の試合をカードの輪に並べ、横にめくって選び、真ん中の
 // カードを押すと試合を大きく開く。点が入ると数字が飛び込む演出を出す。データは一定の間隔で取り直す。
@@ -158,6 +159,8 @@ export function LiveApp({
   const [flow, setFlow] = useState<FlowEvent[] | null>(null)
   const [zoomHit, setZoomHit] = useState<{ side: 'left' | 'right'; key: number } | null>(null)
   const [drawer, setDrawer] = useState(false)
+  // 「表で見る」の全画面の表(開いているか、どの表か)
+  const [table, setTable] = useState<TableKind | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [pull, setPull] = useState(false)
   const [kebab, setKebab] = useState(false)
@@ -457,6 +460,8 @@ export function LiveApp({
         setKebab(false)
       } else if (drawer) {
         setDrawer(false)
+      } else if (table !== null) {
+        setTable(null)
       } else if (zoomId !== null) {
         closeZoom()
       }
@@ -466,6 +471,9 @@ export function LiveApp({
   })
 
   const teams = uniqueTeams(data.matches)
+  // 管理者が「表で見る」を切ったり、その表を出さなくしたりしたら、開いていても閉じる
+  const kinds = data.tables.config.shown ? tableKinds(data, data.tables.config) : []
+  const tableOn = table !== null && kinds.includes(table) ? table : null
   const zoomMatch =
     zoomId === null ? null : (data.matches.find((match) => match.id === zoomId) ?? null)
   const tabLabel = tabs.find(([key]) => key === tab)?.[1] ?? 'ライブ'
@@ -757,6 +765,19 @@ export function LiveApp({
             setDrawer(false)
             openZoom(match)
           }}
+          tables={kinds}
+          onOpenTable={(kind) => {
+            setDrawer(false)
+            setTable(kind)
+          }}
+        />
+
+        <TableOverlay
+          data={data}
+          kinds={kinds}
+          kind={tableOn}
+          onKind={setTable}
+          onClose={() => setTable(null)}
         />
 
         {picker ? (
@@ -1182,6 +1203,8 @@ function Drawer({
   onToggle,
   onClose,
   onOpenMatch,
+  tables,
+  onOpenTable,
 }: {
   open: boolean
   data: LiveData
@@ -1189,6 +1212,9 @@ function Drawer({
   onToggle: (key: string) => void
   onClose: () => void
   onOpenMatch: (match: LiveMatch) => void
+  /** 出せる「表で見る」の表。空なら入口ごと出さない */
+  tables: TableKind[]
+  onOpenTable: (kind: TableKind) => void
 }) {
   const finals = placements(data.matches)
   const tab = open ? 0 : -1
@@ -1297,6 +1323,18 @@ function Drawer({
             ))}
           </section>
         ) : null}
+        {tables.length > 0 ? (
+          <section className="live-drawer-section">
+            <h2>表で見る</h2>
+            <div className="live-table-openers">
+              {tables.map((kind) => (
+                <button key={kind} type="button" tabIndex={tab} onClick={() => onOpenTable(kind)}>
+                  {tableNames[kind]}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <a
           className="live-drawer-link"
           href={`/scview/${data.tournament.id}?lang=jp`}
@@ -1324,6 +1362,67 @@ function Drawer({
         </button>
       </nav>
     </>
+  )
+}
+
+function TableOverlay({
+  data,
+  kinds,
+  kind,
+  onKind,
+  onClose,
+}: {
+  data: LiveData
+  kinds: TableKind[]
+  kind: TableKind | null
+  onKind: (kind: TableKind) => void
+  onClose: () => void
+}) {
+  // 閉じるときも中身を残して横に滑らせる(最後に開いた表)
+  const [last, setLast] = useState<TableKind>('pool')
+  useEffect(() => {
+    if (kind !== null) {
+      setLast(kind)
+    }
+  }, [kind])
+  const shown = kind ?? last
+  const tab = kind === null ? -1 : 0
+  return (
+    <section
+      className="lt-overlay"
+      aria-label={tableNames[shown]}
+      aria-hidden={kind === null}
+      style={{
+        transform: `translateX(${kind === null ? '100%' : '0%'})`,
+        pointerEvents: kind === null ? 'none' : 'auto',
+      }}
+    >
+      <div className="lt-overlay-bar">
+        <button type="button" className="lt-back" onClick={onClose} tabIndex={tab}>
+          ‹ 戻る
+        </button>
+        {kinds.length > 1 ? (
+          <div className="lt-tabs">
+            {kinds.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={item === shown}
+                tabIndex={tab}
+                onClick={() => onKind(item)}
+              >
+                {tableNames[item]}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="lt-body">
+        {kinds.includes(shown) ? (
+          <TablesPanel data={data} config={data.tables.config} kind={shown} />
+        ) : null}
+      </div>
+    </section>
   )
 }
 

@@ -104,6 +104,7 @@ function match(
     stage: '予選 A 組',
     groupId: 1,
     pool: true,
+    divisionId: 101,
     divisionName: 'オープン',
     left: side(left),
     right: side(right),

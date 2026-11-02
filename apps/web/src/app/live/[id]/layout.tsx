@@ -1,6 +1,7 @@
 import { Barlow_Condensed, Dela_Gothic_One, LINE_Seed_JP, M_PLUS_2 } from 'next/font/google'
 import type { ReactNode } from 'react'
 import '@/styles/live.css'
+import '@/styles/live-tables.css'
 
 // 観戦アプリの文字(Claude Design「StageCam」)。本文は LINE Seed JP、点数と時刻は Barlow Condensed、
 // カードのチーム名は M PLUS 2、大きく開いた試合の点数とチーム名は Dela Gothic One。

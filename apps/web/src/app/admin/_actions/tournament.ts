@@ -8,6 +8,7 @@ import {
   galleryFormSchema,
   tournamentFormSchema,
 } from '@/api/admin.types'
+import { liveTablesConfigSchema } from '@/api/public.types'
 
 // 大会、バナー、大会に属する部門とギャラリーの作成。大会のコピーと公開の切り替え。
 
@@ -41,6 +42,31 @@ export async function putBannersAction(formData: FormData): Promise<never> {
     await tournaments.putBanners(token, idField(form, 'id'), bannersFormSchema.parse(form))
     return undefined
   })
+}
+
+/** 観戦アプリの「表で見る」の見せ方を保存する。config は画面で組み立てた見せ方の JSON */
+export async function saveLiveTablesAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      let raw: unknown
+      try {
+        raw = JSON.parse(field(form, 'config'))
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          throw inputError('見せ方を読み取れませんでした。画面を開き直してください')
+        }
+        throw error
+      }
+      const config = liveTablesConfigSchema.parse(raw)
+      if (config.shown && !config.poolShown && !config.bracketShown) {
+        throw inputError('表を1つも選んでいません。出さないときは、上のスイッチを切ってください')
+      }
+      await tournaments.putLiveTables(token, idField(form, 'id'), config)
+      return undefined
+    },
+    '保存しました。観戦アプリに反映されています',
+  )
 }
 
 export async function createDivisionAction(formData: FormData): Promise<never> {

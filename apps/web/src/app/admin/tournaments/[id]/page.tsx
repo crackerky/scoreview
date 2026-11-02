@@ -10,7 +10,7 @@ import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, EntryCard, type PrimaryAction, Stat } from '@/components/admin/AdminParts'
 
 // 大会ホーム(Claude Design「Score View Admin」)。上の画面は要約と入口だけにし、フォームを置かない。
-// 数字の要約(試合中、終わった試合、本部の知らせ)と、本部、部門、時間割、記録係、写真とバナー、
+// 数字の要約(試合中、終わった試合、本部の知らせ)と、本部、部門、時間割、記録係、観戦アプリの表、写真とバナー、
 // 大会の設定への入口。記録係(staff)には部門と時間割だけを出す。
 
 type DivisionSummary = {
@@ -131,6 +131,11 @@ export default async function AdminTournamentPage(props: IdPageProps) {
         ) : null}
         {isAdmin ? (
           <>
+            <EntryCard
+              href={`/admin/tournaments/${id}/live-tables`}
+              label="観戦アプリの表"
+              sub="星取表とトーナメント表。見せる表、列、記号、並び順"
+            />
             <EntryCard
               href={`/admin/tournaments/${id}/media`}
               label="写真とバナー"
