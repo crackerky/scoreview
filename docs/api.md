@@ -394,6 +394,40 @@ type BracketCell = {
 }
 ```
 
+### `GET /api/v1/tournaments/{id}/live-tables`
+
+観戦アプリの「表で見る」(星取表とトーナメント表)の見せ方と、トーナメント表を描くための組み合わせの形。本サイト独自の追加(docs/requirements.md「観戦アプリ」)。チーム、点、状態、時刻は日程(`/schedule`)の行を部門と試合番号で引いて使う。`divisions` は大会の形を決めた部門だけ(部門の順)で、公開したグループだけを出す。
+
+```ts
+{
+  config: LiveTablesConfig
+  divisions: Array<{
+    id: number
+    pools: Array<{ groupId: number; advance: number }>   // advance: 優勝を争うグループへ進む上位の数(進出圏の色。0 は色なし)
+    brackets: Array<{
+      groupId: number
+      name: string                                       // 運営の言葉の名前(「1〜4 位を決めるトーナメント」)
+      matches: Array<{
+        code: string; round: number
+        winnerPlace: number; loserPlace: number          // グループ内で決まる順位。0 は次の試合へ進む
+        left: LiveBracketSide; right: LiveBracketSide
+      }>
+    }>
+  }>
+}
+// 同じグループの前の試合の勝者・敗者なら from、グループの枠なら seed(「予選 A 組 1位」)
+type LiveBracketSide = { from: { code: string; outcome: 'win' | 'lose' } | null; seed: string | null }
+type LiveTablesConfig = {
+  shown: boolean                 // 偽なら観戦アプリに「表で見る」を入口ごと出さない
+  poolShown: boolean; bracketShown: boolean
+  columns: { wdl: boolean; goals: boolean; diff: boolean; points: boolean; rank: boolean }   // 星取表の右の列
+  marks: 'maru' | 'wdl' | 'kanji'   // 勝ち・引き分け・負けの記号(○△× / W D L / 勝 分 敗)
+  order: 'entry' | 'rank'           // チームの並び(登録順 / 順位順)
+  live: 'score' | 'blank'           // 試合中のマス(いまの点を出す / 終わるまで空ける)
+  highlight: boolean                // 進出圏の順位に色をつける
+}
+```
+
 ## 管理用エンドポイント
 
 `/api/v1/admin/` 以下と `/api/v1/auth/logout`、`/api/v1/auth/me` は `Authorization: Bearer {sessionToken}` が必要。
@@ -1013,6 +1047,15 @@ type Closing = {
 | `POST /admin/tournaments/{id}/resume` | `{ minutes: number \| null }` | `{ minutes: number; shifted: number; overEnd: Array<{ matchId; code; division: string; time: string; overMinutes: number }> }`。中断を終え、大会の全部門のまだ始まっていない試合を `minutes` 分(null なら中断からの経過を 5 分単位に切り上げた分。0〜360)遅らせる。`overEnd` はずらした結果、部門の時間割のその日の終了時刻(複数日なら各日の終了時刻)を過ぎる試合。中断していなければ 409 |
 
 - 中断と再開は監査ログに残る(`tournament.suspend`、`tournament.resume`)。
+
+### 観戦アプリの表
+
+観戦アプリの「表で見る」の見せ方。管理者だけ。決めていない大会は既定(全部出す、列は全部、`maru`、`entry`、`score`、色をつける)を返す。
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/live-tables` | なし | `LiveTablesConfig` |
+| `PUT /admin/tournaments/{id}/live-tables` | `LiveTablesConfig` の一部 | `LiveTablesConfig`。ボディに無いキーは今のまま |
 
 ### ギャラリー
 

@@ -334,3 +334,55 @@ export const galleryResponseSchema = z.object({
   }),
 })
 export type GalleryResponse = z.infer<typeof galleryResponseSchema>
+
+/** 観戦アプリの「表で見る」の見せ方(docs/api.md「GET /api/v1/tournaments/{id}/live-tables」) */
+export const liveTablesConfigSchema = z.object({
+  shown: z.boolean(),
+  poolShown: z.boolean(),
+  bracketShown: z.boolean(),
+  columns: z.object({
+    wdl: z.boolean(),
+    goals: z.boolean(),
+    diff: z.boolean(),
+    points: z.boolean(),
+    rank: z.boolean(),
+  }),
+  marks: z.enum(['maru', 'wdl', 'kanji']),
+  order: z.enum(['entry', 'rank']),
+  live: z.enum(['score', 'blank']),
+  highlight: z.boolean(),
+})
+export type LiveTablesConfig = z.infer<typeof liveTablesConfigSchema>
+
+const liveBracketSideSchema = z.object({
+  from: z.object({ code: z.string(), outcome: z.enum(['win', 'lose']) }).nullable(),
+  seed: z.string().nullable(),
+})
+
+/** GET /api/v1/tournaments/{id}/live-tables */
+export const liveTablesResponseSchema = z.object({
+  config: liveTablesConfigSchema,
+  divisions: z.array(
+    z.object({
+      id: z.number().int(),
+      pools: z.array(z.object({ groupId: z.number().int(), advance: z.number().int() })),
+      brackets: z.array(
+        z.object({
+          groupId: z.number().int(),
+          name: z.string(),
+          matches: z.array(
+            z.object({
+              code: z.string(),
+              round: z.number().int(),
+              winnerPlace: z.number().int(),
+              loserPlace: z.number().int(),
+              left: liveBracketSideSchema,
+              right: liveBracketSideSchema,
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+})
+export type LiveTablesResponse = z.infer<typeof liveTablesResponseSchema>

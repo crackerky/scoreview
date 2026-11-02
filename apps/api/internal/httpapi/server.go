@@ -78,6 +78,7 @@ func (s *Server) routes() {
 	s.adminRoutes()
 	s.formatRoutes()
 	s.dayOfRoutes()
+	s.liveTablesRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。

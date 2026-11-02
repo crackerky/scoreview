@@ -5,6 +5,8 @@ import {
   type GroupResponse,
   galleryResponseSchema,
   groupResponseSchema,
+  type LiveTablesResponse,
+  liveTablesResponseSchema,
   type MatchResponse,
   matchResponseSchema,
   type PlayerResponse,
@@ -88,4 +90,9 @@ export function getPlayer(playerId: number): Promise<PlayerResponse> {
 
 export function getGallery(galleryId: number): Promise<GalleryResponse> {
   return apiFetch(`${base}/galleries/${galleryId}`, galleryResponseSchema)
+}
+
+/** 観戦アプリの「表で見る」の見せ方とトーナメントの形 */
+export function getLiveTables(tournamentId: number): Promise<LiveTablesResponse> {
+  return apiFetch(`${base}/tournaments/${tournamentId}/live-tables`, liveTablesResponseSchema)
 }

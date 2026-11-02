@@ -34,6 +34,7 @@ import {
   userListSchema,
 } from './admin.types'
 import { apiFetch } from './client'
+import { type LiveTablesConfig, liveTablesConfigSchema } from './public.types'
 
 // docs/api.md「管理用エンドポイント」を呼ぶ関数。セッショントークンを Bearer で渡す。
 // 応答は必ず zod で parse して返す。
@@ -95,6 +96,11 @@ export const tournaments = {
     call(token, 'GET', `${admin}/tournaments/${id}/banners`, bannersSchema),
   putBanners: (token: string, id: number, body: unknown) =>
     call(token, 'PUT', `${admin}/tournaments/${id}/banners`, bannersSchema, body),
+  /** 観戦アプリの「表で見る」の見せ方(管理者だけ) */
+  liveTables: (token: string, id: number) =>
+    call(token, 'GET', `${admin}/tournaments/${id}/live-tables`, liveTablesConfigSchema),
+  putLiveTables: (token: string, id: number, body: LiveTablesConfig) =>
+    call(token, 'PUT', `${admin}/tournaments/${id}/live-tables`, liveTablesConfigSchema, body),
   /** 大会をコピーして新しい大会を作る(チームと結果以外。withTeams ならチームと選手も) */
   copy: (token: string, id: number, body: TournamentCopyInput) =>
     call(token, 'POST', `${admin}/tournaments/${id}/copy`, adminTournamentSchema, body),
