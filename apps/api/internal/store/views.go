@@ -76,46 +76,6 @@ type TournamentSummary struct {
 	TeamCount int
 }
 
-// TournamentTopPage は大会トップ。TopHTML は DB の値そのままで、無害化は呼び出し側で行う。
-type TournamentTopPage struct {
-	Frame     Frame
-	LogoURL   *string
-	TopHTML   domain.I18nText
-	Divisions []TopDivision
-}
-
-// TopDivision は大会トップのディビジョン表の 1 行。
-type TopDivision struct {
-	ID              int64
-	Name            domain.I18nText
-	ScheduleLinked  bool
-	StandingsLinked bool
-}
-
-// TeamListPage はチーム一覧。
-type TeamListPage struct {
-	Frame     Frame
-	Divisions []TeamListDivision
-}
-
-// TeamListDivision はチーム一覧のディビジョン。
-type TeamListDivision struct {
-	ID        int64
-	Name      domain.I18nText
-	Kind      domain.DivisionKind
-	EntryKind domain.EntryKind
-	Teams     []TeamListTeam
-}
-
-// TeamListTeam はチーム一覧の 1 チーム。Name は正式名。MemberCount はスタッフを除く選手数で、
-// 個人戦なら nil。
-type TeamListTeam struct {
-	ID          int64
-	Name        domain.I18nText
-	BarStyle    domain.TeamBarStyle
-	MemberCount *int
-}
-
 // ScheduleFilter はスケジュールの絞り込みと並び替え。検証は呼び出し側で済ませる。
 type ScheduleFilter struct {
 	// YMD は "YYYYMMDD"。nil はクエリにキーがないこと(既定を使う)、"" は全日程
@@ -150,39 +110,6 @@ type ScheduleSelected struct {
 	YMD   string
 	Team  string
 	Field string
-}
-
-// StandingsPage はディビジョン成績。
-type StandingsPage struct {
-	Frame        Frame
-	Division     DivisionRef
-	Standings    []StandingRow
-	Leaders      []LeaderRow
-	BlockLeaders []BlockLeaderRow
-}
-
-// StandingRow はディビジョン順位表の 1 行。Rank は teams.final_rank。
-type StandingRow struct {
-	Team  domain.TeamRef
-	Tally domain.Tally
-	Rank  *int
-}
-
-// LeaderRow は得点ランキングの 1 行。
-type LeaderRow struct {
-	Team    domain.TeamRef
-	Player  domain.PlayerRef
-	Games   int
-	Assists int
-	Goals   int
-}
-
-// BlockLeaderRow はブロックランキングの 1 行。
-type BlockLeaderRow struct {
-	Team   domain.TeamRef
-	Player domain.PlayerRef
-	Games  int
-	Blocks int
 }
 
 // GroupPage はグループ成績。Kind に応じて Pool、Bracket、Image のどれか 1 つだけが非 nil。
@@ -264,24 +191,6 @@ type ImageView struct {
 	Height *int
 }
 
-// TeamPage はチームページ。
-type TeamPage struct {
-	Frame   Frame
-	Team    TeamInfo
-	Record  domain.Tally
-	Rank    *int
-	Matches []domain.MatchRow
-	Players []PlayerLine
-	Staff   []StaffLine
-	// ShowSOTG は SOTG スコア一覧(行は Matches、値は空)を出すか(divisions.show_sotg)
-	ShowSOTG bool
-	// NextMatchID は次の試合(Matches のうち試合中か最初の未試合。domain.NextMatch)。大会が終了して
-	// いるか、該当が無ければ nil。CurrentGroup はチームが入っている公開中のグループのうち、いま見るべき
-	// もの(無ければ nil)。どちらも本サイト独自の追記(docs/requirements.md「意図的な差分」)
-	NextMatchID  *int64
-	CurrentGroup *FrameGroup
-}
-
 // TeamLayout はチームページの構成。
 type TeamLayout string
 
@@ -290,34 +199,6 @@ const (
 	TeamLayoutStandard   TeamLayout = "standard"
 	TeamLayoutRosterOnly TeamLayout = "roster_only"
 )
-
-// TeamInfo はチームの見出しと紹介文。
-type TeamInfo struct {
-	ID        int64
-	FullName  domain.I18nText
-	ShortName domain.I18nText
-	Comment   domain.I18nText
-	Layout    TeamLayout
-}
-
-// PlayerLine はチームページの選手一覧の 1 行。
-type PlayerLine struct {
-	Player  domain.PlayerRef
-	Games   int
-	Assists int
-	Goals   int
-	Blocks  int
-	// Absent は欠場(出場記録の取られているチームで、どの試合にも出場していない選手)
-	Absent bool
-}
-
-// StaffLine はスタッフ一覧の 1 行。
-type StaffLine struct {
-	ID     int64
-	Role   domain.I18nText
-	Name   domain.I18nText
-	Gender *domain.Gender
-}
 
 // MatchPage は試合ページ。
 type MatchPage struct {
@@ -391,24 +272,6 @@ type LineupLine struct {
 	Blocks  int
 }
 
-// PlayerPage は選手ページ(スタッフも同じ)。
-type PlayerPage struct {
-	Frame     Frame
-	Player    PlayerWithRole
-	Team      domain.TeamRef
-	Prev      PlayerWithRole
-	Next      PlayerWithRole
-	StatsKind domain.StatsKind
-	Stats     PlayerStats
-	Events    []PlayerEventLine
-}
-
-// PlayerWithRole は選手の参照と役割。Role が非 nil ならスタッフ。
-type PlayerWithRole struct {
-	Player domain.PlayerRef
-	Role   *domain.I18nText
-}
-
 // PlayerStats は選手ページの成績表。
 type PlayerStats struct {
 	Games     int
@@ -417,26 +280,6 @@ type PlayerStats struct {
 	Callahans int
 	Greatests int
 	Blocks    int
-}
-
-// PlayerEventLine は選手が得点かアシストをしたイベント。
-type PlayerEventLine struct {
-	Code       string
-	Date       *string
-	Opponent   *domain.TeamRef
-	ElapsedSec int
-	// Callahan はキャラハンゴール。選手ページのイベント名に使う
-	Callahan bool
-	Scorer   *domain.PlayerRef
-	Assist   *domain.PlayerRef
-}
-
-// GalleryPage はギャラリー。
-type GalleryPage struct {
-	Frame  Frame
-	ID     int64
-	Name   string
-	Photos []Photo
 }
 
 // Photo はギャラリーの写真。

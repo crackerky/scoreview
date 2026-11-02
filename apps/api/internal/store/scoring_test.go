@@ -109,13 +109,6 @@ func TestResultTypesAreTallied(t *testing.T) {
 		ForfeitScore: &domain.ForfeitScore{Winner: 13, Loser: 0},
 	})
 	require.ErrorIs(t, err, domain.ErrBadRequest)
-
-	page, err := store.GetTeam(ctx, db, us.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.Tally{Games: 3, Wins: 1, Losses: 2, GoalsFor: 15}, page.Record)
-	page, err = store.GetTeam(ctx, db, them.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.Tally{Games: 3, Wins: 1, Losses: 2, GoalsAgainst: 15}, page.Record)
 }
 
 func TestFinalRankChangesAreAudited(t *testing.T) {

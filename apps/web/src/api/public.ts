@@ -1,43 +1,24 @@
 import 'server-only'
 import { apiFetch } from './client'
 import {
-  type GalleryResponse,
   type GroupResponse,
-  galleryResponseSchema,
   groupResponseSchema,
   type LiveTablesResponse,
   liveTablesResponseSchema,
   type MatchResponse,
   matchResponseSchema,
-  type PlayerResponse,
-  playerResponseSchema,
   type ScheduleResponse,
-  type StandingsResponse,
   scheduleResponseSchema,
-  standingsResponseSchema,
-  type TeamListResponse,
-  type TeamResponse,
   type TournamentListResponse,
-  type TournamentTopResponse,
-  teamListResponseSchema,
-  teamResponseSchema,
   tournamentListResponseSchema,
-  tournamentTopResponseSchema,
 } from './public.types'
 
-// docs/api.md「閲覧用エンドポイント」を呼ぶ関数。応答は必ず zod で parse して返す。
+// docs/api.md「閲覧用エンドポイント」を呼ぶ関数(大会の一覧と観戦アプリが使う)。応答は必ず zod で
+// parse して返す。
 const base = '/api/v1'
 
 export function getTournaments(): Promise<TournamentListResponse> {
   return apiFetch(`${base}/tournaments`, tournamentListResponseSchema)
-}
-
-export function getTournamentTop(id: number): Promise<TournamentTopResponse> {
-  return apiFetch(`${base}/tournaments/${id}`, tournamentTopResponseSchema)
-}
-
-export function getTeamList(tournamentId: number): Promise<TeamListResponse> {
-  return apiFetch(`${base}/tournaments/${tournamentId}/teams`, teamListResponseSchema)
 }
 
 /**
@@ -61,35 +42,12 @@ export function getTournamentSchedule(
   })
 }
 
-export function getDivisionSchedule(
-  divisionId: number,
-  query: ScheduleQuery = {},
-): Promise<ScheduleResponse> {
-  return apiFetch(`${base}/divisions/${divisionId}/schedule`, scheduleResponseSchema, { query })
-}
-
-export function getDivisionStandings(divisionId: number): Promise<StandingsResponse> {
-  return apiFetch(`${base}/divisions/${divisionId}/standings`, standingsResponseSchema)
-}
-
 export function getGroup(groupId: number): Promise<GroupResponse> {
   return apiFetch(`${base}/groups/${groupId}`, groupResponseSchema)
 }
 
-export function getTeam(teamId: number): Promise<TeamResponse> {
-  return apiFetch(`${base}/teams/${teamId}`, teamResponseSchema)
-}
-
 export function getMatch(matchId: number): Promise<MatchResponse> {
   return apiFetch(`${base}/matches/${matchId}`, matchResponseSchema)
-}
-
-export function getPlayer(playerId: number): Promise<PlayerResponse> {
-  return apiFetch(`${base}/players/${playerId}`, playerResponseSchema)
-}
-
-export function getGallery(galleryId: number): Promise<GalleryResponse> {
-  return apiFetch(`${base}/galleries/${galleryId}`, galleryResponseSchema)
 }
 
 /** 観戦アプリの「表で見る」の見せ方とトーナメントの形 */

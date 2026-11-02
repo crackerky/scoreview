@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -70,49 +69,6 @@ func GetTournamentSchedule(
 		scope: scope, matches: matches, teams: teams, options: options,
 		filter: filter, defaultYMD: defaultYMD, teamMatches: teamMatches,
 	})
-}
-
-// GetDivisionSchedule はディビジョン別のスケジュールを返す(参照サイトの scv_search_div)。
-// filter.YMD が nil なら全日程。filter.Team はチーム ID の文字列。
-func GetDivisionSchedule(
-	ctx context.Context,
-	db *gorm.DB,
-	id int64,
-	filter ScheduleFilter,
-) (SchedulePage, error) {
-	division, err := findByID[Division](ctx, db, id, domain.ResourceDivision)
-	if err != nil {
-		return SchedulePage{}, err
-	}
-	scope, err := loadScopeOf(ctx, db, division.TournamentID)
-	if err != nil {
-		return SchedulePage{}, err
-	}
-	var matches []Match
-	if err := db.WithContext(ctx).Where(sqlByDivision, id).Find(&matches).Error; err != nil {
-		return SchedulePage{}, fmt.Errorf("load matches of division %d: %w", id, err)
-	}
-	var teams []Team
-	if err := db.WithContext(ctx).Where(sqlByDivision, id).Order(sqlOrderSortID).Find(&teams).Error; err != nil {
-		return SchedulePage{}, fmt.Errorf("load teams of division %d: %w", id, err)
-	}
-	options := make([]ScheduleTeamOption, 0, len(teams))
-	for _, team := range teams {
-		options = append(options, ScheduleTeamOption{
-			Value: strconv.FormatInt(team.ID, 10), Name: i18n(team.NameFullJa, team.NameFullEn),
-		})
-	}
-	teamMatches := func(team Team) bool { return strconv.FormatInt(team.ID, 10) == filter.Team }
-
-	page, err := buildSchedule(ctx, db, scheduleInput{
-		scope: scope, matches: matches, teams: teams, options: options,
-		filter: filter, teamMatches: teamMatches,
-	})
-	if err != nil {
-		return SchedulePage{}, err
-	}
-	page.Division = &DivisionRef{ID: division.ID, Name: i18n(division.NameJa, division.NameEn)}
-	return page, nil
 }
 
 type scheduleInput struct {

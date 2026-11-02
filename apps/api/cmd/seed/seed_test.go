@@ -86,19 +86,7 @@ func TestSeedIsReadable(t *testing.T) {
 	var tournaments []store.Tournament
 	require.NoError(t, db.Find(&tournaments).Error)
 	for _, tour := range tournaments {
-		_, err := store.GetTournamentTop(ctx, db, tour.ID)
-		require.NoError(t, err)
-		_, err = store.GetTeamList(ctx, db, tour.ID)
-		require.NoError(t, err)
-		_, err = store.GetTournamentSchedule(ctx, db, tour.ID, store.ScheduleFilter{})
-		require.NoError(t, err)
-	}
-	var divisions []store.Division
-	require.NoError(t, db.Find(&divisions).Error)
-	for _, division := range divisions {
-		_, err := store.GetDivisionSchedule(ctx, db, division.ID, store.ScheduleFilter{})
-		require.NoError(t, err)
-		_, err = store.GetDivisionStandings(ctx, db, division.ID)
+		_, err := store.GetTournamentSchedule(ctx, db, tour.ID, store.ScheduleFilter{})
 		require.NoError(t, err)
 	}
 	var groups []store.Group
@@ -110,12 +98,6 @@ func TestSeedIsReadable(t *testing.T) {
 		} else {
 			require.ErrorIs(t, err, domain.ErrNotFound, group.Name)
 		}
-	}
-	var players []store.Player
-	require.NoError(t, db.Find(&players).Error)
-	for _, player := range players {
-		_, err := store.GetPlayer(ctx, db, player.ID)
-		require.NoError(t, err)
 	}
 	var matches []store.Match
 	require.NoError(t, db.Find(&matches).Error)

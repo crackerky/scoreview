@@ -3,40 +3,22 @@ import { describe, test } from 'node:test'
 import type { z } from 'zod'
 import { matchRowSchema, tournamentFrameSchema } from '../src/api/common.types.ts'
 import {
-  galleryResponseSchema,
   groupResponseSchema,
   matchResponseSchema,
-  playerResponseSchema,
   scheduleResponseSchema,
-  standingsResponseSchema,
-  teamListResponseSchema,
-  teamResponseSchema,
   tournamentListResponseSchema,
-  tournamentTopResponseSchema,
+  tournamentSummarySchema,
 } from '../src/api/public.types.ts'
 import { loadFixture } from './fixtures/load.ts'
 
 // docs/api.md の例に沿った fixture がすべての閲覧用応答スキーマで parse できることを確かめる
 const cases: Array<[string, z.ZodType]> = [
   ['tournaments', tournamentListResponseSchema],
-  ['tournament-1', tournamentTopResponseSchema],
-  ['tournament-2', tournamentTopResponseSchema],
-  ['tournament-3', tournamentTopResponseSchema],
-  ['teams-1', teamListResponseSchema],
-  ['teams-2', teamListResponseSchema],
   ['schedule-tournament-1', scheduleResponseSchema],
-  ['schedule-division-101', scheduleResponseSchema],
-  ['standings-101', standingsResponseSchema],
   ['group-1001', groupResponseSchema],
   ['group-1002', groupResponseSchema],
-  ['team-5001', teamResponseSchema],
-  ['team-5003', teamResponseSchema],
   ['match-9001', matchResponseSchema],
   ['match-9002', matchResponseSchema],
-  ['player-70001', playerResponseSchema],
-  ['player-70009', playerResponseSchema],
-  ['player-70101', playerResponseSchema],
-  ['gallery-201', galleryResponseSchema],
 ]
 
 describe('閲覧用応答のスキーマ', () => {
@@ -48,15 +30,15 @@ describe('閲覧用応答のスキーマ', () => {
   }
 
   test('frame が欠けた応答は失敗する', () => {
-    const { frame: _frame, ...rest } = galleryResponseSchema.parse(loadFixture('gallery-201'))
-    assert.equal(galleryResponseSchema.safeParse(rest).success, false)
+    const { frame: _frame, ...rest } = groupResponseSchema.parse(loadFixture('group-1001'))
+    assert.equal(groupResponseSchema.safeParse(rest).success, false)
   })
 
   test('null で返すべきキーの省略は失敗する(nullable であって optional ではない)', () => {
-    const top = tournamentTopResponseSchema.parse(loadFixture('tournament-1'))
-    const { logoUrl: _logoUrl, ...rest } = top
-    assert.equal(tournamentTopResponseSchema.safeParse(rest).success, false)
-    assert.equal(tournamentTopResponseSchema.safeParse({ ...top, logoUrl: null }).success, true)
+    const summary = { id: 1, name: { ja: '大会', en: '' }, startDate: null, teamCount: 0 }
+    const { startDate: _startDate, ...rest } = summary
+    assert.equal(tournamentSummarySchema.safeParse(rest).success, false)
+    assert.equal(tournamentSummarySchema.safeParse(summary).success, true)
   })
 
   test('MatchRow の未確定チームは placeholder で表す', () => {

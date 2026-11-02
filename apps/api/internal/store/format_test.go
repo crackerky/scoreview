@@ -278,7 +278,9 @@ func TestSecondDivisionContinuesGroupLetters(t *testing.T) {
 // スケジュールの行は、形を決めた部門の試合に何を決める試合かの名前を持つ(観戦アプリ)
 func TestScheduleRowsHaveStageNames(t *testing.T) {
 	f := newFormatFixture(t)
-	page, err := store.GetDivisionSchedule(context.Background(), f.db, f.division.ID, store.ScheduleFilter{})
+	all := ""
+	page, err := store.GetTournamentSchedule(context.Background(), f.db, f.division.TournamentID,
+		store.ScheduleFilter{YMD: &all})
 	require.NoError(t, err)
 	stages := map[string]string{}
 	for _, row := range page.Rows {

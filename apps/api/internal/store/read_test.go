@@ -92,54 +92,6 @@ func TestListTournamentsDecidesSectionsFromMatchesAndCountsEntries(t *testing.T)
 	assert.Equal(t, domain.SectionInProgress, sections[0].Section, "in_progress comes first")
 }
 
-func TestGetTournamentTopAndFrame(t *testing.T) {
-	db, _, sc := setup(t)
-	page, err := store.GetTournamentTop(context.Background(), db, sc.Tournament.ID)
-	require.NoError(t, err)
-
-	frame := page.Frame
-	assert.Equal(t, "2026 Beach", frame.ShortName)
-	require.Len(t, frame.Divisions, 2)
-	assert.Equal(t, sc.Mixed.ID, frame.Divisions[0].ID)
-	// 非公開(published=false)のグループは出ず、sort_order 順
-	// 英語名が空のグループは en も空のまま(日本語で補わない)
-	assert.Equal(t, []store.FrameGroup{
-		{ID: sc.Pool.ID, Name: domain.I18nText{Ja: "Qualifying pool A"}, Linked: true},
-		{ID: sc.Bracket.ID, Name: domain.I18nText{Ja: "Tounament A"}, Linked: false},
-		{
-			ID: sc.Image.ID, Name: domain.I18nText{Ja: "Temporary ranking", En: "Temporary ranking"},
-			Linked: true,
-		},
-	}, frame.Divisions[0].Groups)
-	assert.Equal(t, []store.FrameGroup{}, frame.Divisions[1].Groups)
-	assert.Equal(t, []store.FrameGallery{
-		{ID: sc.Gallery.ID, Name: domain.I18nText{Ja: "Day2-AM", En: "---"}},
-	}, frame.Galleries)
-	assert.Equal(t, []store.FrameBanner{
-		{ImageURL: "/b1.png", LinkURL: ptr("https://example.com/")}, {ImageURL: "/b2.png"},
-	}, frame.Banners)
-
-	assert.Equal(t, ptr("/logo.png"), page.LogoURL)
-	assert.Contains(t, page.TopHTML.Ja, "<script>", "store returns raw HTML; httpapi sanitizes")
-	assert.Equal(t, []store.TopDivision{
-		{
-			ID:              sc.Mixed.ID,
-			Name:            domain.I18nText{Ja: "ビーチミックス", En: "Beach Mixed"},
-			ScheduleLinked:  true,
-			StandingsLinked: true,
-		},
-		{ID: sc.Women.ID, Name: domain.I18nText{Ja: "ウィメン", En: "Women's"}, ScheduleLinked: true},
-	}, page.Divisions)
-}
-
-func TestGetTournamentTopReturnsUnlisted(t *testing.T) {
-	db, _, sc := setup(t)
-	page, err := store.GetTournamentTop(context.Background(), db, sc.Unlisted.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "", page.Frame.Name.En)
-	assert.Empty(t, page.Divisions)
-}
-
 func TestNotFound(t *testing.T) {
 	db, _, _ := setup(t)
 	ctx := context.Background()
@@ -148,34 +100,12 @@ func TestNotFound(t *testing.T) {
 		resource domain.Resource
 		call     func() error
 	}{
-		{
-			domain.ResourceTournament,
-			func() error { _, err := store.GetTournamentTop(ctx, db, missing); return err },
-		},
-		{
-			domain.ResourceTournament,
-			func() error { _, err := store.GetTeamList(ctx, db, missing); return err },
-		},
 		{domain.ResourceTournament, func() error {
 			_, err := store.GetTournamentSchedule(ctx, db, missing, store.ScheduleFilter{})
 			return err
 		}},
-		{domain.ResourceDivision, func() error {
-			_, err := store.GetDivisionSchedule(ctx, db, missing, store.ScheduleFilter{})
-			return err
-		}},
-		{
-			domain.ResourceDivision,
-			func() error { _, err := store.GetDivisionStandings(ctx, db, missing); return err },
-		},
 		{domain.ResourceGroup, func() error { _, err := store.GetGroup(ctx, db, missing); return err }},
-		{domain.ResourceTeam, func() error { _, err := store.GetTeam(ctx, db, missing); return err }},
 		{domain.ResourceMatch, func() error { _, err := store.GetMatch(ctx, db, missing); return err }},
-		{domain.ResourcePlayer, func() error { _, err := store.GetPlayer(ctx, db, missing); return err }},
-		{
-			domain.ResourceGallery,
-			func() error { _, err := store.GetGallery(ctx, db, missing); return err },
-		},
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.resource), func(t *testing.T) {
@@ -187,27 +117,6 @@ func TestNotFound(t *testing.T) {
 			assert.True(t, errors.Is(err, domain.ErrNotFound))
 		})
 	}
-}
-
-func TestGetTeamList(t *testing.T) {
-	db, b, sc := setup(t)
-	individual := b.Division(sc.Tournament.ID, func(row *store.Division) {
-		row.NameJa, row.EntryKind, row.SortOrder = "ＤＧシングルス", domain.EntryIndividual, 9
-	})
-	solo := b.Team(individual, func(row *store.Team) { row.NameFullJa = "架空 個人" })
-	b.Player(solo.ID)
-
-	page, err := store.GetTeamList(context.Background(), db, sc.Tournament.ID)
-	require.NoError(t, err)
-	require.Len(t, page.Divisions, 3)
-	mixed := page.Divisions[0]
-	assert.Equal(t, domain.DivisionMixed, mixed.Kind)
-	require.Len(t, mixed.Teams, 4)
-	assert.Equal(t, sc.TeamA.ID, mixed.Teams[0].ID)
-	assert.Equal(t, "アルファ・スロー", mixed.Teams[0].Name.Ja, "team list shows the full name")
-	assert.Equal(t, ptr(2), mixed.Teams[0].MemberCount, "staff is not counted")
-	assert.Equal(t, ptr(0), mixed.Teams[3].MemberCount)
-	assert.Nil(t, page.Divisions[2].Teams[0].MemberCount, "individual entries have no member count")
 }
 
 func scheduleIDs(page store.SchedulePage) []int64 {
@@ -304,34 +213,6 @@ func TestGetTournamentSchedule(t *testing.T) {
 	}, final.Division)
 }
 
-func TestGetDivisionSchedule(t *testing.T) {
-	db, _, sc := setup(t)
-	ctx := context.Background()
-	page, err := store.GetDivisionSchedule(ctx, db, sc.Mixed.ID, store.ScheduleFilter{})
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		[]int64{sc.MatchAB.ID, sc.MatchCA.ID, sc.MatchBC.ID, sc.MatchFinal.ID},
-		scheduleIDs(page),
-		"absent ymd means all days for a division",
-	)
-	assert.Equal(
-		t,
-		&store.DivisionRef{ID: sc.Mixed.ID, Name: domain.I18nText{Ja: "ビーチミックス", En: "Beach Mixed"}},
-		page.Division,
-	)
-	assert.Equal(t, "", page.Selected.YMD)
-	require.Len(t, page.Teams, 4)
-	assert.Equal(t, store.ScheduleTeamOption{
-		Value: strconv.FormatInt(sc.TeamA.ID, 10), Name: domain.I18nText{Ja: "アルファ・スロー", En: "Alpha"},
-	}, page.Teams[0])
-
-	teamB := strconv.FormatInt(sc.TeamB.ID, 10)
-	page, err = store.GetDivisionSchedule(ctx, db, sc.Mixed.ID, store.ScheduleFilter{Team: teamB})
-	require.NoError(t, err)
-	assert.Equal(t, []int64{sc.MatchAB.ID, sc.MatchBC.ID}, scheduleIDs(page))
-}
-
 // countQueries は db で実行された SELECT の数を数える。
 func countQueries(t *testing.T, db *gorm.DB) *atomic.Int64 {
 	t.Helper()
@@ -372,74 +253,6 @@ func TestScheduleQueryCountDoesNotGrowWithMatches(t *testing.T) {
 	assert.Equal(t, before, count.Load())
 	// 7 回に大会の中断(閲覧ページの帯)の 1 回と、試合の名前(何位決定戦か)のための大会の形の 1 回を足した
 	assert.LessOrEqual(t, before, int64(9))
-}
-
-// 同順位は勝ち数の降順、得失差の降順。選手ランキングの試合数はチームの試合数。
-func TestGetDivisionStandingsTieOrder(t *testing.T) {
-	db, b, sc := setup(t)
-	division := b.Division(sc.Tournament.ID, func(row *store.Division) { row.StandingsPublished = true })
-	rankOne := func(order int) store.Team {
-		return b.Team(division, func(row *store.Team) { row.FinalRank, row.SortOrder = ptr(1), order })
-	}
-	first, second, third := rankOne(0), rankOne(1), rankOne(2)
-	b.Match(division, &third, &first, storetest.Finished(5, 0))
-	b.Match(division, &second, &first, storetest.Finished(2, 1))
-	b.Match(division, &third, &second, storetest.Finished(1, 0))
-	scorer := b.Player(first.ID)
-	match := b.Match(division, &first, &second, storetest.Finished(1, 0))
-	b.Goal(match.ID, domain.SideLeft, 60, &scorer, nil)
-
-	page, err := store.GetDivisionStandings(context.Background(), db, division.ID)
-	require.NoError(t, err)
-	var order []int64
-	for _, row := range page.Standings {
-		order = append(order, row.Team.ID)
-	}
-	// third 2 勝(+6)、second 1 勝(-1)、first 1 勝(-5)
-	assert.Equal(t, []int64{third.ID, second.ID, first.ID}, order)
-	require.Len(t, page.Leaders, 1)
-	assert.Equal(t, 3, page.Leaders[0].Games, "出場は 1 試合でもチームの試合数")
-}
-
-func TestGetDivisionStandings(t *testing.T) {
-	db, _, sc := setup(t)
-	page, err := store.GetDivisionStandings(context.Background(), db, sc.Mixed.ID)
-	require.NoError(t, err)
-
-	var order []int64
-	for _, row := range page.Standings {
-		order = append(order, row.Team.ID)
-	}
-	assert.Equal(
-		t,
-		[]int64{sc.TeamB.ID, sc.TeamA.ID, sc.TeamC.ID, sc.TeamD.ID},
-		order,
-		"final_rank, nulls last",
-	)
-	assert.Equal(
-		t,
-		domain.Tally{Games: 2, Wins: 1, Draws: 1, GoalsFor: 14, GoalsAgainst: 8},
-		page.Standings[1].Tally,
-	)
-	assert.Nil(t, page.Standings[3].Rank)
-	assert.Equal(t, domain.Tally{}, page.Standings[3].Tally, "live match is not counted")
-
-	require.Len(t, page.Leaders, 3)
-	assert.Equal(t, sc.PlayerA7.ID, page.Leaders[0].Player.ID)
-	assert.Equal(t, store.LeaderRow{
-		Team: domain.TeamRef{ID: sc.TeamB.ID, Name: domain.I18nText{Ja: "ブラボー", En: "Bravo"}},
-		Player: domain.PlayerRef{
-			ID: sc.PlayerB1.ID, Number: "1", Name: domain.I18nText{Ja: "架空 一太", En: "Ichita KAKU"},
-		},
-		Games: 1, Goals: 1,
-	}, page.Leaders[1])
-	assert.Equal(t, sc.PlayerA10.ID, page.Leaders[2].Player.ID)
-	assert.Equal(t, 1, page.Leaders[2].Assists)
-
-	require.Len(t, page.BlockLeaders, 2)
-	assert.Equal(t, sc.PlayerA7.ID, page.BlockLeaders[0].Player.ID)
-	assert.Equal(t, 2, page.BlockLeaders[0].Blocks)
-	assert.Equal(t, sc.PlayerB1.ID, page.BlockLeaders[1].Player.ID)
 }
 
 func TestGetGroupPool(t *testing.T) {
@@ -503,115 +316,6 @@ func TestGetGroupBracketAndImage(t *testing.T) {
 		page.Image,
 	)
 	assert.Empty(t, page.Matches)
-}
-
-func TestGetTeam(t *testing.T) {
-	db, _, sc := setup(t)
-	page, err := store.GetTeam(context.Background(), db, sc.TeamA.ID)
-	require.NoError(t, err)
-	assert.Equal(t, store.TeamLayoutStandard, page.Team.Layout)
-	assert.Equal(t, "アルファ・スロー", page.Team.FullName.Ja)
-	assert.Equal(t, "アルファ", page.Team.ShortName.Ja)
-	assert.Equal(
-		t,
-		domain.Tally{Games: 2, Wins: 1, Draws: 1, GoalsFor: 14, GoalsAgainst: 8},
-		page.Record,
-	)
-	assert.Equal(t, ptr(2), page.Rank)
-	require.Len(t, page.Matches, 2)
-	assert.Equal(t, sc.MatchAB.ID, page.Matches[0].ID)
-	require.Len(t, page.Players, 2)
-	assert.Equal(t, store.PlayerLine{
-		Player: domain.PlayerRef{
-			ID: sc.PlayerA7.ID, Number: "7", Name: domain.I18nText{Ja: "架空 七郎", En: "Shichiro KAKU"},
-			Gender: ptr(domain.Gender("M")),
-		},
-		// 試合数は出場記録の数(1)ではなくチームの試合数
-		Games: 2, Goals: 2, Blocks: 2,
-	}, page.Players[0])
-	assert.Equal(t, []store.StaffLine{{
-		ID: sc.StaffA.ID, Role: domain.I18nText{Ja: "マネージャ", En: "Manager"},
-		Name: domain.I18nText{Ja: "架空 監督", En: "Coach KAKU"},
-	}}, page.Staff)
-}
-
-// チーム名の下の追記(本サイト独自): 次の試合と、いま見るべきグループ。
-func TestGetTeamWhereabouts(t *testing.T) {
-	db, b, sc := setup(t)
-	ctx := context.Background()
-
-	// 終了した大会では次の試合を出さない。グループは最後に終えた試合のもの
-	page, err := store.GetTeam(ctx, db, sc.TeamB.ID)
-	require.NoError(t, err)
-	assert.Nil(t, page.NextMatchID)
-	require.NotNil(t, page.CurrentGroup)
-	assert.Equal(t, sc.Pool.ID, page.CurrentGroup.ID)
-
-	// 進行中の大会: 未試合の A3 が次の試合で、グループはその試合のもの
-	running := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryClosed })
-	division := b.Division(running.ID)
-	home := b.Team(division)
-	away := b.Team(division)
-	pool := b.Group(division.ID, domain.GroupPool)
-	second := b.Group(division.ID, domain.GroupPool, func(row *store.Group) { row.SortOrder = 1 })
-	b.GroupTeam(pool.ID, home.ID)
-	b.Match(division, &home, &away, storetest.Finished(3, 1), storetest.At(t, "2026-10-17", "09:00", "1"),
-		func(row *store.Match) { row.GroupID = &pool.ID })
-	next := b.Match(division, &away, &home, storetest.At(t, "2026-10-18", "09:00", "2"),
-		func(row *store.Match) { row.GroupID = &second.ID })
-	page, err = store.GetTeam(ctx, db, home.ID)
-	require.NoError(t, err)
-	assert.Equal(t, &next.ID, page.NextMatchID)
-	require.NotNil(t, page.CurrentGroup)
-	assert.Equal(t, second.ID, page.CurrentGroup.ID)
-
-	// 試合のないチームは group_teams の登録から選ぶ。どこにも入っていなければ nil
-	idle := b.Team(division)
-	b.GroupTeam(second.ID, idle.ID)
-	page, err = store.GetTeam(ctx, db, idle.ID)
-	require.NoError(t, err)
-	assert.Nil(t, page.NextMatchID)
-	require.NotNil(t, page.CurrentGroup)
-	assert.Equal(t, second.ID, page.CurrentGroup.ID)
-	page, err = store.GetTeam(ctx, db, b.Team(division).ID)
-	require.NoError(t, err)
-	assert.Nil(t, page.CurrentGroup)
-}
-
-// 出場記録のあるチームで記録のない選手は欠場。出場記録のないチームでは誰も欠場にしない。
-func TestGetTeamAbsentPlayers(t *testing.T) {
-	db, b, sc := setup(t)
-	benched := b.Player(sc.TeamA.ID)
-	page, err := store.GetTeam(context.Background(), db, sc.TeamA.ID)
-	require.NoError(t, err)
-	absent := map[int64]bool{}
-	for _, line := range page.Players {
-		absent[line.Player.ID] = line.Absent
-		assert.Equal(t, page.Record.Games, line.Games)
-	}
-	assert.Equal(t, map[int64]bool{sc.PlayerA7.ID: false, sc.PlayerA10.ID: false, benched.ID: true}, absent)
-
-	other := b.Team(sc.Mixed)
-	rookie := b.Player(other.ID)
-	page, err = store.GetTeam(context.Background(), db, other.ID)
-	require.NoError(t, err)
-	require.Len(t, page.Players, 1)
-	assert.Equal(t, rookie.ID, page.Players[0].Player.ID)
-	assert.False(t, page.Players[0].Absent)
-}
-
-func TestGetTeamDiscgolfIsRosterOnly(t *testing.T) {
-	db, b, sc := setup(t)
-	division := b.Division(
-		sc.Tournament.ID,
-		func(row *store.Division) { row.StatsKind = domain.StatsDiscgolf },
-	)
-	team := b.Team(division)
-	page, err := store.GetTeam(context.Background(), db, team.ID)
-	require.NoError(t, err)
-	assert.Equal(t, store.TeamLayoutRosterOnly, page.Team.Layout)
-	assert.Empty(t, page.Matches)
-	assert.Nil(t, page.Rank)
 }
 
 func TestGetMatch(t *testing.T) {
@@ -683,69 +387,4 @@ func TestGetMatchWithoutGroupOrEvents(t *testing.T) {
 		store.Lineups{Left: []store.LineupLine{}, Right: []store.LineupLine{}},
 		page.Lineups,
 	)
-}
-
-func TestGetPlayer(t *testing.T) {
-	db, _, sc := setup(t)
-	ctx := context.Background()
-	page, err := store.GetPlayer(ctx, db, sc.PlayerA7.ID)
-	require.NoError(t, err)
-	assert.Nil(t, page.Player.Role)
-	assert.Equal(
-		t,
-		sc.StaffA.ID,
-		page.Prev.Player.ID,
-		"the first player's prev wraps to the last (staff)",
-	)
-	assert.Equal(t, ptr(domain.I18nText{Ja: "マネージャ", En: "Manager"}), page.Prev.Role)
-	assert.Equal(t, sc.PlayerA10.ID, page.Next.Player.ID)
-	assert.Equal(t, "アルファ", page.Team.Name.Ja)
-	assert.Equal(t, domain.StatsUltimate, page.StatsKind)
-	assert.Equal(t, store.PlayerStats{Games: 1, Goals: 2, Callahans: 1, Blocks: 2}, page.Stats,
-		"callahans count the player's callahan goals")
-	require.Len(t, page.Events, 2)
-	assert.Equal(t, 60, page.Events[0].ElapsedSec)
-	assert.Equal(t, "A1", page.Events[0].Code)
-	assert.Equal(t, sc.TeamB.ID, page.Events[0].Opponent.ID)
-	assert.Equal(t, sc.PlayerA10.ID, page.Events[0].Assist.ID)
-	assert.Nil(t, page.Events[1].Assist)
-
-	staff, err := store.GetPlayer(ctx, db, sc.StaffA.ID)
-	require.NoError(t, err)
-	assert.Equal(t, sc.PlayerA7.ID, staff.Next.Player.ID, "the last wraps to the first")
-	assert.Empty(t, staff.Events)
-}
-
-func TestGetGallery(t *testing.T) {
-	db, _, sc := setup(t)
-	page, err := store.GetGallery(context.Background(), db, sc.Gallery.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "Day2-AM", page.Name)
-	assert.Equal(
-		t,
-		[]store.Photo{
-			{ThumbURL: "/g/mini/1.jpg", FullURL: "/g/1.jpg"},
-			{ThumbURL: "/g/mini/2.jpg", FullURL: "/g/2.jpg"},
-		},
-		page.Photos,
-	)
-}
-
-func TestReserveGeneratedIDRange(t *testing.T) {
-	db := testdb.New(t)
-	b := storetest.New(t, db)
-	ctx := context.Background()
-	b.Tournament(func(row *store.Tournament) { row.ID = 525 })
-	huge := b.Tournament(func(row *store.Tournament) { row.ID = store.GeneratedIDFloor + 41 })
-	require.NoError(t, store.ReserveGeneratedIDRange(ctx, db))
-
-	// 参照サイトの ID より大きい既存の ID があればその次から
-	assert.Equal(t, huge.ID+1, b.Tournament().ID)
-	// 空の表は下限から
-	gallery := b.Gallery(huge.ID)
-	assert.Equal(t, int64(store.GeneratedIDFloor), gallery.ID)
-	// 何度呼んでもシーケンスを戻さない
-	b.Gallery(huge.ID)
-	require.NoError(t, store.ReserveGeneratedIDRange(ctx, db))
-	assert.Equal(t, int64(store.GeneratedIDFloor+2), b.Gallery(huge.ID).ID)
 }

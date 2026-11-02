@@ -116,11 +116,6 @@ func TestResultTypesOverHTTP(t *testing.T) {
 		map[string]any{"resultType": "double_forfeit"})
 	match = detail["match"].(map[string]any)
 	assert.Nil(t, match["left"].(map[string]any)["score"], "両チーム不戦敗はスコアを記録しない")
-
-	// 閲覧用のチームページの成績: 両チーム不戦敗は負け
-	rec := f.do(t, "", http.MethodGet, fmt.Sprintf("/api/v1/teams/%d", s.left), nil)
-	require.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), `"losses":1`)
 }
 
 func TestAssignmentsAndMyMatches(t *testing.T) {

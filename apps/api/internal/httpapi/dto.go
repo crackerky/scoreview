@@ -122,41 +122,7 @@ type tournamentSummaryDTO struct {
 
 // GET /api/v1/tournaments/{id}
 
-type tournamentTopDTO struct {
-	Frame     frameDTO         `json:"frame"`
-	LogoURL   *string          `json:"logoUrl"`
-	TopHTML   i18nDTO          `json:"topHtml"`
-	Divisions []topDivisionDTO `json:"divisions"`
-}
-
-type topDivisionDTO struct {
-	ID              int64   `json:"id"`
-	Name            i18nDTO `json:"name"`
-	ScheduleLinked  bool    `json:"scheduleLinked"`
-	StandingsLinked bool    `json:"standingsLinked"`
-}
-
 // GET /api/v1/tournaments/{id}/teams
-
-type teamListDTO struct {
-	Frame     frameDTO              `json:"frame"`
-	Divisions []teamListDivisionDTO `json:"divisions"`
-}
-
-type teamListDivisionDTO struct {
-	ID        int64             `json:"id"`
-	Name      i18nDTO           `json:"name"`
-	Kind      string            `json:"kind"`
-	EntryKind string            `json:"entryKind"`
-	Teams     []teamListTeamDTO `json:"teams"`
-}
-
-type teamListTeamDTO struct {
-	ID          int64   `json:"id"`
-	Name        i18nDTO `json:"name"`
-	BarStyle    string  `json:"barStyle"`
-	MemberCount *int    `json:"memberCount"`
-}
 
 // GET /api/v1/tournaments/{id}/schedule と /api/v1/divisions/{id}/schedule
 
@@ -205,35 +171,6 @@ type scheduleDivisionDTO struct {
 }
 
 // GET /api/v1/divisions/{id}/standings
-
-type standingsDTO struct {
-	Frame        frameDTO            `json:"frame"`
-	Division     idI18nDTO           `json:"division"`
-	Standings    []standingRowDTO    `json:"standings"`
-	Leaders      []leaderRowDTO      `json:"leaders"`
-	BlockLeaders []blockLeaderRowDTO `json:"blockLeaders"`
-}
-
-type standingRowDTO struct {
-	tallyDTO
-	Team teamRefDTO `json:"team"`
-	Rank *int       `json:"rank"`
-}
-
-type leaderRowDTO struct {
-	Team    teamRefDTO   `json:"team"`
-	Player  playerRefDTO `json:"player"`
-	Games   int          `json:"games"`
-	Assists int          `json:"assists"`
-	Goals   int          `json:"goals"`
-}
-
-type blockLeaderRowDTO struct {
-	Team   teamRefDTO   `json:"team"`
-	Player playerRefDTO `json:"player"`
-	Games  int          `json:"games"`
-	Blocks int          `json:"blocks"`
-}
 
 // GET /api/v1/groups/{id}
 
@@ -318,49 +255,6 @@ type imageDTO struct {
 
 // GET /api/v1/teams/{id}
 
-type teamPageDTO struct {
-	Frame   frameDTO        `json:"frame"`
-	Team    teamInfoDTO     `json:"team"`
-	Record  teamRecordDTO   `json:"record"`
-	Matches []matchRowDTO   `json:"matches"`
-	Players []playerLineDTO `json:"players"`
-	Staff   []staffLineDTO  `json:"staff"`
-	// ShowSotg は SOTG スコア一覧を出すか(行は matches から作る。値は空)
-	ShowSotg bool `json:"showSotg"`
-	// NextMatchID と CurrentGroup はチーム名の下の本サイト独自の追記(次の試合、所属グループ)
-	NextMatchID  *int64         `json:"nextMatchId"`
-	CurrentGroup *frameGroupDTO `json:"currentGroup"`
-}
-
-type teamInfoDTO struct {
-	ID        int64   `json:"id"`
-	FullName  i18nDTO `json:"fullName"`
-	ShortName i18nDTO `json:"shortName"`
-	Comment   i18nDTO `json:"comment"`
-	Layout    string  `json:"layout"`
-}
-
-type teamRecordDTO struct {
-	tallyDTO
-	Rank *int `json:"rank"`
-}
-
-type playerLineDTO struct {
-	Player  playerRefDTO `json:"player"`
-	Games   int          `json:"games"`
-	Assists int          `json:"assists"`
-	Goals   int          `json:"goals"`
-	Blocks  int          `json:"blocks"`
-	Absent  bool         `json:"absent"`
-}
-
-type staffLineDTO struct {
-	ID     int64   `json:"id"`
-	Role   i18nDTO `json:"role"`
-	Name   i18nDTO `json:"name"`
-	Gender *string `json:"gender"`
-}
-
 // GET /api/v1/matches/{id}
 
 type matchPageDTO struct {
@@ -439,53 +333,7 @@ type sideStatsDTO struct {
 
 // GET /api/v1/players/{id}
 
-type playerPageDTO struct {
-	Frame     frameDTO             `json:"frame"`
-	Player    playerWithRoleDTO    `json:"player"`
-	Team      teamRefDTO           `json:"team"`
-	Prev      playerWithRoleDTO    `json:"prev"`
-	Next      playerWithRoleDTO    `json:"next"`
-	StatsKind string               `json:"statsKind"`
-	Stats     playerStatsDTO       `json:"stats"`
-	Events    []playerEventLineDTO `json:"events"`
-}
-
-type playerWithRoleDTO struct {
-	playerRefDTO
-	Role *i18nDTO `json:"role"`
-}
-
-type playerStatsDTO struct {
-	Games     int `json:"games"`
-	Assists   int `json:"assists"`
-	Goals     int `json:"goals"`
-	Callahans int `json:"callahans"`
-	Greatests int `json:"greatests"`
-	Blocks    int `json:"blocks"`
-}
-
-type playerEventLineDTO struct {
-	Code       string        `json:"code"`
-	Date       *string       `json:"date"`
-	Opponent   *teamRefDTO   `json:"opponent"`
-	ElapsedSec int           `json:"elapsedSec"`
-	Callahan   bool          `json:"callahan"`
-	Scorer     *playerRefDTO `json:"scorer"`
-	Assist     *playerRefDTO `json:"assist"`
-}
-
 // GET /api/v1/galleries/{id}
-
-type galleryPageDTO struct {
-	Frame   frameDTO   `json:"frame"`
-	Gallery galleryDTO `json:"gallery"`
-}
-
-type galleryDTO struct {
-	ID     int64      `json:"id"`
-	Name   string     `json:"name"`
-	Photos []photoDTO `json:"photos"`
-}
 
 type photoDTO struct {
 	ThumbURL string `json:"thumbUrl"`

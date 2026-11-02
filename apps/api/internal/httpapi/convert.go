@@ -80,15 +80,6 @@ func toPlayerRefPtr(player *domain.PlayerRef) *playerRefDTO {
 	return &out
 }
 
-func toPlayerWithRole(player store.PlayerWithRole) playerWithRoleDTO {
-	out := playerWithRoleDTO{playerRefDTO: toPlayerRef(player.Player)}
-	if player.Role != nil {
-		role := toI18n(*player.Role)
-		out.Role = &role
-	}
-	return out
-}
-
 func toMatchSide(side domain.MatchSide) matchSideDTO {
 	out := matchSideDTO{Team: toTeamRefPtr(side.Team), Score: side.Score, LabelEn: side.LabelEn}
 	if side.Placeholder != nil {
@@ -154,26 +145,6 @@ func toTournamentList(sections []store.TournamentSection) tournamentListDTO {
 	return out
 }
 
-func toTeamList(page store.TeamListPage) teamListDTO {
-	out := teamListDTO{
-		Frame:     toFrame(page.Frame),
-		Divisions: make([]teamListDivisionDTO, 0, len(page.Divisions)),
-	}
-	for _, division := range page.Divisions {
-		teams := make([]teamListTeamDTO, 0, len(division.Teams))
-		for _, team := range division.Teams {
-			teams = append(teams, teamListTeamDTO{
-				ID: team.ID, Name: toI18n(team.Name), BarStyle: string(team.BarStyle), MemberCount: team.MemberCount,
-			})
-		}
-		out.Divisions = append(out.Divisions, teamListDivisionDTO{
-			ID: division.ID, Name: toI18n(division.Name), Kind: string(division.Kind),
-			EntryKind: string(division.EntryKind), Teams: teams,
-		})
-	}
-	return out
-}
-
 func toSchedule(page store.SchedulePage, scope string) scheduleDTO {
 	out := scheduleDTO{
 		Frame: toFrame(page.Frame),
@@ -214,33 +185,6 @@ func toSchedule(page store.SchedulePage, scope string) scheduleDTO {
 				ID: row.Division.ID, Name: toI18n(row.Division.Name), Kind: string(row.Division.Kind),
 			},
 			Stage: stage,
-		})
-	}
-	return out
-}
-
-func toStandings(page store.StandingsPage) standingsDTO {
-	out := standingsDTO{
-		Frame:        toFrame(page.Frame),
-		Division:     toIDI18n(page.Division.ID, page.Division.Name),
-		Standings:    make([]standingRowDTO, 0, len(page.Standings)),
-		Leaders:      make([]leaderRowDTO, 0, len(page.Leaders)),
-		BlockLeaders: make([]blockLeaderRowDTO, 0, len(page.BlockLeaders)),
-	}
-	for _, row := range page.Standings {
-		out.Standings = append(out.Standings, standingRowDTO{
-			tallyDTO: toTally(row.Tally), Team: toTeamRef(row.Team), Rank: row.Rank,
-		})
-	}
-	for _, row := range page.Leaders {
-		out.Leaders = append(out.Leaders, leaderRowDTO{
-			Team: toTeamRef(row.Team), Player: toPlayerRef(row.Player),
-			Games: row.Games, Assists: row.Assists, Goals: row.Goals,
-		})
-	}
-	for _, row := range page.BlockLeaders {
-		out.BlockLeaders = append(out.BlockLeaders, blockLeaderRowDTO{
-			Team: toTeamRef(row.Team), Player: toPlayerRef(row.Player), Games: row.Games, Blocks: row.Blocks,
 		})
 	}
 	return out
@@ -336,40 +280,6 @@ func toBracket(bracket store.BracketView) bracketDTO {
 	return out
 }
 
-func toTeamPage(page store.TeamPage) teamPageDTO {
-	out := teamPageDTO{
-		Frame: toFrame(page.Frame),
-		Team: teamInfoDTO{
-			ID: page.Team.ID, FullName: toI18n(page.Team.FullName), ShortName: toI18n(page.Team.ShortName),
-			Comment: toI18n(page.Team.Comment), Layout: string(page.Team.Layout),
-		},
-		Record:   teamRecordDTO{tallyDTO: toTally(page.Record), Rank: page.Rank},
-		Matches:  toMatchRows(page.Matches),
-		Players:  make([]playerLineDTO, 0, len(page.Players)),
-		Staff:    make([]staffLineDTO, 0, len(page.Staff)),
-		ShowSotg: page.ShowSOTG,
-	}
-	out.NextMatchID = page.NextMatchID
-	if group := page.CurrentGroup; group != nil {
-		out.CurrentGroup = &frameGroupDTO{ID: group.ID, Name: toI18n(group.Name), Linked: group.Linked}
-	}
-	for _, line := range page.Players {
-		out.Players = append(out.Players, playerLineDTO{
-			Player: toPlayerRef(line.Player), Games: line.Games, Assists: line.Assists, Goals: line.Goals,
-			Blocks: line.Blocks, Absent: line.Absent,
-		})
-	}
-	for _, staff := range page.Staff {
-		line := staffLineDTO{ID: staff.ID, Role: toI18n(staff.Role), Name: toI18n(staff.Name)}
-		if staff.Gender != nil {
-			gender := string(*staff.Gender)
-			line.Gender = &gender
-		}
-		out.Staff = append(out.Staff, line)
-	}
-	return out
-}
-
 func toMatchPage(page store.MatchPage) matchPageDTO {
 	match := page.Match
 	out := matchPageDTO{
@@ -429,40 +339,6 @@ func toSideStats(stats domain.SideStats) sideStatsDTO {
 	return sideStatsDTO{
 		Goals: stats.Goals, FromOffense: stats.FromOffense, FromDefense: stats.FromDefense,
 		FromTurnover: stats.FromTurnover, Timeouts: stats.Timeouts,
-	}
-}
-
-func toPlayerPage(page store.PlayerPage) playerPageDTO {
-	out := playerPageDTO{
-		Frame:     toFrame(page.Frame),
-		Player:    toPlayerWithRole(page.Player),
-		Team:      toTeamRef(page.Team),
-		Prev:      toPlayerWithRole(page.Prev),
-		Next:      toPlayerWithRole(page.Next),
-		StatsKind: string(page.StatsKind),
-		Stats: playerStatsDTO{
-			Games: page.Stats.Games, Assists: page.Stats.Assists, Goals: page.Stats.Goals,
-			Callahans: page.Stats.Callahans, Greatests: page.Stats.Greatests, Blocks: page.Stats.Blocks,
-		},
-		Events: make([]playerEventLineDTO, 0, len(page.Events)),
-	}
-	for _, event := range page.Events {
-		out.Events = append(out.Events, playerEventLineDTO{
-			Code: event.Code, Date: event.Date, Opponent: toTeamRefPtr(event.Opponent), ElapsedSec: event.ElapsedSec,
-			Callahan: event.Callahan, Scorer: toPlayerRefPtr(event.Scorer), Assist: toPlayerRefPtr(event.Assist),
-		})
-	}
-	return out
-}
-
-func toGalleryPage(page store.GalleryPage) galleryPageDTO {
-	photos := make([]photoDTO, 0, len(page.Photos))
-	for _, photo := range page.Photos {
-		photos = append(photos, photoDTO{ThumbURL: photo.ThumbURL, FullURL: photo.FullURL})
-	}
-	return galleryPageDTO{
-		Frame:   toFrame(page.Frame),
-		Gallery: galleryDTO{ID: page.ID, Name: page.Name, Photos: photos},
 	}
 }
 

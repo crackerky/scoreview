@@ -2,17 +2,13 @@ import { z } from 'zod'
 import {
   bracketCellSchema,
   divisionKindSchema,
-  entryKindSchema,
-  genderSchema,
   groupKindSchema,
   i18nTextSchema,
   matchRowSchema,
   matchStatusSchema,
   playerRefSchema,
   sideSchema,
-  statsKindSchema,
   tallySchema,
-  teamBarStyleSchema,
   teamRefSchema,
   tournamentFrameSchema,
 } from './common.types'
@@ -42,44 +38,6 @@ export const tournamentListResponseSchema = z.object({
 })
 export type TournamentListResponse = z.infer<typeof tournamentListResponseSchema>
 
-/** GET /api/v1/tournaments/{id} */
-export const tournamentTopResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  logoUrl: z.string().nullable(),
-  topHtml: i18nTextSchema,
-  divisions: z.array(
-    z.object({
-      id: z.number().int(),
-      name: i18nTextSchema,
-      scheduleLinked: z.boolean(),
-      standingsLinked: z.boolean(),
-    }),
-  ),
-})
-export type TournamentTopResponse = z.infer<typeof tournamentTopResponseSchema>
-
-/** GET /api/v1/tournaments/{id}/teams */
-export const teamListResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  divisions: z.array(
-    z.object({
-      id: z.number().int(),
-      name: i18nTextSchema,
-      kind: divisionKindSchema,
-      entryKind: entryKindSchema,
-      teams: z.array(
-        z.object({
-          id: z.number().int(),
-          name: i18nTextSchema,
-          barStyle: teamBarStyleSchema,
-          memberCount: z.number().int().nullable(),
-        }),
-      ),
-    }),
-  ),
-})
-export type TeamListResponse = z.infer<typeof teamListResponseSchema>
-
 export const scheduleRowSchema = matchRowSchema.extend({
   division: z.object({ id: z.number().int(), name: i18nTextSchema, kind: divisionKindSchema }),
   /** 何を決める試合か(「1〜4位 準決勝」「3位決定戦」)。形を決めていない部門は null */
@@ -103,33 +61,6 @@ export const scheduleResponseSchema = z.object({
   rows: z.array(scheduleRowSchema),
 })
 export type ScheduleResponse = z.infer<typeof scheduleResponseSchema>
-
-/** GET /api/v1/divisions/{id}/standings */
-export const standingsResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  division: z.object({ id: z.number().int(), name: i18nTextSchema }),
-  standings: z.array(
-    tallySchema.extend({ team: teamRefSchema, rank: z.number().int().nullable() }),
-  ),
-  leaders: z.array(
-    z.object({
-      team: teamRefSchema,
-      player: playerRefSchema,
-      games: z.number().int(),
-      assists: z.number().int(),
-      goals: z.number().int(),
-    }),
-  ),
-  blockLeaders: z.array(
-    z.object({
-      team: teamRefSchema,
-      player: playerRefSchema,
-      games: z.number().int(),
-      blocks: z.number().int(),
-    }),
-  ),
-})
-export type StandingsResponse = z.infer<typeof standingsResponseSchema>
 
 export const poolMatrixCellSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.enum(['self', 'lower', 'empty']) }),
@@ -194,37 +125,6 @@ const playerLineSchema = z.object({
   goals: z.number().int(),
   blocks: z.number().int(),
 })
-
-/** GET /api/v1/teams/{id} */
-export const teamResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  team: z.object({
-    id: z.number().int(),
-    fullName: i18nTextSchema,
-    shortName: i18nTextSchema,
-    comment: i18nTextSchema,
-    layout: z.enum(['standard', 'roster_only']),
-  }),
-  record: tallySchema.extend({ rank: z.number().int().nullable() }),
-  matches: z.array(matchRowSchema),
-  players: z.array(playerLineSchema.extend({ games: z.number().int(), absent: z.boolean() })),
-  // SOTG スコア一覧(行は matches、値は空)を出すか
-  showSotg: z.boolean(),
-  // チーム名の下の本サイト独自の追記(docs/requirements.md「意図的な差分」)。次の試合は matches の 1 件
-  nextMatchId: z.number().int().nullable(),
-  currentGroup: z
-    .object({ id: z.number().int(), name: i18nTextSchema, linked: z.boolean() })
-    .nullable(),
-  staff: z.array(
-    z.object({
-      id: z.number().int(),
-      role: i18nTextSchema,
-      name: i18nTextSchema,
-      gender: genderSchema.nullable(),
-    }),
-  ),
-})
-export type TeamResponse = z.infer<typeof teamResponseSchema>
 
 const matchTeamStatsSchema = z.object({
   goals: z.number().int(),
@@ -291,49 +191,6 @@ export const matchResponseSchema = z.object({
   stats: z.object({ left: matchTeamStatsSchema, right: matchTeamStatsSchema }),
 })
 export type MatchResponse = z.infer<typeof matchResponseSchema>
-
-const playerWithRoleSchema = playerRefSchema.extend({ role: i18nTextSchema.nullable() })
-
-/** GET /api/v1/players/{id}。role が非 null ならスタッフ。 */
-export const playerResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  player: playerWithRoleSchema,
-  team: teamRefSchema,
-  prev: playerWithRoleSchema,
-  next: playerWithRoleSchema,
-  statsKind: statsKindSchema,
-  stats: z.object({
-    games: z.number().int(),
-    assists: z.number().int(),
-    goals: z.number().int(),
-    callahans: z.number().int(),
-    greatests: z.number().int(),
-    blocks: z.number().int(),
-  }),
-  events: z.array(
-    z.object({
-      code: z.string(),
-      date: z.string().nullable(),
-      opponent: teamRefSchema.nullable(),
-      elapsedSec: z.number().int(),
-      callahan: z.boolean(),
-      scorer: playerRefSchema.nullable(),
-      assist: playerRefSchema.nullable(),
-    }),
-  ),
-})
-export type PlayerResponse = z.infer<typeof playerResponseSchema>
-
-/** GET /api/v1/galleries/{id} */
-export const galleryResponseSchema = z.object({
-  frame: tournamentFrameSchema,
-  gallery: z.object({
-    id: z.number().int(),
-    name: z.string(),
-    photos: z.array(z.object({ thumbUrl: z.string(), fullUrl: z.string() })),
-  }),
-})
-export type GalleryResponse = z.infer<typeof galleryResponseSchema>
 
 /** 観戦アプリの「表で見る」の見せ方(docs/api.md「GET /api/v1/tournaments/{id}/live-tables」) */
 export const liveTablesConfigSchema = z.object({

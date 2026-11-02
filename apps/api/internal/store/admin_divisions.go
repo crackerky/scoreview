@@ -9,6 +9,8 @@ import (
 	"scoreview/api/internal/domain"
 )
 
+const sqlByGallery = "gallery_id = ?"
+
 // DivisionFields はディビジョンの編集できる値。
 type DivisionFields struct {
 	Name               domain.I18nText

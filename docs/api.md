@@ -119,6 +119,8 @@ type Tally = {
 
 ## 閲覧用エンドポイント
 
+大会の一覧(`/`)と観戦アプリ(`/live/{id}`)が使う。参照サイトを模倣した閲覧ページのためにあった大会トップ、チーム一覧、ディビジョン別スケジュール、ディビジョン成績、チーム、選手、ギャラリーのエンドポイントは、2026 年 11 月にページと一緒に削除した。
+
 ### `GET /api/v1/tournaments`
 
 大会一覧。`listed=true` の大会だけを返す。
@@ -142,52 +144,16 @@ type Tally = {
 }
 ```
 
-### `GET /api/v1/tournaments/{id}`
+### `GET /api/v1/tournaments/{id}/schedule`
 
-大会トップ。`listed=false` でも返す。
-
-```ts
-{
-  frame: TournamentFrame
-  logoUrl: string | null            // null なら web が既定ロゴを出す
-  topHtml: I18nText                 // サーバー側で無害化済み
-  divisions: Array<{
-    id: number; name: I18nText
-    scheduleLinked: boolean         // divisions.schedule_enabled
-    standingsLinked: boolean        // divisions.standings_published
-  }>
-}
-```
-
-### `GET /api/v1/tournaments/{id}/teams`
-
-チーム一覧。
-
-```ts
-{
-  frame: TournamentFrame
-  divisions: Array<{
-    id: number; name: I18nText; kind: DivisionKind; entryKind: EntryKind
-    teams: Array<{
-      id: number
-      name: I18nText                // 正式名
-      barStyle: TeamBarStyle
-      memberCount: number | null    // スタッフを除く選手数。individual なら null
-    }>
-  }>
-}
-```
-
-### `GET /api/v1/tournaments/{id}/schedule` と `GET /api/v1/divisions/{id}/schedule`
-
-スケジュール。前者が大会全体(参照サイトの `scv_search_tn`)、後者がディビジョン別(`scv_search_div`)。
+大会全体のスケジュール(参照サイトの `scv_search_tn` に当たる)。`scope` はいつも `tournament`、`division` はいつも null(ディビジョン別の口を削除する前の形のまま)。
 
 クエリ:
 
 | 名前 | 意味 |
 |---|---|
-| `ymd` | `YYYYMMDD`。**キー自体がない**とき、大会全体は最終日、ディビジョン別は全日程を既定にする。`ymd=`(空)は全日程 |
-| `team` | 大会全体ではチームの正式名(日本語)、ディビジョン別ではチーム ID。左右どちらかがそのチームの試合 |
+| `ymd` | `YYYYMMDD`。**キー自体がない**ときは最終日を既定にする。`ymd=`(空)は全日程 |
+| `team` | チームの正式名(日本語)。左右どちらかがそのチームの試合 |
 | `field` | コート。文字列の完全一致(数字とは限らない) |
 | `sort` | `division`、`date`、`time`、`field`、`code`、`leftTeam`、`rightTeam` |
 | `dir` | `asc` か `desc`。`sort` があるときだけ有効 |
@@ -216,25 +182,6 @@ type Tally = {
     // 「3位決定戦」。大会の形を決めていないディビジョンの試合は null
     stage: string | null
   }>
-}
-```
-
-### `GET /api/v1/divisions/{id}/standings`
-
-ディビジョン成績。
-
-```ts
-{
-  frame: TournamentFrame
-  division: { id: number; name: I18nText }
-  // rank 昇順(NULL は末尾)、同順位は勝ち数の降順、得失差の降順、sort_order 順。
-  // ディビジョンの順位が未公開(standings_published=false)の間は全行の rank が null
-  standings: Array<Tally & { team: TeamRef; rank: number | null }>
-  leaders: Array<{                   // 得点+アシストの合計の降順、上位 30 件、合計 0 は除く
-    team: TeamRef; player: PlayerRef
-    games: number; assists: number; goals: number   // games は選手のチームの試合数
-  }>
-  blockLeaders: Array<{ team: TeamRef; player: PlayerRef; games: number; blocks: number }>  // 上位 10 件、0 件は除く
 }
 ```
 
@@ -282,39 +229,6 @@ type BracketCell = {
 }
 ```
 
-### `GET /api/v1/teams/{id}`
-
-チームページ。
-
-```ts
-{
-  frame: TournamentFrame
-  team: {
-    id: number
-    fullName: I18nText; shortName: I18nText
-    comment: I18nText
-    layout: 'standard' | 'roster_only'     // roster_only はディスクゴルフ団体戦(成績表と対戦一覧を出さない)
-  }
-  record: Tally & { rank: number | null }  // rank はディビジョンの順位が未公開の間は null
-  matches: MatchRow[]                      // 日付、時刻の昇順
-  players: Array<{
-    player: PlayerRef
-    games: number                          // チームの試合数(record.games)。全選手で同じ値
-    assists: number; goals: number; blocks: number
-    absent: boolean                        // 欠場。出場記録のあるチームで、どの試合にも出ていない選手
-  }>                                       // (得点+アシスト)降順、得点降順、背番号の数値昇順
-  staff: Array<{ id: number; role: I18nText; name: I18nText; gender: Gender | null }>
-                                           // 役割の順(監督、コーチ、トレーナー、マネージャ、その他)、同じ役割は ID 順
-  showSotg: boolean                        // SOTG スコア一覧を出す(行は matches と同じ試合、値は空)
-  // 以下はチーム名の下の本サイト独自の追記(requirements.md「意図的な差分」)
-  // 次の試合。matches のうち最初の試合中、なければ最初の未試合(結果の種類が normal)。大会が終了していれば null
-  nextMatchId: number | null
-  // 所属グループ(公開中のもの)のうち、いま見るべきもの。次の試合のグループ → 最後に終えた試合のグループ
-  // → group_teams の登録(ナビの並びで最初)の順に選ぶ。無ければ null
-  currentGroup: { id: number; name: I18nText; linked: boolean } | null
-}
-```
-
 ### `GET /api/v1/matches/{id}`
 
 試合ページ。
@@ -358,39 +272,6 @@ type BracketCell = {
     left: { goals: number; fromOffense: number; fromDefense: number; fromTurnover: number; timeouts: number }
     right: { goals: number; fromOffense: number; fromDefense: number; fromTurnover: number; timeouts: number }
   }
-}
-```
-
-### `GET /api/v1/players/{id}`
-
-選手ページ(スタッフも同じエンドポイント)。
-
-```ts
-{
-  frame: TournamentFrame
-  player: PlayerRef & { role: I18nText | null }    // role があればスタッフ
-  team: TeamRef
-  prev: PlayerRef & { role: I18nText | null }      // 同じチーム内の ID 順で 1 つ前(先頭なら末尾へ循環)
-  next: PlayerRef & { role: I18nText | null }
-  statsKind: StatsKind
-  // callahans は本人が得点者のキャラハンゴールの数
-  stats: { games: number; assists: number; goals: number; callahans: number; greatests: number; blocks: number }
-  // 本人が得点かアシストをしたイベント。試合の日時順、試合内は経過時間順
-  events: Array<{
-    code: string; date: string | null; opponent: TeamRef | null
-    elapsedSec: number
-    callahan: boolean               // キャラハンゴール(イベント名に使う)
-    scorer: PlayerRef | null; assist: PlayerRef | null
-  }>
-}
-```
-
-### `GET /api/v1/galleries/{id}`
-
-```ts
-{
-  frame: TournamentFrame
-  gallery: { id: number; name: string; photos: Array<{ thumbUrl: string; fullUrl: string }> }
 }
 ```
 

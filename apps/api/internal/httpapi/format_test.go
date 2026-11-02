@@ -167,7 +167,7 @@ func TestDayOfOperations(t *testing.T) {
 		map[string]any{"reason": "snow", "note": "", "resumeAt": nil})
 	f.call(t, http.StatusOK, http.MethodPost, tournament+"/suspension",
 		map[string]any{"reason": "thunder", "note": "", "resumeAt": "13:30"})
-	top := f.call(t, http.StatusOK, http.MethodGet, fmt.Sprintf("/api/v1/tournaments/%d", tour.ID), nil)
+	top := f.call(t, http.StatusOK, http.MethodGet, fmt.Sprintf("/api/v1/tournaments/%d/schedule", tour.ID), nil)
 	frame, ok := top["frame"].(map[string]any)
 	require.True(t, ok)
 	suspension, ok := frame["suspension"].(map[string]any)

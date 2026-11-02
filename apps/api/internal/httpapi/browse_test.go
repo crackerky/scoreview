@@ -51,22 +51,11 @@ func (f fixture) get(t *testing.T, path string) *httptest.ResponseRecorder {
 func goldenCases(sc storetest.Scenario) []struct{ name, path string } {
 	return []struct{ name, path string }{
 		{"tournaments", "/api/v1/tournaments"},
-		{"tournament_top", fmt.Sprintf("/api/v1/tournaments/%d", sc.Tournament.ID)},
-		{"tournament_teams", fmt.Sprintf("/api/v1/tournaments/%d/teams", sc.Tournament.ID)},
 		{"tournament_schedule", fmt.Sprintf("/api/v1/tournaments/%d/schedule", sc.Tournament.ID)},
-		{
-			"division_schedule",
-			fmt.Sprintf("/api/v1/divisions/%d/schedule?sort=time&dir=desc", sc.Mixed.ID),
-		},
-		{"division_standings", fmt.Sprintf("/api/v1/divisions/%d/standings", sc.Mixed.ID)},
 		{"group_pool", fmt.Sprintf("/api/v1/groups/%d", sc.Pool.ID)},
 		{"group_bracket", fmt.Sprintf("/api/v1/groups/%d", sc.Bracket.ID)},
 		{"group_image", fmt.Sprintf("/api/v1/groups/%d", sc.Image.ID)},
-		{"team", fmt.Sprintf("/api/v1/teams/%d", sc.TeamA.ID)},
 		{"match", fmt.Sprintf("/api/v1/matches/%d", sc.MatchAB.ID)},
-		{"player", fmt.Sprintf("/api/v1/players/%d", sc.PlayerA7.ID)},
-		{"player_staff", fmt.Sprintf("/api/v1/players/%d", sc.StaffA.ID)},
-		{"gallery", fmt.Sprintf("/api/v1/galleries/%d", sc.Gallery.ID)},
 	}
 }
 
@@ -145,16 +134,9 @@ func walkKeys(value any, visit func(string)) {
 func TestBrowseNotFound(t *testing.T) {
 	f := newFixture(t)
 	cases := []struct{ path, message string }{
-		{"/api/v1/tournaments/999999", "TOURNAMENT_ID [999999]"},
-		{"/api/v1/tournaments/999999/teams", "TOURNAMENT_ID [999999]"},
 		{"/api/v1/tournaments/999999/schedule", "TOURNAMENT_ID [999999]"},
-		{"/api/v1/divisions/999999/schedule", "EVENT_DIVISION_ID [999999]"},
-		{"/api/v1/divisions/999999/standings", "EVENT_DIVISION_ID [999999]"},
 		{"/api/v1/groups/999999", "GROUP_ID [999999]"},
-		{"/api/v1/teams/999999", "ENTRY_TEAM_ID [999999]"},
 		{"/api/v1/matches/999999", "MATCH_ID [999999]"},
-		{"/api/v1/players/999999", "ENTRY_PLAYER_ID [999999]"},
-		{"/api/v1/galleries/999999", "TGALLERY_ID [999999]"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
@@ -172,17 +154,15 @@ func TestBrowseNotFound(t *testing.T) {
 func TestBrowseBadRequest(t *testing.T) {
 	f := newFixture(t)
 	tour := fmt.Sprintf("/api/v1/tournaments/%d/schedule", f.sc.Tournament.ID)
-	div := fmt.Sprintf("/api/v1/divisions/%d/schedule", f.sc.Mixed.ID)
 	cases := []struct{ path, field string }{
-		{"/api/v1/tournaments/abc", "id"},
-		{"/api/v1/tournaments/0", "id"},
-		{"/api/v1/teams/-1", "id"},
+		{"/api/v1/tournaments/abc/schedule", "id"},
+		{"/api/v1/tournaments/0/schedule", "id"},
+		{"/api/v1/groups/-1", "id"},
 		{"/api/v1/matches/99999999999999999999", "id"},
 		{tour + "?ymd=2026-10-18", "ymd"},
 		{tour + "?ymd=20261332", "ymd"},
 		{tour + "?sort=status", "sort"},
 		{tour + "?sort=time&dir=up", "dir"},
-		{div + "?team=abc", "team"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
@@ -249,17 +229,4 @@ func TestScheduleYMDKeyAbsentVersusEmpty(t *testing.T) {
 	sorted = f.schedule(t, base+"?ymd=&sort=leftTeam")
 	require.NotNil(t, sorted.Sort)
 	assert.Equal(t, "asc", sorted.Sort.Dir)
-}
-
-func TestTournamentTopSanitizesHTML(t *testing.T) {
-	f := newFixture(t)
-	rec := f.get(t, fmt.Sprintf("/api/v1/tournaments/%d", f.sc.Tournament.ID))
-	require.Equal(t, http.StatusOK, rec.Code)
-	var body struct {
-		TopHTML struct{ Ja, En string } `json:"topHtml"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	assert.NotContains(t, body.TopHTML.Ja, "script")
-	assert.Contains(t, body.TopHTML.Ja, `<span class="SCV_MIDA_M">【Result】</span>`)
-	assert.Equal(t, "", body.TopHTML.En)
 }

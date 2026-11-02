@@ -213,9 +213,10 @@ func TestSuspendAndResume(t *testing.T) {
 	_, err = store.SuspendTournament(ctx, f.db, f.actor, tournament,
 		store.SuspensionInput{Reason: "rain", ResumeAt: &resume}, since.Add(5*time.Minute))
 	require.NoError(t, err)
-	top, err := store.GetTournamentTop(ctx, f.db, tournament)
+	all := ""
+	top, err := store.GetTournamentSchedule(ctx, f.db, tournament, store.ScheduleFilter{YMD: &all})
 	require.NoError(t, err)
-	require.NotNil(t, top.Frame.Suspension, "閲覧ページの上部に帯を出す")
+	require.NotNil(t, top.Frame.Suspension, "観戦アプリの上部に帯を出す")
 	assert.Equal(t, "rain", top.Frame.Suspension.Reason)
 	assert.Equal(t, "13:30", *top.Frame.Suspension.ResumeAt)
 	assert.True(t, top.Frame.Suspension.Since.Equal(since), "中断した時刻は最初のまま")
@@ -231,7 +232,7 @@ func TestSuspendAndResume(t *testing.T) {
 	before, err := time.Parse("15:04", (*a2Before.StartTime)[:5])
 	require.NoError(t, err)
 	assert.Equal(t, 20*time.Minute, moved.Sub(before))
-	top, err = store.GetTournamentTop(ctx, f.db, tournament)
+	top, err = store.GetTournamentSchedule(ctx, f.db, tournament, store.ScheduleFilter{YMD: &all})
 	require.NoError(t, err)
 	assert.Nil(t, top.Frame.Suspension)
 	assert.Equal(t, int64(2), auditCount(t, f, store.AuditTournamentSuspend))
