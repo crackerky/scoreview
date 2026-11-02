@@ -39,9 +39,6 @@ export default async function AdminTeamPage(props: IdPageProps) {
   ]
   return (
     <AdminShell user={user} title={team.fullName.ja} notice={notice} crumbs={crumbs}>
-      <p>
-        <a href={`/pscore/scv_team/open/${id}`}>閲覧ページを開く</a>
-      </p>
       <h2>選手とスタッフ</h2>
       {playerList.players.map((player) => (
         <PlayerForm key={player.id} player={player} back={back} />

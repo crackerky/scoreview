@@ -14,9 +14,6 @@ export default async function AdminGalleryPage(props: IdPageProps) {
   const crumbs = [{ href: `/admin/tournaments/${gallery.tournamentId}`, label: '大会' }]
   return (
     <AdminShell user={user} title={gallery.name} notice={notice} crumbs={crumbs}>
-      <p>
-        <a href={`/pscore/scv_tgallery/open/${id}`}>閲覧ページを開く</a>
-      </p>
       <form action={updateGalleryAction}>
         <Hidden values={{ back, id }} />
         <div className="adm-grid">

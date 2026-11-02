@@ -1,14 +1,13 @@
 import type { BracketCell, MatchRow } from '@/api/common.types'
 import type { GroupResponse } from '@/api/public.types'
-import { matchHref, teamHref } from '@/i18n/href'
 import { type Lang, pickText } from '@/i18n/lang'
 import { bracketCellClass } from './group.utils'
 import { matchCellNote } from './matchResult.utils'
 import { ScreenReaderNote } from './ScreenReaderNote'
+import '@/styles/bracket-table.css'
 
-// clone-spec C 2.3: トーナメント表は 1 枚の table のセル罫線で描く(div.TN_TMPL)。
-// 参照サイトは直前に <!-- GeneratePtn:T8A --> と <!-- PtnName :... --> の HTML コメントを出すが、
-// React はコメントを出力できないので再現しない。
+// clone-spec C 2.3: トーナメント表は 1 枚の table のセル罫線で描く(div.TN_TMPL)。管理画面の
+// 「大会の形」のプレビューで使う。チームと試合のページ(閲覧ページ)は無くなったので、リンクにしない。
 
 const nbsp = ' '
 
@@ -33,23 +32,17 @@ function CellContent({
   if (cell.team !== null) {
     return (
       <span className="teamimg_tn">
-        <a href={teamHref(cell.team.id, lang)}>
-          {pickText(lang, cell.team.name)}
-          <ScreenReaderNote text={note} />
-        </a>
+        {pickText(lang, cell.team.name)}
+        <ScreenReaderNote text={note} />
       </span>
     )
   }
-  // 推測: 未試合の試合セルは参照サイトで未観測。スコアがまだ無いのでリンクにしない
   if (cell.kind === 'game' && cell.matchId !== null && cell.status !== 'scheduled') {
     return (
-      <a
-        className={cell.status === 'live' ? 'tnmt_play_now' : 'tnmt_game_link'}
-        href={matchHref(cell.matchId, lang)}
-      >
+      <span className={cell.status === 'live' ? 'tnmt_play_now' : 'tnmt_game_link'}>
         {cell.text}
         <ScreenReaderNote text={note} />
-      </a>
+      </span>
     )
   }
   // 空セルは &nbsp;(参照サイトの原文ママ)

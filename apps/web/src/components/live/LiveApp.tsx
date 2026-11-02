@@ -742,17 +742,6 @@ export function LiveApp({
           >
             {zoomMatch ? 'この試合を共有' : 'この大会を共有'}
           </button>
-          <a
-            className="live-pop-item"
-            href={
-              zoomMatch
-                ? `/pscore/scv_match/open/${zoomMatch.id}?lang=jp`
-                : `/scview/${tournamentId}?lang=jp`
-            }
-            tabIndex={kebab ? 0 : -1}
-          >
-            {zoomMatch ? '試合の詳しいページ' : 'いつもの表示で見る'}
-          </a>
         </div>
 
         <Drawer
@@ -1335,14 +1324,7 @@ function Drawer({
             </div>
           </section>
         ) : null}
-        <a
-          className="live-drawer-link"
-          href={`/scview/${data.tournament.id}?lang=jp`}
-          tabIndex={tab}
-        >
-          いつもの表示で見る ›
-        </a>
-        <a className="live-drawer-link" href="/sctnmt" tabIndex={tab}>
+        <a className="live-drawer-link" href="/" tabIndex={tab}>
           大会一覧へ ›
         </a>
         <button

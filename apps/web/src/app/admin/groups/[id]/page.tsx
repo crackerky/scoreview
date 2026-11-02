@@ -41,9 +41,6 @@ export default async function AdminGroupPage(props: IdPageProps) {
   ]
   return (
     <AdminShell user={user} title={group.name} notice={notice} crumbs={crumbs}>
-      <p>
-        <a href={`/pscore/scv_group/open/${id}`}>閲覧ページを開く</a>
-      </p>
       <h2>グループの設定</h2>
       <form action={updateGroupAction}>
         <Hidden values={{ back, id }} />

@@ -67,7 +67,6 @@ export default async function ProgressPage(props: IdPageProps) {
       <p className="adm-actions hq-head">
         <AutoRefresh updatedAt={updatedAtText(now)} />
         <a href={`${back}?tab=${tab}`}>今すぐ更新</a>
-        <a href={`/pscore/scv_division/open/${id}`}>閲覧ページの成績</a>
         {canEditFormat ? <a href={`/admin/divisions/${id}/format`}>大会の形</a> : null}
       </p>
       <p className="adm-muted">{progress.title}</p>
@@ -604,7 +603,7 @@ function GroupCard({
   return (
     <section className="hq-group">
       <h3>
-        <a href={`/pscore/scv_group/open/${group.id}`}>{group.label}</a>
+        {group.label}
         <span className={`hq-state ${group.state}`}>{groupStateLabels[group.state]}</span>
       </h3>
       {group.kind === 'pool' ? (

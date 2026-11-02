@@ -1,6 +1,5 @@
 import type { NextConfig } from 'next'
 
-// 参照サイトの自由記述 HTML とバナー画像は外部 URL を含むので、画像最適化は使わず <img> で出す
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -17,7 +16,7 @@ const securityHeaders = [
   // HTTPS だけで開かせる。Vercel が独自ドメインに付ける既定と同じ 2 年(63072000 秒)を明示する。
   // includeSubDomains と preload は、同じドメインの他のサイトに影響するので付けない
   { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
-  // 模倣の段階(クライアントへのデモ)なので検索エンジンに載せない。正式公開のときに外す
+  // デモの段階なので検索エンジンに載せない。正式公開のときに外す
   { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
   // Content-Security-Policy はページごとに変える(管理画面は nonce)ので src/proxy.ts で付ける
 ]
@@ -27,7 +26,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders },
-      // 閲覧ページは毎回サーバーに確かめさせる(no-cache)が、no-store にはしない。no-store だと
+      // 大会の一覧と観戦アプリは毎回サーバーに確かめさせる(no-cache)が、no-store にはしない。no-store だと
       // ブラウザの戻る・進むで bfcache が効かず、スマートフォンでページを毎回取り直すため。
       // 管理画面(/admin)は個人の操作画面なので Next.js の既定(no-store)のまま。記録画面の
       // Service Worker(/sw.js)は次の項目で no-store にする(除外に加え、後の項目が優先される)
@@ -48,11 +47,15 @@ const nextConfig: NextConfig = {
     ]
   },
   async redirects() {
+    // 消した模倣ページ(参照サイトと同じ URL 体系)の古いリンクを、いまの入口へ送る。大会トップは
+    // 同じ大会の観戦アプリへ、ほかは大会の一覧(/)へ。エラー画面の「メニュー画面」だった
+    // /auth/login も一覧へ
     return [
-      { source: '/', destination: '/sctnmt', permanent: false },
-      // 存在しない大会 ID のエラー画面の「メニュー画面」のリンク先(参照サイトの管理画面のパス。
-      // src/components/ErrorScreen.tsx)。この画面を見るのは URL を誤った観戦者なので、大会一覧へ送る
-      { source: '/auth/login', destination: '/sctnmt', permanent: false },
+      { source: '/scview/:id(\\d+)', destination: '/live/:id', permanent: false },
+      { source: '/sctnmt', destination: '/', permanent: false },
+      { source: '/pscore/:path*', destination: '/', permanent: false },
+      { source: '/(about|guide|contact)', destination: '/', permanent: false },
+      { source: '/auth/login', destination: '/', permanent: false },
     ]
   },
 }

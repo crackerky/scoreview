@@ -54,7 +54,6 @@ export default async function AdminScorePage(props: IdPageProps) {
       </div>
       <p className="adm-actions">
         <a href={`/admin/matches/${id}/score`}>ふだんの記録画面に戻る</a>
-        <a href={`/pscore/scv_match/open/${id}`}>閲覧ページを開く</a>
       </p>
 
       {finished ? (

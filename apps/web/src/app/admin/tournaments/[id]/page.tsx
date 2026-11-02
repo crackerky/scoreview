@@ -150,7 +150,7 @@ export default async function AdminTournamentPage(props: IdPageProps) {
         ) : null}
       </div>
       <p className="adm-muted">
-        <a href={`/scview/${id}`}>閲覧ページを開く</a> <a href={`/live/${id}`}>観戦アプリを開く</a>
+        <a href={`/live/${id}`}>観戦アプリを開く</a>
       </p>
     </AdminShell>
   )

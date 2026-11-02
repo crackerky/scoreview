@@ -1,0 +1,178 @@
+/*
+ * サイトの入口(大会一覧 /、個人情報保護方針、見つからない画面。src/components/site/SiteShell.tsx)。
+ * 観戦アプリ(live.css)と同じ色と文字で、スマートフォンの幅を基準に、広い画面では中央に寄せる。
+ * 押せる要素は 44px 以上。
+ */
+.site {
+  --site-fg: #f2f3f5;
+  --site-muted: #9aa3ad;
+  --site-accent: #ff8a1f;
+  --site-line: rgba(255, 255, 255, 0.08);
+
+  min-height: 100vh;
+  background: #05070b;
+  color: var(--site-fg);
+  font-family: var(--live-font-body), "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.site * {
+  box-sizing: border-box;
+}
+
+.site a {
+  color: var(--site-accent);
+}
+
+.site-screen {
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  min-height: 100vh;
+  margin: 0 auto;
+  background: radial-gradient(120% 40% at 50% 0%, #1a2233 0%, #0a0d14 70%);
+}
+
+.site-header {
+  padding: 18px 16px 8px;
+}
+
+.site .site-logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--site-fg);
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+.site-main {
+  flex: 1;
+  padding: 0 16px 32px;
+}
+
+.site-section {
+  margin-top: 20px;
+}
+
+.site-heading {
+  margin: 0 0 10px;
+  color: var(--site-muted);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.site-title {
+  margin: 12px 0 16px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.site-heading.now {
+  color: var(--site-accent);
+}
+
+.site-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site .site-card {
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--site-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--site-fg);
+  text-decoration: none;
+}
+
+.site .site-card:hover,
+.site .site-card:focus-visible {
+  border-color: var(--site-accent);
+}
+
+.site-card-name {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.site-card-meta {
+  color: var(--site-muted);
+  font-size: 13px;
+}
+
+.site-finished summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.site-finished summary::after {
+  content: "›";
+  font-size: 18px;
+  transition: transform 0.15s;
+}
+
+.site-finished[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.site-empty {
+  margin: 20px 0;
+  color: var(--site-muted);
+}
+
+.site-doc h2 {
+  margin: 24px 0 8px;
+  font-size: 15px;
+}
+
+.site-doc p,
+.site-doc dd {
+  margin: 0 0 8px;
+}
+
+.site-doc dt {
+  margin-top: 8px;
+  font-weight: 800;
+}
+
+.site-doc dd {
+  margin-left: 0;
+  color: var(--site-muted);
+}
+
+.site-doc-note {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 138, 31, 0.12);
+  color: var(--site-fg);
+  font-size: 13px;
+}
+
+.site-footer {
+  padding: 16px;
+  border-top: 1px solid var(--site-line);
+  font-size: 13px;
+}
+
+.site-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
