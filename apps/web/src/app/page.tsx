@@ -1,3 +1,4 @@
+import { connection } from 'next/server'
 import { japaneseDate } from '@/admin/tournamentList.utils'
 import { getTournaments } from '@/api/public'
 import type { TournamentListResponse } from '@/api/public.types'
@@ -34,6 +35,9 @@ function TournamentLinks({ section }: { section: Section }) {
 }
 
 export default async function HomePage() {
+  // 要求ごとに描く。ビルド時に描くと一覧がその時点で固まり、しかも本番のビルドでは api を呼ぶ
+  // BACKEND_INTERNAL_URL(Vercel Services の binding)が無くて落ちる
+  await connection()
   const { sections } = await getTournaments()
   const current = sections.filter(
     (section) => section.section !== 'finished' && section.tournaments.length > 0,
