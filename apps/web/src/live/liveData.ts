@@ -42,13 +42,17 @@ export async function loadLiveData(tournamentId: number, date: string | null): P
   return buildLiveData(await getBoard(tournamentId), date)
 }
 
-/** 試合の得点の流れ。試合がその大会のものでなければ null(別の大会の試合を出さない) */
+/**
+ * 試合の得点の流れ。試合がその大会のものでなければ null(別の大会の試合を出さない)。
+ * revalidateSeconds は getMatch と同じ(スコアサイトは観客のあいだで使い回す)
+ */
 export async function loadLiveMatch(
   tournamentId: number,
   matchId: number,
+  options: { revalidateSeconds?: number } = {},
 ): Promise<LiveMatchDetail | null> {
   try {
-    const detail = await getMatch(matchId)
+    const detail = await getMatch(matchId, options)
     return detail.frame.id === tournamentId ? { events: flowEvents(detail) } : null
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {

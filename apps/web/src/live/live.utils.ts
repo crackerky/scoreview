@@ -158,6 +158,17 @@ export function buildLiveData(board: BoardResponse, tournamentDate: string | nul
   }
 }
 
+/** 試合の状態の札。これからの試合は始まる時刻を出す */
+export function statusWord(match: LiveMatch): string {
+  if (match.status === 'live') {
+    return '試合中'
+  }
+  if (match.status === 'done') {
+    return '終了'
+  }
+  return match.time === '' ? 'このあと' : `${match.time} 開始`
+}
+
 export type LiveTab = 'mine' | 'live' | 'done'
 
 /** ライブのタブに並べる、試合中のあとのこれからの試合の数 */

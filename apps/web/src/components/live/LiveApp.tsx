@@ -23,6 +23,7 @@ import {
   placements,
   type ScoreHits,
   scoreHits,
+  statusWord,
   tabMatches,
   timeGroups,
   winnerOf,
@@ -56,17 +57,6 @@ const frameColors = {
   sched: ['#19a7a0', '#0d6b67'],
   done: ['#9aa6b4', '#5f6975'],
 } as const
-
-/** カードの上の札。これからの試合は始まる時刻を出す */
-function statusWord(match: LiveMatch): string {
-  if (match.status === 'live') {
-    return '試合中'
-  }
-  if (match.status === 'done') {
-    return '終了'
-  }
-  return match.time === '' ? 'このあと' : `${match.time} 開始`
-}
 
 /** 色を暗くする(負けたチームの地の色) */
 function shade(hex: string, amount: number): string {

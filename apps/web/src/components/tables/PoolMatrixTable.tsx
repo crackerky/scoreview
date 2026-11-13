@@ -24,10 +24,13 @@ export function PoolMatrixTable({
   table,
   config,
   edit,
+  cellHref,
 }: {
   table: PoolMatrix
   config: LiveTablesConfig
   edit?: TableEdit
+  /** 試合のマスの行き先。無ければマスは押せない */
+  cellHref?: (matchId: number) => string
 }) {
   // 見本では出さない列も薄く残す
   const columns = columnDefs.filter((def) => edit || config.columns[def.key])
@@ -80,6 +83,7 @@ export function PoolMatrixTable({
                   cell={cell}
                   className={last}
                   edit={edit}
+                  href={cellHref}
                 />
               )),
               ...columns.flatMap((def) =>
@@ -114,36 +118,48 @@ function Cell({
   cell,
   className,
   edit,
+  href,
 }: {
   cell: MatrixCell
   className: string
   edit?: TableEdit
+  href?: (matchId: number) => string
 }) {
-  switch (cell.kind) {
-    case 'self':
-      return <div className={`lt-cell lt-self${className}`} />
-    case 'done':
-      return (
-        <div className={`lt-cell${className}${ring(edit, 'mark')}`} data-part="mark">
-          <span className="lt-mark">{cell.mark}</span>
-          <span className={cell.lost ? 'lt-score lt-lost' : 'lt-score'}>{cell.score}</span>
-        </div>
-      )
-    case 'live':
-      return (
-        <div className={`lt-cell lt-live${className}${ring(edit, 'live')}`} data-part="live">
-          <span className="lt-info">● 試合中</span>
-          <span className="lt-score">{cell.score}</span>
-        </div>
-      )
-    case 'sched':
-      return (
-        <div className={`lt-cell${className}`}>
-          <span className="lt-info lt-muted">{cell.court}</span>
-          <span className="lt-score lt-muted">{cell.time}</span>
-        </div>
-      )
-    default:
-      return <div className={`lt-cell${className}`} />
+  if (cell.kind === 'self' || cell.kind === 'none') {
+    return <div className={`lt-cell${cell.kind === 'self' ? ' lt-self' : ''}${className}`} />
   }
+  const part = cell.kind === 'done' ? 'mark' : cell.kind === 'live' ? 'live' : undefined
+  const classes = `lt-cell${cell.kind === 'live' ? ' lt-live' : ''}${className}${
+    part ? ring(edit, part) : ''
+  }`
+  const content =
+    cell.kind === 'done' ? (
+      <>
+        <span className="lt-mark">{cell.mark}</span>
+        <span className={cell.lost ? 'lt-score lt-lost' : 'lt-score'}>{cell.score}</span>
+      </>
+    ) : cell.kind === 'live' ? (
+      <>
+        <span className="lt-info">● 試合中</span>
+        <span className="lt-score">{cell.score}</span>
+      </>
+    ) : (
+      <>
+        <span className="lt-info lt-muted">{cell.court}</span>
+        <span className="lt-score lt-muted">{cell.time}</span>
+      </>
+    )
+  // 見本(edit)では押すと見せ方を選ぶので、試合へは移らない
+  if (href && !edit) {
+    return (
+      <a className={`${classes} lt-link`} href={href(cell.matchId)}>
+        {content}
+      </a>
+    )
+  }
+  return (
+    <div className={classes} data-part={part}>
+      {content}
+    </div>
+  )
 }

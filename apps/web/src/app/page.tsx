@@ -3,9 +3,10 @@ import { japaneseDate } from '@/admin/tournamentList.utils'
 import { getTournaments } from '@/api/public'
 import type { TournamentListResponse } from '@/api/public.types'
 import { SiteShell } from '@/components/site/SiteShell'
+import { scorePaths } from '@/score/score.paths'
 
-// サイトの入口。開催中とこれからの大会を並べ、押すと観戦アプリ(/live/{id})を開く。終わった大会は
-// たたんで下に置く。一覧に載せない設定の大会は api が返さない。
+// サイトの入口。開催中とこれからの大会を並べ、押すとその大会のスコアサイト(/tournaments/{id})を
+// 開く。終わった大会はたたんで下に置く。一覧に載せない設定の大会は api が返さない。
 
 type Section = TournamentListResponse['sections'][number]
 
@@ -21,7 +22,7 @@ function TournamentLinks({ section }: { section: Section }) {
     <ul className="site-list">
       {section.tournaments.map((tournament) => (
         <li key={tournament.id}>
-          <a className="site-card" href={`/live/${tournament.id}`}>
+          <a className="site-card" href={scorePaths.top(tournament.id)}>
             <span className="site-card-name">{tournament.name.ja}</span>
             <span className="site-card-meta">
               {tournament.startDate ? japaneseDate(tournament.startDate) : '日程未定'}

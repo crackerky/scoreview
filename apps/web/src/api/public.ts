@@ -17,11 +17,23 @@ export function getTournaments(): Promise<TournamentListResponse> {
   return apiFetch(`${base}/tournaments`, tournamentListResponseSchema)
 }
 
-export function getMatch(matchId: number): Promise<MatchResponse> {
-  return apiFetch(`${base}/matches/${matchId}`, matchResponseSchema)
+/** 試合。revalidateSeconds は getBoard と同じ */
+export function getMatch(
+  matchId: number,
+  { revalidateSeconds }: { revalidateSeconds?: number } = {},
+): Promise<MatchResponse> {
+  return apiFetch(`${base}/matches/${matchId}`, matchResponseSchema, { revalidateSeconds })
 }
 
-/** 大会の掲示板(星取表、順位、日程、トーナメントの形を 1 回で) */
-export function getBoard(tournamentId: number): Promise<BoardResponse> {
-  return apiFetch(`${base}/tournaments/${tournamentId}/board`, boardResponseSchema)
+/**
+ * 大会の掲示板(星取表、順位、日程、トーナメントの形を 1 回で)。revalidateSeconds があれば、その秒数
+ * のあいだ観客のあいだで応答を使い回す(公開データなので誰に返しても同じ)
+ */
+export function getBoard(
+  tournamentId: number,
+  { revalidateSeconds }: { revalidateSeconds?: number } = {},
+): Promise<BoardResponse> {
+  return apiFetch(`${base}/tournaments/${tournamentId}/board`, boardResponseSchema, {
+    revalidateSeconds,
+  })
 }

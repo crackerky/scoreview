@@ -1,0 +1,677 @@
+/*
+ * スコアサイト(/tournaments/{id}。src/components/score)。黒を地にし、星取表とトーナメント表は
+ * 紙の表に近い明るい地(live-tables.css)で浮かせる。スマートフォンの幅を基準にし、広い画面では
+ * 星取表を横に並べる。押せる要素は 44px 以上。
+ *
+ * 色はここの変数だけで決める。運営の UP カラーが決まったら、この塊を差し替える。
+ */
+.sc {
+  --sc-bg: #05070b;
+  --sc-surface: #11151d;
+  --sc-surface-2: #181d27;
+  --sc-fg: #f2f3f5;
+  --sc-muted: #9aa3ad;
+  --sc-line: rgba(255, 255, 255, 0.1);
+  --sc-accent: #ff8a1f;
+  --sc-live: #ff5a1f;
+  --sc-paper: #f4f3ef;
+  --sc-ink: #1f2328;
+
+  min-height: 100vh;
+  background: var(--sc-bg);
+  color: var(--sc-fg);
+  font-family: var(--live-font-body), "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sc * {
+  box-sizing: border-box;
+}
+
+.sc a {
+  color: var(--sc-accent);
+}
+
+.sc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 上の帯: ロゴ、大会の名前、3 つの入口(入口はスクロールしても残す) */
+.sc-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--sc-line);
+  background: rgba(5, 7, 11, 0.94);
+  backdrop-filter: blur(8px);
+}
+
+.sc-topbar,
+.sc-title,
+.sc-tabs {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.sc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sc .sc-logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--sc-fg);
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+.sc .sc-live-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sc-live-link span {
+  color: var(--sc-live);
+}
+
+.sc-title {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sc-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sc .sc-tabs a {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-bottom: 3px solid transparent;
+  color: var(--sc-muted);
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sc .sc-tabs a[aria-current="page"] {
+  border-bottom-color: var(--sc-accent);
+  color: var(--sc-fg);
+}
+
+.sc-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+}
+
+.sc-section {
+  margin-top: 20px;
+  scroll-margin-top: 140px;
+}
+
+.sc-section:first-child {
+  margin-top: 0;
+}
+
+.sc-heading {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sc-subheading {
+  margin: 0 0 8px;
+  color: var(--sc-muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.sc-empty,
+.sc-legend {
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+
+.sc-legend {
+  margin-top: 16px;
+  text-wrap: pretty;
+}
+
+/* 部門へ飛ぶ札 */
+.sc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sc .sc-chips a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-surface);
+  color: var(--sc-fg);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* 星取表を並べる。1 組の表は横に長いので、広い画面でも 2 列まで */
+.sc-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  gap: 16px;
+}
+
+.sc-pool {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 14px;
+  background: var(--sc-surface);
+}
+
+.sc .sc-pool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--sc-fg);
+  text-decoration: none;
+}
+
+.sc-pool-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sc-more {
+  color: var(--sc-accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* 星取表とトーナメント表は紙の地に置く */
+.sc-paper {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--sc-paper);
+  color: var(--sc-ink);
+}
+
+.sc-pool-head + .sc-paper {
+  border-radius: 0 0 14px 14px;
+}
+
+.sc-paper .lt-stack {
+  gap: 0;
+}
+
+.sc .lt-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sc .lt-link:hover,
+.sc .lt-link:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: -2px;
+}
+
+.sc .sc-next,
+.sc .sc-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sc .sc-next {
+  margin-top: 8px;
+}
+
+.sc .sc-back {
+  color: var(--sc-muted);
+}
+
+/* トーナメント */
+.sc-bracket {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.sc-bracket h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* タイムスケジュール */
+.sc-day-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sc-day-tabs button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--sc-line);
+  border-radius: 999px;
+  background: var(--sc-surface);
+  color: var(--sc-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sc-day-tabs button[aria-selected="true"] {
+  border-color: var(--sc-accent);
+  background: var(--sc-accent);
+  color: #111;
+}
+
+.sc-dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc-live);
+  animation: sc-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sc-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-dot {
+    animation: none;
+  }
+}
+
+/* 時間割は横に長いので、時刻の列を残して横にずらせるようにする */
+.sc-tt-scroll {
+  /* 時刻の列(sticky)の基準をここにする。無いと Chrome で列がページの横幅を押し広げる */
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--sc-line);
+  border-radius: 12px;
+}
+
+.sc-tt {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.sc-tt th,
+.sc-tt td {
+  padding: 6px;
+  border-bottom: 1px solid var(--sc-line);
+  vertical-align: top;
+}
+
+.sc-tt thead th {
+  background: var(--sc-surface-2);
+  color: var(--sc-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sc-tt td {
+  min-width: 168px;
+}
+
+.sc-tt .sc-tt-time {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 56px;
+  background: var(--sc-surface-2);
+  color: var(--sc-fg);
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sc .sc-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--sc-line);
+  border-radius: 8px;
+  background: var(--sc-surface);
+  color: var(--sc-fg);
+  text-decoration: none;
+}
+
+.sc .sc-slot + .sc-slot {
+  margin-top: 6px;
+}
+
+.sc .sc-slot.sc-live {
+  border-left-color: var(--sc-live);
+}
+
+.sc .sc-slot.sc-done {
+  border-left-color: var(--sc-muted);
+}
+
+.sc-slot-stage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sc-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sc-slot-team,
+.sc-side {
+  display: grid;
+  grid-template-columns: 4px 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-team-bar {
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.sc-side-name {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-side-score {
+  min-width: 1.5em;
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.sc-won .sc-side-name,
+.sc-won .sc-side-score {
+  color: var(--sc-fg);
+  font-weight: 800;
+}
+
+.sc-lost {
+  opacity: 0.55;
+}
+
+.sc-pending .sc-side-name {
+  color: var(--sc-muted);
+  font-weight: 500;
+}
+
+.sc-unplaced {
+  margin-top: 16px;
+}
+
+.sc-unplaced h3 {
+  margin: 0 0 8px;
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+
+/* 試合の一覧 */
+.sc-matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sc .sc-match {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--sc-line);
+  border-radius: 10px;
+  background: var(--sc-surface);
+  color: var(--sc-fg);
+  text-decoration: none;
+}
+
+.sc .sc-match.sc-live {
+  border-left-color: var(--sc-live);
+}
+
+.sc-match-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+
+.sc-status {
+  font-weight: 800;
+}
+
+.sc-live .sc-status {
+  color: var(--sc-live);
+}
+
+/* 試合の画面 */
+.sc-board {
+  margin-top: 4px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--sc-surface);
+}
+
+.sc-board.sc-live {
+  box-shadow: inset 0 0 0 2px var(--sc-live);
+}
+
+.sc-board-stage,
+.sc-board-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin: 0;
+  color: var(--sc-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.sc-board-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.sc-board-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: center;
+}
+
+.sc-board-side .sc-team-bar {
+  width: 32px;
+  height: 4px;
+}
+
+.sc-board-name {
+  font-size: 16px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.sc-win-chip {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--sc-accent);
+  color: #111;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sc-board-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sc-board-dash,
+.sc-board-vs {
+  color: var(--sc-muted);
+  font-size: 24px;
+}
+
+.sc-flow {
+  margin-top: 16px;
+  border-radius: 12px;
+  background: var(--sc-surface);
+}
+
+.sc-flow summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sc-flow ol {
+  margin: 0;
+  padding: 0 14px 12px;
+  list-style: none;
+}
+
+.sc-flow li {
+  display: grid;
+  grid-template-columns: 3.2em 1fr auto;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--sc-line);
+  font-size: 13px;
+}
+
+.sc-flow-score {
+  grid-row: span 2;
+  font-family: var(--live-font-number), "Barlow Condensed", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sc-flow-team {
+  font-weight: 800;
+}
+
+.sc-flow-who {
+  grid-column: 2 / 4;
+  color: var(--sc-muted);
+}
+
+.sc-flow-time {
+  color: var(--sc-muted);
+}
+
+/* 協賛と下の帯 */
+.sc-sponsor {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px 16px;
+  text-align: center;
+}
+
+.sc-sponsor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.sc-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 12px 16px 24px;
+  border-top: 1px solid var(--sc-line);
+  font-size: 13px;
+}
+
+.sc .sc-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

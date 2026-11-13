@@ -31,12 +31,13 @@ export const markSets: Record<
 /** スマホで横にずらさずに見られる、右の列の数 */
 export const fitColumns = 4
 
+/** 星取表のマス。試合のあるマスは試合の ID を持つ(スコアサイトでは押すと試合へ移る) */
 export type MatrixCell =
   | { kind: 'self' }
   | { kind: 'none' }
-  | { kind: 'done'; mark: string; score: string; lost: boolean }
-  | { kind: 'live'; score: string }
-  | { kind: 'sched'; court: string; time: string }
+  | { kind: 'done'; matchId: number; mark: string; score: string; lost: boolean }
+  | { kind: 'live'; matchId: number; score: string }
+  | { kind: 'sched'; matchId: number; court: string; time: string }
 
 export type MatrixRow = {
   teamId: number
@@ -96,15 +97,16 @@ export function poolMatrix(
       const their = theirs.score ?? 0
       return {
         kind: 'done',
+        matchId: match.id,
         mark: my > their ? marks[0] : my < their ? marks[2] : marks[1],
         score,
         lost: my < their,
       }
     }
     if (match.status === 'live') {
-      return { kind: 'live', score: config.live === 'score' ? score : '' }
+      return { kind: 'live', matchId: match.id, score: config.live === 'score' ? score : '' }
     }
-    return { kind: 'sched', court: match.court, time: match.time }
+    return { kind: 'sched', matchId: match.id, court: match.court, time: match.time }
   }
   return {
     id: pool.id,

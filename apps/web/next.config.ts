@@ -48,10 +48,10 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     // 消した模倣ページ(参照サイトと同じ URL 体系)の古いリンクを、いまの入口へ送る。大会トップは
-    // 同じ大会の観戦アプリへ、ほかは大会の一覧(/)へ。エラー画面の「メニュー画面」だった
+    // 同じ大会のスコアサイトへ、ほかは大会の一覧(/)へ。エラー画面の「メニュー画面」だった
     // /auth/login も一覧へ
     return [
-      { source: '/scview/:id(\\d+)', destination: '/live/:id', permanent: false },
+      { source: '/scview/:id(\\d+)', destination: '/tournaments/:id', permanent: false },
       { source: '/sctnmt', destination: '/', permanent: false },
       { source: '/pscore/:path*', destination: '/', permanent: false },
       { source: '/(about|guide|contact)', destination: '/', permanent: false },

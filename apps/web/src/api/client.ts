@@ -36,6 +36,11 @@ type RequestOptions = {
   sessionToken?: string
   /** 利用者の IP。X-Client-IP で api に渡す(docs/api.md「認証」。ログインの試行制限に使う) */
   clientIp?: string
+  /**
+   * 応答を Next.js のデータの使い回しに置く秒数。誰が見ても同じ公開データだけに使う(管理画面や
+   * ログインの要求には付けない)。無ければ毎回 api を呼ぶ
+   */
+  revalidateSeconds?: number
 }
 
 /**
@@ -68,7 +73,9 @@ export async function apiFetch<T>(
     method: options.method ?? 'GET',
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    cache: 'no-store',
+    ...(options.revalidateSeconds === undefined
+      ? { cache: 'no-store' as const }
+      : { next: { revalidate: options.revalidateSeconds } }),
   })
   if (res.status === 204) {
     return schema.parse(undefined)

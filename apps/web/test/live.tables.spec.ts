@@ -86,15 +86,27 @@ const games = [
   match(12, 'A3', 'sched', side(1, null), side(3, null), { time: '11:20', court: '2コート' }),
 ]
 
-test('星取表: 登録順に並べ、マスは行のチームから見た結果、試合中はいまの点、これからはコートと時刻', () => {
+test('星取表: 登録順に並べ、マスは行のチームから見た結果(試合の ID つき)、試合中はいまの点、これからはコートと時刻', () => {
   const table = poolMatrix(pool, games, config)
   assert.deepEqual(table.heads, ['チーム1', 'チーム2', 'チーム3'])
   const [one, two] = table.rows
   assert.deepEqual(one?.cells[0], { kind: 'self' })
-  assert.deepEqual(one?.cells[1], { kind: 'done', mark: '×', score: '5-7', lost: true })
-  assert.deepEqual(two?.cells[0], { kind: 'done', mark: '○', score: '7-5', lost: false })
-  assert.deepEqual(two?.cells[2], { kind: 'live', score: '3-1' })
-  assert.deepEqual(one?.cells[2], { kind: 'sched', court: '2コート', time: '11:20' })
+  assert.deepEqual(one?.cells[1], {
+    kind: 'done',
+    matchId: 10,
+    mark: '×',
+    score: '5-7',
+    lost: true,
+  })
+  assert.deepEqual(two?.cells[0], {
+    kind: 'done',
+    matchId: 10,
+    mark: '○',
+    score: '7-5',
+    lost: false,
+  })
+  assert.deepEqual(two?.cells[2], { kind: 'live', matchId: 11, score: '3-1' })
+  assert.deepEqual(one?.cells[2], { kind: 'sched', matchId: 12, court: '2コート', time: '11:20' })
   assert.deepEqual(two?.stats.diff, ['+3'])
   assert.equal(two?.advancing, true)
   assert.equal(one?.advancing, false)
@@ -110,8 +122,14 @@ test('星取表: 順位順、漢字の記号、試合中は空ける、色はつ
     highlight: false,
   })
   assert.deepEqual(table.heads, ['チーム2', 'チーム1', 'チーム3'])
-  assert.deepEqual(table.rows[0]?.cells[1], { kind: 'done', mark: '勝', score: '7-5', lost: false })
-  assert.deepEqual(table.rows[0]?.cells[2], { kind: 'live', score: '' })
+  assert.deepEqual(table.rows[0]?.cells[1], {
+    kind: 'done',
+    matchId: 10,
+    mark: '勝',
+    score: '7-5',
+    lost: false,
+  })
+  assert.deepEqual(table.rows[0]?.cells[2], { kind: 'live', matchId: 11, score: '' })
   assert.equal(table.rows[0]?.advancing, false)
 })
 
