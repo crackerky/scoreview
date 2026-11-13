@@ -65,4 +65,4 @@ Node は 22 以上(`.nvmrc`)。シェルで pnpm が見つからないときは 
 - golangci-lint は PATH ではなく `$(go env GOPATH)/bin/golangci-lint` にある(`pnpm go:lint` はこのパスを使う)。
 - Go のテストは embedded-postgres で本物の PostgreSQL を起動する。初回はバイナリを `~/.cache/scoreview-embedded-postgres` にダウンロードするので時間がかかる。テストは `testdb.Run` を `TestMain` で呼ぶパッケージでだけ DB を使える。
 - `.local/` は git 管理外で、参照サイトの生 HTML と以前の取込データ(実在の個人名を含む)がある。コミットしない、公開環境に入れない、テストから読まない。
-- 公開する画面は `/`(大会の一覧)、`/live/{id}`(観戦アプリ)、`/privacy` だけ。消した模倣ページの URL(`/sctnmt`、`/scview/{id}`、`/pscore/*`)は `apps/web/next.config.ts` のリダイレクトで送る。外部に貼られたリンクのために残す。
+- 公開する画面は `/`(大会の一覧)、`/tournaments/{id}`(スコアサイト)、`/live/{id}`(観戦アプリ)、`/privacy` だけ。消した模倣ページの URL(`/sctnmt`、`/scview/{id}`、`/pscore/*`)は `apps/web/next.config.ts` のリダイレクトで送る。外部に貼られたリンクのために残す。

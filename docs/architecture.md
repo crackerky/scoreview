@@ -50,12 +50,20 @@ apps/api:  domain ◀── store(GORM) ◀── httpapi ◀── cmd/api
              ▲            ▲
              │            └──── seed(cmd/seed)
              └── bracket(テンプレート)
-apps/web:  api クライアント(zod で応答を検証)◀── ページ、管理画面
+
+           公開のスコアサイトの読み込み(使い方の層を挟む):
+           domain ◀── viewing ◀── httpapi
+                        ▲
+                        └── store(viewing.Source の実装)
+
+apps/web:  api クライアント(zod で応答を検証)◀── 読み方(score.load)◀── ページ
+                                                ◀── 画面の形への直し方(score.utils)◀── 部品(components)
 ```
 
 - `domain` は純粋な Go のパッケージで、GORM も HTTP も知らない。順位計算、勝率、得点経過からの統計、未確定チームの表記はここに置き、テーブル駆動テストで固める。
 - `store` は GORM のモデルとリポジトリを持ち、`domain` の型へ変換して返す。GORM のモデル型を `httpapi` に漏らさない。
 - `httpapi` は薄い層で、リクエストの検証、`store` の呼び出し、応答 DTO への変換だけを行う。エラーから HTTP ステータスへの変換は 1 か所で行う。
+- `viewing` は公開のスコアサイトの使い方の層。`Reader`(httpapi が使う口)と `Source`(記録の読み方。store の `ViewingSource` が GORM で実装する)の 2 つのインターフェースを持ち、その間で組の順位、試合と組の結び付き、並びを組み立てる。DB も HTTP も知らないので、決まりは DB 無しでテストできる。観客の読み込みが重なることへの備え(`viewing.Cache`。大会ごとに 3 秒使い回し、重なった読み込みを 1 回にまとめる)は `Reader` を包む形で `cmd/api` が組み込み、ハンドラと決まりは知らない。これから足す機能(LINE のエントリーなど)も、組み立ての決まりが要るものはこの形(ハンドラ → 使い方の層 ← store)にする。
 - web は api の応答を zod で parse してから使う。Go と TypeScript の間の契約は [api.md](api.md) で、両側の型はこれに合わせる。
 
 ## データモデル
@@ -90,11 +98,19 @@ users 1─* sessions、users *─* tournaments(tournament_staff)
 
 ## 主要な流れ
 
-### 観戦アプリの表示
+### スコアサイトと観戦アプリの表示
 
-1. 観戦アプリのページ(Server Component)が、大会のスケジュール、組、「表で見る」の形を api の閲覧用エンドポイントから読む。
-2. zod で応答を検証し、観戦アプリのデータ(`apps/web/src/live/`)に組み立てて描く。
-3. 開いたあとは、ブラウザが `/live/{id}/data` を 15 秒ごとに取り直す。
+1. スコアサイト(`/tournaments/{id}`)と観戦アプリ(`/live/{id}`)は、大会の掲示板(`GET /api/v1/tournaments/{id}/board`)を 1 回だけ読む。api の問い合わせは試合、組、チームの数によらず 14 回。
+2. zod で応答を検証し、観戦アプリと同じ形の試合と組(`apps/web/src/live/`)に直して描く。星取表とトーナメントの木は両方で同じ部品(`apps/web/src/components/tables/`)を使う。
+3. 開いたあとは、スコアサイトは画面を 15 秒ごとに描き直し、観戦アプリはブラウザが `/live/{id}/data` を 15 秒ごとに取り直す。
+
+観客が増えても api と DB を読む回数が増えないよう、3 か所で使い回す。点が入ってから観客に見えるまでの遅れは、合わせて最大 10 数秒になる。
+
+| 場所 | 使い回す時間 | 仕組み |
+|---|---|---|
+| スコアサイトのページ | 5 秒 | Next.js の revalidate(ページの描画を観客のあいだで共有する) |
+| `/live/{id}/data` | 5 秒(期限切れから 10 秒は古い応答を返しつつ取り直す) | `Vercel-CDN-Cache-Control`(Vercel の配信だけが読む。ブラウザには毎回確かめさせる) |
+| api の掲示板 | 3 秒 | `viewing.Cache`(インスタンスの中だけ。重なった読み込みは 1 回にまとめる) |
 
 ### スコア入力
 

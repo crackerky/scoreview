@@ -11,7 +11,7 @@ description: scoreview(フライングディスク大会の観戦アプリと運
 ## 1. 画面の方針
 
 - 公開する画面は大会の一覧(`/`)、観戦アプリ(`/live/{id}`)、個人情報保護方針だけ。参照サイトの模倣ページは 2026-11 に削除したので、参照サイトの DOM や文言に合わせる理由はもう無い。見た目は Claude Design(「StageCam」「Score View Admin」)に合わせる。
-- 次の機能は LINE からのエントリーと通知、記録係の LINE からの入力(docs/line-integration.md)。URL は LINE のメッセージに埋め込むと変えられないので、`/live/{id}` と line-integration.md に書いたパスを固定する。
+- 次の機能は LINE からのエントリーと通知、記録係の LINE からの入力(docs/line-integration.md)。URL は LINE のメッセージに埋め込むと変えられないので、`/tournaments/{id}`(スコアサイト)、`/live/{id}` と line-integration.md に書いたパスを固定する。
 
 ## 2. 依存の向き
 
@@ -23,7 +23,11 @@ web:  src/api(クライアント + zod)◀ src/components ◀ src/app
 - `domain` は GORM、HTTP、JSON タグを import しない。順位、勝率の元になる集計、得点経過のスコア、オフェンス/ディフェンス開始の判定、選手の並び順はここに置く。
 - `store` は GORM のモデル型を外に出さない。戻り値は domain の型か、ページ単位のビュー型(store 内で定義)にする。
 - `httpapi` のハンドラは「パラメータ検証 → store → DTO 変換 → writeJSON」以外をしない。計算が要るなら domain に関数を作る。
+- 組み立ての決まり(複数の記録を合わせて 1 つの画面やメッセージにする)が要る新しい機能は、使い方の層のパッケージを作る(例 `internal/viewing`)。そこに httpapi が使う口(`Reader` のようなインターフェース)と、記録の読み方の口(`Source`)を定義し、store がその口を実装する(store → 使い方の層の import は可。逆は不可)。ハンドラは `*gorm.DB` ではなく口を受け取り、`Server` の Option で差し替えられるようにする。使い回しなどインフラの判断は口を包む形で `cmd/api` が組み込む。
+- `Source` の実装は問い合わせの数を記録の数によらない定数にし、`countQueries` で数えるテストを置く(観客や利用者の数だけ繰り返し呼ばれるため)。
 - web のコンポーネントは api の応答型(zod から推論した型)だけを受け取り、fetch しない。fetch はページ(Server Component)で 1 回だけ行う。
+- web の機能は、データの読み方(`xxx.load.ts`。server-only、React の `cache` でレイアウトとページの読み込みを 1 回にする)、画面の形への直し方(`xxx.utils.ts`。純粋な関数でテストする)、URL(`xxx.paths.ts`)、表示(`components/xxx/`)に分け、ページは引数を読んで部品を選ぶだけにする(例 `src/score/`)。
+- 誰が見ても同じ公開ページは、`apiFetch` の `revalidateSeconds` とページの `revalidate` で観客のあいだで使い回す(`generateStaticParams` は空を返し、ビルド中に api を呼ばない)。管理画面とログインの要求には使わない。
 
 ## 3. API 契約
 
