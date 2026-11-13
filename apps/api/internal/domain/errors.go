@@ -50,6 +50,8 @@ const (
 	ResourcePlayer     Resource = "ENTRY_PLAYER_ID"
 	ResourceMatch      Resource = "MATCH_ID"
 	ResourceGallery    Resource = "TGALLERY_ID"
+	// ResourceEntry は大会への申込(本サイト独自。参照サイトに申込は無い)
+	ResourceEntry Resource = "TEAM_ENTRY_ID"
 )
 
 // NotFoundError は ID が存在しないことを表す。errors.Is(err, ErrNotFound) が真になる。

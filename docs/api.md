@@ -963,6 +963,55 @@ type Closing = {
 
 - 中断と再開は監査ログに残る(`tournament.suspend`、`tournament.resume`)。
 
+### 申込
+
+大会への申込(docs/line-integration.md「エントリーの流れ」)。申込は `teams` と別に持ち、承認したときに部門のチームと選手を作る。代表の連絡先が入るので、読むのも変えるのも管理者だけ。
+LINE からの申込(LIFF)はまだ無く、今は電話や紙で受けた申込を運営が代わりに入れる(`channel: 'desk'`)。
+
+```ts
+type EntryQuestion = {
+  id: number
+  scope: 'team' | 'member'           // 代表がチームについて答える / メンバーが各自答える
+  label: string
+  kind: 'short_text' | 'long_text' | 'choice' | 'number' | 'yes_no'
+  required: boolean
+  options: string[]                  // choice の選択肢。それ以外は []
+  answered: number                   // 答えの数(答えのある質問は kind と scope を変えられない)
+}
+type EntryStatus = 'pending' | 'returned' | 'approved' | 'cancelled'   // 申込中 / 差し戻し / 承認 / 取消
+type EntrySummary = {
+  id: number
+  division: { id: number; name: I18nText }
+  fullName: string; shortName: string; repName: string
+  channel: 'line' | 'desk'           // 代表が LINE から / 運営が代わりに入れた
+  status: EntryStatus
+  members: number                    // メンバーの数
+  registered: number                 // そのうち本人が LINE で登録した数
+  submittedAt: string                // RFC 3339
+  teamId: number | null              // 承認で作ったチーム
+}
+type EntryDetail = EntrySummary & {
+  tournamentId: number
+  repPhone: string; repEmail: string
+  returnNote: string                 // 差し戻しの理由。差し戻し以外は ''
+  inviteCode: string                 // メンバーの招待リンクのコード(英小文字と数字の 26 文字)
+  decidedAt: string | null
+  memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null }>
+  answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/entry-questions` | なし | `{ questions: EntryQuestion[] }`(並び順) |
+| `PUT /admin/tournaments/{id}/entry-questions` | `{ questions: Array<{ id: number \| null; scope; label; kind; required; options }> }` | `{ questions: EntryQuestion[] }`。この並びで置き換える。`id` が null の質問は作り、並びに無い質問は答えごと消す。よその大会の `id` は 400、答えのある質問の `kind` か `scope` を変えると 409 |
+| `GET /admin/tournaments/{id}/entries` | なし | `{ entries: EntrySummary[] }`(受けた順) |
+| `POST /admin/tournaments/{id}/entries` | `{ divisionId; fullName; shortName; repName; repPhone; repEmail; members: Array<{ name; number }>; answers: Array<{ questionId; value }> }` | `EntryDetail`(201)。`answers` はチーム向けの質問だけ。同じ部門に同じチーム名(前後の空白と大文字小文字を除いて)の取り消していない申込があれば 409。終わった大会は 409 |
+| `GET /admin/entries/{id}` | なし | `EntryDetail` |
+| `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す) |
+
+- 上限は質問 30、選択肢 30、メンバー 60、名前と短い答え 100 字(質問の文言と短い文の答えは 200 字)、長い答えと差し戻しの理由 2000 字、数の答えは ±1,000,000。
+
 ### 観戦アプリの表
 
 観戦アプリの「表で見る」の見せ方。管理者だけ。決めていない大会は既定(全部出す、列は全部、`maru`、`entry`、`score`、色をつける)を返す。

@@ -16,6 +16,7 @@ import (
 	"scoreview/api/internal/auth"
 	"scoreview/api/internal/bracket"
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/entry"
 	"scoreview/api/internal/sanitize"
 	"scoreview/api/internal/store"
 	"scoreview/api/internal/viewing"
@@ -33,6 +34,8 @@ type Server struct {
 	now           func() time.Time
 	// boards は公開のスコアサイトの掲示板の読み方。ハンドラはこの口だけを使い、DB を直接読まない
 	boards viewing.Reader
+	// entries は大会への申込の受付。決まりは entry にあり、ハンドラはこの口だけを使う
+	entries entry.Desk
 }
 
 // Option は Server の構成を変える Functional Option。
@@ -58,6 +61,11 @@ func WithBoards(boards viewing.Reader) Option {
 	return func(s *Server) { s.boards = boards }
 }
 
+// WithEntryDesk は申込の受付を差し替える(テスト用。既定は DB で読み書きする entry.Service)。
+func WithEntryDesk(desk entry.Desk) Option {
+	return func(s *Server) { s.entries = desk }
+}
+
 // WithPasswordGate はパスワード照合の同時実行数の制限を差し替える(混雑時の 503 のテスト用)。
 func WithPasswordGate(gate *auth.PasswordGate) Option {
 	return func(s *Server) { s.passwords = gate }
@@ -71,6 +79,7 @@ func NewServer(db *gorm.DB, internalToken string, opts ...Option) *Server {
 		sanitizer: sanitize.New(), brackets: bracket.Default(), now: time.Now,
 		passwords: auth.NewPasswordGate(auth.MaxConcurrentPasswordChecks, auth.PasswordCheckWait),
 		boards:    viewing.NewService(store.NewViewingSource(db)),
+		entries:   entry.NewService(store.NewEntryStore(db)),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -90,6 +99,7 @@ func (s *Server) routes() {
 	s.dayOfRoutes()
 	s.liveTablesRoutes()
 	s.boardRoutes()
+	s.entryRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。
