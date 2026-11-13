@@ -1,11 +1,5 @@
 import type { MatchSide } from '@/api/common.types'
-import type {
-  GroupResponse,
-  LiveTablesResponse,
-  MatchResponse,
-  ScheduleResponse,
-  ScheduleRow,
-} from '@/api/public.types'
+import type { BoardResponse, MatchResponse, ScheduleRow } from '@/api/public.types'
 import type { FlowEvent, LiveData, LiveMatch, LivePool, LiveSide, LiveStatus } from './live.types'
 
 // 観戦アプリ(/live/{大会ID}。Claude Design「StageCam」)の、api の応答を画面の形に直す決まり。
@@ -95,81 +89,35 @@ export function courtName(field: string | null): string {
   return /^(コート|court)/i.test(field) ? field : `${field}コート`
 }
 
-/** 「表で見る」の見せ方の既定(api の tournament_live_tables の既定と同じ。表の応答が無いとき) */
-const defaultTables: LiveTablesResponse = {
-  config: {
-    shown: true,
-    poolShown: true,
-    bracketShown: true,
-    columns: { wdl: true, goals: true, diff: true, points: true, rank: true },
-    marks: 'maru',
-    order: 'entry',
-    live: 'score',
-    highlight: true,
-  },
-  divisions: [],
-}
-
 /**
- * 大会のスケジュール(全日程)と組の応答から、観戦アプリの試合と順位表を作る。試合は日付、時刻、
- * コートの順(スケジュールの既定の並び)のまま。tables は「表で見る」の見せ方とトーナメントの形。
+ * 大会の掲示板から、観戦アプリの試合と順位表を作る。試合は掲示板の並び(日付、時刻、コートの順)の
+ * まま。組の名前、組が終わったか、順位は api が決めたものを使う。
  */
-export function buildLiveData(
-  schedule: ScheduleResponse,
-  groups: GroupResponse[],
-  tournamentDate: string | null,
-  tables: LiveTablesResponse = defaultTables,
-): LiveData {
-  const groupOf = new Map<number, { id: number; name: string; pool: boolean }>()
-  for (const group of groups) {
-    for (const row of group.matches) {
-      groupOf.set(row.matchId, {
-        id: group.group.id,
-        name: group.group.name,
-        pool: group.group.kind === 'pool',
-      })
-    }
-  }
-  // 組の表示名: 形を決めた部門ではその組の試合の名前(「予選 A 組」)。無ければ組の名前のまま
-  const groupLabel = new Map<number, string>()
-  for (const row of schedule.rows) {
-    const group = groupOf.get(row.matchId)
-    if (group?.pool && row.stage !== null && !groupLabel.has(group.id)) {
-      groupLabel.set(group.id, row.stage)
-    }
-  }
-  const matches: LiveMatch[] = schedule.rows.map((row) => {
-    const group = groupOf.get(row.matchId)
-    return {
-      id: row.matchId,
-      code: row.code,
-      date: row.date,
-      time: row.time ?? '',
-      court: courtName(row.field),
-      status: statusOf[row.status],
-      stage: row.stage ?? group?.name ?? row.division.name.ja,
-      groupId: group?.id ?? null,
-      pool: group?.pool ?? false,
-      divisionId: row.division.id,
-      divisionName: row.division.name.ja,
-      left: liveSide(row.left, row.division.id, schedule.rows),
-      right: liveSide(row.right, row.division.id, schedule.rows),
-    }
-  })
-  const advance = new Map(
-    tables.divisions.flatMap((division) =>
-      division.pools.map((pool) => [pool.groupId, pool.advance] as const),
-    ),
-  )
-  const pools: LivePool[] = groups
-    .filter((group) => group.pool !== null)
-    .map((group) => ({
-      id: group.group.id,
-      name: groupLabel.get(group.group.id) ?? group.group.name,
-      done: group.matches.length > 0 && group.matches.every((row) => row.status === 'finished'),
-      advance: advance.get(group.group.id) ?? 0,
-      // 組のページの結果は登録順なので、順位の順に並べ直す(順位の無いチームは最後)
-      rows: (group.pool?.results ?? [])
+export function buildLiveData(board: BoardResponse, tournamentDate: string | null): LiveData {
+  const rows = board.matches
+  const matches: LiveMatch[] = rows.map((row) => ({
+    id: row.matchId,
+    code: row.code,
+    date: row.date,
+    time: row.time ?? '',
+    court: courtName(row.field),
+    status: statusOf[row.status],
+    stage: row.stage ?? row.group?.name.ja ?? row.division.name.ja,
+    groupId: row.group?.id ?? null,
+    pool: row.group?.pool ?? false,
+    divisionId: row.division.id,
+    divisionName: row.division.name.ja,
+    left: liveSide(row.left, row.division.id, rows),
+    right: liveSide(row.right, row.division.id, rows),
+  }))
+  const pools: LivePool[] = board.divisions.flatMap((division) =>
+    division.pools.map((pool) => ({
+      id: pool.groupId,
+      name: pool.name.ja,
+      done: pool.done,
+      advance: pool.advance,
+      // 掲示板の順位表は登録順なので、順位の順に並べ直す(順位の無いチームは最後)
+      rows: pool.standings
         .map((row, entry) => ({
           rank: row.rank,
           entry,
@@ -184,16 +132,17 @@ export function buildLiveData(
           goalsAgainst: row.goalsAgainst,
         }))
         .sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER)),
-    }))
-  const banner = schedule.frame.banners[0]
+    })),
+  )
+  const banner = board.tournament.banner
   return {
-    tournament: { id: schedule.frame.id, name: schedule.frame.name.ja, date: tournamentDate },
+    tournament: { id: board.tournament.id, name: board.tournament.name.ja, date: tournamentDate },
     sponsor: banner ? { imageUrl: banner.imageUrl, linkUrl: banner.linkUrl } : null,
     matches,
     pools,
     tables: {
-      config: tables.config,
-      brackets: tables.divisions.flatMap((division) =>
+      config: board.tables,
+      brackets: board.divisions.flatMap((division) =>
         division.brackets.map((bracket) => ({
           divisionId: division.id,
           name: bracket.name,

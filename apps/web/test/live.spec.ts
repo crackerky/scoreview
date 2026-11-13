@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import {
-  groupResponseSchema,
-  matchResponseSchema,
-  scheduleResponseSchema,
-} from '../src/api/public.types.ts'
+import { boardResponseSchema, matchResponseSchema } from '../src/api/public.types.ts'
 import type { LiveMatch } from '../src/live/live.types.ts'
 import {
   buildLiveData,
@@ -23,14 +19,12 @@ import { loadFixture } from './fixtures/load.ts'
 
 // 観戦アプリの、api の応答を画面の形に直す決まり(src/live/live.utils.ts)
 
-const schedule = scheduleResponseSchema.parse(loadFixture('schedule-tournament-1'))
-const groups = ['group-1001', 'group-1002', 'group-1003', 'group-1004'].map((name) =>
-  groupResponseSchema.parse(loadFixture(name)),
-)
+// schedule-tournament-1 と group-100x から作った掲示板(試合、組、組の順位は同じ)
+const board = boardResponseSchema.parse(loadFixture('board-tournament-1'))
 
 test('試合は組の名前、コート、状態、決まっていないチームの決まり方を持つ', () => {
-  const data = buildLiveData(schedule, groups, '2026-10-17')
-  assert.equal(data.matches.length, schedule.rows.length)
+  const data = buildLiveData(board, '2026-10-17')
+  assert.equal(data.matches.length, board.matches.length)
   const first = data.matches[0]
   assert.equal(first?.status, 'done')
   assert.equal(first?.left.teamId, 5001)
@@ -57,19 +51,21 @@ test('決まっていないチームは元の試合の名前で呼び、同じ�
     B1: '1位決定戦',
   }
   const named = {
-    ...schedule,
-    rows: schedule.rows.map((row) => ({ ...row, stage: stages[row.code] ?? null })),
+    ...board,
+    matches: board.matches.map((row) => ({ ...row, stage: stages[row.code] ?? null })),
   }
-  const final = buildLiveData(named, [], null).matches.find((item) => item.code === 'B1')
+  const final = buildLiveData(named, null).matches.find((item) => item.code === 'B1')
   assert.equal(final?.left.name, '準決勝(1コート)の勝者')
   assert.equal(final?.right.name, '準決勝(2コート)の負けチーム')
   assert.equal(final?.stage, '1位決定戦')
   // 別の幅の準決勝があれば幅を残す
   const crossed = {
     ...named,
-    rows: named.rows.map((row) => (row.code === 'A2' ? { ...row, stage: '5〜8位 準決勝' } : row)),
+    matches: named.matches.map((row) =>
+      row.code === 'A2' ? { ...row, stage: '5〜8位 準決勝' } : row,
+    ),
   }
-  const mixed = buildLiveData(crossed, [], null).matches.find((item) => item.code === 'B1')
+  const mixed = buildLiveData(crossed, null).matches.find((item) => item.code === 'B1')
   assert.equal(mixed?.left.name, '1〜4位 準決勝の勝者')
   assert.equal(mixed?.right.name, '5〜8位 準決勝の負けチーム')
 })

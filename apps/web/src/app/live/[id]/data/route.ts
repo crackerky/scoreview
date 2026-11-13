@@ -1,8 +1,9 @@
 import { ApiError } from '@/api/client'
+import { sharedJson } from '@/app/_lib/sharedResponse'
 import { loadLiveData } from '@/live/liveData'
 
 // 観戦アプリが一定の間隔で取り直すデータ(/live/{id}/data)。開催日は初回の描画で渡しているので
-// ここでは読まない(大会一覧の api を毎回呼ばないため)
+// ここでは読まない(大会一覧の api を毎回呼ばないため)。観客のあいだで配信が使い回す
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -12,7 +13,7 @@ export async function GET(
     return Response.json({ error: 'not found' }, { status: 404 })
   }
   try {
-    return Response.json(await loadLiveData(Number(id), null))
+    return sharedJson(await loadLiveData(Number(id), null))
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return Response.json({ error: 'not found' }, { status: 404 })

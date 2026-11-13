@@ -1,0 +1,233 @@
+{
+  "tournament": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチカップ",
+      "en": "2026 Fictional Beach Cup"
+    },
+    "banner": {
+      "imageUrl": "/brand/banner-sample.svg",
+      "linkUrl": "https://example.com/"
+    }
+  },
+  "divisions": [
+    {
+      "id": 101,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
+      "pools": [
+        {
+          "groupId": 1001,
+          "name": {
+            "ja": "Qualifying pool A",
+            "en": "Qualifying pool A"
+          },
+          "done": true,
+          "advance": 0,
+          "standings": [
+            {
+              "team": {
+                "id": 5001,
+                "name": {
+                  "ja": "架空チームA",
+                  "en": "Fictional A"
+                }
+              },
+              "points": 3,
+              "rank": 1,
+              "games": 1,
+              "wins": 1,
+              "draws": 0,
+              "losses": 0,
+              "goalsFor": 9,
+              "goalsAgainst": 3
+            },
+            {
+              "team": {
+                "id": 5002,
+                "name": {
+                  "ja": "架空チームB",
+                  "en": "Fictional B"
+                }
+              },
+              "points": 0,
+              "rank": 2,
+              "games": 1,
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "goalsFor": 3,
+              "goalsAgainst": 9
+            }
+          ]
+        }
+      ],
+      "brackets": []
+    },
+    {
+      "id": 102,
+      "name": {
+        "ja": "ウィメン",
+        "en": "Women's"
+      },
+      "pools": [],
+      "brackets": []
+    }
+  ],
+  "matches": [
+    {
+      "matchId": 9001,
+      "hasDetail": true,
+      "resultType": "normal",
+      "winnerSide": "left",
+      "code": "A1",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": "1",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5001,
+          "name": {
+            "ja": "架空チームA",
+            "en": "Fictional A"
+          }
+        },
+        "placeholder": null,
+        "score": 9,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 5002,
+          "name": {
+            "ja": "架空チームB",
+            "en": "Fictional B"
+          }
+        },
+        "placeholder": null,
+        "score": 3,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 101,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": {
+        "id": 1001,
+        "name": {
+          "ja": "Qualifying pool A",
+          "en": "Qualifying pool A"
+        },
+        "pool": true
+      }
+    },
+    {
+      "matchId": 9002,
+      "hasDetail": false,
+      "resultType": "normal",
+      "winnerSide": null,
+      "code": "A2",
+      "date": "2026-10-18",
+      "time": "10:00",
+      "field": "2",
+      "status": "finished",
+      "left": {
+        "team": {
+          "id": 5003,
+          "name": {
+            "ja": "架空大学",
+            "en": "Fictional Univ"
+          }
+        },
+        "placeholder": null,
+        "score": 5,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 5004,
+          "name": {
+            "ja": "架空チームD",
+            "en": ""
+          }
+        },
+        "placeholder": null,
+        "score": 5,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 101,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": null
+    },
+    {
+      "matchId": 9003,
+      "hasDetail": false,
+      "resultType": "normal",
+      "winnerSide": null,
+      "code": "B1",
+      "date": "2026-10-18",
+      "time": "11:00",
+      "field": "1",
+      "status": "scheduled",
+      "left": {
+        "team": null,
+        "placeholder": {
+          "code": "A1",
+          "outcome": "win"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "A2",
+          "outcome": "lose"
+        },
+        "score": null,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 101,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": null
+    }
+  ],
+  "tables": {
+    "shown": true,
+    "poolShown": true,
+    "bracketShown": true,
+    "columns": {
+      "wdl": true,
+      "goals": true,
+      "diff": true,
+      "points": true,
+      "rank": true
+    },
+    "marks": "maru",
+    "order": "entry",
+    "live": "score",
+    "highlight": true
+  }
+}
