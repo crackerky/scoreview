@@ -4,13 +4,15 @@
  * 押せる要素は 44px 以上。
  */
 .site {
-  --site-fg: #f2f3f5;
-  --site-muted: #9aa3ad;
-  --site-accent: #ff8a1f;
-  --site-line: rgba(255, 255, 255, 0.08);
+  /* 色はスコアサイト(score.css)と同じ UP の色。accent は黒の地で読める明るい赤(UP の赤 #b80000 は
+     文字には暗すぎる) */
+  --site-fg: #f5f5f5;
+  --site-muted: #a8a8a8;
+  --site-accent: #ff6b6b;
+  --site-line: rgba(255, 255, 255, 0.1);
 
   min-height: 100vh;
-  background: #05070b;
+  background: #121212;
   color: var(--site-fg);
   font-family: var(--live-font-body), "Hiragino Sans", "Noto Sans JP", sans-serif;
   font-size: 15px;
@@ -32,7 +34,7 @@
   max-width: 560px;
   min-height: 100vh;
   margin: 0 auto;
-  background: radial-gradient(120% 40% at 50% 0%, #1a2233 0%, #0a0d14 70%);
+  background: linear-gradient(180deg, #202020 0, #121212 240px);
 }
 
 .site-header {
@@ -160,7 +162,7 @@
 .site-doc-note {
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 138, 31, 0.12);
+  background: rgba(184, 0, 0, 0.18);
   color: var(--site-fg);
   font-size: 13px;
 }

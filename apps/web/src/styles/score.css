@@ -3,19 +3,24 @@
  * 紙の表に近い明るい地(live-tables.css)で浮かせる。スマートフォンの幅を基準にし、広い画面では
  * 星取表を横に並べる。押せる要素は 44px 以上。
  *
- * 色はここの変数だけで決める。運営の UP カラーが決まったら、この塊を差し替える。
+ * 色はここの変数だけで決める。運営の UP(ultimate-planning.com)の色に合わせる: 上の帯は UP の
+ * メニューの墨色 #202020、強調は UP の見出しの下線の赤 #b80000。その赤は黒の地の文字には暗すぎる
+ * (コントラスト 2.7)ので、線と塗り(白い文字を載せる)にだけ使い、リンクの文字は明るくした赤にする。
+ * 試合中は赤と見分けるため橙のままにする。
  */
 .sc {
-  --sc-bg: #05070b;
-  --sc-surface: #11151d;
-  --sc-surface-2: #181d27;
-  --sc-fg: #f2f3f5;
-  --sc-muted: #9aa3ad;
+  --sc-bg: #121212;
+  --sc-header: #202020;
+  --sc-surface: #1c1c1c;
+  --sc-surface-2: #262626;
+  --sc-fg: #f5f5f5;
+  --sc-muted: #a8a8a8;
   --sc-line: rgba(255, 255, 255, 0.1);
-  --sc-accent: #ff8a1f;
-  --sc-live: #ff5a1f;
-  --sc-paper: #f4f3ef;
-  --sc-ink: #1f2328;
+  --sc-accent: #b80000;
+  --sc-accent-text: #ff6b6b;
+  --sc-live: #ff9f1a;
+  --sc-paper: #f5f5f5;
+  --sc-ink: #1f1f1f;
 
   min-height: 100vh;
   background: var(--sc-bg);
@@ -31,7 +36,7 @@
 }
 
 .sc a {
-  color: var(--sc-accent);
+  color: var(--sc-accent-text);
 }
 
 .sc-sr {
@@ -49,8 +54,7 @@
   top: 0;
   z-index: 10;
   border-bottom: 1px solid var(--sc-line);
-  background: rgba(5, 7, 11, 0.94);
-  backdrop-filter: blur(8px);
+  background: var(--sc-header);
 }
 
 .sc-topbar,
@@ -143,8 +147,13 @@
   margin-top: 0;
 }
 
+/* 見出しの下に、UP の見出しと同じく細い灰色の線と、その左に短い赤い線を引く */
 .sc-heading {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  background:
+    linear-gradient(var(--sc-accent), var(--sc-accent)) left bottom / 32px 3px no-repeat,
+    linear-gradient(var(--sc-line), var(--sc-line)) left bottom / 100% 1px no-repeat;
   font-size: 17px;
   font-weight: 800;
 }
@@ -221,7 +230,7 @@
 }
 
 .sc-more {
-  color: var(--sc-accent);
+  color: var(--sc-accent-text);
   font-size: 13px;
   font-weight: 800;
 }
@@ -250,7 +259,7 @@
 
 .sc .lt-link:hover,
 .sc .lt-link:focus-visible {
-  outline: 2px solid var(--sc-accent);
+  outline: 2px solid var(--sc-accent-text);
   outline-offset: -2px;
 }
 
@@ -315,7 +324,7 @@
 .sc-day-tabs button[aria-selected="true"] {
   border-color: var(--sc-accent);
   background: var(--sc-accent);
-  color: #111;
+  color: #fff;
 }
 
 .sc-dot {
@@ -574,7 +583,7 @@
   padding: 0 8px;
   border-radius: 999px;
   background: var(--sc-accent);
-  color: #111;
+  color: #fff;
   font-size: 12px;
   font-weight: 800;
 }

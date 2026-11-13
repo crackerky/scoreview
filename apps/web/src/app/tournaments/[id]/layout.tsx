@@ -16,7 +16,8 @@ export function generateStaticParams(): Array<{ id: string }> {
   return []
 }
 
-export const viewport = { themeColor: '#05070b' }
+/** スマートフォンのブラウザの帯の色(上の帯と同じ UP の墨色) */
+export const viewport = { themeColor: '#202020' }
 
 export default async function ScoreLayout({
   children,
