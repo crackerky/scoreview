@@ -5,13 +5,16 @@ import { loadAdmin, requireUser } from '@/admin/session'
 import { japaneseDate, jstToday } from '@/admin/tournamentList.utils'
 import { assignments, groups, matches, teams, tournaments } from '@/api/admin'
 import type { AdminDivision, AdminMatch } from '@/api/admin.types'
+import { entries } from '@/api/entry'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, EntryCard, type PrimaryAction, Stat } from '@/components/admin/AdminParts'
+import { entryPaths } from '@/entry/entry.paths'
+import { countByStatus } from '@/entry/entry.utils'
 
 // 大会ホーム(Claude Design「Score View Admin」)。上の画面は要約と入口だけにし、フォームを置かない。
 // 数字の要約(試合中、終わった試合、本部の知らせ)と、本部、部門、時間割、記録係、観戦アプリの表、写真とバナー、
-// 大会の設定への入口。記録係(staff)には部門と時間割だけを出す。
+// 申込、大会の設定への入口。記録係(staff)には部門と時間割だけを出す。
 
 type DivisionSummary = {
   division: AdminDivision
@@ -27,13 +30,16 @@ export default async function AdminTournamentPage(props: IdPageProps) {
   const isAdmin = user.role === 'admin'
   const canRun = runsDayOf(user)
   const today = jstToday(new Date())
-  const [tournament, board, assignmentList] = await loadAdmin(() =>
+  const [tournament, board, assignmentList, entryList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, id),
       loadBoards(token, id),
       canRun ? assignments.list(token, id) : null,
+      // 申込には代表の連絡先が入るので管理者だけ
+      isAdmin ? entries.list(token, id) : null,
     ]),
   )
+  const entryCounts = entryList ? countByStatus(entryList.entries) : null
   const summaries: DivisionSummary[] = await loadAdmin(() =>
     Promise.all(
       board.divisions.map(async (division) => {
@@ -127,6 +133,14 @@ export default async function AdminTournamentPage(props: IdPageProps) {
             sub={`割り当て ${keepers.length} 件。当日の交代もここから`}
             badge={hasBoard && freeCourts.length > 0 ? `${freeCourts.join('・')}が空き` : undefined}
             tone="live"
+          />
+        ) : null}
+        {entryList && entryCounts ? (
+          <EntryCard
+            href={entryPaths.list(id)}
+            label="申込"
+            sub={`申込 ${entryList.entries.length} 件、承認 ${entryCounts.approved} 件。申込で聞く質問もここから`}
+            badge={entryCounts.pending > 0 ? `確認待ち ${entryCounts.pending}` : undefined}
           />
         ) : null}
         {isAdmin ? (
