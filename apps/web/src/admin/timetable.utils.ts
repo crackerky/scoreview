@@ -4,18 +4,21 @@ import type { MatchSide } from '@/api/common.types'
 import type { ProgressMatch } from '@/api/format.types'
 import { describeSide } from './formatWizard.utils'
 
-// 時間割(コート × 時刻の表)の組み立て。会場に貼る紙と本部の控えに使う。
+// 時間割(コート × 時刻の表)の組み立て。会場に貼る紙と本部の控え、スコアサイトの日程に使う。
 
 export type TimetableMatch = AdminMatch & { divisionName: string }
 
-export type TimetableDay = {
+/** 時間割に置くのに要る、試合の日付、時刻、コート */
+export type TimetableSlot = { date: string | null; time: string | null; field: string | null }
+
+export type TimetableDay<T extends TimetableSlot = TimetableMatch> = {
   date: string | null
   fields: string[]
   times: string[]
   /** `${time}|${field}` → その枠の試合(通常は 1 つ) */
-  cells: Map<string, TimetableMatch[]>
+  cells: Map<string, T[]>
   /** 時刻かコートが決まっていない試合(表の下に一覧で出す) */
-  unplaced: TimetableMatch[]
+  unplaced: T[]
 }
 
 /** コートの並び。数字のコートを数値順で先に、それ以外を文字列順で後に(日程の既定の並びと同じ) */
@@ -37,8 +40,8 @@ export function cellKey(time: string, field: string): string {
 }
 
 /** 試合を日付ごとの時間割にする。日付の無い試合は最後の日(date が null)にまとめる */
-export function buildTimetable(matches: TimetableMatch[]): TimetableDay[] {
-  const byDate = new Map<string | null, TimetableMatch[]>()
+export function buildTimetable<T extends TimetableSlot>(matches: T[]): TimetableDay<T>[] {
+  const byDate = new Map<string | null, T[]>()
   for (const match of matches) {
     const list = byDate.get(match.date) ?? []
     list.push(match)
@@ -52,8 +55,8 @@ export function buildTimetable(matches: TimetableMatch[]): TimetableDay[] {
   })
   return dates.map((date) => {
     const list = byDate.get(date) ?? []
-    const cells = new Map<string, TimetableMatch[]>()
-    const unplaced: TimetableMatch[] = []
+    const cells = new Map<string, T[]>()
+    const unplaced: T[] = []
     const fields = new Set<string>()
     const times = new Set<string>()
     for (const match of list) {
