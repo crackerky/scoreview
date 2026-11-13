@@ -197,6 +197,13 @@ func GetLiveTables(ctx context.Context, db *gorm.DB, tournamentID int64) (LiveTa
 	if err != nil {
 		return LiveTables{}, err
 	}
+	return loadLiveTables(ctx, db, scope)
+}
+
+// loadLiveTables は読んだ大会の範囲から、表の見せ方と星取表、トーナメント表の形を読む。問い合わせは
+// 3 回(見せ方、大会の形、形のグループ)。
+func loadLiveTables(ctx context.Context, db *gorm.DB, scope tournamentScope) (LiveTables, error) {
+	tournamentID := scope.tournament.ID
 	config, err := loadLiveTablesConfig(ctx, db, tournamentID)
 	if err != nil {
 		return LiveTables{}, err
