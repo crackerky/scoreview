@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import type { z } from 'zod'
 import { matchRowSchema, tournamentFrameSchema } from '../src/api/common.types.ts'
 import {
+  boardResponseSchema,
   groupResponseSchema,
   matchResponseSchema,
   scheduleResponseSchema,
@@ -28,6 +30,13 @@ describe('閲覧用応答のスキーマ', () => {
       assert.equal(result.success, true, result.error?.message)
     })
   }
+
+  test('api のゴールデンファイルの掲示板を parse できる', () => {
+    // 写しを持つと api の変更とずれるので、api のテストが比べているファイルそのものを読む
+    const golden = new URL('../../api/internal/httpapi/testdata/board.json', import.meta.url)
+    const result = boardResponseSchema.safeParse(JSON.parse(readFileSync(golden, 'utf8')))
+    assert.equal(result.success, true, result.error?.message)
+  })
 
   test('frame が欠けた応答は失敗する', () => {
     const { frame: _frame, ...rest } = groupResponseSchema.parse(loadFixture('group-1001'))

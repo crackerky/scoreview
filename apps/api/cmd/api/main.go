@@ -11,6 +11,7 @@ import (
 	"scoreview/api/internal/config"
 	"scoreview/api/internal/httpapi"
 	"scoreview/api/internal/store"
+	"scoreview/api/internal/viewing"
 )
 
 // readHeaderTimeout はヘッダー受信の上限。Slowloris 型の接続占有を防ぐ。
@@ -33,9 +34,12 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// 観客の取り直しが重なる掲示板は、大会ごとに短いあいだ使い回す(viewing.Cache)
+	boards := viewing.NewCache(viewing.NewService(store.NewViewingSource(db)), viewing.DefaultCacheTTL, time.Now)
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewServer(db, cfg.InternalToken, httpapi.WithLogger(log)),
+		Addr: ":" + cfg.Port,
+		Handler: httpapi.NewServer(db, cfg.InternalToken, httpapi.WithLogger(log),
+			httpapi.WithBoards(boards)),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	log.Info("api listening", "port", cfg.Port)

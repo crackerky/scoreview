@@ -56,6 +56,7 @@ func goldenCases(sc storetest.Scenario) []struct{ name, path string } {
 		{"group_bracket", fmt.Sprintf("/api/v1/groups/%d", sc.Bracket.ID)},
 		{"group_image", fmt.Sprintf("/api/v1/groups/%d", sc.Image.ID)},
 		{"match", fmt.Sprintf("/api/v1/matches/%d", sc.MatchAB.ID)},
+		{"board", fmt.Sprintf("/api/v1/tournaments/%d/board", sc.Tournament.ID)},
 	}
 }
 
@@ -135,6 +136,7 @@ func TestBrowseNotFound(t *testing.T) {
 	f := newFixture(t)
 	cases := []struct{ path, message string }{
 		{"/api/v1/tournaments/999999/schedule", "TOURNAMENT_ID [999999]"},
+		{"/api/v1/tournaments/999999/board", "TOURNAMENT_ID [999999]"},
 		{"/api/v1/groups/999999", "GROUP_ID [999999]"},
 		{"/api/v1/matches/999999", "MATCH_ID [999999]"},
 	}

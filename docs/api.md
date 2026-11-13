@@ -119,7 +119,7 @@ type Tally = {
 
 ## 閲覧用エンドポイント
 
-大会の一覧(`/`)と観戦アプリ(`/live/{id}`)が使う。参照サイトを模倣した閲覧ページのためにあった大会トップ、チーム一覧、ディビジョン別スケジュール、ディビジョン成績、チーム、選手、ギャラリーのエンドポイントは、2026 年 11 月にページと一緒に削除した。
+大会の一覧(`/`)、スコアサイト(`/tournaments/{id}`)、観戦アプリ(`/live/{id}`)が使う。参照サイトを模倣した閲覧ページのためにあった大会トップ、チーム一覧、ディビジョン別スケジュール、ディビジョン成績、チーム、選手、ギャラリーのエンドポイントは、2026 年 11 月にページと一緒に削除した。
 
 ### `GET /api/v1/tournaments`
 
@@ -306,6 +306,40 @@ type LiveTablesConfig = {
   order: 'entry' | 'rank'           // チームの並び(登録順 / 順位順)
   live: 'score' | 'blank'           // 試合中のマス(いまの点を出す / 終わるまで空ける)
   highlight: boolean                // 進出圏の順位に色をつける
+}
+```
+
+### `GET /api/v1/tournaments/{id}/board`
+
+大会の掲示板。スコアサイト(`/tournaments/{id}`)と観戦アプリ(`/live/{id}`)が、星取表、順位、日程、トーナメント表を描くのに要るものを 1 回で返す(本サイト独自)。観客の画面は数秒おきに取り直すので、問い合わせの数は試合、組、チームの数によらない(14 回)。本番の api は同じ大会の掲示板を 3 秒のあいだ使い回す(`viewing.DefaultCacheTTL`)ので、点を入れてから応答に出るまで最大 3 秒遅れる。
+
+組は公開して名前にリンクのある組だけを出す。試合の `group` はその組に入っている試合だけ入り、それ以外(組に入っていない、非公開の組、名前だけの組)は null。
+
+```ts
+{
+  tournament: {
+    id: number
+    name: I18nText
+    banner: { imageUrl: string; linkUrl: string | null } | null   // 最初のバナー(協賛の広告)
+  }
+  divisions: Array<{           // 部門の並び順。組もトーナメントも無い部門も入る
+    id: number
+    name: I18nText
+    pools: Array<{             // 総当たりの組。部門の中の並び順
+      groupId: number
+      name: I18nText           // 大会の形を決めた部門では ja が組の試合の名前(「予選 A 組」)
+      done: boolean            // 組の試合がすべて終わった(試合が無い組は false)
+      advance: number          // 優勝を争うグループへ進む上位の数(0 は無し)
+      standings: Array<Tally & { team: TeamRef; points: number; rank: number | null }>  // 登録順
+    }>
+    brackets: Array<{ groupId: number; name: string; matches: Array<...> }>  // live-tables の brackets と同じ形
+  }>
+  matches: Array<MatchRow & {  // 全試合。日付、時刻、コートの順(日程の既定の並び)
+    division: { id: number; name: I18nText; kind: DivisionKind }
+    stage: string | null       // schedule の stage と同じ
+    group: { id: number; name: I18nText; pool: boolean } | null   // pool: 総当たりの組
+  }>
+  tables: LiveTablesConfig
 }
 ```
 

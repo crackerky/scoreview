@@ -175,19 +175,23 @@ func toSchedule(page store.SchedulePage, scope string) scheduleDTO {
 		out.Sort = &scheduleSortDTO{Key: string(page.Sort.Key), Dir: string(page.Sort.Dir)}
 	}
 	for _, row := range page.Rows {
-		var stage *string
-		if row.Stage != "" {
-			stage = &row.Stage
-		}
-		out.Rows = append(out.Rows, scheduleRowDTO{
-			matchRowDTO: toMatchRow(row.MatchRow),
-			Division: scheduleDivisionDTO{
-				ID: row.Division.ID, Name: toI18n(row.Division.Name), Kind: string(row.Division.Kind),
-			},
-			Stage: stage,
-		})
+		out.Rows = append(out.Rows, toScheduleRow(row))
 	}
 	return out
+}
+
+func toScheduleRow(row domain.ScheduleRow) scheduleRowDTO {
+	var stage *string
+	if row.Stage != "" {
+		stage = &row.Stage
+	}
+	return scheduleRowDTO{
+		matchRowDTO: toMatchRow(row.MatchRow),
+		Division: scheduleDivisionDTO{
+			ID: row.Division.ID, Name: toI18n(row.Division.Name), Kind: string(row.Division.Kind),
+		},
+		Stage: stage,
+	}
 }
 
 func toGroup(page store.GroupPage) groupDTO {

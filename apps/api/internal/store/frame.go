@@ -27,6 +27,20 @@ func (s tournamentScope) divisionOrder() map[int64]int {
 	return order
 }
 
+// scheduleDivisions は日程の行に付ける部門(並び順つき)を ID から引く。
+func (s tournamentScope) scheduleDivisions() map[int64]domain.ScheduleDivision {
+	divisions := make(map[int64]domain.ScheduleDivision, len(s.divisions))
+	for i, division := range s.divisions {
+		divisions[division.ID] = domain.ScheduleDivision{
+			ID:    division.ID,
+			Name:  i18n(division.NameJa, division.NameEn),
+			Kind:  division.Kind,
+			Order: i,
+		}
+	}
+	return divisions
+}
+
 // loadTournamentScope は大会とディビジョン、ナビの骨格(Frame)を読む。問い合わせは大会の数に
 // よらず 5 回(ディビジョン、グループ、ギャラリー、バナー、中断)。全ページで共有する。
 func loadTournamentScope(

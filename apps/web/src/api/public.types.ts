@@ -216,6 +216,22 @@ const liveBracketSideSchema = z.object({
   seed: z.string().nullable(),
 })
 
+/** トーナメントの形(live-tables と board で共有) */
+const liveBracketShapeSchema = z.object({
+  groupId: z.number().int(),
+  name: z.string(),
+  matches: z.array(
+    z.object({
+      code: z.string(),
+      round: z.number().int(),
+      winnerPlace: z.number().int(),
+      loserPlace: z.number().int(),
+      left: liveBracketSideSchema,
+      right: liveBracketSideSchema,
+    }),
+  ),
+})
+
 /** GET /api/v1/tournaments/{id}/live-tables */
 export const liveTablesResponseSchema = z.object({
   config: liveTablesConfigSchema,
@@ -223,23 +239,54 @@ export const liveTablesResponseSchema = z.object({
     z.object({
       id: z.number().int(),
       pools: z.array(z.object({ groupId: z.number().int(), advance: z.number().int() })),
-      brackets: z.array(
-        z.object({
-          groupId: z.number().int(),
-          name: z.string(),
-          matches: z.array(
-            z.object({
-              code: z.string(),
-              round: z.number().int(),
-              winnerPlace: z.number().int(),
-              loserPlace: z.number().int(),
-              left: liveBracketSideSchema,
-              right: liveBracketSideSchema,
-            }),
-          ),
-        }),
-      ),
+      brackets: z.array(liveBracketShapeSchema),
     }),
   ),
 })
 export type LiveTablesResponse = z.infer<typeof liveTablesResponseSchema>
+
+export const boardPoolSchema = z.object({
+  groupId: z.number().int(),
+  /** 大会の形を決めた部門では ja が組の試合の名前(「予選 A 組」) */
+  name: i18nTextSchema,
+  /** 組の試合がすべて終わった(試合が無い組は false) */
+  done: z.boolean(),
+  /** 優勝を争うグループへ進む上位の数(0 は無し) */
+  advance: z.number().int(),
+  /** 登録順 */
+  standings: z.array(
+    tallySchema.extend({
+      team: teamRefSchema,
+      points: z.number().int(),
+      rank: z.number().int().nullable(),
+    }),
+  ),
+})
+export type BoardPool = z.infer<typeof boardPoolSchema>
+
+export const boardMatchSchema = scheduleRowSchema.extend({
+  /** 案内する組に入っている試合だけ入る。pool は総当たりの組 */
+  group: z.object({ id: z.number().int(), name: i18nTextSchema, pool: z.boolean() }).nullable(),
+})
+export type BoardMatch = z.infer<typeof boardMatchSchema>
+
+/** GET /api/v1/tournaments/{id}/board */
+export const boardResponseSchema = z.object({
+  tournament: z.object({
+    id: z.number().int(),
+    name: i18nTextSchema,
+    banner: z.object({ imageUrl: z.string(), linkUrl: z.string().nullable() }).nullable(),
+  }),
+  divisions: z.array(
+    z.object({
+      id: z.number().int(),
+      name: i18nTextSchema,
+      pools: z.array(boardPoolSchema),
+      brackets: z.array(liveBracketShapeSchema),
+    }),
+  ),
+  /** 日付、時刻、コートの順 */
+  matches: z.array(boardMatchSchema),
+  tables: liveTablesConfigSchema,
+})
+export type BoardResponse = z.infer<typeof boardResponseSchema>

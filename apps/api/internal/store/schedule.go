@@ -108,15 +108,7 @@ func buildSchedule(ctx context.Context, db *gorm.DB, in scheduleInput) (Schedule
 	}
 	selected := ScheduleSelected{YMD: ymd, Team: in.filter.Team, Field: in.filter.Field}
 
-	divisions := map[int64]domain.ScheduleDivision{}
-	for i, division := range in.scope.divisions {
-		divisions[division.ID] = domain.ScheduleDivision{
-			ID:    division.ID,
-			Name:  i18n(division.NameJa, division.NameEn),
-			Kind:  division.Kind,
-			Order: i,
-		}
-	}
+	divisions := in.scope.scheduleDivisions()
 
 	page := SchedulePage{
 		Frame:    in.scope.frame,

@@ -1,0 +1,357 @@
+{
+  "tournament": {
+    "id": 1,
+    "name": {
+      "ja": "2026 架空ビーチ大会",
+      "en": "2026 Fictional Beach"
+    },
+    "banner": {
+      "imageUrl": "/b1.png",
+      "linkUrl": "https://example.com/"
+    }
+  },
+  "divisions": [
+    {
+      "id": 1,
+      "name": {
+        "ja": "ビーチミックス",
+        "en": "Beach Mixed"
+      },
+      "pools": [
+        {
+          "groupId": 1,
+          "name": {
+            "ja": "Qualifying pool A",
+            "en": ""
+          },
+          "done": false,
+          "advance": 0,
+          "standings": [
+            {
+              "games": 2,
+              "wins": 1,
+              "draws": 1,
+              "losses": 0,
+              "goalsFor": 14,
+              "goalsAgainst": 8,
+              "team": {
+                "id": 1,
+                "name": {
+                  "ja": "アルファ",
+                  "en": "Alpha"
+                }
+              },
+              "points": 4,
+              "rank": 1
+            },
+            {
+              "games": 1,
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "goalsFor": 3,
+              "goalsAgainst": 9,
+              "team": {
+                "id": 2,
+                "name": {
+                  "ja": "ブラボー",
+                  "en": "Bravo"
+                }
+              },
+              "points": 0,
+              "rank": 3
+            },
+            {
+              "games": 1,
+              "wins": 0,
+              "draws": 1,
+              "losses": 0,
+              "goalsFor": 5,
+              "goalsAgainst": 5,
+              "team": {
+                "id": 3,
+                "name": {
+                  "ja": "チャーリー",
+                  "en": "Charlie"
+                }
+              },
+              "points": 1,
+              "rank": 2
+            }
+          ]
+        }
+      ],
+      "brackets": []
+    },
+    {
+      "id": 2,
+      "name": {
+        "ja": "ウィメン",
+        "en": "Women's"
+      },
+      "pools": [],
+      "brackets": []
+    }
+  ],
+  "matches": [
+    {
+      "matchId": 1,
+      "hasDetail": true,
+      "code": "A1",
+      "date": "2026-10-17",
+      "time": "09:00",
+      "field": "1",
+      "status": "finished",
+      "resultType": "normal",
+      "winnerSide": "left",
+      "left": {
+        "team": {
+          "id": 1,
+          "name": {
+            "ja": "アルファ",
+            "en": "Alpha"
+          }
+        },
+        "placeholder": null,
+        "score": 9,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 2,
+          "name": {
+            "ja": "ブラボー",
+            "en": "Bravo"
+          }
+        },
+        "placeholder": null,
+        "score": 3,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": {
+        "id": 1,
+        "name": {
+          "ja": "Qualifying pool A",
+          "en": ""
+        },
+        "pool": true
+      }
+    },
+    {
+      "matchId": 2,
+      "hasDetail": true,
+      "code": "A2",
+      "date": "2026-10-17",
+      "time": "10:00",
+      "field": "2",
+      "status": "finished",
+      "resultType": "normal",
+      "winnerSide": null,
+      "left": {
+        "team": {
+          "id": 3,
+          "name": {
+            "ja": "チャーリー",
+            "en": "Charlie"
+          }
+        },
+        "placeholder": null,
+        "score": 5,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 1,
+          "name": {
+            "ja": "アルファ",
+            "en": "Alpha"
+          }
+        },
+        "placeholder": null,
+        "score": 5,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": {
+        "id": 1,
+        "name": {
+          "ja": "Qualifying pool A",
+          "en": ""
+        },
+        "pool": true
+      }
+    },
+    {
+      "matchId": 3,
+      "hasDetail": true,
+      "code": "A3",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": "1",
+      "status": "scheduled",
+      "resultType": "normal",
+      "winnerSide": null,
+      "left": {
+        "team": {
+          "id": 2,
+          "name": {
+            "ja": "ブラボー",
+            "en": "Bravo"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 3,
+          "name": {
+            "ja": "チャーリー",
+            "en": "Charlie"
+          }
+        },
+        "placeholder": null,
+        "score": null,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": {
+        "id": 1,
+        "name": {
+          "ja": "Qualifying pool A",
+          "en": ""
+        },
+        "pool": true
+      }
+    },
+    {
+      "matchId": 5,
+      "hasDetail": false,
+      "code": "W1",
+      "date": "2026-10-18",
+      "time": "09:00",
+      "field": "B",
+      "status": "finished",
+      "resultType": "normal",
+      "winnerSide": "left",
+      "left": {
+        "team": {
+          "id": 5,
+          "name": {
+            "ja": "ウィスキー",
+            "en": "Whiskey"
+          }
+        },
+        "placeholder": null,
+        "score": 7,
+        "labelEn": ""
+      },
+      "right": {
+        "team": {
+          "id": 6,
+          "name": {
+            "ja": "ヤンキー",
+            "en": "Yankee"
+          }
+        },
+        "placeholder": null,
+        "score": 4,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 2,
+        "name": {
+          "ja": "ウィメン",
+          "en": "Women's"
+        },
+        "kind": "women"
+      },
+      "stage": null,
+      "group": null
+    },
+    {
+      "matchId": 4,
+      "hasDetail": true,
+      "code": "B1",
+      "date": "2026-10-18",
+      "time": "10:00",
+      "field": "2",
+      "status": "live",
+      "resultType": "normal",
+      "winnerSide": null,
+      "left": {
+        "team": {
+          "id": 4,
+          "name": {
+            "ja": "デルタ",
+            "en": ""
+          }
+        },
+        "placeholder": null,
+        "score": 2,
+        "labelEn": "(A4)"
+      },
+      "right": {
+        "team": null,
+        "placeholder": {
+          "code": "A1",
+          "outcome": "win"
+        },
+        "score": 1,
+        "labelEn": ""
+      },
+      "division": {
+        "id": 1,
+        "name": {
+          "ja": "ビーチミックス",
+          "en": "Beach Mixed"
+        },
+        "kind": "mixed"
+      },
+      "stage": null,
+      "group": null
+    }
+  ],
+  "tables": {
+    "shown": true,
+    "poolShown": true,
+    "bracketShown": true,
+    "columns": {
+      "wdl": true,
+      "goals": true,
+      "diff": true,
+      "points": true,
+      "rank": true
+    },
+    "marks": "maru",
+    "order": "entry",
+    "live": "score",
+    "highlight": true
+  }
+}
