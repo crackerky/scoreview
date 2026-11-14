@@ -1,0 +1,84 @@
+import type { EntryDetail, EntryExport } from '@/api/entry.types'
+import { answerText, channelLabels, receivedText, statusLabels } from './entry.utils'
+
+// 申込の書き出し(CSV)。運営が Excel で名簿として開く前提で、メンバー 1 人を 1 行にし、チームの欄と
+// チーム向けの質問への答えを各行に繰り返す(並べ替えや絞り込みをしても行がチームから離れないように)。
+
+/** Excel が UTF-8 と読むための BOM。無いと日本語が化ける */
+const bom = '﻿'
+
+/**
+ * 1 つの欄を CSV の書き方にする。= + - @ とタブ、改行で始まる値は、表計算ソフトが式として実行しうる
+ * ので先頭に ' を付ける(CSV インジェクション。OWASP の推奨)。区切り、引用符、改行を含む値は引用符で囲む。
+ */
+export function csvCell(value: string): string {
+  const safe = /^[=+\-@\t\r\n]/.test(value) ? `'${value}` : value
+  return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe
+}
+
+function csvLine(cells: readonly string[]): string {
+  return cells.map(csvCell).join(',')
+}
+
+const memberColumns = ['背番号', '名前', '本人登録'] as const
+
+function teamCells(entry: EntryDetail, answers: readonly string[]): string[] {
+  return [
+    String(entry.id),
+    statusLabels[entry.status],
+    entry.division.name.ja,
+    entry.fullName,
+    entry.shortName,
+    entry.repName,
+    entry.repPhone,
+    entry.repEmail,
+    receivedText(entry.submittedAt),
+    channelLabels[entry.channel],
+    ...answers,
+  ]
+}
+
+/** 書き出す申込を CSV の文字列(BOM つき、改行は CRLF)にする */
+export function entriesCsv(data: EntryExport): string {
+  const questions = data.questions.filter((question) => question.scope === 'team')
+  const header = [
+    '申込番号',
+    '状態',
+    '部門',
+    'チーム名(正式)',
+    'チーム名(短縮)',
+    '代表',
+    '電話番号',
+    'メールアドレス',
+    '受けた日時',
+    '経路',
+    ...questions.map((question) => question.label),
+    ...memberColumns,
+  ]
+  const lines = [csvLine(header)]
+  for (const entry of data.entries) {
+    const given = new Map(entry.answers.map((answer) => [answer.questionId, answer.value]))
+    const answers = questions.map((question) => {
+      const value = given.get(question.id)
+      return value === undefined ? '' : answerText(question, value)
+    })
+    const team = teamCells(entry, answers)
+    if (entry.memberList.length === 0) {
+      lines.push(csvLine([...team, '', '', '']))
+      continue
+    }
+    for (const member of entry.memberList) {
+      lines.push(
+        csvLine([...team, member.number, member.name, member.registered ? '済み' : 'まだ']),
+      )
+    }
+  }
+  return `${bom}${lines.join('\r\n')}\r\n`
+}
+
+/** 書き出すファイルの名前(ASCII だけにする。日本語の名前はブラウザによって化けるため) */
+export function entriesCsvName(tournamentId: number, now: Date): string {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  const day = jst.toISOString().slice(0, 10).replaceAll('-', '')
+  return `entries-${tournamentId}-${day}.csv`
+}

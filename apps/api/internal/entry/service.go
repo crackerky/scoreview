@@ -148,3 +148,19 @@ func (s *Service) Decide(
 	}
 	return detail, nil
 }
+
+// Export は Desk.Export。
+func (s *Service) Export(ctx context.Context, tournamentID int64) (Export, error) {
+	if _, err := s.store.Tournament(ctx, tournamentID); err != nil {
+		return Export{}, err
+	}
+	questions, err := s.store.Questions(ctx, tournamentID)
+	if err != nil {
+		return Export{}, err
+	}
+	details, err := s.store.Details(ctx, tournamentID)
+	if err != nil {
+		return Export{}, err
+	}
+	return Export{Questions: questions, Entries: details}, nil
+}

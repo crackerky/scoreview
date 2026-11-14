@@ -72,6 +72,12 @@ export const entryDetailSchema = entrySummarySchema.extend({
 })
 export type EntryDetail = z.infer<typeof entryDetailSchema>
 
+export const entryExportSchema = z.object({
+  questions: z.array(entryQuestionSchema),
+  entries: z.array(entryDetailSchema),
+})
+export type EntryExport = z.infer<typeof entryExportSchema>
+
 /** 保存する質問。id が null なら新しく作る */
 export type EntryQuestionInput = Omit<EntryQuestion, 'id' | 'answered'> & { id: number | null }
 

@@ -19,6 +19,7 @@ func (s *Server) entryRoutes() {
 	s.admin("PUT "+base+"/tournaments/{id}/entry-questions", adminOnly(), ok, withPathID(s.putEntryQuestions))
 	s.admin("GET "+base+"/tournaments/{id}/entries", adminOnly(), ok, withPathID(s.listEntries))
 	s.admin("POST "+base+"/tournaments/{id}/entries", adminOnly(), created, withPathID(s.createDeskEntry))
+	s.admin("GET "+base+"/tournaments/{id}/entries/export", adminOnly(), ok, withPathID(s.exportEntries))
 	s.admin("GET "+base+"/entries/{id}", adminOnly(), ok, withPathID(s.getEntry))
 	s.admin("POST "+base+"/entries/{id}/decision", adminOnly(), ok, withPathID(s.decideEntry))
 }
@@ -97,6 +98,11 @@ type entryDetailDTO struct {
 	DecidedAt    *time.Time       `json:"decidedAt"`
 	MemberList   []entryMemberDTO `json:"memberList"`
 	Answers      []entryAnswerDTO `json:"answers"`
+}
+
+type entryExportDTO struct {
+	Questions []entryQuestionDTO `json:"questions"`
+	Entries   []entryDetailDTO   `json:"entries"`
 }
 
 type entryMemberInputDTO struct {
@@ -241,4 +247,17 @@ func (s *Server) decideEntry(ctx context.Context, id int64, r *http.Request, use
 		return nil, err
 	}
 	return toEntryDetail(detail), nil
+}
+
+func (s *Server) exportEntries(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
+	export, err := s.entries.Export(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := entryExportDTO{Questions: toEntryQuestions(export.Questions).Questions,
+		Entries: make([]entryDetailDTO, len(export.Entries))}
+	for i, detail := range export.Entries {
+		out.Entries[i] = toEntryDetail(detail)
+	}
+	return out, nil
 }

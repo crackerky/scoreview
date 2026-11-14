@@ -70,7 +70,17 @@ func TestEntries(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, teamList, 1)
 
+	export := f.call(t, http.StatusOK, http.MethodGet, entriesURL+"/export", nil)
+	exported, ok := export["entries"].([]any)
+	require.True(t, ok)
+	require.Len(t, exported, 1)
+	row, ok := exported[0].(map[string]any)
+	require.True(t, ok)
+	assert.Len(t, row["memberList"], 1)
+	assert.Len(t, export["questions"], 2)
+
 	// 申込には代表の連絡先が入るので、記録係には読ませない
+	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, entriesURL+"/export", nil)
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, entriesURL, nil)
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, entryURL, nil)
 	f.call(t, http.StatusNotFound, http.MethodGet, "/api/v1/admin/tournaments/999999/entries", nil)

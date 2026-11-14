@@ -1007,6 +1007,7 @@ type EntryDetail = EntrySummary & {
 | `PUT /admin/tournaments/{id}/entry-questions` | `{ questions: Array<{ id: number \| null; scope; label; kind; required; options }> }` | `{ questions: EntryQuestion[] }`。この並びで置き換える。`id` が null の質問は作り、並びに無い質問は答えごと消す。よその大会の `id` は 400、答えのある質問の `kind` か `scope` を変えると 409 |
 | `GET /admin/tournaments/{id}/entries` | なし | `{ entries: EntrySummary[] }`(受けた順) |
 | `POST /admin/tournaments/{id}/entries` | `{ divisionId; fullName; shortName; repName; repPhone; repEmail; members: Array<{ name; number }>; answers: Array<{ questionId; value }> }` | `EntryDetail`(201)。`answers` はチーム向けの質問だけ。同じ部門に同じチーム名(前後の空白と大文字小文字を除いて)の取り消していない申込があれば 409。終わった大会は 409 |
+| `GET /admin/tournaments/{id}/entries/export` | なし | `{ questions: EntryQuestion[]; entries: EntryDetail[] }`(申込は受けた順。取り消した申込も含む)。管理画面の CSV の書き出しが使う |
 | `GET /admin/entries/{id}` | なし | `EntryDetail` |
 | `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す) |
 

@@ -344,6 +344,16 @@ func (s *EntryStore) Get(ctx context.Context, id int64) (entry.Detail, error) {
 	return loadEntry(ctx, s.db, id)
 }
 
+// Details は entry.Store.Details。問い合わせは申込の数によらず 4 回(申込と loadDetails の 3 回)。
+func (s *EntryStore) Details(ctx context.Context, tournamentID int64) ([]entry.Detail, error) {
+	var rows []TeamEntry
+	err := s.db.WithContext(ctx).Where(sqlByTournament, tournamentID).Order(sqlOrderSubmitted).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list entries of tournament %d: %w", tournamentID, err)
+	}
+	return loadDetails(ctx, s.db, rows)
+}
+
 // loadEntry は申込 1 件を読む。問い合わせは 4 回(申込、部門、メンバー、答え)。
 func loadEntry(ctx context.Context, db *gorm.DB, id int64) (entry.Detail, error) {
 	row, err := findByID[TeamEntry](ctx, db, id, domain.ResourceEntry)

@@ -6,6 +6,7 @@ import {
   type EntryDraftInput,
   type EntryQuestionInput,
   entryDetailSchema,
+  entryExportSchema,
   entryListSchema,
   entryQuestionListSchema,
 } from './entry.types'
@@ -47,6 +48,9 @@ export const entries = {
   /** 電話や紙で受けた申込を運営が代わりに入れる */
   create: (token: string, tournamentId: number, body: EntryDraftInput) =>
     call(token, 'POST', `${admin}/tournaments/${tournamentId}/entries`, entryDetailSchema, body),
+  /** 書き出し(CSV)用に、質問と申込の全部を中身つきで読む */
+  export: (token: string, tournamentId: number) =>
+    call(token, 'GET', `${admin}/tournaments/${tournamentId}/entries/export`, entryExportSchema),
   get: (token: string, id: number) =>
     call(token, 'GET', `${admin}/entries/${id}`, entryDetailSchema),
   decide: (token: string, id: number, action: EntryAction, note: string) =>

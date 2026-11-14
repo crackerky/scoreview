@@ -8,5 +8,7 @@ export const entryPaths = {
   create: (tournamentId: number) => `/admin/tournaments/${tournamentId}/entries/new`,
   /** 大会ごとの質問 */
   questions: (tournamentId: number) => `/admin/tournaments/${tournamentId}/entry-questions`,
+  /** 申込の書き出し(CSV) */
+  csv: (tournamentId: number) => `/admin/tournaments/${tournamentId}/entries/csv`,
   detail: (id: number) => `/admin/entries/${id}`,
 }

@@ -202,3 +202,39 @@ func TestEntryListQueryCountDoesNotGrow(t *testing.T) {
 	assert.Equal(t, 0, list[5].Registered)
 	assert.Equal(t, before, measure())
 }
+
+func TestEntryExportReadsAllEntriesWithConstantQueries(t *testing.T) {
+	f := newEntryFixture(t)
+	ctx := context.Background()
+	questions, err := f.desk.SaveQuestions(ctx, f.tournament.ID, []entry.Question{
+		{Scope: entry.ScopeTeam, Label: "宿泊", Kind: entry.KindYesNo},
+	})
+	require.NoError(t, err)
+	count := countQueries(t, f.db)
+	measure := func() (entry.Export, int64) {
+		count.Store(0)
+		export, err := f.desk.Export(ctx, f.tournament.ID)
+		require.NoError(t, err)
+		return export, count.Load()
+	}
+	_, err = f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk,
+		f.draft("チーム0", map[int64]string{questions[0].ID: entry.Yes}))
+	require.NoError(t, err)
+	_, before := measure()
+	for i := 1; i <= 4; i++ {
+		_, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("チーム"+strconv.Itoa(i), nil))
+		require.NoError(t, err)
+	}
+	export, after := measure()
+	assert.Equal(t, before, after)
+	require.Len(t, export.Questions, 1)
+	require.Len(t, export.Entries, 5)
+	assert.Equal(t, "チーム0", export.Entries[0].FullName)
+	assert.Equal(t, []entry.Answer{{QuestionID: questions[0].ID, Value: entry.Yes}}, export.Entries[0].Answers)
+	assert.Len(t, export.Entries[4].MemberList, 2)
+	assert.Equal(t, []entry.Answer{}, export.Entries[4].Answers)
+
+	_, err = f.desk.Export(ctx, 999999)
+	var notFound *domain.NotFoundError
+	require.ErrorAs(t, err, &notFound)
+}

@@ -216,6 +216,14 @@ type Desk interface {
 	Submit(ctx context.Context, tournamentID int64, channel Channel, draft Draft) (Detail, error)
 	// Decide は運営の操作で申込の状態を変える。承認なら部門のチームと選手を作る
 	Decide(ctx context.Context, id int64, action Action, note string, actor domain.Actor) (Detail, error)
+	// Export は大会の質問と、申込の全部(中身つき、受けた順)を返す。書き出し(CSV)のため
+	Export(ctx context.Context, tournamentID int64) (Export, error)
+}
+
+// Export は書き出す大会の申込。
+type Export struct {
+	Questions []Question
+	Entries   []Detail
 }
 
 // Store は申込の記録を読み書きする。store が実装する。
@@ -232,6 +240,8 @@ type Store interface {
 	List(ctx context.Context, tournamentID int64) ([]Summary, error)
 	// Get は申込 1 件を読む。無ければ domain.NotFound
 	Get(ctx context.Context, id int64) (Detail, error)
+	// Details は大会の申込を中身つきで受けた順に読む。問い合わせの数は申込の数によらないこと
+	Details(ctx context.Context, tournamentID int64) ([]Detail, error)
 	// Decide は Decision を当てる(Decision の説明を参照)
 	Decide(ctx context.Context, id int64, decision Decision) (Detail, error)
 }

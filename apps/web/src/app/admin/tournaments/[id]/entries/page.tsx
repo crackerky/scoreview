@@ -62,6 +62,14 @@ export default async function EntriesPage(props: IdPageProps) {
       </div>
       <p className="adm-links">
         <a href={entryPaths.questions(id)}>申込で聞く質問を決める</a>
+        {list.entries.length > 0 ? (
+          <>
+            {' ・ '}
+            <a href={entryPaths.csv(id)} download>
+              CSV で書き出す(メンバー 1 人 1 行)
+            </a>
+          </>
+        ) : null}
       </p>
       {shown.length === 0 ? (
         <p className="adm-muted">
