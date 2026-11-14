@@ -350,32 +350,73 @@ func loadEntry(ctx context.Context, db *gorm.DB, id int64) (entry.Detail, error)
 	if err != nil {
 		return entry.Detail{}, err
 	}
-	divisions, err := entryDivisions(ctx, db, []TeamEntry{row})
+	details, err := loadDetails(ctx, db, []TeamEntry{row})
 	if err != nil {
 		return entry.Detail{}, err
 	}
-	members, err := loadMembers(ctx, db, id)
+	return details[0], nil
+}
+
+// loadDetails は申込の行に部門、メンバー、答えを付ける。問い合わせは申込の数によらず 3 回(部門、
+// メンバー、答え)。返す並びは rows と同じ。
+func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.Detail, error) {
+	if len(rows) == 0 {
+		return []entry.Detail{}, nil
+	}
+	ids := make([]int64, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+	divisions, err := entryDivisions(ctx, db, rows)
 	if err != nil {
-		return entry.Detail{}, err
+		return nil, err
+	}
+	var members []MemberEntry
+	err = db.WithContext(ctx).Where(sqlByTeamEntries, ids).Order(sqlOrderSortID).Find(&members).Error
+	if err != nil {
+		return nil, fmt.Errorf("load members of entries: %w", err)
 	}
 	var answers []EntryAnswer
-	if err := db.WithContext(ctx).Where(sqlByTeamEntry, id).Order(sqlOrderID).Find(&answers).Error; err != nil {
-		return entry.Detail{}, fmt.Errorf("load answers of entry %d: %w", id, err)
+	if err := db.WithContext(ctx).Where(sqlByTeamEntries, ids).Order(sqlOrderID).Find(&answers).Error; err != nil {
+		return nil, fmt.Errorf("load answers of entries: %w", err)
 	}
-	registered := 0
+	membersOf := make(map[int64][]entry.Member, len(rows))
 	for _, member := range members {
-		if member.Registered {
-			registered++
-		}
+		membersOf[member.TeamEntryID] = append(membersOf[member.TeamEntryID], toEntryMember(member))
 	}
-	out := entry.Detail{Summary: toEntrySummary(row, divisions[row.DivisionID], len(members), registered),
-		TournamentID: row.TournamentID, RepPhone: row.RepPhone, RepEmail: row.RepEmail,
-		ReturnNote: row.ReturnNote, InviteCode: row.InviteCode, DecidedAt: row.DecidedAt,
-		MemberList: members, Answers: make([]entry.Answer, len(answers))}
-	for i, answer := range answers {
-		out.Answers[i] = entry.Answer{QuestionID: answer.QuestionID, Value: answer.Value}
+	answersOf := make(map[int64][]entry.Answer, len(rows))
+	for _, answer := range answers {
+		// 代表エントリーの答えだけを読む(Where が team_entry_id で絞っているので nil にならない)
+		owner := *answer.TeamEntryID
+		answersOf[owner] = append(answersOf[owner], entry.Answer{QuestionID: answer.QuestionID, Value: answer.Value})
+	}
+	out := make([]entry.Detail, len(rows))
+	for i, row := range rows {
+		list := membersOf[row.ID]
+		if list == nil {
+			list = []entry.Member{}
+		}
+		registered := 0
+		for _, member := range list {
+			if member.Registered {
+				registered++
+			}
+		}
+		given := answersOf[row.ID]
+		if given == nil {
+			given = []entry.Answer{}
+		}
+		out[i] = entry.Detail{Summary: toEntrySummary(row, divisions[row.DivisionID], len(list), registered),
+			TournamentID: row.TournamentID, RepPhone: row.RepPhone, RepEmail: row.RepEmail,
+			ReturnNote: row.ReturnNote, InviteCode: row.InviteCode, DecidedAt: row.DecidedAt,
+			MemberList: list, Answers: given}
 	}
 	return out, nil
+}
+
+func toEntryMember(row MemberEntry) entry.Member {
+	return entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.UserID != nil,
+		PlayerID: row.PlayerID}
 }
 
 func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.Member, error) {
@@ -386,8 +427,7 @@ func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.M
 	}
 	out := make([]entry.Member, len(rows))
 	for i, row := range rows {
-		out[i] = entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.UserID != nil,
-			PlayerID: row.PlayerID}
+		out[i] = toEntryMember(row)
 	}
 	return out, nil
 }
