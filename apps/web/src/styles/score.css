@@ -94,6 +94,22 @@
   text-decoration: none;
 }
 
+.sc-toplinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sc .sc-top-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--sc-fg);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .sc-live-link span {
   color: var(--sc-live);
 }

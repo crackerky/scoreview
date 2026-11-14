@@ -19,11 +19,17 @@ export function ScoreShell({ board, children }: { board: BoardResponse; children
           <a className="sc-logo" href="/">
             SCORE VIEW
           </a>
-          {board.matches.length > 0 ? (
-            <a className="sc-live-link" href={scorePaths.live(tournament.id)}>
-              <span aria-hidden="true">●</span> ライブで見る
+          {/* 大会の一覧へ戻るリンクは下だけだと見つけにくい(運営の声)ので、ライブで見ると並べて上にも置く */}
+          <nav className="sc-toplinks" aria-label="ほかの画面">
+            <a className="sc-top-link" href="/">
+              大会の一覧
             </a>
-          ) : null}
+            {board.matches.length > 0 ? (
+              <a className="sc-live-link" href={scorePaths.live(tournament.id)}>
+                <span aria-hidden="true">●</span> ライブで見る
+              </a>
+            ) : null}
+          </nav>
         </div>
         <h1 className="sc-title">{tournament.name.ja}</h1>
         <ScoreTabs tournamentId={tournament.id} />

@@ -1260,3 +1260,13 @@
   font-weight: 800;
   cursor: pointer;
 }
+
+/* 右上のスコアサイトへのリンク。順位のボタンと同じ形にし、文字の下線を消す。ボタンの文字は太さの
+   指定が効かず 400 で出るので、並んだときに揃うようリンクも 400 にする */
+.live-score-link {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  font-weight: 400;
+  text-decoration: none;
+}

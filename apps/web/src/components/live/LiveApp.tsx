@@ -29,6 +29,7 @@ import {
   winnerOf,
 } from '@/live/live.utils'
 import type { SwitchTournament } from '@/live/liveData'
+import { scorePaths } from '@/score/score.paths'
 import { LeadChart } from './LeadChart'
 import { type TableKind, TablesPanel, tableKinds, tableNames } from './LiveTables'
 
@@ -511,6 +512,13 @@ export function LiveApp({
                 ▼
               </span>
             </button>
+            {/* スコアサイトから「ライブで見る」(右上)で来た人が、同じ右上から戻れるようにする */}
+            <a
+              className="live-rank-button live-score-link"
+              href={scorePaths.top(data.tournament.id)}
+            >
+              スコア
+            </a>
             <KebabButton
               onClick={() => {
                 setKebab(!kebab)
