@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -101,11 +100,18 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	if s.sender == nil {
 		return Batch{}, fmt.Errorf("%w: the LINE settings are missing, so nothing can be sent", domain.ErrConflict)
 	}
-	body, err := CheckBody(request.Body)
-	if err != nil {
+	if err := CheckRequestKey(request.RequestKey); err != nil {
 		return Batch{}, err
 	}
-	if err := CheckRequestKey(request.RequestKey); err != nil {
+	// 同じ画面からの 2 回目は、文と宛先と配信数を確かめ直さずに前の記録を返す。1 回目で配信数が減って
+	// いるので、確かめ直すと送ったのに「足りないので送らなかった」と返してしまうため
+	if id, found, err := s.store.FindBatch(ctx, request.RequestKey); err != nil {
+		return Batch{}, err
+	} else if found {
+		return s.existing(ctx, id, tournamentID)
+	}
+	body, err := CheckBody(request.Body)
+	if err != nil {
 		return Batch{}, err
 	}
 	heading, recipients, err := s.recipients(ctx, tournamentID, request.Audience)
@@ -123,18 +129,27 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 		return Batch{}, err
 	}
 	text := Text(heading, body)
-	id, created, err := s.store.CreateBatch(ctx, newBatch(tournamentID, request, text, actor, s.now(), recipients))
+	batch, groups, err := s.plan(tournamentID, request, text, actor, recipients)
 	if err != nil {
 		return Batch{}, err
 	}
-	if created {
-		work := context.WithoutCancel(ctx)
-		if err := s.deliver(work, id, recipients, text); err != nil {
-			return Batch{}, err
-		}
-		return s.store.Batch(work, id)
+	id, created, err := s.store.CreateBatch(ctx, batch)
+	if err != nil {
+		return Batch{}, err
 	}
-	batch, err := s.store.Batch(ctx, id)
+	if !created {
+		return s.existing(ctx, id, tournamentID)
+	}
+	work := context.WithoutCancel(ctx)
+	if err := s.deliver(work, id, groups, text); err != nil {
+		return Batch{}, err
+	}
+	return s.Batch(work, id)
+}
+
+// existing は同じ RequestKey で記録済みの送信を返す。
+func (s *Service) existing(ctx context.Context, id, tournamentID int64) (Batch, error) {
+	batch, err := s.Batch(ctx, id)
 	if err != nil {
 		return Batch{}, err
 	}
@@ -144,43 +159,47 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	return batch, nil
 }
 
-func newBatch(
+// plan は記録する送信と、送る前に決めたまとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り
+// 直しのキー)を作る。キーを記録に残すので、途中で止まっても同じまとまりを同じキーで送り直せる。
+func (s *Service) plan(
 	tournamentID int64,
 	request Request,
 	text string,
 	actor domain.Actor,
-	at time.Time,
 	recipients []Recipient,
-) NewBatch {
+) (NewBatch, []Group, error) {
 	batch := NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey, Audience: request.Audience,
-		Body: text, SentBy: actor.UserID, At: at, Jobs: make([]NewJob, len(recipients))}
-	for i, recipient := range recipients {
-		status := JobPending
-		if !recipient.Friend {
-			status = JobSkipped
+		Body: text, SentBy: actor.UserID, At: s.now(), Jobs: make([]NewJob, 0, len(recipients))}
+	var groups []Group
+	for _, recipient := range recipients {
+		job := NewJob{LineUserID: recipient.LineUserID, Name: recipient.Name,
+			Teams: strings.Join(recipient.Teams, "、"), Status: JobSkipped}
+		if recipient.Friend {
+			if len(groups) == 0 || len(groups[len(groups)-1].UserIDs) == MaxMulticast {
+				key, err := retryKey(s.random)
+				if err != nil {
+					return NewBatch{}, nil, err
+				}
+				groups = append(groups, Group{RetryKey: key})
+			}
+			group := &groups[len(groups)-1]
+			group.LineUserIDs = append(group.LineUserIDs, recipient.LineUserID)
+			group.UserIDs = append(group.UserIDs, recipient.UserID)
+			job.Status, job.RetryKey = JobPending, group.RetryKey
 		}
-		batch.Jobs[i] = NewJob{LineUserID: recipient.LineUserID, Name: recipient.Name,
-			Teams: strings.Join(recipient.Teams, "、"), Status: status}
+		batch.Jobs = append(batch.Jobs, job)
 	}
-	return batch
+	return batch, groups, nil
 }
 
-// deliver は友だちに MaxMulticast 人ずつ送り、まとまりごとに結果を書く。失敗したまとまりは同じ
-// キーでもう 1 回だけ送る(1 回目を LINE が受け付けていれば、2 回目は送られずに成功になる)。
-func (s *Service) deliver(ctx context.Context, batchID int64, recipients []Recipient, text string) error {
-	friends := slices.DeleteFunc(slices.Clone(recipients), func(r Recipient) bool { return !r.Friend })
-	for chunk := range slices.Chunk(friends, MaxMulticast) {
-		ids, to := make([]int64, len(chunk)), make([]string, len(chunk))
-		for i, recipient := range chunk {
-			ids[i], to[i] = recipient.LineUserID, recipient.UserID
-		}
-		key, err := retryKey(s.random)
-		if err != nil {
-			return err
-		}
-		sendErr := s.sender.Multicast(ctx, to, text, key)
-		if sendErr != nil {
-			if retryErr := s.sender.Multicast(ctx, to, text, key); retryErr == nil {
+// deliver はまとまりごとに送り、結果を書く。LINE が受け付けたか分からない失敗(ErrTemporary)だけ、
+// 同じキーでもう 1 回送る(1 回目を LINE が受け付けていれば、2 回目は送られずに成功になる)。
+// 結果を書けなければそこで止める(残りのまとまりは pending のまま残り、Resend で送れる)。
+func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, text string) error {
+	for _, group := range groups {
+		sendErr := s.sender.Multicast(ctx, group.UserIDs, text, group.RetryKey)
+		if errors.Is(sendErr, ErrTemporary) {
+			if retryErr := s.sender.Multicast(ctx, group.UserIDs, text, group.RetryKey); retryErr == nil {
 				sendErr = nil
 			} else {
 				sendErr = errors.Join(sendErr, retryErr)
@@ -191,11 +210,35 @@ func (s *Service) deliver(ctx context.Context, batchID int64, recipients []Recip
 			s.report(fmt.Errorf("send notification %d: %w", batchID, sendErr))
 			result = JobResult{Status: JobFailed, Error: clip(sendErr.Error(), maxJobError), At: result.At}
 		}
-		if err := s.store.FinishJobs(ctx, batchID, ids, result); err != nil {
+		if err := s.store.FinishJobs(ctx, batchID, group.LineUserIDs, result); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// Resend は Desk.Resend。送れなかったまとまりを、記録したキーと宛先のまま送る。LINE が前に受け付けた
+// まとまり(結果を書く前に止まったもの)は、LINE が送らずに成功を返すので、2 回は届かない。
+func (s *Service) Resend(ctx context.Context, id int64) (Batch, error) {
+	if s.sender == nil {
+		return Batch{}, fmt.Errorf("%w: the LINE settings are missing, so nothing can be sent", domain.ErrConflict)
+	}
+	batch, err := s.store.Batch(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	if !s.now().Before(batch.CreatedAt.Add(ResendWindow)) {
+		return Batch{}, fmt.Errorf("%w: it is too late to resend; the retry keys last 24 hours", domain.ErrConflict)
+	}
+	groups, err := s.store.Unsent(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	work := context.WithoutCancel(ctx)
+	if err := s.deliver(work, id, groups, batch.Body); err != nil {
+		return Batch{}, err
+	}
+	return s.Batch(work, id)
 }
 
 // clip は text を最大 limit 文字にする。
@@ -227,10 +270,24 @@ func (s *Service) History(ctx context.Context, tournamentID int64) (History, err
 	if err != nil {
 		return History{}, err
 	}
+	for i := range batches {
+		batches[i].CanResend = s.canResend(batches[i])
+	}
 	return History{Batches: batches, CanSend: s.sender != nil}, nil
+}
+
+// canResend は送れなかった宛先があり、送り直しのキーがまだ有効か。
+func (s *Service) canResend(batch Batch) bool {
+	unsent := batch.Counts.Failed + batch.Counts.Pending
+	return s.sender != nil && unsent > 0 && s.now().Before(batch.CreatedAt.Add(ResendWindow))
 }
 
 // Batch は Desk.Batch。
 func (s *Service) Batch(ctx context.Context, id int64) (Batch, error) {
-	return s.store.Batch(ctx, id)
+	batch, err := s.store.Batch(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	batch.CanResend = s.canResend(batch)
+	return batch, nil
 }

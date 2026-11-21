@@ -38,4 +38,10 @@ export const notifications = {
     }),
   get: (token: string, id: number) =>
     apiFetch(`${admin}/notifications/${id}`, notificationDetailSchema, { sessionToken: token }),
+  /** 送れなかった宛先に、同じまとまりと送り直しのキーで送り直す */
+  resend: (token: string, id: number) =>
+    apiFetch(`${admin}/notifications/${id}/resend`, notificationDetailSchema, {
+      method: 'POST',
+      sessionToken: token,
+    }),
 }

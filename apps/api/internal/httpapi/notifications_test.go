@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -16,14 +17,20 @@ import (
 	"scoreview/api/internal/store/storetest"
 )
 
-// multicasts は公式アカウントから送ったものを覚える notify.Sender。
+// multicasts は公式アカウントから送ったものを覚える notify.Sender。fail が正なら、その回数だけ LINE が
+// 受け付けなかったことにする。
 type multicasts struct {
 	to    [][]string
 	texts []string
+	fail  int
 }
 
 func (m *multicasts) Multicast(_ context.Context, to []string, text, _ string) error {
 	m.to, m.texts = append(m.to, to), append(m.texts, text)
+	if m.fail > 0 {
+		m.fail--
+		return errors.New("LINE /v2/bot/message/multicast returned 429: {}")
+	}
 	return nil
 }
 
@@ -46,9 +53,11 @@ func TestNotifications(t *testing.T) {
 	require.NoError(t, f.db.Create(&entryRow).Error)
 
 	sent := &multicasts{}
+	// 送り直しの期限だけを進められるよう、送る側の時計はセッションの時計と分ける
+	sendNow := f.now
 	f.srv = httpapi.NewServer(f.db, testToken, httpapi.WithClock(func() time.Time { return f.now }),
 		httpapi.WithNotifications(notify.NewService(store.NewNotifyStore(f.db),
-			notify.WithSender(sent, func(err error) { t.Error(err) }))))
+			notify.WithSender(sent, func(error) {}), notify.WithClock(func() time.Time { return sendNow }))))
 	base := fmt.Sprintf("/api/v1/admin/tournaments/%d/notifications", tour.ID)
 
 	preview := f.call(t, http.StatusOK, http.MethodGet,
@@ -90,7 +99,24 @@ func TestNotifications(t *testing.T) {
 	assert.Equal(t, "sent", job["status"])
 	assert.Equal(t, "熱海ディスクス", job["teams"])
 
+	assert.Equal(t, false, detail["canResend"])
+
+	// LINE が受け付けなかった送信は、記録の画面から送り直せる
+	sent.fail = 1
+	send["body"], send["requestKey"] = "集合場所が変わりました", "failed-once"
+	failed := f.call(t, http.StatusCreated, http.MethodPost, base, send)
+	assert.Equal(t, true, failed["canResend"])
+	resendURL := fmt.Sprintf("/api/v1/admin/notifications/%v/resend", failed["id"])
+	resent := f.call(t, http.StatusOK, http.MethodPost, resendURL, nil)
+	assert.Equal(t, false, resent["canResend"])
+	resentCounts, ok := resent["counts"].(map[string]any)
+	require.True(t, ok)
+	assert.InDelta(t, 1, resentCounts["sent"], 0)
+	sendNow = sendNow.Add(25 * time.Hour)
+	f.call(t, http.StatusConflict, http.MethodPost, resendURL, nil)
+
 	// 宛先は申込の代表なので、記録係には読ませない
+	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodPost, resendURL, nil)
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, base, nil)
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, base+"/preview?kind=reps", nil)
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodPost, base, send)

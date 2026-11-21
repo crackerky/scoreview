@@ -157,7 +157,7 @@ func TestNotifyStoreBatches(t *testing.T) {
 	batch := notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1",
 		Audience: notify.Audience{Kind: notify.AudienceReps, Status: entry.StatusPending, DivisionID: 3},
 		Body:     "大会\n\n明日は 8 時集合", SentBy: admin.ID, At: f.at, Jobs: []notify.NewJob{
-			{LineUserID: first, Name: "代表 1", Teams: "熱海", Status: notify.JobPending},
+			{LineUserID: first, Name: "代表 1", Teams: "熱海", Status: notify.JobPending, RetryKey: "group-1"},
 			{LineUserID: second, Name: "代表 2", Teams: "神戸、神戸 B", Status: notify.JobSkipped},
 		}}
 	id, created, err := notices.CreateBatch(ctx, batch)
@@ -168,8 +168,23 @@ func TestNotifyStoreBatches(t *testing.T) {
 	assert.False(t, created, "the same request key is recorded once")
 	assert.Equal(t, id, again)
 
+	found, ok, err := notices.FindBatch(ctx, "key-1")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, id, found)
+	_, ok, err = notices.FindBatch(ctx, "nothing")
+	require.NoError(t, err)
+	assert.False(t, ok)
+	unsent, err := notices.Unsent(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, []notify.Group{{RetryKey: "group-1", LineUserIDs: []int64{first}, UserIDs: []string{"U1"}}},
+		unsent, "the skipped recipient has no group")
+
 	sentAt := f.at.Add(time.Second)
 	require.NoError(t, notices.FinishJobs(ctx, id, []int64{first}, notify.JobResult{Status: notify.JobSent, At: sentAt}))
+	unsent, err = notices.Unsent(ctx, id)
+	require.NoError(t, err)
+	assert.Empty(t, unsent)
 
 	read, err := notices.Batch(ctx, id)
 	require.NoError(t, err)
@@ -192,6 +207,22 @@ func TestNotifyStoreBatches(t *testing.T) {
 	assert.Equal(t, notify.Counts{Pending: 1, Skipped: 1}, list[0].Counts)
 	assert.Equal(t, notify.Counts{Sent: 1, Skipped: 1}, list[1].Counts)
 	assert.Equal(t, "運営 一郎", list[1].SentByName)
+
+	other := f.lineUser(t, "U3", "代表 3", true)
+	failedBatch := notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-failed", Audience: batch.Audience,
+		Body: "x", SentBy: admin.ID, At: f.at, Jobs: []notify.NewJob{
+			{LineUserID: other, Name: "代表 3", Status: notify.JobPending, RetryKey: "group-2"}}}
+	failedID, _, err := notices.CreateBatch(ctx, failedBatch)
+	require.NoError(t, err)
+	require.NoError(t, notices.FinishJobs(ctx, failedID, []int64{other},
+		notify.JobResult{Status: notify.JobFailed, Error: "LINE returned 429", At: sentAt}))
+	failedRead, err := notices.Batch(ctx, failedID)
+	require.NoError(t, err)
+	assert.Nil(t, failedRead.Jobs[0].SentAt, "nothing was sent")
+	assert.Equal(t, "LINE returned 429", failedRead.Jobs[0].Error)
+	unsent, err = notices.Unsent(ctx, failedID)
+	require.NoError(t, err)
+	assert.Len(t, unsent, 1, "a failed recipient can be resent")
 
 	_, err = notices.Batch(ctx, 999999)
 	require.ErrorIs(t, err, domain.ErrNotFound)

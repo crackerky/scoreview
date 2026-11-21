@@ -22,6 +22,7 @@ func (s *Server) notificationRoutes() {
 		withPathID(s.previewNotification))
 	s.admin("POST "+base+"/tournaments/{id}/notifications", adminOnly(), created, withPathID(s.sendNotification))
 	s.admin("GET "+base+"/notifications/{id}", adminOnly(), ok, withPathID(s.getNotification))
+	s.admin("POST "+base+"/notifications/{id}/resend", adminOnly(), ok, withPathID(s.resendNotification))
 }
 
 // audienceDTO は宛先の条件。status と divisionId は絞り込まないとき空と null。
@@ -67,6 +68,7 @@ type notificationSummaryDTO struct {
 	SentBy       string                `json:"sentBy"`
 	CreatedAt    time.Time             `json:"createdAt"`
 	Counts       notificationCountsDTO `json:"counts"`
+	CanResend    bool                  `json:"canResend"`
 }
 
 type notificationJobDTO struct {
@@ -114,7 +116,8 @@ func toNotificationSummary(batch notify.Batch) notificationSummaryDTO {
 	return notificationSummaryDTO{ID: batch.ID, TournamentID: batch.TournamentID,
 		Audience: toAudienceDTO(batch.Audience), Body: batch.Body, Automatic: batch.Automatic,
 		SentBy: batch.SentByName, CreatedAt: batch.CreatedAt, Counts: notificationCountsDTO{
-			Pending: counts.Pending, Sent: counts.Sent, Skipped: counts.Skipped, Failed: counts.Failed}}
+			Pending: counts.Pending, Sent: counts.Sent, Skipped: counts.Skipped, Failed: counts.Failed},
+		CanResend: batch.CanResend}
 }
 
 func toNotificationDetail(batch notify.Batch) notificationDetailDTO {
@@ -181,6 +184,14 @@ func (s *Server) sendNotification(ctx context.Context, id int64, r *http.Request
 
 func (s *Server) getNotification(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
 	batch, err := s.notices.Batch(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return toNotificationDetail(batch), nil
+}
+
+func (s *Server) resendNotification(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
+	batch, err := s.notices.Resend(ctx, id)
 	if err != nil {
 		return nil, err
 	}

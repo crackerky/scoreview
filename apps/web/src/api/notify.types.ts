@@ -50,6 +50,7 @@ export const notificationSummarySchema = z.object({
   sentBy: z.string(),
   createdAt: z.string(),
   counts: countsSchema,
+  canResend: z.boolean(),
 })
 export type NotificationSummary = z.infer<typeof notificationSummarySchema>
 

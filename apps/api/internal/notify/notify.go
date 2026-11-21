@@ -8,6 +8,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"scoreview/api/internal/domain"
@@ -101,7 +102,8 @@ type Counts struct {
 }
 
 // Batch は 1 回の送信の記録。Body は実際に届けた文(大会名の行を含む)。SentByName は送った運営の
-// 表示名(運営を消していれば空)。Jobs は Store.Batch で読んだときだけ入る。
+// 表示名(運営を消していれば空)。Jobs は Store.Batch で読んだときだけ入る。CanResend は送れなかった
+// 宛先を今送り直せるか(Service が決める。Store は偽のまま返す)。
 type Batch struct {
 	ID           int64
 	TournamentID int64
@@ -112,6 +114,7 @@ type Batch struct {
 	CreatedAt    time.Time
 	Counts       Counts
 	Jobs         []Job
+	CanResend    bool
 }
 
 // History は大会の送信の記録(新しい順)と、今送れるか。
@@ -128,12 +131,21 @@ type Request struct {
 	RequestKey string
 }
 
-// NewJob は記録する宛先 1 人。
+// NewJob は記録する宛先 1 人。RetryKey はその人が入るまとまりの送り直しのキー(送らない人は空)。
 type NewJob struct {
 	LineUserID int64
 	Name       string
 	Teams      string
 	Status     JobStatus
+	RetryKey   string
+}
+
+// Group は 1 回のマルチキャストで送る宛先のまとまり。送り直すときは、同じキーで同じ宛先に同じ文を
+// 送る(LINE は宛先や文を変えた送り直しの結果を決めていない)。
+type Group struct {
+	RetryKey    string
+	LineUserIDs []int64
+	UserIDs     []string
 }
 
 // NewBatch は記録する送信。Body は届ける文。
@@ -160,9 +172,14 @@ type Store interface {
 	Tournament(ctx context.Context, id int64) (entry.Tournament, error)
 	// Recipients は条件に当てはまる人を、同じ人を 1 人にまとめて返す(条件は CheckAudience で確かめてある)
 	Recipients(ctx context.Context, tournamentID int64, audience Audience) ([]Recipient, error)
+	// FindBatch は RequestKey の送信の記録の ID を返す。無ければ偽
+	FindBatch(ctx context.Context, requestKey string) (id int64, found bool, err error)
 	// CreateBatch は送信と宛先ごとの行を 1 つのトランザクションで記録する。同じ RequestKey の記録が
 	// もうあれば作らず、その ID と偽を返す
 	CreateBatch(ctx context.Context, batch NewBatch) (id int64, created bool, err error)
+	// Unsent は送信 batchID の、送れなかった(failed)か送り終えていない(pending)宛先を、記録した順の
+	// まとまりで返す
+	Unsent(ctx context.Context, batchID int64) ([]Group, error)
 	// FinishJobs は送信 batchID の、line_users の行の ID が lineUserIDs の宛先の結果を書く
 	FinishJobs(ctx context.Context, batchID int64, lineUserIDs []int64, result JobResult) error
 	// Batches は大会の送信を新しい順に、結果ごとの人数とともに読む
@@ -175,11 +192,19 @@ type Store interface {
 // https://developers.line.biz/ja/reference/messaging-api/#send-multicast-message
 const MaxMulticast = 500
 
+// ResendWindow は送れなかった宛先を送り直せる期間。LINE の送り直しのキーが有効な 24 時間。
+// https://developers.line.biz/ja/docs/messaging-api/retrying-api-request/
+const ResendWindow = 24 * time.Hour
+
+// ErrTemporary は LINE が受け付けたか分からない失敗(LINE の 5xx、応答が無い)。同じ送り直しのキーで
+// もう一度送ってよい。LINE が受け付けなかったと分かる失敗(4xx)は、送り直しても結果が変わらない。
+var ErrTemporary = errors.New("temporary LINE failure")
+
 // Sender は公式アカウントとして送る。line が実装する。
 type Sender interface {
 	// Multicast は to(公式アカウントから見たユーザー ID。MaxMulticast 人まで)に text を送る。送った
 	// 人数が月の配信数に数えられる。retryKey(UUID)が同じ送り直しは、LINE が 1 回目を受け付けて
-	// いれば送らずに成功を返す
+	// いれば送らずに成功を返す。受け付けたか分からない失敗は ErrTemporary を包んで返す
 	Multicast(ctx context.Context, to []string, text, retryKey string) error
 	// Quota は今月の配信数の上限と使った数を読む
 	Quota(ctx context.Context) (Quota, error)
@@ -192,6 +217,9 @@ type Desk interface {
 	// Send は条件に当てはまる人に送り、記録を返す。同じ RequestKey の送信がもうあれば、送らずに
 	// その記録を返す
 	Send(ctx context.Context, tournamentID int64, request Request, actor domain.Actor) (Batch, error)
+	// Resend は送信 id の送れなかった宛先に、同じまとまり、同じキー、同じ文で送り直す。送ってから
+	// ResendWindow を過ぎていれば domain.ErrConflict
+	Resend(ctx context.Context, id int64) (Batch, error)
 	// History は大会の送信の記録を返す
 	History(ctx context.Context, tournamentID int64) (History, error)
 	// Batch は送信 1 回の記録を返す

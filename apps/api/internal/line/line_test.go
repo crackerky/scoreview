@@ -19,6 +19,7 @@ import (
 
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/line"
+	"scoreview/api/internal/notify"
 	"scoreview/api/internal/talk"
 )
 
@@ -198,6 +199,29 @@ func TestClientMulticastsWithRetryKey(t *testing.T) {
 	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, "大会\n\n明日は 8 時", "key-1"),
 		"a retry LINE already accepted is a success")
 	assert.Equal(t, []string{"key-1"}, keys)
+}
+
+// LINE が受け付けたか分からない失敗(5xx、応答が無い)だけを、同じキーで送り直してよい失敗にする。
+func TestClientMarksTemporaryFailures(t *testing.T) {
+	status := http.StatusInternalServerError
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth2/v3/token" {
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+			return
+		}
+		w.WriteHeader(status)
+		respond(w, `{"message":"x"}`)
+	}))
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	ctx := context.Background()
+	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, "x", "key-1"), notify.ErrTemporary)
+	status = http.StatusTooManyRequests
+	err := client.Multicast(ctx, []string{"U1"}, "x", "key-2")
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, notify.ErrTemporary, "LINE refused it, so the result is known")
+	server.Close()
+	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, "x", "key-3"), notify.ErrTemporary,
+		"no answer from LINE")
 }
 
 func TestClientReadsQuota(t *testing.T) {

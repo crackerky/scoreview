@@ -47,6 +47,11 @@ const (
 	sqlByBatch                = "batch_id = ?"
 	sqlByBatches              = "batch_id IN ?"
 	sqlJobsOfBatch            = "batch_id = ? AND line_user_id IN ?"
+	sqlSelectUnsent           = "j.line_user_id, lu.line_user_id AS user_id, j.retry_key"
+	sqlTableJobs              = "notification_jobs AS j"
+	sqlJoinJobLineUser        = "JOIN line_users lu ON lu.id = j.line_user_id"
+	sqlUnsentOfBatch          = "j.batch_id = ? AND j.status IN ? AND j.retry_key <> ''"
+	sqlOrderJobs              = "j.id"
 	sqlOrderBatchesNewest     = "created_at DESC, id DESC"
 	sqlSelectJobCounts        = "batch_id, status, count(*) AS count"
 	sqlGroupBatchStatus       = "batch_id, status"
@@ -79,6 +84,7 @@ type NotificationJob struct {
 	Teams      string     `gorm:"column:teams"`
 	Status     string     `gorm:"column:status"`
 	Error      string     `gorm:"column:error"`
+	RetryKey   string     `gorm:"column:retry_key"`
 	SentAt     *time.Time `gorm:"column:sent_at"`
 }
 
@@ -198,6 +204,47 @@ func collectRecipients(rows []recipientRow) []notify.Recipient {
 	return out
 }
 
+// FindBatch は notify.Store.FindBatch。
+func (s *NotifyStore) FindBatch(ctx context.Context, requestKey string) (int64, bool, error) {
+	var rows []NotificationBatch
+	err := s.db.WithContext(ctx).Select("id").Where(sqlByRequestKey, requestKey).Limit(1).Find(&rows).Error
+	if err != nil {
+		return 0, false, fmt.Errorf("find notification by request key: %w", err)
+	}
+	if len(rows) == 0 {
+		return 0, false, nil
+	}
+	return rows[0].ID, true, nil
+}
+
+// Unsent は notify.Store.Unsent。まとまりは記録した順(送った順)に、同じキーの行を集めて作る。
+func (s *NotifyStore) Unsent(ctx context.Context, batchID int64) ([]notify.Group, error) {
+	var rows []struct {
+		LineUserID int64  `gorm:"column:line_user_id"`
+		UserID     string `gorm:"column:user_id"`
+		RetryKey   string `gorm:"column:retry_key"`
+	}
+	statuses := []string{string(notify.JobPending), string(notify.JobFailed)}
+	err := s.db.WithContext(ctx).Table(sqlTableJobs).Select(sqlSelectUnsent).Joins(sqlJoinJobLineUser).
+		Where(sqlUnsentOfBatch, batchID, statuses).Order(sqlOrderJobs).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list unsent recipients of notification %d: %w", batchID, err)
+	}
+	var groups []notify.Group
+	index := map[string]int{}
+	for _, row := range rows {
+		at, ok := index[row.RetryKey]
+		if !ok {
+			groups = append(groups, notify.Group{RetryKey: row.RetryKey})
+			at = len(groups) - 1
+			index[row.RetryKey] = at
+		}
+		groups[at].LineUserIDs = append(groups[at].LineUserIDs, row.LineUserID)
+		groups[at].UserIDs = append(groups[at].UserIDs, row.UserID)
+	}
+	return groups, nil
+}
+
 // CreateBatch は notify.Store.CreateBatch。同じ request_key の行があれば、一意の制約で 1 回だけ作る。
 func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (int64, bool, error) {
 	audience, err := json.Marshal(audienceJSON{Kind: string(batch.Audience.Kind),
@@ -229,7 +276,7 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 		jobs := make([]NotificationJob, len(batch.Jobs))
 		for i, job := range batch.Jobs {
 			jobs[i] = NotificationJob{BatchID: row.ID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
-				Status: string(job.Status)}
+				Status: string(job.Status), RetryKey: job.RetryKey}
 		}
 		if err := tx.CreateInBatches(jobs, notificationJobsBatchSize).Error; err != nil {
 			return writeError("notification recipients", err)
@@ -249,7 +296,12 @@ func (s *NotifyStore) FinishJobs(
 	lineUserIDs []int64,
 	result notify.JobResult,
 ) error {
-	updates := map[string]any{"status": string(result.Status), "error": result.Error, "sent_at": result.At}
+	// sent_at は LINE が受け付けた時刻なので、送れなかった行には書かない(送り直しで送れたら書く)
+	var sentAt *time.Time
+	if result.Status == notify.JobSent {
+		sentAt = &result.At
+	}
+	updates := map[string]any{"status": string(result.Status), "error": result.Error, "sent_at": sentAt}
 	err := s.db.WithContext(ctx).Model(&NotificationJob{}).Where(sqlJobsOfBatch, batchID, lineUserIDs).
 		Updates(updates).Error
 	if err != nil {

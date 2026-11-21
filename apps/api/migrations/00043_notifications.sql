@@ -17,9 +17,12 @@ CREATE TABLE notification_batches (
 );
 CREATE INDEX notification_batches_tournament_idx ON notification_batches (tournament_id, created_at DESC, id DESC);
 
--- 宛先ごとの結果。status は pending(送る前か、送っている途中)/ sent(LINE が受け付けた)/ skipped
--- (友だちでないので送らなかった)/ failed(LINE が受け付けなかった。error に理由)。name と teams は
--- 送った時点の宛先の名前と関わるチーム(後で申込が直されても、誰に送ったかが読めるように)。
+-- 宛先ごとの結果。status は pending(送る前か、送っている途中か、途中で止まった)/ sent(LINE が受け
+-- 付けた)/ skipped(友だちでないので送らなかった)/ failed(LINE が受け付けなかった。error に理由)。
+-- name と teams は送った時点の宛先の名前と関わるチーム(後で申込が直されても、誰に送ったかが読める
+-- ように)。retry_key は宛先のまとまり(1 回のマルチキャスト)ごとの LINE の送り直しのキーで、送る前に
+-- 決めて残す。送れなかったまとまりを同じキーと同じ宛先で送り直せば、LINE が受け付け済みのまとまりは
+-- 送られない(skipped の行は空)。
 CREATE TABLE notification_jobs (
   id             BIGSERIAL PRIMARY KEY,
   batch_id       BIGINT      NOT NULL REFERENCES notification_batches (id) ON DELETE CASCADE,
@@ -28,6 +31,7 @@ CREATE TABLE notification_jobs (
   teams          TEXT        NOT NULL DEFAULT '',
   status         TEXT        NOT NULL CHECK (status IN ('pending', 'sent', 'skipped', 'failed')),
   error          TEXT        NOT NULL DEFAULT '',
+  retry_key      TEXT        NOT NULL DEFAULT '',
   sent_at        TIMESTAMPTZ,
   UNIQUE (batch_id, line_user_id)
 );

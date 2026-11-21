@@ -70,17 +70,25 @@ func (c *Client) Push(ctx context.Context, to string, messages []talk.Message) e
 }
 
 // Multicast は notify.Sender.Multicast。同じ retryKey の要求を LINE がもう受け付けていれば、LINE は
-// 送らずに 409 を返すので、成功として扱う。
+// 送らずに 409 を返すので、成功として扱う。LINE の 5xx と、応答が無い失敗(通信の切断、時間切れ)は、
+// LINE が受け付けたか分からないので notify.ErrTemporary を包む(LINE が同じキーで送り直してよいと
+// している場合)。4xx は LINE が受け付けなかった失敗。
 // https://developers.line.biz/ja/reference/messaging-api/#send-multicast-message
-// https://developers.line.biz/ja/reference/messaging-api/#retry-api-request
+// https://developers.line.biz/ja/docs/messaging-api/retrying-api-request/
 func (c *Client) Multicast(ctx context.Context, to []string, text, retryKey string) error {
 	body := map[string]any{"to": to, "messages": toMessages([]talk.Message{{Text: text}})}
 	err := c.post(ctx, "/v2/bot/message/multicast", body, retryKey)
 	var failed *apiError
-	if errors.As(err, &failed) && failed.status == http.StatusConflict {
+	switch {
+	case err == nil:
 		return nil
+	case errors.As(err, &failed) && failed.status == http.StatusConflict:
+		return nil
+	case errors.As(err, &failed) && failed.status < http.StatusInternalServerError:
+		return err
+	default:
+		return fmt.Errorf("%w: %w", notify.ErrTemporary, err)
 	}
-	return err
 }
 
 // Quota は notify.Sender.Quota。上限の種類が none(追加メッセージのあるプラン)なら上限は無い。

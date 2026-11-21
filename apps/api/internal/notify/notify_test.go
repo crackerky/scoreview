@@ -94,6 +94,11 @@ func (s *fakeStore) Recipients(context.Context, int64, notify.Audience) ([]notif
 	return s.recipients, nil
 }
 
+func (s *fakeStore) FindBatch(_ context.Context, key string) (int64, bool, error) {
+	id, ok := s.byKey[key]
+	return id, ok, nil
+}
+
 func (s *fakeStore) CreateBatch(_ context.Context, batch notify.NewBatch) (int64, bool, error) {
 	if id, ok := s.byKey[batch.RequestKey]; ok {
 		return id, false, nil
@@ -102,11 +107,26 @@ func (s *fakeStore) CreateBatch(_ context.Context, batch notify.NewBatch) (int64
 	id := int64(len(s.batches))
 	s.byKey[batch.RequestKey] = id
 	for _, job := range batch.Jobs {
-		if job.Status == notify.JobSkipped {
-			s.results[job.LineUserID] = notify.JobResult{Status: notify.JobSkipped}
-		}
+		s.results[job.LineUserID] = notify.JobResult{Status: job.Status}
 	}
 	return id, true, nil
+}
+
+func (s *fakeStore) Unsent(_ context.Context, id int64) ([]notify.Group, error) {
+	var groups []notify.Group
+	for _, job := range s.batches[id-1].Jobs {
+		status := s.results[job.LineUserID].Status
+		if status != notify.JobFailed && status != notify.JobPending {
+			continue
+		}
+		if len(groups) == 0 || groups[len(groups)-1].RetryKey != job.RetryKey {
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey})
+		}
+		group := &groups[len(groups)-1]
+		group.LineUserIDs = append(group.LineUserIDs, job.LineUserID)
+		group.UserIDs = append(group.UserIDs, fmt.Sprintf("U%d", job.LineUserID))
+	}
+	return groups, nil
 }
 
 func (s *fakeStore) FinishJobs(_ context.Context, _ int64, ids []int64, result notify.JobResult) error {
@@ -120,7 +140,7 @@ func (s *fakeStore) Batches(context.Context, int64) ([]notify.Batch, error) { re
 
 func (s *fakeStore) Batch(_ context.Context, id int64) (notify.Batch, error) {
 	batch := s.batches[id-1]
-	out := notify.Batch{ID: id, TournamentID: batch.TournamentID, Body: batch.Body}
+	out := notify.Batch{ID: id, TournamentID: batch.TournamentID, Body: batch.Body, CreatedAt: batch.At}
 	for _, job := range batch.Jobs {
 		switch s.results[job.LineUserID].Status {
 		case notify.JobSent:
@@ -129,18 +149,18 @@ func (s *fakeStore) Batch(_ context.Context, id int64) (notify.Batch, error) {
 			out.Counts.Skipped++
 		case notify.JobFailed:
 			out.Counts.Failed++
-		default:
+		case notify.JobPending:
 			out.Counts.Pending++
 		}
 	}
 	return out, nil
 }
 
-// fakeSender は送ったものを覚える。fail が正なら、その回数だけ失敗する。
+// fakeSender は送ったものを覚える。failures が残っていれば、先頭の誤りで失敗する。
 type fakeSender struct {
-	calls []multicast
-	fail  int
-	quota notify.Quota
+	calls    []multicast
+	failures []error
+	quota    notify.Quota
 }
 
 type multicast struct {
@@ -151,14 +171,24 @@ type multicast struct {
 
 func (s *fakeSender) Multicast(_ context.Context, to []string, text, retryKey string) error {
 	s.calls = append(s.calls, multicast{to: to, text: text, key: retryKey})
-	if s.fail > 0 {
-		s.fail--
-		return errors.New("LINE /v2/bot/message/multicast returned 500: {}")
+	if len(s.failures) > 0 {
+		err := s.failures[0]
+		s.failures = s.failures[1:]
+		return err
 	}
 	return nil
 }
 
 func (s *fakeSender) Quota(context.Context) (notify.Quota, error) { return s.quota, nil }
+
+// temporary は LINE が受け付けたか分からない失敗、refused は受け付けなかった失敗。
+func temporary() error {
+	return fmt.Errorf("%w: LINE /v2/bot/message/multicast returned 500: {}", notify.ErrTemporary)
+}
+
+func refused() error {
+	return errors.New(`LINE /v2/bot/message/multicast returned 400: {"message":"bad"}`)
+}
 
 func friends(count int) []notify.Recipient {
 	out := make([]notify.Recipient, count)
@@ -169,54 +199,78 @@ func friends(count int) []notify.Recipient {
 	return out
 }
 
-func newService(store *fakeStore, sender *fakeSender, reported *[]error) *notify.Service {
+// sequence は毎回違う送り直しのキーになる乱数の元(0 から 255 を繰り返す)。
+func sequence() *bytes.Reader {
+	out := make([]byte, 4096)
+	for i := range out {
+		out[i] = byte(i)
+	}
+	return bytes.NewReader(out)
+}
+
+func newService(store *fakeStore, sender *fakeSender, reported *[]error, now *time.Time) *notify.Service {
 	report := func(err error) { *reported = append(*reported, err) }
-	return notify.NewService(store, notify.WithSender(sender, report),
-		notify.WithRandom(bytes.NewReader(bytes.Repeat([]byte{0xab}, 1024))),
-		notify.WithClock(func() time.Time { return time.Date(2027, 2, 8, 9, 0, 0, 0, time.UTC) }))
+	return notify.NewService(store, notify.WithSender(sender, report), notify.WithRandom(sequence()),
+		notify.WithClock(func() time.Time { return *now }))
 }
 
 func newFakeStore(recipients []notify.Recipient) *fakeStore {
 	return &fakeStore{recipients: recipients, byKey: map[string]int64{}, results: map[int64]notify.JobResult{}}
 }
 
-// 友だちには 500 人ずつ送り、友だちでない人は送らずに記録する。同じ画面からの 2 回目は送らない。
+func clock() *time.Time {
+	now := time.Date(2027, 2, 8, 9, 0, 0, 0, time.UTC)
+	return &now
+}
+
+// 友だちには 500 人ずつ、まとまりごとに決めたキーで送り、友だちでない人は送らずに記録する。
+// 同じ画面からの 2 回目は、配信数が減っていても確かめ直さずに前の記録を返す。
 func TestSendInChunksAndOnce(t *testing.T) {
 	recipients := append(friends(501), notify.Recipient{LineUserID: 999, UserID: "Ublocked", Name: "ブロック中"})
 	store := newFakeStore(recipients)
 	sender := &fakeSender{}
 	var reported []error
-	service := newService(store, sender, &reported)
+	service := newService(store, sender, &reported, clock())
 	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "明日は 8 時集合です\r\n",
 		RequestKey: "key-1"}
 	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err)
 	assert.Equal(t, notify.Counts{Sent: 501, Skipped: 1}, batch.Counts)
+	assert.False(t, batch.CanResend)
 	require.Len(t, sender.calls, 2)
 	assert.Len(t, sender.calls[0].to, notify.MaxMulticast)
 	assert.Equal(t, []string{"U501"}, sender.calls[1].to)
 	assert.Equal(t, "ルーキーズファイナル\n\n明日は 8 時集合です", sender.calls[0].text)
 	uuid := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 	assert.Regexp(t, uuid, sender.calls[0].key)
+	assert.NotEqual(t, sender.calls[0].key, sender.calls[1].key)
 	require.Len(t, store.batches, 1)
+	jobs := store.batches[0].Jobs
+	assert.Equal(t, sender.calls[0].key, jobs[0].RetryKey, "the key is recorded before sending")
+	assert.Equal(t, sender.calls[1].key, jobs[500].RetryKey)
+	assert.Empty(t, jobs[501].RetryKey, "no key for someone who is not sent to")
 	assert.Equal(t, int64(7), store.batches[0].SentBy)
-	assert.Equal(t, "熱海", store.batches[0].Jobs[0].Teams)
+	assert.Equal(t, "熱海", jobs[0].Teams)
 	assert.Empty(t, reported)
 
+	limit := int64(1000)
+	sender.quota = notify.Quota{Limit: &limit, Used: 1000}
+	request.Body = ""
 	again, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
-	require.NoError(t, err)
+	require.NoError(t, err, "the second press is answered with the first send, not re-checked")
 	assert.Equal(t, batch.ID, again.ID)
 	assert.Len(t, sender.calls, 2, "the same request is not sent twice")
 	_, err = service.Send(context.Background(), 2, request, domain.Actor{UserID: 7})
-	require.ErrorIs(t, err, domain.ErrNotFound)
+	require.ErrorIs(t, err, domain.ErrConflict, "the key of another tournament")
 }
 
-// 送れなかったまとまりは同じキーで 1 回だけ送り直し、2 回とも失敗したら失敗として記録する。
-func TestSendRetriesOnceWithTheSameKey(t *testing.T) {
+// LINE が受け付けたか分からない失敗だけ、同じキーですぐ 1 回送り直す。受け付けなかったと分かる
+// 失敗は送り直さない。
+func TestSendRetriesOnlyTemporaryFailures(t *testing.T) {
 	store := newFakeStore(friends(2))
-	sender := &fakeSender{fail: 1}
+	sender := &fakeSender{failures: []error{temporary()}}
 	var reported []error
-	service := newService(store, sender, &reported)
+	service := newService(store, sender, &reported, clock())
 	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", RequestKey: "key-1"}
 	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err)
@@ -224,13 +278,49 @@ func TestSendRetriesOnceWithTheSameKey(t *testing.T) {
 	require.Len(t, sender.calls, 2)
 	assert.Equal(t, sender.calls[0].key, sender.calls[1].key)
 
-	sender.fail = 2
+	sender.calls, sender.failures = nil, []error{refused()}
 	request.RequestKey = "key-2"
 	batch, err = service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err, "the batch is recorded even when LINE refuses it")
 	assert.Equal(t, notify.Counts{Failed: 2}, batch.Counts)
-	assert.Contains(t, store.results[1].Error, "returned 500")
+	assert.Len(t, sender.calls, 1, "a refusal is not retried at once")
+	assert.Contains(t, store.results[1].Error, "returned 400")
+	assert.True(t, batch.CanResend)
 	require.Len(t, reported, 1)
+}
+
+// 送れなかったまとまりは、記録したキーと宛先と文のまま、送ってから 24 時間のあいだ送り直せる。
+func TestResendUsesTheRecordedGroups(t *testing.T) {
+	store := newFakeStore(friends(501))
+	sender := &fakeSender{failures: []error{nil, temporary(), temporary()}}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", RequestKey: "key-1"}
+	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Sent: 500, Failed: 1}, batch.Counts)
+	require.Len(t, sender.calls, 3)
+	failedKey := sender.calls[1].key
+
+	*now = now.Add(time.Hour)
+	batch, err = service.Resend(context.Background(), batch.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Sent: 501}, batch.Counts)
+	assert.False(t, batch.CanResend)
+	require.Len(t, sender.calls, 4, "only the group that failed is sent again")
+	assert.Equal(t, multicast{to: []string{"U501"}, text: "ルーキーズファイナル\n\nx", key: failedKey}, sender.calls[3])
+
+	sender.failures = []error{refused()}
+	request.RequestKey = "key-2"
+	late, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	*now = now.Add(notify.ResendWindow)
+	read, err := service.Batch(context.Background(), late.ID)
+	require.NoError(t, err)
+	assert.False(t, read.CanResend, "the retry keys have expired")
+	_, err = service.Resend(context.Background(), late.ID)
+	require.ErrorIs(t, err, domain.ErrConflict)
 }
 
 func TestSendRefusals(t *testing.T) {
@@ -242,14 +332,14 @@ func TestSendRefusals(t *testing.T) {
 
 	var reported []error
 	blocked := newFakeStore([]notify.Recipient{{LineUserID: 1, UserID: "U1", Name: "ブロック中"}})
-	_, err = newService(blocked, &fakeSender{}, &reported).Send(ctx, 1, request, domain.Actor{UserID: 7})
+	_, err = newService(blocked, &fakeSender{}, &reported, clock()).Send(ctx, 1, request, domain.Actor{UserID: 7})
 	var problem *domain.ValidationError
 	require.ErrorAs(t, err, &problem, "no one can receive it")
 
 	limit := int64(200)
 	store := newFakeStore(friends(3))
 	sender := &fakeSender{quota: notify.Quota{Limit: &limit, Used: 198}}
-	_, err = newService(store, sender, &reported).Send(ctx, 1, request, domain.Actor{UserID: 7})
+	_, err = newService(store, sender, &reported, clock()).Send(ctx, 1, request, domain.Actor{UserID: 7})
 	require.ErrorIs(t, err, domain.ErrConflict, "the monthly quota is not enough")
 	assert.Empty(t, store.batches)
 	assert.Empty(t, sender.calls)
@@ -260,7 +350,7 @@ func TestPreviewCountsAndQuota(t *testing.T) {
 	recipients := append(friends(2), notify.Recipient{LineUserID: 9, UserID: "U9", Name: "ブロック中"})
 	var reported []error
 	service := newService(newFakeStore(recipients), &fakeSender{quota: notify.Quota{Limit: &limit, Used: 5}},
-		&reported)
+		&reported, clock())
 	preview, err := service.Preview(context.Background(), 1, notify.Audience{Kind: notify.AudienceReps})
 	require.NoError(t, err)
 	assert.Equal(t, "ルーキーズファイナル", preview.Heading)
