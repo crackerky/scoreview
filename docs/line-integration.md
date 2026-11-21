@@ -13,6 +13,7 @@ LINE 連携はその上に、参加者(チームの代表とメンバー)と記�
 
 公式アカウントは運営会社で 1 つにする。
 大会ごとに作ると、参加者に友だち追加を毎回やり直してもらうことになるためである。
+使うのは今の公式アカウント(ULTIMATE PLANNING。2026 年 11 月時点で友だち 3,837 人)で、作り直さない。
 
 参加費は当面扱わない。
 支払いの確認は、これまでどおりアプリの外で運営が行う。
@@ -27,10 +28,12 @@ LINE 連携はその上に、参加者(チームの代表とメンバー)と記�
 
 ```
 運営     大会と部門を作る → 受付を開ける → 「送る」で告知
-代表     リッチメニュー「エントリー」→ LIFF のフォーム(LINE の ID で本人確認)
-         → 部門、チーム名、連絡先、チーム向けの質問 → 送信 → 招待リンクが届く
-代表     招待リンクをチームの LINE グループに貼る
-メンバー 招待リンク → LIFF のフォーム(友だち追加を含む)→ 名前、背番号、メンバー向けの質問
+代表     リッチメニュー「エントリー」(またはトークで「エントリー」と送る)
+         → 受付中の大会ごとに、本人用の申込リンクが返ってくる
+         → 部門、チーム名、連絡先、チーム向けの質問 → 送信 → 招待リンクが出る
+代表     招待リンクをチームの LINE グループに貼る(画面の「LINE で送る」から)
+メンバー 招待リンク → 公式アカウントのトークが「参加 招待コード」の入った状態で開く → 送る
+         → 本人用の登録リンクが返ってくる → 名前、背番号、メンバー向けの質問
 運営     申込一覧で中身を確かめる → 承認(または差し戻し)→ 部門のチームと選手ができる
 ```
 
@@ -45,8 +48,8 @@ LINE 連携はその上に、参加者(チームの代表とメンバー)と記�
 運営と代表には、チームごとに「8 人中 6 人が本人登録済み」のような進み具合を出す。
 
 LINE の個人チャットに送れるのは、公式アカウントを友だちに追加している人だけである。
-そこで、LIFF を載せる LINE ログインのチャネルで友だち追加を促す設定(bot_prompt)を使い、登録の流れの中で友だち追加まで済ませる。
-送る画面では、友だちでない人を「届かない人」として数える。
+代表もメンバーも、公式アカウントのトークに送ったメッセージから申込に入るので、登録の流れの中で友だち追加まで済む。
+送る画面では、友だちでない人(ブロックした人を含む)を「届かない人」として数える。
 
 ### 申込とチームを分ける
 
@@ -60,7 +63,7 @@ LINE の個人チャットに送れるのは、公式アカウントを友だち
 - **取消**：代表または運営が取り消した。承認した申込は取り消さず、既存の棄権(`team_withdrawals`)でチームを外す。チームがもう組分けと試合に入っているかもしれないためである。
 
 申込の決まり(中身と答えの検査、状態の移り方、承認で作るチームと選手の形)は api の `internal/entry` に置き、LINE からの申込も管理画面の代理入力も同じ受付を通す。
-代理入力は、電話や紙で受けた申込を運営が入れる経路で、LINE の受付より先に作った(LIFF の試作を待たずに、質問、申込一覧、承認を運営が試せるようにするため)。
+代理入力は、電話や紙で受けた申込を運営が入れる経路で、LINE の受付より先に作った(LINE の設定を待たずに、質問、申込一覧、承認を運営が試せるようにするため)。
 同じ部門に同じチーム名の取り消していない申込は二重に入れない(確認の画面から戻って送り直した申込を弾く)。
 
 ### フォームの項目
@@ -122,45 +125,69 @@ N をはじめとする自動送信の時刻は、運営会社と決める。
 LINE で入力する記録係には参加チームのメンバーも入りうるので、LINE で登録したメンバーを `users` に持ち、割り当てた試合だけを記録できる権限にする。
 そのため `users` の role に、管理画面を開けない役割(仮に member)を足す。
 
-## LIFF か、ただのリンクか
+## 本人の確かめ方
 
-LIFF は別のアプリではなく、web のページを LINE の中で開き、開いた人の LINE の ID を受け取る仕組みである。
-比べるべきは「開いた人が誰かを、どうやって知るか」になる。
+申込とメンバー登録では、操作している人が公式アカウントのどの友だちかを知る必要がある。
+後で個人チャットに送るときの宛先が、公式アカウントから見たユーザー ID だからである。
 
-| | LIFF | ただのリンク(LINE の中のブラウザ) |
+### 公式アカウントの今の状態
+
+今の公式アカウントの Messaging API(チャネル ID 1656569904)は、Lイベントを入れたときに Lイベントの提供元の側で有効にされ、Webhook も Lイベント(`https://www.l-event.me/callback`)に向いている。
+運営会社のどの LINE アカウントで LINE Developers に入っても、このチャネルの入ったプロバイダーは見えない。
+プロバイダーは後から変えられない[^line-provider]。
+ユーザー ID はプロバイダーごとに違う値になるので[^line-provider-design]、運営会社のプロバイダーに LIFF(LINE ログイン)を作っても、そこで得た ID は公式アカウントから見た ID と一致しない。
+
+チャネル ID とチャネルシークレットは、公式アカウントの管理画面(Official Account Manager の 設定 → Messaging API)で運営会社の管理者が見られる。
+この 2 つでチャネルアクセストークンを発行できるので、送ることは運営会社の側からでもできる。
+
+### Webhook で本人を確かめる
+
+そこで、本人の確認は LIFF ではなく Webhook で行う。
+公式アカウントに届くメッセージとポストバックには、公式アカウントから見たユーザー ID が付いている。
+そのメッセージへの返信で、本人用のリンク(推測できない合言葉を入れた URL。期限までは何度でも開ける)を返す。
+
+| | 本人用のリンク(採用) | LIFF |
 |---|---|---|
-| 本人の特定 | 開いた時点で LINE の ID が取れる | 別に LINE ログインさせるか、一人ずつ違う使い捨ての合言葉を URL に入れる |
-| リンクを転送されたとき | 開いた人本人として扱う | 合言葉の URL では、転送された人も入力できる |
-| 作る手間 | LIFF の SDK と LINE ログインのチャネル設定が要る | 少ない |
-| 試しやすさ | 実機の LINE でしか試せない | 同じく LINE の中のブラウザの癖がある |
+| 得られる ID | 公式アカウントから見た ID(送るときの宛先と同じ) | LINE ログインのチャネルのプロバイダーでの ID |
+| 前提 | 公式アカウントの Webhook をこちらで受ける | 公式アカウントと同じプロバイダーに LINE ログインのチャネルを作れる |
+| リンクを転送されたとき | 転送された人も、元の人として入力できてしまう | 開いた人本人として扱う |
+| 手間 | 申込の前に、トークで 1 往復する | LIFF の SDK と LINE ログインのチャネルが要る |
 
-本人が誰かが要る画面(エントリー、スコア入力)は LIFF で開き、誰でも見てよい観戦アプリはただのリンクで開く。
-ページは同じ Next.js のページを使い、LIFF は入口で本人を確かめる層として足す。
+リンクの転送には、有効期限(3 日)で備える。
+期限が切れたら、もう一度「エントリー」と送れば新しいリンクが返る。
+Lイベントの提供元から、そのプロバイダーの権限をもらえた場合は、同じプロバイダーに LIFF を作って入口を差し替える(申込の画面はそのまま使う)。
 
-LIFF で開いたときの本人確認は次の順に進む。
+本人用のリンクの合言葉は、平文を保存せず SHA-256 だけを保存する(セッションのトークンと同じ扱い)。
 
-1. LIFF のページが LINE のアクセストークンを取り、web に渡す。
-2. web が内部トークンを付けて api に渡す。
-3. api が LINE のユーザー情報エンドポイントから `sub` を取り、`user_identities` でユーザーを決める(無ければ作る)。
-4. api がセッションを発行する。
+## Lイベントからの移行
 
-ID トークンではなくユーザー情報エンドポイントを使うのは、ID トークンの署名方式に依存しないためである[^line-hs256]。
+Webhook の宛先は 1 つしか設定できない[^line-multi-tools]。
+こちらで Webhook を受けた時点で Lイベントは動かなくなるので、両方を同時には使えない。
+移行は次の順に進める。
+
+1. 運営会社のプロバイダー(Ultimate planning score site)の下に、試験用の公式アカウントを作り、Webhook をこちらに向ける。申込、承認、送る、を試験用の公式アカウントで何回でも試す。今の公式アカウントと Lイベントには触れない。試験は本番と同じ DB で行うので、試験用の大会を使い、終わったら試験で作った申込と、試験用の公式アカウントの `line_users`(公式アカウントごとにユーザー ID が違うので、切り替えた後の公式アカウントでは使えない)を消す。
+2. 受付の無い時期を選び、今の公式アカウントの Webhook URL を、公式アカウントの管理画面からこちらに書き換える。友だちはそのまま引き継がれる。
+3. リッチメニューを、こちらの「エントリー」に差し替える。
+4. Lイベントを解約する。そのとき、Messaging API のチャネル(提供元のプロバイダーの中にある)を消さないよう提供元に頼む。チャネルが消えると、公式アカウントから送れなくなるためである。
+
+チャネルアクセストークンは、送るたびに 15 分だけ有効なステートレスのトークンを発行して使う[^line-token]。
+長期のトークンは 1 つのチャネルに 1 つしか持てず、発行し直すと前のものが無効になるので、移行の前に発行すると Lイベントが止まる。
 
 ## URL
 
 LINE のメッセージやリッチメニューに埋め込んだ URL は、送った後に変えられない。
 そこで、次の URL を固定する。
 
-| URL | 画面 | 開き方 |
-|---|---|---|
-| `/` | 受付中と開催中の大会の一覧 | ただのリンク |
-| `/live/{大会ID}` | 観戦アプリ | ただのリンク |
-| `/entry/{大会ID}` | 代表エントリー | LIFF |
-| `/entry/join/{招待コード}` | メンバーエントリー | LIFF |
-| `/record/{試合ID}` | 記録係のスコア入力 | LIFF |
+| URL | 画面 |
+|---|---|
+| `/` | 受付中と開催中の大会の一覧 |
+| `/live/{大会ID}` | 観戦アプリ |
+| `/tournaments/{大会ID}` | スコアサイト |
+| `/entry/{合言葉}` | 本人用のリンクで開く、代表の申込とメンバーの登録 |
+| `/line/webhook` | 公式アカウントの Webhook の受け口 |
 
-LIFF で開くときは、`https://liff.line.me/{LIFF ID}/entry/...` のように LIFF の URL の後ろに上のパスを付ける。
-招待コードは推測できない長さの乱数にし、代表がいつでも作り直せる(作り直すと古いリンクは使えない)。
+メンバーの招待リンクは、公式アカウントのトークに文を入れた状態で開く LINE の URL(`https://line.me/R/oaMessage/{ベーシック ID}/?参加%20{招待コード}`)にする[^line-url-scheme]。
+招待コードは推測できない長さの乱数にする。
 
 ## 先に守る構造
 
@@ -176,10 +203,11 @@ LIFF で開くときは、`https://liff.line.me/{LIFF ID}/entry/...` のよう�
 ### 認証をパスワード専用の形にしない
 
 セッションはユーザー ID に結びつけ、ログイン方法には結びつけない(`sessions` は `user_id` だけを持つ。現状どおり)。
-LINE の ID は `user_identities` に持ち、1 人のユーザーがパスワードと LINE の両方でログインできるようにする。
-LINE ではメールアドレスが取れないことがある(取得には LINE Developers での申請が要る)ので、`users.email` と `users.password_hash` は NULL を許す。
+LINE の参加者は `line_users` に持ち、`users` とは分ける。
+参加者は管理画面にログインしないので、申込とメンバー登録は本人用のリンクの合言葉だけで行う。
+LINE で入力する記録係を作るときは、`line_users.user_id` で `users` と結び、記録係の権限はこれまでどおり `users` で決める。
 
-api のログイン処理は「本人確認(パスワード照合、または LINE のアクセストークンの検証)→ ユーザーの特定 → セッション発行」の 3 段に分け、本人確認の部分だけを差し替えられる形にする。
+api のログイン処理は「本人確認(パスワード照合、または本人用のリンクの合言葉)→ ユーザーの特定 → セッション発行」の 3 段に分け、本人確認の部分だけを差し替えられる形にする。
 
 ### api を公開しない
 
@@ -189,8 +217,8 @@ LINE の Webhook と、自動送信のスケジュールは web の Route Handle
 ## 構成
 
 ```
-LINE プラットフォーム ──Webhook──▶ web(/line/webhook)──内部──▶ api(署名検証、友だち状態の記録)
-LIFF のページ ──アクセストークン──▶ web ──内部──▶ api(本人確認、セッション発行)
+LINE プラットフォーム ──Webhook──▶ web(/line/webhook)──内部──▶ api(署名検証、友だち状態の記録、本人用のリンクの返信)
+本人用のリンクのページ ──合言葉──▶ web ──内部──▶ api(合言葉の確認、申込とメンバー登録)
 
 api(試合の状態変更、管理画面の「送る」)── 同じトランザクションで ──▶ notification_jobs
                                                                          │
@@ -204,15 +232,16 @@ Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の
 
 | テーブル | 主な列 | 用途 |
 |---|---|---|
-| `user_identities` | user_id, provider, subject | LINE のユーザー ID |
-| `line_friends` | line_user_id, followed_at, blocked_at | 公式アカウントの友だち状態(Webhook で更新) |
-| `clubs` | id, name_ja, name_en, owner_user_id | 大会をまたぐチームのまとまり |
+| `line_users` | line_user_id, friend, followed_at, unfollowed_at, user_id(NULL 可) | 公式アカウントから見た LINE のユーザーと友だち状態(Webhook で更新)。記録係にするときに `users` と結ぶ |
+| `line_webhook_events` | webhook_event_id, received_at | 同じイベントが 2 回届いたときに 2 回処理しない |
+| `entry_links` | token_hash, line_user_id, purpose(team, member), tournament_id または team_entry_id, expires_at | 本人用のリンク |
+| `clubs` | id, name_ja, name_en, owner_line_user_id | 大会をまたぐチームのまとまり(持ち主は代表の LINE の人) |
 | `entry_questions` | tournament_id, scope(team, member), label, kind, required, options, sort_order | 大会ごとの質問 |
-| `team_entries` | tournament_id, division_id, club_id, rep_user_id, 共通の項目, status, invite_code, team_id | 代表エントリー(承認で team_id が入る) |
-| `member_entries` | team_entry_id, user_id(NULL 可), name, number, player_id | メンバーエントリー(代表が書いた行は user_id が空) |
+| `team_entries` | tournament_id, division_id, club_id, rep_line_user_id, 共通の項目, status, invite_code, team_id | 代表エントリー(承認で team_id が入る) |
+| `member_entries` | team_entry_id, line_user_id(NULL 可), name, number, player_id | メンバーエントリー(代表が書いた行は line_user_id が空) |
 | `entry_answers` | question_id, team_entry_id または member_entry_id, value | 質問への答え |
 | `notification_batches` | id, sent_by, condition, body, automatic, created_at | 送信履歴(1 回の「送る」) |
-| `notification_jobs` | id, batch_id, user_id, kind, payload, status, attempts, sent_at, error | 宛先ごとの配信キュー |
+| `notification_jobs` | id, batch_id, line_user_id, kind, payload, status, attempts, sent_at, error | 宛先ごとの配信キュー(宛先は公式アカウントから見た LINE の人) |
 
 既存のテーブルには次を足す。
 
@@ -224,15 +253,12 @@ Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の
 
 ## 着手時に確かめること
 
-実機で小さな試作を作り、次を確かめてから本実装に入る。
+試験用の公式アカウントで、次を確かめてから今の公式アカウントを切り替える。
 
-- LINE ログインのチャネルと公式アカウント(Messaging API のチャネル)を同じプロバイダーの下に作ると、同じ人のユーザー ID が一致するか。一致しなければ、LIFF で得た ID を配信先に使えない。
-- LIFF の中で記録画面のオフライン対応(Service Worker)が動くか。
+- 本人用のリンクで申し込み、承認した人に、公式アカウントから個人チャットで届くか。
+- 招待リンクから、友だちでない人がトークを開いたときに、友だち追加を経て「参加」を送れるか。
 - iPhone と Android の LINE で、表示と動作に差がないか。
 - 公式アカウントの料金プランと通数。2026 年 10 月に追加メッセージの単価が改定されたため、契約時点の料金表で試算する[^line-plan]。
-
-試作には LINE Developers のチャネル(LINE ログイン、Messaging API)が要る。
-運営会社のアカウントで作るか、まず開発用のアカウントで作るかは未決である。
 
 ## 未決のこと
 
@@ -241,4 +267,8 @@ Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の
 - LINE で登録したメンバーを記録係に割り当てるとき、運営が割り当て画面でどう探すか(チームと名前で選ぶ形を想定)。
 
 [^line-plan]: [LINE公式アカウントの料金プラン](https://www.lycbiz.com/jp/service/line-official-account/plan/)。2026 年 9 月時点の公表値は、無料プランが月 200 通、ライトプランが月 5,000 通、スタンダードプランが月 30,000 通。契約前に再確認する。
-[^line-hs256]: [Get profile information from ID tokens | LINE Developers](https://developers.line.biz/en/docs/line-login/verify-id-token/)。
+[^line-provider]: [Messaging APIを始めよう | LINE Developers](https://developers.line.biz/ja/docs/messaging-api/getting-started/)。「一度、LINE公式アカウントを管理するプロバイダーを選択すると、後から別のプロバイダーに変更したり、Messaging APIとの連携を解除したりすることはできません。」
+[^line-provider-design]: [プロバイダー設計の基本 | LINE Developers](https://developers.line.biz/ja/tips/2026/06/25/provider-design-basics/)。「異なるプロバイダー配下のチャネルで取得したユーザーIDは、同じユーザーであっても異なる値になります。」
+[^line-multi-tools]: [1つのLINE公式アカウントで複数のツールからMessaging APIを使うときの確認点 | LINE Developers](https://developers.line.biz/ja/tips/2026/07/23/using-multiple-api-tools/)。
+[^line-token]: [Channel access token | LINE Developers](https://developers.line.biz/en/docs/basics/channel-access-token/)。
+[^line-url-scheme]: [Using LINE URL scheme | LINE Developers](https://developers.line.biz/en/docs/messaging-api/using-line-url-scheme/)。
