@@ -1,6 +1,7 @@
 import type { EntryDetail, EntryLink } from '@/api/entry.types'
 import { registeredText, statusLabels } from '@/entry/entry.utils'
 import { type LinkFormState, resubmitValues, shareToLineUrl } from '@/entry/entryLink.utils'
+import { CopyField } from './CopyField'
 import { TeamEntryForm } from './TeamEntryForm'
 
 // 代表が出した申込 1 件。状態と本人登録の進み具合、メンバーへの招待のボタンを出す。差し戻された申込には、
@@ -51,6 +52,10 @@ export function RepEntryCard({ token, entry, team, resubmit }: Props) {
           <p className="entry-muted">
             チームの LINE グループに送ると、メンバーが各自の LINE から登録できます。
           </p>
+          <CopyField
+            label="招待リンク(コピーして、ほかの場所にも貼り付けられます)"
+            value={entry.inviteUrl}
+          />
         </>
       ) : null}
     </section>

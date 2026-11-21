@@ -167,3 +167,28 @@
   margin: 4px 0 0;
   padding-left: 1.2em;
 }
+
+/* 招待リンクのコピー。欄は長押しでも選べるよう、文をそのまま見せる */
+.entry-copy-row {
+  display: flex;
+  gap: 8px;
+}
+
+.entry-copy-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.site .entry-copy-button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--site-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
