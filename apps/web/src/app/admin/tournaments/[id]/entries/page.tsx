@@ -9,8 +9,8 @@ import { entryPaths } from '@/entry/entry.paths'
 import {
   channelLabels,
   countByStatus,
+  dateTimeText,
   parseStatus,
-  receivedText,
   registeredText,
   statusLabels,
   statusTones,
@@ -89,7 +89,7 @@ export default async function EntriesPage(props: IdPageProps) {
                       item.division.name.ja,
                       `代表 ${item.repName}`,
                       registeredText(item.members, item.registered),
-                      `${receivedText(item.submittedAt)} ${channelLabels[item.channel]}`,
+                      `${dateTimeText(item.submittedAt)} ${channelLabels[item.channel]}`,
                     ].join(' ・ ')}
                   </span>
                 </span>

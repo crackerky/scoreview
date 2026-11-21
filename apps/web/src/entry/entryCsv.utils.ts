@@ -1,5 +1,5 @@
 import type { EntryDetail, EntryExport } from '@/api/entry.types'
-import { answerText, channelLabels, receivedText, statusLabels } from './entry.utils'
+import { answerText, channelLabels, dateTimeText, statusLabels } from './entry.utils'
 
 // 申込の書き出し(CSV)。運営が Excel で名簿として開く前提で、メンバー 1 人を 1 行にし、チームの欄と
 // チーム向けの質問への答えを各行に繰り返す(並べ替えや絞り込みをしても行がチームから離れないように)。
@@ -32,7 +32,7 @@ function teamCells(entry: EntryDetail, answers: readonly string[]): string[] {
     entry.repName,
     entry.repPhone,
     entry.repEmail,
-    receivedText(entry.submittedAt),
+    dateTimeText(entry.submittedAt),
     channelLabels[entry.channel],
     ...answers,
   ]

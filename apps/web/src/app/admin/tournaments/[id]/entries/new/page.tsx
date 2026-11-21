@@ -5,7 +5,7 @@ import type { IdPageProps } from '@/app/_lib/pageProps'
 import { createEntryAction } from '@/app/admin/_actions/entry'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Field, Hidden, Select, TextArea } from '@/components/admin/AdminParts'
-import { EntryAnswerField } from '@/components/admin/entry/EntryAnswerField'
+import { EntryAnswerField } from '@/components/entry/EntryAnswerField'
 import { entryPaths } from '@/entry/entry.paths'
 
 // 電話や紙で受けた申込を、運営が代わりに入れる。LINE からの申込と同じ受付を通るので、同じ部門に同じ

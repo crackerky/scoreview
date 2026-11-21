@@ -138,10 +138,19 @@ export function currentScoreOf(message: string): { left: number; right: number }
   return { left: Number(found[1]), right: Number(found[2]) }
 }
 
-function badRequestText(message: string): string {
+/**
+ * bad_request の message(domain.ValidationError の「項目: 理由」)を項目と理由に分ける。項目の無い
+ * message は全体を理由にする。
+ */
+export function validationParts(message: string): { field: string; reason: string } {
   const separator = message.indexOf(': ')
-  const field = separator < 0 ? '' : message.slice(0, separator)
-  const reason = separator < 0 ? message : message.slice(separator + 2)
+  return separator < 0
+    ? { field: '', reason: message }
+    : { field: message.slice(0, separator), reason: message.slice(separator + 2) }
+}
+
+function badRequestText(message: string): string {
+  const { field, reason } = validationParts(message)
   for (const rule of rules) {
     if (!rule.field.test(field)) {
       continue

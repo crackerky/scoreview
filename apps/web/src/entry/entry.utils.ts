@@ -89,21 +89,41 @@ export function parseMembers(text: string): EntryDraftInput['members'] {
   return members
 }
 
-type Form = Record<string, string | string[]>
+/** Server Action が読む、平らにしたフォーム(admin/form.utils の formToObject) */
+export type FormFields = Record<string, string | string[]>
 
-function text(form: Form, name: string): string {
+/** フォームの欄の文字の値(無いか複数なら '') */
+export function formText(form: FormFields, name: string): string {
   const value = form[name]
   return typeof value === 'string' ? value : ''
+}
+
+/** 質問の答えの欄の名前(EntryAnswerField と、答えを読む関数が同じ名前を使う) */
+export function answerFieldName(questionId: number): string {
+  return `a${questionId}`
+}
+
+/** questions への答えを、答えの欄から読む。前後の空白を除き、空の答えは送らない */
+export function answersFromForm(
+  form: FormFields,
+  questions: readonly EntryQuestion[],
+): Array<{ questionId: number; value: string }> {
+  return questions
+    .map((question) => ({
+      questionId: question.id,
+      value: formText(form, answerFieldName(question.id)).trim(),
+    }))
+    .filter((answer) => answer.value !== '')
 }
 
 /**
  * 質問の設定のフォームを読む。行は q{i}.label などの欄で、ラベルが空の行と「消す」に印のある行は
  * 捨て、「順」の数の小さい順(同じなら画面の順)に並べる。選択肢は 1 行に 1 つ。
  */
-export function questionsFromForm(form: Form, rows: number): EntryQuestionInput[] {
+export function questionsFromForm(form: FormFields, rows: number): EntryQuestionInput[] {
   const picked: Array<{ order: number; index: number; question: EntryQuestionInput }> = []
   for (let index = 0; index < rows; index++) {
-    const key = (name: string) => text(form, `q${index}.${name}`)
+    const key = (name: string) => formText(form, `q${index}.${name}`)
     const label = key('label').trim()
     if (label === '' || key('remove') !== '') {
       continue
@@ -137,27 +157,30 @@ export function questionsFromForm(form: Form, rows: number): EntryQuestionInput[
 }
 
 /** 代わりに入れる申込のフォームを読む。答えは a{質問 ID} の欄で、空の答えは送らない */
-export function draftFromForm(form: Form, questions: readonly EntryQuestion[]): EntryDraftInput {
+export function draftFromForm(
+  form: FormFields,
+  questions: readonly EntryQuestion[],
+): EntryDraftInput {
   return {
-    divisionId: Number(text(form, 'divisionId')),
-    fullName: text(form, 'fullName'),
-    shortName: text(form, 'shortName'),
-    repName: text(form, 'repName'),
-    repPhone: text(form, 'repPhone'),
-    repEmail: text(form, 'repEmail'),
-    members: parseMembers(text(form, 'members')),
-    answers: questions
-      .filter((question) => question.scope === 'team')
-      .map((question) => ({ questionId: question.id, value: text(form, `a${question.id}`).trim() }))
-      .filter((answer) => answer.value !== ''),
+    divisionId: Number(formText(form, 'divisionId')),
+    fullName: formText(form, 'fullName'),
+    shortName: formText(form, 'shortName'),
+    repName: formText(form, 'repName'),
+    repPhone: formText(form, 'repPhone'),
+    repEmail: formText(form, 'repEmail'),
+    members: parseMembers(formText(form, 'members')),
+    answers: answersFromForm(
+      form,
+      questions.filter((question) => question.scope === 'team'),
+    ),
   }
 }
 
 /** 日本時間を足した UTC の時刻(UTC の読み方で日本の暦と時計が読める) */
 const jstOffsetMs = 9 * 60 * 60 * 1000
 
-/** 申込を受けた時刻(RFC 3339)を日本時間の「11月13日 14:05」にする */
-export function receivedText(iso: string): string {
+/** 時刻(RFC 3339。申込を受けた時刻やリンクの期限)を日本時間の「11月13日 14:05」にする */
+export function dateTimeText(iso: string): string {
   const jst = new Date(new Date(iso).getTime() + jstOffsetMs)
   const clock = `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
   return `${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日 ${clock}`

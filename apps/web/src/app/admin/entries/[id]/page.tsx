@@ -9,7 +9,7 @@ import { entryPaths } from '@/entry/entry.paths'
 import {
   answerText,
   channelLabels,
-  receivedText,
+  dateTimeText,
   registeredText,
   statusLabels,
   statusTones,
@@ -36,7 +36,7 @@ export default async function EntryPage(props: IdPageProps) {
     <AdminShell
       user={user}
       title={detail.fullName}
-      kicker={`${detail.division.name.ja} ・ ${receivedText(detail.submittedAt)} ${channelLabels[detail.channel]}`}
+      kicker={`${detail.division.name.ja} ・ ${dateTimeText(detail.submittedAt)} ${channelLabels[detail.channel]}`}
       notice={notice}
       crumbs={[
         { href: `/admin/tournaments/${detail.tournamentId}`, label: tournament.name.ja },

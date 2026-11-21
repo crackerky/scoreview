@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { currentScoreOf, operatorErrorText } from '../src/admin/errorText.utils.ts'
+import { currentScoreOf, operatorErrorText, validationParts } from '../src/admin/errorText.utils.ts'
 
 // api のエラーを運営の言葉にする共通の変換表(src/admin/errorText.utils.ts。レビュー H6)。
 
@@ -59,4 +59,12 @@ describe('エラーの変換表', () => {
       assert.doesNotMatch(text, /[a-z_]{4,}/, code)
     }
   })
+})
+
+test('validationParts は「項目: 理由」を分け、項目が無ければ全体を理由にする', () => {
+  assert.deepEqual(validationParts('members[2].name: is required'), {
+    field: 'members[2].name',
+    reason: 'is required',
+  })
+  assert.deepEqual(validationParts('body is too large'), { field: '', reason: 'body is too large' })
 })

@@ -3,13 +3,16 @@ import { describe, test } from 'node:test'
 import { operatorErrorText } from '../src/admin/errorText.utils.ts'
 import { type EntryQuestion, type EntrySummary, entryDetailSchema } from '../src/api/entry.types.ts'
 import {
+  answerFieldName,
+  answersFromForm,
   answerText,
   countByStatus,
+  dateTimeText,
   draftFromForm,
+  formText,
   parseMembers,
   parseStatus,
   questionsFromForm,
-  receivedText,
   registeredText,
 } from '../src/entry/entry.utils.ts'
 
@@ -101,6 +104,21 @@ describe('draftFromForm', () => {
   })
 })
 
+describe('フォームの欄の読み方', () => {
+  test('formText は文字の欄だけを読み、無いか複数なら空', () => {
+    assert.equal(formText({ a: 'x', b: ['1', '2'] }, 'a'), 'x')
+    assert.equal(formText({ a: 'x', b: ['1', '2'] }, 'b'), '')
+    assert.equal(formText({}, 'c'), '')
+  })
+  test('answersFromForm は答えの欄(answerFieldName)を読み、空の答えは送らない', () => {
+    assert.equal(answerFieldName(12), 'a12')
+    assert.deepEqual(
+      answersFromForm({ a1: ' 3年 ', a2: ' ' }, [question(1, 'member'), question(2, 'member')]),
+      [{ questionId: 1, value: '3年' }],
+    )
+  })
+})
+
 describe('表示', () => {
   const summary = (status: EntrySummary['status']): EntrySummary => ({
     id: 1,
@@ -129,8 +147,8 @@ describe('表示', () => {
     assert.equal(parseStatus(['pending']), null)
   })
   test('受けた時刻は日本時間で出す(UTC の 15 時は翌日)', () => {
-    assert.equal(receivedText('2026-11-13T05:05:00Z'), '11月13日 14:05')
-    assert.equal(receivedText('2026-11-13T15:30:00Z'), '11月14日 00:30')
+    assert.equal(dateTimeText('2026-11-13T05:05:00Z'), '11月13日 14:05')
+    assert.equal(dateTimeText('2026-11-13T15:30:00Z'), '11月14日 00:30')
   })
   test('本人登録の進み具合と、はい/いいえ', () => {
     assert.equal(registeredText(8, 6), '8 人中 6 人が本人登録')
