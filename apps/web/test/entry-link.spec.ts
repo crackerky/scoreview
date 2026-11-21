@@ -4,11 +4,14 @@ import { type EntryDetail, type EntryQuestion, entryLinkSchema } from '../src/ap
 import { entryPaths } from '../src/entry/entry.paths.ts'
 import { parseMembers } from '../src/entry/entry.utils.ts'
 import {
+  findPastTeam,
   isLinkToken,
   joinFromForm,
   linkUnusableText,
   membersText,
   participantErrorText,
+  pastTeamValues,
+  profileValues,
   registeredIdsFromForm,
   resubmitValues,
   shareToLineUrl,
@@ -211,4 +214,53 @@ test('registeredIdsFromForm は registered の欄の数だけを読む', () => {
 test('期限切れの案内は、代表とメンバーの両方の受け取り方を書く', () => {
   assert.match(linkUnusableText, /代表の方は公式 LINE にもう一度「エントリー」/)
   assert.match(linkUnusableText, /メンバーの方は、代表の方から届いた招待リンク/)
+})
+
+describe('参加者の台帳', () => {
+  const atami = {
+    fullName: '熱海ディスクス',
+    shortName: '熱海',
+    members: [
+      { name: '山田 太郎', number: '7' },
+      { name: '佐藤 花子', number: '' },
+    ],
+  }
+  test('前回の入力を代表の欄に入れる(まだ無ければ空)', () => {
+    assert.deepEqual(profileValues({ name: '山田 太郎', phone: '090', email: 'a@example.com' }), {
+      repName: '山田 太郎',
+      repPhone: '090',
+      repEmail: 'a@example.com',
+    })
+    assert.deepEqual(profileValues(null), {})
+  })
+  test('前のチームをチーム名、短縮名、メンバー表の欄にする', () => {
+    assert.deepEqual(pastTeamValues(atami), {
+      fullName: '熱海ディスクス',
+      shortName: '熱海',
+      members: '7 山田 太郎\n佐藤 花子',
+    })
+  })
+  test('書いたチーム名に合う前のチームを、前後の空白と大文字小文字を除いて探す', () => {
+    const izu = { fullName: 'Izu Flyers', shortName: 'Izu', members: [] }
+    assert.equal(findPastTeam([atami, izu], ' izu flyers '), izu)
+    assert.equal(findPastTeam([atami, izu], '熱海'), undefined)
+    assert.equal(findPastTeam([atami, izu], ' '), undefined)
+  })
+  test('本人用のリンクの応答の前回の入力と前のチームを parse できる', () => {
+    const parsed = entryLinkSchema.parse({
+      purpose: 'team',
+      team: {
+        tournament: { id: 1, name: 'ラバー 2027' },
+        open: true,
+        divisions: [],
+        questions: [],
+        mine: [],
+        profile: { name: '山田 太郎', phone: '', email: '' },
+        pastTeams: [atami],
+        expiresAt: '2026-11-24T01:00:00Z',
+      },
+      member: null,
+    })
+    assert.equal(parsed.team?.pastTeams[0]?.members.length, 2)
+  })
 })

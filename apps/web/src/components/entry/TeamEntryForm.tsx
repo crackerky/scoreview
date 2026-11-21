@@ -1,17 +1,18 @@
 'use client'
 
-import { useActionState } from 'react'
-import type { EntryLink } from '@/api/entry.types'
+import { useActionState, useId, useState } from 'react'
+import type { EntryLink, EntryPastTeam } from '@/api/entry.types'
 import { entryLimits } from '@/api/entry.types'
 import { answerFieldName } from '@/entry/entry.utils'
-import type { LinkFormState } from '@/entry/entryLink.utils'
+import { findPastTeam, type LinkFormState, pastTeamValues } from '@/entry/entryLink.utils'
 import { EntryAnswerField } from './EntryAnswerField'
 import { FormError } from './FormError'
 import { submitLinkForm } from './submitLinkForm'
 
 // 代表の申込のフォーム。新しい申込と、差し戻された申込の送り直しで同じ欄を使う(送り直しは entryId を
 // 付け、今の中身を入れて開く)。送れなかったときは、api の文を上に出し、書いた中身を欄に残す
-// (submitLinkForm)。
+// (submitLinkForm)。前に申し込んだチームがあれば、選ぶかチーム名を書くと、短縮名とメンバー表を入れる
+// (docs/line-integration.md「参加者の台帳」)。
 
 type Team = NonNullable<EntryLink['team']>
 
@@ -27,6 +28,8 @@ type Props = {
   entryId?: number
   /** メンバー表の上に出す、本人がもう登録した人(送り直しのとき。代表の欄では直せない) */
   registered?: ReadonlyArray<{ id: number; name: string; number: string }>
+  /** 前にほかの大会に申し込んだチーム(新しい申込のとき) */
+  pastTeams?: readonly EntryPastTeam[]
 }
 
 export function TeamEntryForm({
@@ -38,9 +41,28 @@ export function TeamEntryForm({
   initial = {},
   entryId,
   registered = [],
+  pastTeams = [],
 }: Props) {
   const [state, formAction] = useActionState(action, { error: null })
   const value = (name: string) => initial[name] ?? ''
+  const [team, setTeam] = useState({
+    fullName: value('fullName'),
+    shortName: value('shortName'),
+    members: value('members'),
+  })
+  const listId = useId()
+  // 前のチームを選んだときは全部を入れる。チーム名を書いて合ったときは、まだ空の欄だけを埋める
+  // (書きかけの短縮名やメンバー表を消さないため)
+  const choose = (past: EntryPastTeam) => setTeam(pastTeamValues(past))
+  const typeName = (fullName: string) => {
+    const past = findPastTeam(pastTeams, fullName)
+    const values = past ? pastTeamValues(past) : null
+    setTeam((current) => ({
+      fullName,
+      shortName: current.shortName || (values?.shortName ?? ''),
+      members: current.members || (values?.members ?? ''),
+    }))
+  }
   return (
     <form action={formAction} onSubmit={submitLinkForm(formAction)} className="entry-form">
       <FormError error={state.error} attempt={state} />
@@ -62,13 +84,55 @@ export function TeamEntryForm({
           ))}
         </select>
       </label>
-      <TextField label="チーム名(正式)" name="fullName" value={value('fullName')} required />
-      <TextField
-        label="チーム名(短縮。日程表に出ます)"
-        name="shortName"
-        value={value('shortName')}
-        required
-      />
+      {pastTeams.length > 0 ? (
+        <div className="entry-field">
+          <span>前に申し込んだチームから入れる</span>
+          <div className="entry-past-teams">
+            {pastTeams.map((past) => (
+              <button
+                key={past.fullName}
+                type="button"
+                className="entry-past-team"
+                onClick={() => choose(past)}
+              >
+                {past.fullName}
+                <small>{past.members.length} 人</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <label className="entry-field">
+        <span>チーム名(正式)</span>
+        <input
+          type="text"
+          name="fullName"
+          value={team.fullName}
+          onChange={(event) => typeName(event.target.value)}
+          list={pastTeams.length > 0 ? listId : undefined}
+          maxLength={entryLimits.maxShortText}
+          autoComplete="off"
+          required
+        />
+      </label>
+      {pastTeams.length > 0 ? (
+        <datalist id={listId}>
+          {pastTeams.map((past) => (
+            <option key={past.fullName} value={past.fullName} />
+          ))}
+        </datalist>
+      ) : null}
+      <label className="entry-field">
+        <span>チーム名(短縮。日程表に出ます)</span>
+        <input
+          type="text"
+          name="shortName"
+          value={team.shortName}
+          onChange={(event) => setTeam({ ...team, shortName: event.target.value })}
+          maxLength={entryLimits.maxShortText}
+          required
+        />
+      </label>
       <TextField
         label="代表の名前(フルネーム)"
         name="repName"
@@ -113,7 +177,8 @@ export function TeamEntryForm({
           name="members"
           rows={6}
           placeholder={'7 山田 太郎\n12 佐藤 花子'}
-          defaultValue={value('members')}
+          value={team.members}
+          onChange={(event) => setTeam({ ...team, members: event.target.value })}
         />
       </label>
       {questions.map((question) => (

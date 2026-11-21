@@ -168,6 +168,30 @@
   padding-left: 1.2em;
 }
 
+/* 前に申し込んだチーム。押すとチーム名、短縮名、メンバー表を入れる */
+.entry-past-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.site .entry-past-team {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--site-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.entry-past-team small {
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
 /* 招待リンクのコピー。欄は長押しでも選べるよう、文をそのまま見せる */
 .entry-copy-row {
   display: flex;

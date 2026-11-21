@@ -1,5 +1,11 @@
 import { validationParts } from '@/admin/errorText.utils'
-import type { EntryDetail, EntryJoinInput, EntryQuestion } from '@/api/entry.types'
+import type {
+  EntryDetail,
+  EntryJoinInput,
+  EntryPastTeam,
+  EntryProfile,
+  EntryQuestion,
+} from '@/api/entry.types'
 import { entryLimits } from '@/api/entry.types'
 import { answerFieldName, answersFromForm, type FormFields, formText } from './entry.utils'
 
@@ -50,6 +56,32 @@ export function registeredIdsFromForm(form: FormFields): number[] {
  * 公開側のフォームの送信の結果。error は画面に出す文。成功したときは同じ画面へ移るので使わない。
  */
 export type LinkFormState = { error: string | null }
+
+/** 前回の入力を、申込の代表の欄の値にする(まだ何も入れていなければ空) */
+export function profileValues(profile: EntryProfile | null): Record<string, string> {
+  return profile ? { repName: profile.name, repPhone: profile.phone, repEmail: profile.email } : {}
+}
+
+/** 前に申し込んだチームを、チーム名、短縮名、メンバー表の欄の値にする */
+export function pastTeamValues(team: EntryPastTeam): {
+  fullName: string
+  shortName: string
+  members: string
+} {
+  return { fullName: team.fullName, shortName: team.shortName, members: membersText(team.members) }
+}
+
+/**
+ * 書いたチーム名に合う、前に申し込んだチーム(前後の空白と大文字小文字を除いて同じ名前。api が同じチーム
+ * として扱う比べ方)。無ければ undefined。
+ */
+export function findPastTeam(
+  teams: readonly EntryPastTeam[],
+  name: string,
+): EntryPastTeam | undefined {
+  const key = name.trim().toLowerCase()
+  return key === '' ? undefined : teams.find((team) => team.fullName.trim().toLowerCase() === key)
+}
 
 /** メンバー表の欄(1 行 1 人、背番号は名前の前。entry.utils の parseMembers が読む形)に戻す */
 export function membersText(members: ReadonlyArray<{ name: string; number: string }>): string {

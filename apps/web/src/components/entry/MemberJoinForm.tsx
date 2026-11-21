@@ -10,8 +10,9 @@ import { submitLinkForm } from './submitLinkForm'
 
 // メンバー登録のフォーム。代表が書いた名簿から自分を選ぶと、名前と背番号の欄にその行を入れる(本人が
 // 確かめて直す。docs/line-integration.md「代表エントリーとメンバーエントリー」)。もう登録した人には、
-// 登録した中身を入れて開く。送れなかったときは、api の文を上に出し、書いた中身を欄に残す
-// (submitLinkForm)。
+// 登録した中身を入れて開く。まだ登録していない人には、前に入れた名前(参加者の台帳)を入れておき、
+// 名簿に同じ名前の行があればその行を選んでおく。送れなかったときは、api の文を上に出し、書いた中身を
+// 欄に残す(submitLinkForm)。
 
 type Props = {
   token: string
@@ -23,13 +24,19 @@ export function MemberJoinForm({ token, member, action }: Props) {
   const mine = member.mine
   const saved = new Map(member.mineAnswers.map((answer) => [answer.questionId, answer.value]))
   const [state, formAction] = useActionState(action, { error: null })
-  const [picked, setPicked] = useState<string>(mine ? String(mine.id) : '')
-  const [name, setName] = useState(mine?.name ?? '')
-  const [number, setNumber] = useState(mine?.number ?? '')
+  const known = member.unclaimed.find(
+    (row) => member.profileName !== '' && row.name === member.profileName,
+  )
+  const start = mine ?? known
+  const [picked, setPicked] = useState<string>(start ? String(start.id) : '')
+  const [name, setName] = useState(
+    start?.name ?? (member.unclaimed.length === 0 ? member.profileName : ''),
+  )
+  const [number, setNumber] = useState(start?.number ?? '')
   const choose = (value: string) => {
     setPicked(value)
     const row = member.unclaimed.find((item) => String(item.id) === value)
-    setName(row?.name ?? '')
+    setName(row?.name ?? member.profileName)
     setNumber(row?.number ?? '')
   }
   return (

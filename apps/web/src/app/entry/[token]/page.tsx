@@ -12,6 +12,7 @@ import { TeamEntryForm } from '@/components/entry/TeamEntryForm'
 import { SiteShell } from '@/components/site/SiteShell'
 import { dateTimeText } from '@/entry/entry.utils'
 import { loadEntryLink } from '@/entry/entryLink.load'
+import { profileValues } from '@/entry/entryLink.utils'
 import '@/styles/entry.css'
 
 // 本人用のリンクで開く画面(docs/line-integration.md「本人の確かめ方」)。公式 LINE に「エントリー」と
@@ -94,6 +95,8 @@ function TeamSection({
             questions={team.questions}
             action={submitTeamEntryAction}
             submitLabel="申し込む"
+            initial={profileValues(team.profile)}
+            pastTeams={team.pastTeams}
           />
         </>
       ) : (
