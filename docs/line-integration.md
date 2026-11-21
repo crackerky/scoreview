@@ -128,6 +128,20 @@ LINE から出した申込の代表には、受付、送り直しの受付、承
 送ったら送信履歴に残す。
 履歴は、送った人、条件、文面、宛先ごとの結果(届いた、届かなかった、失敗)を持つ。
 
+今ある条件は、大会の画面から選ぶ次の 4 つである(api の `internal/notify`)。
+
+- 申し込んだ代表(取り消した申込を除く。申込の状態と部門で絞れる)
+- メンバーの登録が揃っていない代表
+- 承認したチームの代表と、LINE で登録したメンバー
+- 前の大会に申し込み、この大会にはまだ申し込んでいない代表(受付を始めた知らせ)
+
+どれも LINE から申し込んだ人だけで、運営が代わりに入れた申込の代表には送れない。
+同じ人は 1 人にまとめ、届く文の 1 行目には大会名を付ける(大会をまたいで申し込んでいる人が、どの大会の話かを取り違えないように)。
+手動の「送る」は、記録を作ってから同じ要求の中で 500 人ずつマルチキャストで送り、宛先ごとの結果を書く。
+送る画面を開くたびに作る乱数で同じ送信を 2 回記録しないので、押し直しや応答の前の再送では送られない。
+今月の残りの配信数が足りなければ、一部の人にだけ届くのを避けるため、何も送らない。
+LINE が受け付けなかったまとまりは、LINE の送り直しのキーを付けて 1 回だけ送り直す(1 回目を受け付けていれば、2 回目は送られない)。
+
 自動の送信は、スケジュールで動くジョブが条件を確かめて積む。
 たとえばスコアの催促は「試合の予定終了時刻から N 分たっても結果が入っていない」で積む。
 同じ試合に同じ催促を二度送らないよう、送信履歴で重複を弾く。
@@ -241,7 +255,8 @@ LINE の Webhook と、自動送信のスケジュールは web の Route Handle
 LINE プラットフォーム ──Webhook──▶ web(/line/webhook)──内部──▶ api(署名検証、友だち状態の記録、本人用のリンクの返信)
 本人用のリンクのページ ──合言葉──▶ web ──内部──▶ api(合言葉の確認、申込とメンバー登録)
 
-api(試合の状態変更、管理画面の「送る」)── 同じトランザクションで ──▶ notification_jobs
+管理画面の「送る」──▶ web ──内部──▶ api(宛先を選んで記録し、Messaging API で送って結果を書く)
+api(試合の状態変更)── 同じトランザクションで ──▶ notification_jobs
                                                                          │
 Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の条件を確かめて積む、ジョブを Messaging API で送る)
 ```
@@ -261,8 +276,8 @@ Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の
 | `team_entries` | tournament_id, division_id, club_id, rep_line_user_id, 共通の項目, status, invite_code, team_id | 代表エントリー(承認で team_id が入る) |
 | `member_entries` | team_entry_id, line_user_id(NULL 可), name, number, player_id | メンバーエントリー(代表が書いた行は line_user_id が空) |
 | `entry_answers` | question_id, team_entry_id または member_entry_id, value | 質問への答え |
-| `notification_batches` | id, sent_by, condition, body, automatic, created_at | 送信履歴(1 回の「送る」) |
-| `notification_jobs` | id, batch_id, line_user_id, kind, payload, status, attempts, sent_at, error | 宛先ごとの配信キュー(宛先は公式アカウントから見た LINE の人) |
+| `notification_batches` | id, tournament_id, request_key, audience, body, automatic, sent_by, created_at | 送信履歴(1 回の「送る」。audience は宛先の条件、body は届けた文) |
+| `notification_jobs` | id, batch_id, line_user_id, name, teams, status, error, sent_at | 宛先ごとの結果(宛先は公式アカウントから見た LINE の人。name と teams は送った時点のもの) |
 
 既存のテーブルには次を足す。
 
