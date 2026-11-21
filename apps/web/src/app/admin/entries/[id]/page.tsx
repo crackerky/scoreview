@@ -53,6 +53,12 @@ export default async function EntryPage(props: IdPageProps) {
       {detail.status === 'returned' ? (
         <p className="adm-notice error">差し戻しの理由: {detail.returnNote}</p>
       ) : null}
+      {detail.channel === 'line' && cancellable ? (
+        <p className="adm-muted">
+          LINE からの申込です。承認、差し戻し、取消は、公式 LINE
+          で代表に知らせます(差し戻しの理由もそのまま届きます)。
+        </p>
+      ) : null}
 
       <h2 className="adm-section-title">チームと代表</h2>
       <dl className="adm-summary">
