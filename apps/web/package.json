@@ -12,7 +12,7 @@
     "test": "TSX_TSCONFIG_PATH=tsconfig.test.json node --import tsx --test test/*.spec.ts test/*.spec.tsx"
   },
   "dependencies": {
-    "next": "16.4.2",
+    "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
