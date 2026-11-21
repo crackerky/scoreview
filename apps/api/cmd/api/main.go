@@ -39,15 +39,23 @@ func run(log *slog.Logger) error {
 	}
 	// 観客の取り直しが重なる掲示板は、大会ごとに短いあいだ使い回す(viewing.Cache)
 	boards := viewing.NewCache(viewing.NewService(store.NewViewingSource(db)), viewing.DefaultCacheTTL, time.Now)
-	entries := entry.NewService(store.NewEntryStore(db), entry.WithInviteURL(line.InviteURL(cfg.LINE.BasicID)))
-	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries)}
+	entryOpts := []entry.Option{entry.WithInviteURL(line.InviteURL(cfg.LINE.BasicID))}
+	var client *line.Client
+	lines := store.NewLineStore(db)
 	if cfg.LINE.Enabled() {
 		base := cfg.LINE.APIBaseURL
 		if base == "" {
 			base = line.DefaultBaseURL
 		}
-		client := line.NewClient(cfg.LINE.ChannelID, cfg.LINE.ChannelSecret, base, time.Now)
-		bot := talk.NewBot(store.NewLineStore(db), entries, client, cfg.SiteURL)
+		client = line.NewClient(cfg.LINE.ChannelID, cfg.LINE.ChannelSecret, base, time.Now)
+		// 代表への知らせは申込の操作とは別なので、送れなくても操作は止めず、エラーとしてログに残す
+		report := func(err error) { log.Error("line notice failed", "err", err) }
+		entryOpts = append(entryOpts, entry.WithNotifier(talk.NewNotifier(lines, client, cfg.SiteURL), report))
+	}
+	entries := entry.NewService(store.NewEntryStore(db), entryOpts...)
+	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries)}
+	if client != nil {
+		bot := talk.NewBot(lines, entries, client, cfg.SiteURL)
 		opts = append(opts, httpapi.WithLineWebhook(line.NewWebhook(cfg.LINE.ChannelSecret, bot)))
 	}
 	if cfg.LINEProblem != nil {

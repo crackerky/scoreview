@@ -425,7 +425,8 @@ func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.De
 			given = []entry.Answer{}
 		}
 		out[i] = entry.Detail{Summary: toEntrySummary(row, divisions[row.DivisionID], len(list), registered),
-			TournamentID: row.TournamentID, RepPhone: row.RepPhone, RepEmail: row.RepEmail,
+			TournamentID: row.TournamentID, RepLineUserID: row.RepLineUserID, RepPhone: row.RepPhone,
+			RepEmail:   row.RepEmail,
 			ReturnNote: row.ReturnNote, InviteCode: row.InviteCode, DecidedAt: row.DecidedAt,
 			MemberList: list, Answers: given}
 	}

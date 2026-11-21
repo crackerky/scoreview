@@ -182,14 +182,16 @@ type Summary struct {
 	TeamID      *int64
 }
 
-// Detail は申込 1 件の全部。
+// Detail は申込 1 件の全部。RepLineUserID は LINE から申し込んだ代表の line_users の行の ID(運営の代理
+// 入力なら nil。代表に知らせるため。画面には出さない)。
 type Detail struct {
 	Summary
-	TournamentID int64
-	RepPhone     string
-	RepEmail     string
-	ReturnNote   string
-	InviteCode   string
+	TournamentID  int64
+	RepLineUserID *int64
+	RepPhone      string
+	RepEmail      string
+	ReturnNote    string
+	InviteCode    string
 	// InviteURL はメンバーの招待リンク(公式アカウントのトークを「参加 招待コード」の入った状態で開く)。
 	// 公式アカウントのベーシック ID を設定していなければ空
 	InviteURL  string

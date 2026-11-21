@@ -56,6 +56,14 @@ func (c *Client) Reply(ctx context.Context, replyToken string, messages []talk.M
 	return c.post(ctx, "/v2/bot/message/reply", body)
 }
 
+// Push は talk.Messenger.Push。返信のトークンが無いとき(管理画面の操作など)に、公式アカウントから
+// 送る。送った数は公式アカウントの月の配信数に数えられる。
+// https://developers.line.biz/ja/reference/messaging-api/#send-push-message
+func (c *Client) Push(ctx context.Context, to string, messages []talk.Message) error {
+	body := map[string]any{"to": to, "messages": toMessages(messages)}
+	return c.post(ctx, "/v2/bot/message/push", body)
+}
+
 type textMessage struct {
 	Type string `json:"type"`
 	Text string `json:"text"`

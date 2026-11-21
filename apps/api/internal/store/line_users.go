@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"scoreview/api/internal/domain"
 	"scoreview/api/internal/talk"
 )
 
@@ -100,6 +101,18 @@ func (s *LineStore) upsert(ctx context.Context, row LineUser, update map[string]
 		return fmt.Errorf("record line user: %w", err)
 	}
 	return nil
+}
+
+// Recipient は talk.Store.Recipient。
+func (s *LineStore) Recipient(ctx context.Context, id int64) (talk.Recipient, error) {
+	var rows []LineUser
+	if err := s.db.WithContext(ctx).Where(sqlByID, id).Limit(1).Find(&rows).Error; err != nil {
+		return talk.Recipient{}, fmt.Errorf("find line user %d: %w", id, err)
+	}
+	if len(rows) == 0 {
+		return talk.Recipient{}, domain.NotFound(domain.ResourceLineUser, id)
+	}
+	return talk.Recipient{UserID: rows[0].LineUserID, Friend: rows[0].Friend}, nil
 }
 
 // LineUser は talk.Store.LineUser。友だちの記録が無い人(Webhook をこちらで受ける前からの友だち)は、

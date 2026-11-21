@@ -25,7 +25,21 @@ import (
 
 const lineSecret = "line-channel-secret"
 
-type replies struct{ texts []string }
+// replies は公式アカウントから送ったものを覚える。texts は返信、pushes は宛先ごとの知らせ。
+type replies struct {
+	texts  []string
+	pushes map[string][]string
+}
+
+func (r *replies) Push(_ context.Context, to string, messages []talk.Message) error {
+	if r.pushes == nil {
+		r.pushes = map[string][]string{}
+	}
+	for _, message := range messages {
+		r.pushes[to] = append(r.pushes[to], message.Text)
+	}
+	return nil
+}
 
 func (r *replies) Reply(_ context.Context, _ string, messages []talk.Message) error {
 	for _, message := range messages {
@@ -63,9 +77,11 @@ func TestLineEntryFlow(t *testing.T) {
 	b := storetest.New(t, db)
 	tour := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryOpen })
 	division := b.Division(tour.ID)
-	entries := entry.NewService(store.NewEntryStore(db), entry.WithInviteURL(line.InviteURL("@ultimate")))
 	sent := &replies{}
-	bot := talk.NewBot(store.NewLineStore(db), entries, sent, "https://score.example")
+	lines := store.NewLineStore(db)
+	entries := entry.NewService(store.NewEntryStore(db), entry.WithInviteURL(line.InviteURL("@ultimate")),
+		entry.WithNotifier(talk.NewNotifier(lines, sent, "https://score.example"), func(err error) { t.Error(err) }))
+	bot := talk.NewBot(lines, entries, sent, "https://score.example")
 	srv := httpapi.NewServer(db, testToken, httpapi.WithEntryDesk(entries),
 		httpapi.WithLineWebhook(line.NewWebhook(lineSecret, bot)))
 
@@ -93,6 +109,10 @@ func TestLineEntryFlow(t *testing.T) {
 	var submitted map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &submitted))
 	assert.Equal(t, "line", submitted["channel"])
+	// 代表には、公式アカウントから受付の知らせと、転送できるメンバーへの登録のお願いが届く
+	require.Len(t, sent.pushes["Urep"], 2)
+	assert.Contains(t, sent.pushes["Urep"][0], "「熱海ディスクス」の申込を受け付けました")
+	assert.Contains(t, sent.pushes["Urep"][1], "https://line.me/R/oaMessage/%40ultimate/")
 	invite, ok := submitted["inviteUrl"].(string)
 	require.True(t, ok)
 	assert.Contains(t, invite, "https://line.me/R/oaMessage/%40ultimate/?%E5%8F%82%E5%8A%A0%20")

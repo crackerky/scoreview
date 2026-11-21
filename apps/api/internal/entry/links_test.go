@@ -104,3 +104,9 @@ func TestCheckJoin(t *testing.T) {
 		})
 	}
 }
+
+func TestDecisionNotice(t *testing.T) {
+	assert.Equal(t, entry.NoticeApproved, entry.DecisionNotice(entry.ActionApprove))
+	assert.Equal(t, entry.NoticeReturned, entry.DecisionNotice(entry.ActionReturn))
+	assert.Equal(t, entry.NoticeCancelled, entry.DecisionNotice(entry.ActionCancel))
+}

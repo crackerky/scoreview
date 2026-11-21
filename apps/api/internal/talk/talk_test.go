@@ -48,6 +48,16 @@ func (s *fakeStore) Unfollow(_ context.Context, userID string, _ time.Time) erro
 	return nil
 }
 
+func (s *fakeStore) Recipient(_ context.Context, id int64) (talk.Recipient, error) {
+	for userID, row := range s.users {
+		if row == id {
+			friend, known := s.friends[userID]
+			return talk.Recipient{UserID: userID, Friend: friend || !known}, nil
+		}
+	}
+	return talk.Recipient{}, domain.NotFound(domain.ResourceLineUser, id)
+}
+
 func (s *fakeStore) LineUser(_ context.Context, userID string, _ time.Time) (int64, error) {
 	if id, ok := s.users[userID]; ok {
 		return id, nil
@@ -86,7 +96,16 @@ func (l *fakeLinks) IssueMemberLink(_ context.Context, lineUser int64, code stri
 // fakeMessenger は返信を覚える。failures が残っている間は返信に失敗する(LINE の API が落ちたとき)。
 type fakeMessenger struct {
 	replies  map[string][]talk.Message
+	pushes   map[string][]talk.Message
 	failures int
+}
+
+func (m *fakeMessenger) Push(_ context.Context, to string, messages []talk.Message) error {
+	if m.pushes == nil {
+		m.pushes = map[string][]talk.Message{}
+	}
+	m.pushes[to] = append(m.pushes[to], messages...)
+	return nil
 }
 
 func (m *fakeMessenger) Reply(_ context.Context, token string, messages []talk.Message) error {
@@ -204,4 +223,51 @@ func TestCommandOf(t *testing.T) {
 		assert.Equal(t, tc.want, talk.CommandOf(talk.Event{Type: talk.EventMessage, Text: tc.text}), tc.text)
 	}
 	assert.Equal(t, talk.Command{}, talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: "other"}))
+}
+
+func notice(kind entry.NoticeKind) entry.Notice {
+	return entry.Notice{Kind: kind, LineUserID: 1, Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"},
+		Entry: entry.Detail{Summary: entry.Summary{FullName: "熱海ディスクス",
+			Division: entry.Division{Name: domain.I18nText{Ja: "オープン"}}},
+			InviteURL: "https://line.me/R/oaMessage/%40up/?x", ReturnNote: "短縮名を直してください"}}
+}
+
+func TestNotifierSendsNoticesToTheRepresentative(t *testing.T) {
+	store, messenger := newFakeStore(), &fakeMessenger{}
+	_, err := store.LineUser(context.Background(), "Urep", time.Time{})
+	require.NoError(t, err)
+	notifier := talk.NewNotifier(store, messenger, "https://score.example/")
+	ctx := context.Background()
+
+	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeSubmitted)))
+	sent := messenger.pushes["Urep"]
+	require.Len(t, sent, 2, "the receipt, and the invite to forward")
+	assert.Contains(t, sent[0].Text, "「熱海ディスクス」の申込を受け付けました")
+	assert.Contains(t, sent[0].Text, "部門: オープン")
+	assert.Equal(t, talk.InviteText("熱海ディスクス", "https://line.me/R/oaMessage/%40up/?x"), sent[1].Text)
+
+	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeReturned)))
+	assert.Contains(t, messenger.pushes["Urep"][2].Text, "\n\n短縮名を直してください\n\n")
+	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeApproved)))
+	assert.Contains(t, messenger.pushes["Urep"][3].Text, "https://score.example/tournaments/7")
+
+	// ブロックしている人には送らない
+	store.friends["Urep"] = false
+	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeCancelled)))
+	assert.Len(t, messenger.pushes["Urep"], 4)
+
+	var notFound *domain.NotFoundError
+	require.ErrorAs(t, notifier.Notify(ctx, entry.Notice{Kind: entry.NoticeApproved, LineUserID: 99}), &notFound)
+}
+
+func TestNoticeMessages(t *testing.T) {
+	without := notice(entry.NoticeSubmitted)
+	without.Entry.InviteURL = ""
+	assert.Len(t, talk.NoticeMessages(without, ""), 1, "no invite to forward without the basic ID")
+	for _, kind := range []entry.NoticeKind{entry.NoticeResubmitted, entry.NoticeCancelled} {
+		messages := talk.NoticeMessages(notice(kind), "")
+		require.Len(t, messages, 1, kind)
+		assert.Contains(t, messages[0].Text, "「熱海ディスクス」", kind)
+	}
+	assert.Empty(t, talk.NoticeMessages(entry.Notice{Kind: "unknown"}, ""))
 }

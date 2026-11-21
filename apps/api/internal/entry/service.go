@@ -12,10 +12,12 @@ import (
 
 // Service は Store で記録を読み書きし、申込の決まりを当てる Desk と Links。
 type Service struct {
-	store  Store
-	now    func() time.Time
-	random io.Reader
-	invite func(code string) string
+	store    Store
+	now      func() time.Time
+	random   io.Reader
+	invite   func(code string) string
+	notifier Notifier
+	report   func(error)
 }
 
 var (
@@ -40,6 +42,12 @@ func WithRandom(random io.Reader) Option {
 // 知っている LINE の層が作る)。渡さなければ招待リンクは空。
 func WithInviteURL(invite func(code string) string) Option {
 	return func(s *Service) { s.invite = invite }
+}
+
+// WithNotifier は代表への知らせ方を渡す(LINE の設定があるときだけ)。report は知らせを送れなかったときの
+// エラーを受け取る(申込の操作は失敗にしないので、呼ぶ側がログに残す)。
+func WithNotifier(notifier Notifier, report func(error)) Option {
+	return func(s *Service) { s.notifier, s.report = notifier, report }
 }
 
 // NewService は store で読み書きする Service を返す。
@@ -149,7 +157,24 @@ func (s *Service) submit(
 		newEntry.Profile = &profile
 	}
 	detail, err := s.store.Create(ctx, tournamentID, newEntry)
-	return s.withInvite(detail), err
+	if err != nil {
+		return Detail{}, err
+	}
+	detail = s.withInvite(detail)
+	s.notify(ctx, NoticeSubmitted, TournamentRef{ID: tournament.ID, Name: tournament.Name}, detail)
+	return detail, nil
+}
+
+// notify は申込の代表に知らせる。相手は LINE から出した申込の代表だけ。送れなかったときは操作を失敗に
+// せず、report に渡す。
+func (s *Service) notify(ctx context.Context, kind NoticeKind, tournament TournamentRef, detail Detail) {
+	if s.notifier == nil || detail.RepLineUserID == nil {
+		return
+	}
+	notice := Notice{Kind: kind, LineUserID: *detail.RepLineUserID, Tournament: tournament, Entry: detail}
+	if err := s.notifier.Notify(ctx, notice); err != nil {
+		s.report(fmt.Errorf("notify %s of entry %d: %w", kind, detail.ID, err))
+	}
 }
 
 // Decide は Desk.Decide。今の状態を読んで決まりに照らし、読んだ状態のままのときだけ変える(読んでから
@@ -183,7 +208,16 @@ func (s *Service) Decide(
 	if err != nil {
 		return Detail{}, fmt.Errorf("%s entry %d: %w", action, id, err)
 	}
-	return s.withInvite(detail), nil
+	detail = s.withInvite(detail)
+	if s.notifier != nil && detail.RepLineUserID != nil {
+		tournament, err := s.store.Tournament(ctx, detail.TournamentID)
+		if err != nil {
+			s.report(fmt.Errorf("notify %s of entry %d: %w", action, id, err))
+		} else {
+			s.notify(ctx, DecisionNotice(action), TournamentRef{ID: tournament.ID, Name: tournament.Name}, detail)
+		}
+	}
+	return detail, nil
 }
 
 // Export は Desk.Export。
@@ -431,7 +465,9 @@ func (s *Service) ResubmitByLink(
 	if err != nil {
 		return Detail{}, fmt.Errorf("resubmit entry %d: %w", entryID, err)
 	}
-	return s.withInvite(detail), nil
+	detail = s.withInvite(detail)
+	s.notify(ctx, NoticeResubmitted, TournamentRef{ID: tournament.ID, Name: tournament.Name}, detail)
+	return detail, nil
 }
 
 func findDetail(details []Detail, id int64) *Detail {

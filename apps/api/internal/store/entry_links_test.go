@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -376,4 +377,67 @@ func TestEntryLinkProfileAndPastTeams(t *testing.T) {
 	form, err := f.desk.LinkView(ctx, member2.Token)
 	require.NoError(t, err)
 	assert.Equal(t, "山田 たろう", form.Member.ProfileName)
+}
+
+// recordingNotifier は代表への知らせを覚える。fail が真なら送れなかったことにする。
+type recordingNotifier struct {
+	notices []entry.Notice
+	fail    bool
+}
+
+func (n *recordingNotifier) Notify(_ context.Context, notice entry.Notice) error {
+	if n.fail {
+		return errors.New("line api is down")
+	}
+	n.notices = append(n.notices, notice)
+	return nil
+}
+
+func TestEntryNoticesGoToTheLineRepresentative(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	notifier := &recordingNotifier{}
+	var reported []error
+	desk := entry.NewService(store.NewEntryStore(f.db), entry.WithRandom(&counter{}),
+		entry.WithClock(func() time.Time { return *f.now }),
+		entry.WithInviteURL(func(code string) string { return "invite:" + code }),
+		entry.WithNotifier(notifier, func(err error) { reported = append(reported, err) }))
+	rep := f.lineUser(t, "Urep")
+	links, err := desk.IssueTeamLinks(ctx, rep)
+	require.NoError(t, err)
+	token := links[0].Token
+
+	submitted, err := desk.SubmitByLink(ctx, token, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	_, err = desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("伊東", nil))
+	require.NoError(t, err)
+	require.Len(t, notifier.notices, 1, "a desk entry has no LINE representative to tell")
+	first := notifier.notices[0]
+	assert.Equal(t, entry.NoticeSubmitted, first.Kind)
+	assert.Equal(t, rep, first.LineUserID)
+	assert.Equal(t, f.tournament.ID, first.Tournament.ID)
+	assert.Equal(t, "invite:"+submitted.InviteCode, first.Entry.InviteURL)
+
+	_, err = desk.Decide(ctx, submitted.ID, entry.ActionReturn, "短縮名を直してください", f.admin)
+	require.NoError(t, err)
+	_, err = desk.ResubmitByLink(ctx, token, submitted.ID, f.draft("熱海ディスクス", nil), nil)
+	require.NoError(t, err)
+	_, err = desk.Decide(ctx, submitted.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	kinds := []entry.NoticeKind{}
+	for _, notice := range notifier.notices {
+		kinds = append(kinds, notice.Kind)
+	}
+	assert.Equal(t, []entry.NoticeKind{entry.NoticeSubmitted, entry.NoticeReturned, entry.NoticeResubmitted,
+		entry.NoticeApproved}, kinds)
+	assert.Equal(t, "短縮名を直してください", notifier.notices[1].Entry.ReturnNote)
+
+	// 送れなくても、運営の操作は成り立ち、送れなかったことだけを報告する
+	notifier.fail = true
+	other, err := desk.SubmitByLink(ctx, token, f.draft("伊豆", nil))
+	require.NoError(t, err)
+	cancelled, err := desk.Decide(ctx, other.ID, entry.ActionCancel, "", f.admin)
+	require.NoError(t, err)
+	assert.Equal(t, entry.StatusCancelled, cancelled.Status)
+	assert.Len(t, reported, 2)
 }

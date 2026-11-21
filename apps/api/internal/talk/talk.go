@@ -46,10 +46,12 @@ type Message struct {
 	Text string
 }
 
-// Messenger は公式アカウントとして返す。line が実装する。
+// Messenger は公式アカウントとして送る。line が実装する。
 type Messenger interface {
 	// Reply は届いたものに返信する。返信のトークンは 1 回だけ、届いてから 1 分以内に使える
 	Reply(ctx context.Context, replyToken string, messages []Message) error
+	// Push は公式アカウントから to(公式アカウントから見たユーザー ID)に送る。月の配信数に数えられる
+	Push(ctx context.Context, to string, messages []Message) error
 }
 
 // Store は友だちの状態と、届いたものの記録を読み書きする。store が実装する。
@@ -64,6 +66,15 @@ type Store interface {
 	Unfollow(ctx context.Context, userID string, at time.Time) error
 	// LineUser は公式アカウントから見たユーザー ID の line_users の行の ID を返す(無ければ作る)
 	LineUser(ctx context.Context, userID string, at time.Time) (int64, error)
+	// Recipient は line_users の行 ID の人の、公式アカウントから見たユーザー ID と、今も友だちかを読む。
+	// 行が無ければ domain.NotFound
+	Recipient(ctx context.Context, id int64) (Recipient, error)
+}
+
+// Recipient は知らせる相手。UserID は公式アカウントから見たユーザー ID。Friend が偽(ブロック中)なら送らない。
+type Recipient struct {
+	UserID string
+	Friend bool
 }
 
 // Bot は届いたものに、決まりに沿って返す。

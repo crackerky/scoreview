@@ -46,3 +46,41 @@ func MemberLinkText(team, url string) string {
 	return fmt.Sprintf("「%s」のメンバー登録はこちらです。\nリンクはあなた専用で、%d 日間使えます。\n\n%s",
 		team, entry.LinkLifetimeDays, url)
 }
+
+// InviteText はメンバーへの登録のお願い。代表がそのままチームの LINE グループに転送できる形にする(web の
+// 「LINE でメンバーに登録のお願いを送る」と同じ文)。
+func InviteText(team, inviteURL string) string {
+	return fmt.Sprintf("%s のメンバー登録のお願いです。\n下のリンクを開いて、そのまま「参加」のメッセージを送ってください。\n%s",
+		team, inviteURL)
+}
+
+// NoticeMessages は代表への知らせの文(entry.Notice)。受付には、メンバーへの登録のお願いを別の吹き出しで
+// 付ける(その吹き出しだけを転送できるように。1 回の送信は吹き出しが 5 つまで、配信数は 1 通)。知らせる
+// 出来事でなければ空。
+func NoticeMessages(notice entry.Notice, siteURL string) []Message {
+	detail := notice.Entry
+	team := "「" + detail.FullName + "」"
+	tournament := "「" + notice.Tournament.Name + "」"
+	switch notice.Kind {
+	case entry.NoticeSubmitted:
+		text := fmt.Sprintf("%sの申込を受け付けました。\n大会: %s\n部門: %s\n\n運営が確かめたら、このトークでお知らせします。",
+			team, notice.Tournament.Name, detail.Division.Name.Ja)
+		if detail.InviteURL == "" {
+			return []Message{{Text: text}}
+		}
+		text += "\n\nメンバーには、次のメッセージをチームの LINE グループに転送して、登録をお願いしてください。"
+		return []Message{{Text: text}, {Text: InviteText(detail.FullName, detail.InviteURL)}}
+	case entry.NoticeResubmitted:
+		return []Message{{Text: fmt.Sprintf("%sの直した申込を受け付けました。\n運営が確かめたら、このトークでお知らせします。",
+			team)}}
+	case entry.NoticeApproved:
+		return []Message{{Text: fmt.Sprintf("%sの%sへの申込が承認されました。\n日程と結果は、スコアサイトで見られます。\n%s/tournaments/%d",
+			team, tournament, siteURL, notice.Tournament.ID)}}
+	case entry.NoticeReturned:
+		return []Message{{Text: fmt.Sprintf("%sの申込について、運営から直してほしいことがあります。\n\n%s\n\n"+
+			"メニューの「エントリー」を押すか「エントリー」と送ると、直す画面が開きます。", team, detail.ReturnNote)}}
+	case entry.NoticeCancelled:
+		return []Message{{Text: fmt.Sprintf("%sの%sへの申込は取り消されました。", team, tournament)}}
+	}
+	return nil
+}

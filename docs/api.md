@@ -1010,7 +1010,7 @@ type EntryDetail = EntrySummary & {
 | `POST /admin/tournaments/{id}/entries` | `{ divisionId; fullName; shortName; repName; repPhone; repEmail; members: Array<{ name; number }>; answers: Array<{ questionId; value }> }` | `EntryDetail`(201)。`answers` はチーム向けの質問だけ。同じ部門に同じチーム名(前後の空白と大文字小文字を除いて)の取り消していない申込があれば 409。終わった大会は 409 |
 | `GET /admin/tournaments/{id}/entries/export` | なし | `{ questions: EntryQuestion[]; entries: EntryDetail[] }`(申込は受けた順。取り消した申込も含む)。管理画面の CSV の書き出しが使う |
 | `GET /admin/entries/{id}` | なし | `EntryDetail` |
-| `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す) |
+| `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す)。LINE からの申込(`channel: 'line'`)なら、公式アカウントから代表に知らせる(差し戻しは `note` を付ける。送れなくても操作は成り立ち、エラーはログに残す) |
 
 - 上限は質問 30、選択肢 30、メンバー 60、名前と短い答え 100 字(質問の文言と短い文の答えは 200 字)、背番号 10 字、長い答えと差し戻しの理由 2000 字、数の答えは ±1,000,000。名前、チーム名、短い答え、質問の文言、選択肢は 1 行で、改行と制御文字は 400(チーム名は公式アカウントの返信に入るため)。
 
@@ -1052,7 +1052,7 @@ type EntryLink = {
 |---|---|---|
 | `POST /line/webhook` | 公式アカウントの Webhook の本文をそのまま(`X-Line-Signature` も web がそのまま渡す) | `{}`。署名が合わなければ 401。LINE の設定(`LINE_MESSAGING_CHANNEL_ID`、`LINE_MESSAGING_CHANNEL_SECRET`、`LINE_BASIC_ID`、`PUBLIC_SITE_URL`。docs/deploy.md)が揃っていなければ 404。「エントリー」(またはリッチメニューのポストバック `action=entry`)には、受付中で一覧に載せた大会と、その人が申込を出した終わっていない大会ごとの申込のリンクを、「参加 招待コード」にはメンバー登録のリンクを返信する。同じ `webhookEventId` は 2 回処理しない。処理に失敗したイベントは 500 を返して記録を消すので、LINE の Webhook の再送を有効にしていれば送り直しで処理し直す |
 | `GET /entry-links/{token}` | なし | `EntryLink` |
-| `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409。代表の名前、電話番号、メールアドレスを、この人の前回の入力として残す(送り直しも同じ。メンバー登録は名前だけ) |
+| `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409。代表の名前、電話番号、メールアドレスを、この人の前回の入力として残す(送り直しも同じ。メンバー登録は名前だけ)。受付を公式アカウントから代表に知らせ、メンバーへの登録のお願い(招待リンク)を別の吹き出しで付ける(送り直しは受付だけ) |
 | `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
 | `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 

@@ -54,6 +54,8 @@ const (
 	ResourceEntry Resource = "TEAM_ENTRY_ID"
 	// ResourceEntryLink は本人用のリンク。期限切れも見つからないものとして扱う(ID は出さない)
 	ResourceEntryLink Resource = "ENTRY_LINK"
+	// ResourceLineUser は公式アカウントの友だち(参加者の台帳の行)
+	ResourceLineUser Resource = "LINE_USER_ID"
 )
 
 // NotFoundError は ID が存在しないことを表す。errors.Is(err, ErrNotFound) が真になる。

@@ -132,6 +132,35 @@ func TestClientIssuesTokenOnceAndReplies(t *testing.T) {
 	assert.Equal(t, int32(2), issued.Load())
 }
 
+func TestClientPushes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth2/v3/token":
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+		case "/v2/bot/message/push":
+			assert.Equal(t, "Bearer tok", r.Header.Get("Authorization"))
+			var body struct {
+				To       string `json:"to"`
+				Messages []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, "Urep", body.To)
+			require.Len(t, body.Messages, 2)
+			assert.Equal(t, "受け付けました", body.Messages[0].Text)
+			respond(w, `{"sentMessages":[]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	require.NoError(t, client.Push(context.Background(), "Urep",
+		[]talk.Message{{Text: "受け付けました"}, {Text: "招待"}}))
+}
+
 func TestClientReportsErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/oauth2/v3/token" {
