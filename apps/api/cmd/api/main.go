@@ -12,6 +12,7 @@ import (
 	"scoreview/api/internal/entry"
 	"scoreview/api/internal/httpapi"
 	"scoreview/api/internal/line"
+	"scoreview/api/internal/notify"
 	"scoreview/api/internal/store"
 	"scoreview/api/internal/talk"
 	"scoreview/api/internal/viewing"
@@ -40,6 +41,7 @@ func run(log *slog.Logger) error {
 	// 観客の取り直しが重なる掲示板は、大会ごとに短いあいだ使い回す(viewing.Cache)
 	boards := viewing.NewCache(viewing.NewService(store.NewViewingSource(db)), viewing.DefaultCacheTTL, time.Now)
 	entryOpts := []entry.Option{entry.WithInviteURL(line.InviteURL(cfg.LINE.BasicID))}
+	var notifyOpts []notify.Option
 	var client *line.Client
 	lines := store.NewLineStore(db)
 	if cfg.LINE.Enabled() {
@@ -51,9 +53,14 @@ func run(log *slog.Logger) error {
 		// 代表への知らせは申込の操作とは別なので、送れなくても操作は止めず、エラーとしてログに残す
 		report := func(err error) { log.Error("line notice failed", "err", err) }
 		entryOpts = append(entryOpts, entry.WithNotifier(talk.NewNotifier(lines, client, cfg.SiteURL), report))
+		// 管理画面から送った結果は記録と画面に残るので、ここではログに残すだけ
+		reportSend := func(err error) { log.Error("line notification failed", "err", err) }
+		notifyOpts = append(notifyOpts, notify.WithSender(client, reportSend))
 	}
 	entries := entry.NewService(store.NewEntryStore(db), entryOpts...)
-	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries)}
+	notices := notify.NewService(store.NewNotifyStore(db), notifyOpts...)
+	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries),
+		httpapi.WithNotifications(notices)}
 	if client != nil {
 		bot := talk.NewBot(lines, entries, client, cfg.SiteURL)
 		opts = append(opts, httpapi.WithLineWebhook(line.NewWebhook(cfg.LINE.ChannelSecret, bot)))

@@ -17,6 +17,7 @@ import (
 	"scoreview/api/internal/bracket"
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/entry"
+	"scoreview/api/internal/notify"
 	"scoreview/api/internal/sanitize"
 	"scoreview/api/internal/store"
 	"scoreview/api/internal/viewing"
@@ -36,6 +37,8 @@ type Server struct {
 	boards viewing.Reader
 	// entries は大会への申込の受付。決まりは entry にあり、ハンドラはこの口だけを使う
 	entries entry.Desk
+	// notices は管理画面から公式アカウントで送る口。決まりは notify にある
+	notices notify.Desk
 	// line は公式アカウントの Webhook の受け口。LINE の設定が無ければ nil で、受け口を作らない
 	line LineReceiver
 }
@@ -69,6 +72,12 @@ func WithEntryDesk(desk entry.Desk) Option {
 	return func(s *Server) { s.entries = desk }
 }
 
+// WithNotifications は管理画面から送る口を渡す。本番は LINE の送り方を持たせた notify.Service を渡す
+// (渡さなければ DB で宛先を読む notify.Service で、送れない)。
+func WithNotifications(desk notify.Desk) Option {
+	return func(s *Server) { s.notices = desk }
+}
+
 // WithPasswordGate はパスワード照合の同時実行数の制限を差し替える(混雑時の 503 のテスト用)。
 func WithPasswordGate(gate *auth.PasswordGate) Option {
 	return func(s *Server) { s.passwords = gate }
@@ -83,6 +92,7 @@ func NewServer(db *gorm.DB, internalToken string, opts ...Option) *Server {
 		passwords: auth.NewPasswordGate(auth.MaxConcurrentPasswordChecks, auth.PasswordCheckWait),
 		boards:    viewing.NewService(store.NewViewingSource(db)),
 		entries:   entry.NewService(store.NewEntryStore(db)),
+		notices:   notify.NewService(store.NewNotifyStore(db)),
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -104,6 +114,7 @@ func (s *Server) routes() {
 	s.boardRoutes()
 	s.entryRoutes()
 	s.entryLinkRoutes()
+	s.notificationRoutes()
 	s.lineRoutes()
 }
 

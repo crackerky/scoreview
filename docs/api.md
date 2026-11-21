@@ -1056,6 +1056,48 @@ type EntryLink = {
 | `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
 | `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
+### 公式 LINE で送る
+
+管理画面から、条件で選んだ相手に公式アカウントから送る(docs/line-integration.md「管理画面から送る仕組み」)。宛先は LINE から申し込んだ代表と LINE で登録したメンバーなので、申込と同じく管理者だけ。送った人数が公式アカウントの月の配信数に数えられる。
+
+```ts
+type NotificationAudience = {
+  kind: 'reps'                       // この大会に申し込んだ代表(取り消した申込を除く)
+    | 'incomplete'                   // メンバーの登録が揃っていない申込の代表(取り消した申込を除く)
+    | 'participants'                 // 承認した申込の代表と、LINE で登録したメンバー
+    | 'past_reps'                    // ほかの大会に申し込んだことがあり、この大会にはまだ申し込んでいない代表
+  status: '' | 'pending' | 'returned' | 'approved'   // reps だけ。'' は取り消した申込を除く全部
+  divisionId: number | null          // 部門で絞る(past_reps では null だけ)
+}
+type NotificationCounts = { pending: number; sent: number; skipped: number; failed: number }
+type NotificationSummary = {
+  id: number
+  tournamentId: number
+  audience: NotificationAudience
+  body: string                       // 実際に届けた文(1 行目が大会名、空行のあとに運営が書いた文)
+  automatic: boolean                 // 決まった場面で自動で送ったもの(今は常に false)
+  sentBy: string                     // 送った運営の表示名(無ければメールアドレス。運営を消していれば '')
+  createdAt: string
+  counts: NotificationCounts         // 宛先ごとの結果の人数
+}
+type NotificationDetail = NotificationSummary & {
+  jobs: Array<{
+    name: string                     // 送った時点の宛先の名前(本人が最後に入れた名前、無ければ申込に書かれた名前)
+    teams: string                    // 送った時点で条件に当てはまった申込のチーム名(「、」区切り。3 つまで)
+    status: 'pending' | 'sent' | 'skipped' | 'failed'   // 送る前か途中 / LINE が受け付けた / 友だちでないので送らなかった / LINE が受け付けなかった
+    error: string                    // failed のときの LINE の応答(500 字まで)
+    sentAt: string | null
+  }>
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /admin/tournaments/{id}/notifications` | なし | `{ notifications: NotificationSummary[]; canSend: boolean }`(新しい順)。`canSend` は LINE の設定があって送れるか |
+| `GET /admin/tournaments/{id}/notifications/preview?kind=&status=&divisionId=` | なし | `{ heading: string; recipients: Array<{ name: string; teams: string[]; reachable: boolean }>; reachable: number; unreachable: number; quota: { limit: number \| null; used: number } \| null; canSend: boolean }`。クエリは `NotificationAudience` と同じ(`status` と `divisionId` は省ける)。`heading` は届く文の 1 行目(大会名)。同じ人は 1 人にまとめる。`reachable: false` はブロック中で送らない人。`quota` は今月の配信数で、`limit: null` は上限なし。LINE の設定が無いか LINE から読めなければ null。条件の組み合わせの誤り、よその大会の部門は 400 |
+| `POST /admin/tournaments/{id}/notifications` | `{ audience: NotificationAudience; body: string; requestKey: string }` | `NotificationDetail`(201)。条件に当てはまる友だちに、500 人ずつ同じ文を送る。`body` は前後の空白を除いて 1 字以上 2000 字まで(改行とタブのほかの制御文字は 400)。`requestKey` は送る画面を開くたびに作る乱数(英数字とハイフン、64 字まで)で、同じ `requestKey` の送信がもうあれば、送らずにその記録を返す。LINE の設定が無ければ 409、送れる人がいなければ 400、今月の残りの配信数が足りなければ 409(何も送らない)。LINE が受け付けなかったまとまりは、同じ送り直しのキーで 1 回だけ送り直し、それでも失敗した宛先は `failed` として記録して 201 を返す |
+| `GET /admin/notifications/{id}` | なし | `NotificationDetail`(宛先は記録した順) |
+
 ### 観戦アプリの表
 
 観戦アプリの「表で見る」の見せ方。管理者だけ。決めていない大会は既定(全部出す、列は全部、`maru`、`entry`、`score`、色をつける)を返す。
