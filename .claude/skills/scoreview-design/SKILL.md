@@ -10,7 +10,7 @@ description: scoreview(フライングディスク大会の観戦アプリと運
 
 ## 1. 画面の方針
 
-- 公開する画面は大会の一覧(`/`)、観戦アプリ(`/live/{id}`)、個人情報保護方針だけ。参照サイトの模倣ページは 2026-11 に削除したので、参照サイトの DOM や文言に合わせる理由はもう無い。見た目は Claude Design(「StageCam」「Score View Admin」)に合わせる。
+- 公開する画面は大会の一覧(`/`)、スコアサイト(`/tournaments/{id}`)、観戦アプリ(`/live/{id}`)、個人情報保護方針、公式 LINE の返信の本人用のリンク(`/entry/{合言葉}`)だけ。参加者はログインせず、LINE で本人を確かめるのは Webhook に付いてくる公式アカウントから見たユーザー ID(docs/line-integration.md「本人の確かめ方」)。参照サイトの模倣ページは 2026-11 に削除したので、参照サイトの DOM や文言に合わせる理由はもう無い。見た目は Claude Design(「StageCam」「Score View Admin」)に合わせる。
 - 次の機能は LINE からのエントリーと通知、記録係の LINE からの入力(docs/line-integration.md)。URL は LINE のメッセージに埋め込むと変えられないので、`/tournaments/{id}`(スコアサイト)、`/live/{id}` と line-integration.md に書いたパスを固定する。
 
 ## 2. 依存の向き

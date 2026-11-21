@@ -97,3 +97,23 @@ function parseErrorBody(json: unknown): { code: string; message: string } {
   }
   return { code: 'internal', message: 'unexpected error body' }
 }
+
+/**
+ * 本文を加工せずに api へ渡し、api の HTTP ステータスを返す。公式 LINE の Webhook の中継に使う(本文を
+ * 読み直すと署名が合わなくなるため、JSON として扱わずにバイト列のまま送る)。
+ */
+export async function apiForward(
+  path: string,
+  body: ArrayBuffer,
+  headers: Record<string, string>,
+): Promise<number> {
+  const res = await fetch(new URL(path, backendBaseUrl()), {
+    method: 'POST',
+    headers: { ...headers, 'X-Internal-Token': internalToken() },
+    body,
+    cache: 'no-store',
+  })
+  // 本文は使わないが、読み切って接続を返す
+  await res.arrayBuffer()
+  return res.status
+}

@@ -71,6 +71,13 @@ export default async function EntryPage(props: IdPageProps) {
       <h2 className="adm-section-title">
         メンバー({registeredText(detail.members, detail.registered)})
       </h2>
+      {detail.inviteUrl && detail.status !== 'cancelled' ? (
+        <p className="adm-muted">
+          メンバーの招待リンク(代表に渡すと、メンバーが各自の LINE から登録できます):
+          <br />
+          <a href={detail.inviteUrl}>{detail.inviteUrl}</a>
+        </p>
+      ) : null}
       {detail.memberList.length === 0 ? (
         <p className="adm-muted">メンバーはまだ書かれていません。</p>
       ) : (
