@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"scoreview/api/internal/notify"
 	"scoreview/api/internal/talk"
 )
 
@@ -41,7 +43,10 @@ type Client struct {
 	expires time.Time
 }
 
-var _ talk.Messenger = (*Client)(nil)
+var (
+	_ talk.Messenger = (*Client)(nil)
+	_ notify.Sender  = (*Client)(nil)
+)
 
 // NewClient はチャネル ID とシークレットで送る Client を返す。baseURL はテストで差し替える。
 func NewClient(channelID, secret, baseURL string, now func() time.Time) *Client {
@@ -53,7 +58,7 @@ func NewClient(channelID, secret, baseURL string, now func() time.Time) *Client 
 // https://developers.line.biz/ja/reference/messaging-api/#send-reply-message
 func (c *Client) Reply(ctx context.Context, replyToken string, messages []talk.Message) error {
 	body := map[string]any{"replyToken": replyToken, "messages": toMessages(messages)}
-	return c.post(ctx, "/v2/bot/message/reply", body)
+	return c.post(ctx, "/v2/bot/message/reply", body, "")
 }
 
 // Push は talk.Messenger.Push。返信のトークンが無いとき(管理画面の操作など)に、公式アカウントから
@@ -61,7 +66,45 @@ func (c *Client) Reply(ctx context.Context, replyToken string, messages []talk.M
 // https://developers.line.biz/ja/reference/messaging-api/#send-push-message
 func (c *Client) Push(ctx context.Context, to string, messages []talk.Message) error {
 	body := map[string]any{"to": to, "messages": toMessages(messages)}
-	return c.post(ctx, "/v2/bot/message/push", body)
+	return c.post(ctx, "/v2/bot/message/push", body, "")
+}
+
+// Multicast は notify.Sender.Multicast。同じ retryKey の要求を LINE がもう受け付けていれば、LINE は
+// 送らずに 409 を返すので、成功として扱う。
+// https://developers.line.biz/ja/reference/messaging-api/#send-multicast-message
+// https://developers.line.biz/ja/reference/messaging-api/#retry-api-request
+func (c *Client) Multicast(ctx context.Context, to []string, text, retryKey string) error {
+	body := map[string]any{"to": to, "messages": toMessages([]talk.Message{{Text: text}})}
+	err := c.post(ctx, "/v2/bot/message/multicast", body, retryKey)
+	var failed *apiError
+	if errors.As(err, &failed) && failed.status == http.StatusConflict {
+		return nil
+	}
+	return err
+}
+
+// Quota は notify.Sender.Quota。上限の種類が none(追加メッセージのあるプラン)なら上限は無い。
+// https://developers.line.biz/ja/reference/messaging-api/#get-quota
+// https://developers.line.biz/ja/reference/messaging-api/#get-consumption
+func (c *Client) Quota(ctx context.Context) (notify.Quota, error) {
+	var limit struct {
+		Type  string `json:"type"`
+		Value int64  `json:"value"`
+	}
+	if err := c.get(ctx, "/v2/bot/message/quota", &limit); err != nil {
+		return notify.Quota{}, err
+	}
+	var used struct {
+		TotalUsage int64 `json:"totalUsage"`
+	}
+	if err := c.get(ctx, "/v2/bot/message/quota/consumption", &used); err != nil {
+		return notify.Quota{}, err
+	}
+	quota := notify.Quota{Used: used.TotalUsage}
+	if limit.Type == "limited" {
+		quota.Limit = &limit.Value
+	}
+	return quota, nil
 }
 
 type textMessage struct {
@@ -77,7 +120,8 @@ func toMessages(messages []talk.Message) []textMessage {
 	return out
 }
 
-func (c *Client) post(ctx context.Context, path string, body any) error {
+// post は body を JSON で送る。retryKey が空でなければ X-Line-Retry-Key に付ける。
+func (c *Client) post(ctx context.Context, path string, body any, retryKey string) error {
 	token, err := c.accessToken(ctx)
 	if err != nil {
 		return err
@@ -92,7 +136,23 @@ func (c *Client) post(ctx context.Context, path string, body any) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
+	if retryKey != "" {
+		req.Header.Set("X-Line-Retry-Key", retryKey)
+	}
 	return c.do(req, nil)
+}
+
+func (c *Client) get(ctx context.Context, path string, out any) error {
+	token, err := c.accessToken(ctx)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return fmt.Errorf("build LINE request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	return c.do(req, out)
 }
 
 // accessToken は使えるトークンを返す。期限が近ければ発行し直す。
@@ -134,7 +194,7 @@ func (c *Client) do(req *http.Request, out any) error {
 		return fmt.Errorf("read LINE %s: %w", req.URL.Path, err)
 	}
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return fmt.Errorf("LINE %s returned %d: %s", req.URL.Path, res.StatusCode, body)
+		return &apiError{path: req.URL.Path, status: res.StatusCode, body: body}
 	}
 	if out == nil {
 		return nil
@@ -143,6 +203,17 @@ func (c *Client) do(req *http.Request, out any) error {
 		return fmt.Errorf("decode LINE %s: %w", req.URL.Path, err)
 	}
 	return nil
+}
+
+// apiError は Messaging API が 2xx 以外を返したこと。本文は LINE のエラーの説明(秘密は含まない)。
+type apiError struct {
+	path   string
+	status int
+	body   []byte
+}
+
+func (e *apiError) Error() string {
+	return fmt.Sprintf("LINE %s returned %d: %s", e.path, e.status, e.body)
 }
 
 // InviteURL は、公式アカウントのトークを「参加 招待コード」の入った状態で開く URL を作る関数を返す。

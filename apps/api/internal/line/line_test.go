@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -159,6 +160,77 @@ func TestClientPushes(t *testing.T) {
 	client := line.NewClient("1656", "secret", server.URL, time.Now)
 	require.NoError(t, client.Push(context.Background(), "Urep",
 		[]talk.Message{{Text: "受け付けました"}, {Text: "招待"}}))
+}
+
+func TestClientMulticastsWithRetryKey(t *testing.T) {
+	var keys []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth2/v3/token":
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+		case "/v2/bot/message/multicast":
+			var body struct {
+				To       []string `json:"to"`
+				Messages []struct {
+					Text string `json:"text"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, []string{"U1", "U2"}, body.To)
+			assert.Equal(t, "大会\n\n明日は 8 時", body.Messages[0].Text)
+			key := r.Header.Get("X-Line-Retry-Key")
+			if slices.Contains(keys, key) {
+				// 同じキーの 2 回目は LINE が受け付け済みとして 409 を返す
+				w.WriteHeader(http.StatusConflict)
+				respond(w, `{"message":"The retry key is already accepted"}`)
+				return
+			}
+			keys = append(keys, key)
+			respond(w, `{}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	ctx := context.Background()
+	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, "大会\n\n明日は 8 時", "key-1"))
+	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, "大会\n\n明日は 8 時", "key-1"),
+		"a retry LINE already accepted is a success")
+	assert.Equal(t, []string{"key-1"}, keys)
+}
+
+func TestClientReadsQuota(t *testing.T) {
+	limited := true
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth2/v3/token":
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+		case "/v2/bot/message/quota":
+			assert.Equal(t, http.MethodGet, r.Method)
+			assert.Equal(t, "Bearer tok", r.Header.Get("Authorization"))
+			if limited {
+				respond(w, `{"type":"limited","value":200}`)
+			} else {
+				respond(w, `{"type":"none"}`)
+			}
+		case "/v2/bot/message/quota/consumption":
+			respond(w, `{"totalUsage":37}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	quota, err := client.Quota(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, quota.Limit)
+	assert.Equal(t, int64(200), *quota.Limit)
+	assert.Equal(t, int64(37), quota.Used)
+	limited = false
+	quota, err = client.Quota(context.Background())
+	require.NoError(t, err)
+	assert.Nil(t, quota.Limit, "a plan with additional messages has no limit")
 }
 
 func TestClientReportsErrors(t *testing.T) {
