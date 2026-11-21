@@ -39,7 +39,9 @@
 |---|---|---|
 | web | `BACKEND_INTERNAL_URL` | api の URL(Vercel では binding が入れる) |
 | web, api | `INTERNAL_API_TOKEN` | web と api の共有秘密(32 文字以上。`openssl rand -hex 32`)。`change-me` を含む値では api が起動しない |
-| web | `PUBLIC_SITE_URL` | サイトの公開 URL(例 `https://score.example.com`)。記録係の画面の Route Handler が、リクエストの Origin をこの値と比べる(Host ヘッダーは送り手が決めるので使わない)。未設定なら手元の開発用の `http://localhost:3000`。Vercel ではデプロイごとの URL(`VERCEL_URL`)も許す |
+| web, api | `PUBLIC_SITE_URL` | サイトの公開 URL(例 `https://score.example.com`)。web では記録係の画面の Route Handler が、リクエストの Origin をこの値と比べる(Host ヘッダーは送り手が決めるので使わない)。未設定なら手元の開発用の `http://localhost:3000`。Vercel ではデプロイごとの URL(`VERCEL_URL`)も許す。api では公式 LINE の返信に入れる本人用のリンクの前半に使う |
+| api | `LINE_MESSAGING_CHANNEL_ID`、`LINE_MESSAGING_CHANNEL_SECRET`、`LINE_BASIC_ID` | 公式アカウントの Messaging API のチャネル ID、チャネルシークレット、ベーシック ID(docs/deploy.md)。全部と `PUBLIC_SITE_URL` があるときだけ Webhook を受ける |
+| api | `LINE_API_BASE_URL` | Messaging API の URL。手元で偽の LINE を立てて確かめるときだけ設定する(空なら本物) |
 | api | `DATABASE_URL` | PostgreSQL の接続文字列 |
 | api | `PORT` | 待ち受けるポート(既定 8080。Vercel が入れる) |
 

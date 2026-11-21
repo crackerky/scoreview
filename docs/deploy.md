@@ -37,9 +37,14 @@ Neon には接続プール経由(pooled)と直結の 2 つの接続文字列が�
 | `DATABASE_URL` | api | Neon の接続プール経由の接続文字列(Marketplace が入れる) |
 | `INTERNAL_API_TOKEN` | web と api(同じ値) | `openssl rand -hex 32` で作る。`change-me` を含む値では api が起動しない |
 | `BACKEND_INTERNAL_URL` | web | Vercel の binding が入れる(手で設定しない) |
-| `PUBLIC_SITE_URL` | web | 本番の公開 URL(現在は `https://scoreview-delta.vercel.app`)。記録係の画面の送信元の確認に使う。独自ドメインに移したら値を変えて再デプロイする |
+| `PUBLIC_SITE_URL` | web と api | 本番の公開 URL(現在は `https://scoreview-delta.vercel.app`)。web は記録係の画面の送信元の確認に、api は公式 LINE の返信に入れる本人用のリンクに使う。独自ドメインに移したら値を変えて再デプロイする |
+| `LINE_MESSAGING_CHANNEL_ID` | api | 公式アカウントの Messaging API のチャネル ID(LINE Developers の「チャネル基本設定」)。シークレットと両方あるときだけ Webhook(`/line/webhook`)を受ける |
+| `LINE_MESSAGING_CHANNEL_SECRET` | api | 同じチャネルのチャネルシークレット。Sensitive にする。Webhook の署名の確かめと、15 分のチャネルアクセストークンの発行に使う |
+| `LINE_BASIC_ID` | api | 公式アカウントのベーシック ID(`@` から書く)。メンバーの招待リンクに使う |
 | `REFERENCE_ASSET_MODE` | web | `block`(既定)。本番に取込データを入れないので変えない |
 | `PORT` | api | Vercel が入れる |
+
+LINE を使わないときは 3 つとも入れない(Webhook は 404 になる。起動のログは `line webhook` の `enabled=false` だけで、エラーは出ない)。チャネル ID とシークレットの片方だけ、または両方あるのにベーシック ID か `PUBLIC_SITE_URL` が欠けていると、api は LINE を受けずに起動し、ログに `line webhook disabled` をエラーで残す(観戦と記録係は止めない)。LINE の値は Production だけに入れる(Webhook の URL は本番だけを指すため)。
 
 Neon の接続は Preview にも同じ DB を入れる。Preview で本番と別の DB を使うには、Neon のブランチを作って Preview の `DATABASE_URL` を差し替える(まだしていない)。
 
@@ -65,6 +70,6 @@ DATABASE_URL='<直結の接続文字列>' go run ./cmd/seed
 
 ## 6. 運用
 
-- マイグレーションは、新しいマイグレーションを含むコミットをデプロイする前に当てる。列の追加だけのマイグレーションは、先に当てても旧版の api が動き続ける。
+- マイグレーションは、新しいマイグレーションを含むコミットをデプロイする前に当てる。列の追加だけのマイグレーションは、先に当てても旧版の api が動き続ける。列を消すマイグレーションは、その列を読む旧版の api を本番から外したデプロイの後に、別のコミットで足す(`cmd/migrate` は全部のマイグレーションを当てるので、同じコミットに入れると旧版が動いている間に列が消える)。
 - 依存の脆弱性は CI の govulncheck と `pnpm audit` で検出する。
 - 大会当日の負荷は、閲覧ページのキャッシュ(終了した大会は長く、進行中の大会は短く)で吸収する([tech-stack.md](tech-stack.md) のランニングコスト)。

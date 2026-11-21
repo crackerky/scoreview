@@ -36,6 +36,8 @@ type Server struct {
 	boards viewing.Reader
 	// entries は大会への申込の受付。決まりは entry にあり、ハンドラはこの口だけを使う
 	entries entry.Desk
+	// line は公式アカウントの Webhook の受け口。LINE の設定が無ければ nil で、受け口を作らない
+	line LineReceiver
 }
 
 // Option は Server の構成を変える Functional Option。
@@ -102,6 +104,7 @@ func (s *Server) routes() {
 	s.boardRoutes()
 	s.entryRoutes()
 	s.entryLinkRoutes()
+	s.lineRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。

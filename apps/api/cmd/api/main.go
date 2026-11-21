@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"scoreview/api/internal/config"
+	"scoreview/api/internal/entry"
 	"scoreview/api/internal/httpapi"
+	"scoreview/api/internal/line"
 	"scoreview/api/internal/store"
+	"scoreview/api/internal/talk"
 	"scoreview/api/internal/viewing"
 )
 
@@ -36,10 +39,24 @@ func run(log *slog.Logger) error {
 	}
 	// 観客の取り直しが重なる掲示板は、大会ごとに短いあいだ使い回す(viewing.Cache)
 	boards := viewing.NewCache(viewing.NewService(store.NewViewingSource(db)), viewing.DefaultCacheTTL, time.Now)
+	entries := entry.NewService(store.NewEntryStore(db), entry.WithInviteURL(line.InviteURL(cfg.LINE.BasicID)))
+	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries)}
+	if cfg.LINE.Enabled() {
+		base := cfg.LINE.APIBaseURL
+		if base == "" {
+			base = line.DefaultBaseURL
+		}
+		client := line.NewClient(cfg.LINE.ChannelID, cfg.LINE.ChannelSecret, base, time.Now)
+		bot := talk.NewBot(store.NewLineStore(db), entries, client, cfg.SiteURL)
+		opts = append(opts, httpapi.WithLineWebhook(line.NewWebhook(cfg.LINE.ChannelSecret, bot)))
+	}
+	if cfg.LINEProblem != nil {
+		log.Error("line webhook disabled: the LINE settings are incomplete", "err", cfg.LINEProblem)
+	}
+	log.Info("line webhook", "enabled", cfg.LINE.Enabled())
 	srv := &http.Server{
-		Addr: ":" + cfg.Port,
-		Handler: httpapi.NewServer(db, cfg.InternalToken, httpapi.WithLogger(log),
-			httpapi.WithBoards(boards)),
+		Addr:              ":" + cfg.Port,
+		Handler:           httpapi.NewServer(db, cfg.InternalToken, opts...),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	log.Info("api listening", "port", cfg.Port)

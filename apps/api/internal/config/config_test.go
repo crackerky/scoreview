@@ -35,3 +35,39 @@ func TestLoadAPI(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "8080", cfg.Port)
 }
+
+func TestLoadAPILINE(t *testing.T) {
+	t.Setenv("DATABASE_URL", dsn)
+	t.Setenv("PORT", "")
+	t.Setenv("INTERNAL_API_TOKEN", "0123456789abcdef0123456789abcdef")
+	t.Setenv("PUBLIC_SITE_URL", "https://score.example.com")
+	t.Setenv("LINE_MESSAGING_CHANNEL_ID", "1000000000")
+	t.Setenv("LINE_MESSAGING_CHANNEL_SECRET", "secret")
+	t.Setenv("LINE_BASIC_ID", "@abc1234")
+	cfg, err := config.LoadAPI()
+	require.NoError(t, err)
+	assert.True(t, cfg.LINE.Enabled())
+	require.NoError(t, cfg.LINEProblem)
+
+	incomplete := map[string]string{
+		"LINE_MESSAGING_CHANNEL_SECRET": "",
+		"LINE_BASIC_ID":                 "",
+		"PUBLIC_SITE_URL":               "score.example.com",
+	}
+	for name, value := range incomplete {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(name, value)
+			cfg, err := config.LoadAPI()
+			require.NoError(t, err, "starts without LINE so that scores keep working")
+			assert.False(t, cfg.LINE.Enabled())
+			require.ErrorIs(t, cfg.LINEProblem, config.ErrMissingEnv)
+		})
+	}
+
+	t.Setenv("LINE_MESSAGING_CHANNEL_ID", "")
+	t.Setenv("LINE_MESSAGING_CHANNEL_SECRET", "")
+	cfg, err = config.LoadAPI()
+	require.NoError(t, err)
+	assert.False(t, cfg.LINE.Enabled())
+	require.NoError(t, cfg.LINEProblem, "no LINE settings at all is not a problem")
+}
