@@ -152,14 +152,22 @@ func toEntryDetail(detail entry.Detail) entryDetailDTO {
 	out := entryDetailDTO{entrySummaryDTO: toEntrySummary(detail.Summary), TournamentID: detail.TournamentID,
 		RepPhone: detail.RepPhone, RepEmail: detail.RepEmail, ReturnNote: detail.ReturnNote,
 		InviteCode: detail.InviteCode, DecidedAt: detail.DecidedAt,
-		MemberList: make([]entryMemberDTO, len(detail.MemberList)),
-		Answers:    make([]entryAnswerDTO, len(detail.Answers))}
+		MemberList: make([]entryMemberDTO, len(detail.MemberList)), Answers: toEntryAnswers(detail.Answers)}
 	for i, member := range detail.MemberList {
-		out.MemberList[i] = entryMemberDTO{ID: member.ID, Name: member.Name, Number: member.Number,
-			Registered: member.Registered, PlayerID: member.PlayerID}
+		out.MemberList[i] = toEntryMember(member)
 	}
-	for i, answer := range detail.Answers {
-		out.Answers[i] = entryAnswerDTO{QuestionID: answer.QuestionID, Value: answer.Value}
+	return out
+}
+
+func toEntryMember(member entry.Member) entryMemberDTO {
+	return entryMemberDTO{ID: member.ID, Name: member.Name, Number: member.Number,
+		Registered: member.Registered, PlayerID: member.PlayerID}
+}
+
+func toEntryAnswers(answers []entry.Answer) []entryAnswerDTO {
+	out := make([]entryAnswerDTO, len(answers))
+	for i, answer := range answers {
+		out[i] = entryAnswerDTO{QuestionID: answer.QuestionID, Value: answer.Value}
 	}
 	return out
 }
@@ -210,23 +218,42 @@ func (s *Server) createDeskEntry(ctx context.Context, id int64, r *http.Request,
 	if err := decodeBody(r, &body); err != nil {
 		return nil, err
 	}
-	draft := entry.Draft{DivisionID: body.DivisionID, FullName: body.FullName, ShortName: body.ShortName,
-		RepName: body.RepName, RepPhone: body.RepPhone, RepEmail: body.RepEmail,
-		Members: make([]entry.MemberDraft, len(body.Members)), Answers: make(map[int64]string, len(body.Answers))}
-	for i, member := range body.Members {
-		draft.Members[i] = entry.MemberDraft{Name: member.Name, Number: member.Number}
-	}
-	for _, answer := range body.Answers {
-		if _, ok := draft.Answers[answer.QuestionID]; ok {
-			return nil, domain.Invalid("answers", "has two answers to the same question")
-		}
-		draft.Answers[answer.QuestionID] = answer.Value
+	draft, err := body.draft()
+	if err != nil {
+		return nil, err
 	}
 	detail, err := s.entries.Submit(ctx, id, entry.ChannelDesk, draft)
 	if err != nil {
 		return nil, err
 	}
 	return toEntryDetail(detail), nil
+}
+
+// draft は申込のボディを entry の中身にする。同じ質問への答えが 2 つあれば検証エラー。
+func (d entryDraftDTO) draft() (entry.Draft, error) {
+	answers, err := answerMap(d.Answers)
+	if err != nil {
+		return entry.Draft{}, err
+	}
+	draft := entry.Draft{DivisionID: d.DivisionID, FullName: d.FullName, ShortName: d.ShortName,
+		RepName: d.RepName, RepPhone: d.RepPhone, RepEmail: d.RepEmail,
+		Members: make([]entry.MemberDraft, len(d.Members)), Answers: answers}
+	for i, member := range d.Members {
+		draft.Members[i] = entry.MemberDraft{Name: member.Name, Number: member.Number}
+	}
+	return draft, nil
+}
+
+// answerMap は答えの並びを質問 ID ごとの答えにする。
+func answerMap(answers []entryAnswerDTO) (map[int64]string, error) {
+	out := make(map[int64]string, len(answers))
+	for _, answer := range answers {
+		if _, ok := out[answer.QuestionID]; ok {
+			return nil, domain.Invalid("answers", "has two answers to the same question")
+		}
+		out[answer.QuestionID] = answer.Value
+	}
+	return out, nil
 }
 
 func (s *Server) getEntry(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {

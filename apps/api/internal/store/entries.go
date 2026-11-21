@@ -456,14 +456,9 @@ func (s *EntryStore) Decide(ctx context.Context, id int64, decision entry.Decisi
 				return err
 			}
 		}
-		var row TeamEntry
-		result := tx.Clauses(clause.Locking{Strength: lockStrengthNoKeyUpdate}).
-			Where(sqlByID, id).Limit(1).Find(&row)
-		if result.Error != nil {
-			return fmt.Errorf("lock entry %d: %w", id, result.Error)
-		}
-		if result.RowsAffected == 0 {
-			return domain.NotFound(domain.ResourceEntry, id)
+		row, err := lockEntry(ctx, tx, id)
+		if err != nil {
+			return err
 		}
 		if row.Status != string(decision.From) {
 			return fmt.Errorf("%w: the entry was changed by someone else; reload it", domain.ErrConflict)
@@ -483,11 +478,24 @@ func (s *EntryStore) Decide(ctx context.Context, id int64, decision entry.Decisi
 		if err := tx.Model(&TeamEntry{}).Where(sqlByID, id).Updates(updates).Error; err != nil {
 			return writeError("decide entry", err)
 		}
-		var err error
 		out, err = loadEntry(ctx, tx, id)
 		return err
 	})
 	return out, err
+}
+
+// lockEntry は申込の行を FOR NO KEY UPDATE でロックして読む。無ければ domain.NotFound。
+func lockEntry(ctx context.Context, tx *gorm.DB, id int64) (TeamEntry, error) {
+	var row TeamEntry
+	result := tx.WithContext(ctx).Clauses(clause.Locking{Strength: lockStrengthNoKeyUpdate}).
+		Where(sqlByID, id).Limit(1).Find(&row)
+	if result.Error != nil {
+		return TeamEntry{}, fmt.Errorf("lock entry %d: %w", id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return TeamEntry{}, domain.NotFound(domain.ResourceEntry, id)
+	}
+	return row, nil
 }
 
 // approveEntry は申込から部門のチームと選手を作り、メンバーエントリーを選手に結びつける。チームは部門の
