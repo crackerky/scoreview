@@ -56,6 +56,8 @@ const (
 	ResourceEntryLink Resource = "ENTRY_LINK"
 	// ResourceLineUser は公式アカウントの友だち(参加者の台帳の行)
 	ResourceLineUser Resource = "LINE_USER_ID"
+	// ResourceNotification は管理画面から公式アカウントで送った 1 回の記録
+	ResourceNotification Resource = "NOTIFICATION_ID"
 )
 
 // NotFoundError は ID が存在しないことを表す。errors.Is(err, ErrNotFound) が真になる。
