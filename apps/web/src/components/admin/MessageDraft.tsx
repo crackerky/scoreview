@@ -1,10 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // 送る文の欄と、公式 LINE で届く形の見本。見本の 1 行目の大会名は api が付けるもの(heading)。
-export function MessageDraft({ heading, maxLength }: { heading: string; maxLength: number }) {
+// 書いた文はブラウザのタブに残し(draftKey)、宛先を確かめるために画面を読み直しても消さない。
+export function MessageDraft({
+  heading,
+  maxLength,
+  draftKey,
+}: {
+  heading: string
+  maxLength: number
+  draftKey: string
+}) {
   const [body, setBody] = useState('')
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem(draftKey)
+      if (saved !== null) {
+        setBody(saved)
+      }
+    } catch {
+      // 保存が使えないブラウザ(プライベートの窓など)では、文を残さないだけで送れる
+    }
+  }, [draftKey])
+  const change = (value: string) => {
+    setBody(value)
+    try {
+      window.sessionStorage.setItem(draftKey, value)
+    } catch {
+      // 保存が使えないブラウザでは、文を残さないだけで送れる
+    }
+  }
   const length = [...body].length
   return (
     <div className="adm-message">
@@ -16,7 +43,7 @@ export function MessageDraft({ heading, maxLength }: { heading: string; maxLengt
           maxLength={maxLength}
           required
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => change(event.target.value)}
         />
       </label>
       <p className="adm-muted">
@@ -32,4 +59,16 @@ export function MessageDraft({ heading, maxLength }: { heading: string; maxLengt
       </figure>
     </div>
   )
+}
+
+/** 送り終えた画面で、送る画面に残した文を消す(次に送る画面を開いたとき、送った文が残らないように) */
+export function ForgetDraft({ draftKey }: { draftKey: string }) {
+  useEffect(() => {
+    try {
+      window.sessionStorage.removeItem(draftKey)
+    } catch {
+      // 保存が使えないブラウザでは、もともと何も残っていない
+    }
+  }, [draftKey])
+  return null
 }

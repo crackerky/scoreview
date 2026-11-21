@@ -2,11 +2,18 @@ import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
 import { notifications } from '@/api/notify'
 import type { IdPageProps } from '@/app/_lib/pageProps'
+import { resendNotificationAction } from '@/app/admin/_actions/notify'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import { AdminShell, Chip, Stat } from '@/components/admin/AdminParts'
+import { AdminShell, Chip, Hidden, Stat } from '@/components/admin/AdminParts'
+import { ForgetDraft } from '@/components/admin/MessageDraft'
 import { dateTimeText } from '@/entry/entry.utils'
 import { notifyPaths } from '@/notify/notify.paths'
-import { audienceText, jobStatusLabels, jobStatusTones } from '@/notify/notify.utils'
+import {
+  audienceText,
+  draftStorageKey,
+  jobStatusLabels,
+  jobStatusTones,
+} from '@/notify/notify.utils'
 
 // 公式 LINE で送った 1 回。届けた文と、宛先ごとの結果(送った、ブロック中で送らなかった、送れなかった)。
 // 名前とチームは送った時点のもの。
@@ -24,6 +31,8 @@ export default async function NotificationPage(props: IdPageProps) {
     divisionList.divisions.map((division) => [division.id, division.name.ja]),
   )
   const { counts } = detail
+  const unsent = counts.failed + counts.pending
+  const resendForm = 'notification-resend'
   return (
     <AdminShell
       user={user}
@@ -36,7 +45,13 @@ export default async function NotificationPage(props: IdPageProps) {
         { href: `/admin/tournaments/${detail.tournamentId}`, label: tournament.name.ja },
         { href: notifyPaths.list(detail.tournamentId), label: '送った記録' },
       ]}
+      primary={
+        detail.canResend
+          ? { label: `送れなかった ${unsent} 人に送り直す`, form: resendForm }
+          : undefined
+      }
     >
+      <ForgetDraft draftKey={draftStorageKey(detail.tournamentId)} />
       <p>宛先: {audienceText(detail.audience, (division) => divisionNames.get(division))}</p>
       <figure className="adm-bubble-preview">
         <figcaption>届けた文</figcaption>
@@ -45,16 +60,20 @@ export default async function NotificationPage(props: IdPageProps) {
       <div className="adm-stats">
         <Stat label="送った" value={String(counts.sent)} />
         <Stat label="ブロック中で送らなかった" value={String(counts.skipped)} />
-        <Stat
-          label="送れなかった"
-          value={String(counts.failed + counts.pending)}
-          tone={counts.failed + counts.pending > 0 ? 'live' : undefined}
-        />
+        <Stat label="送れなかった" value={String(unsent)} tone={unsent > 0 ? 'live' : undefined} />
       </div>
-      {counts.failed > 0 ? (
+      {detail.canResend ? (
+        <form id={resendForm} action={resendNotificationAction} className="adm-stack">
+          <Hidden values={{ back: notifyPaths.detail(id), id }} />
+          <p className="adm-muted">
+            送れなかった人にだけ、同じ文を送り直せます(送ってから 24
+            時間のあいだ)。前の送信が実は届いていた人には、2 回は届きません。
+          </p>
+        </form>
+      ) : unsent > 0 ? (
         <p className="adm-muted">
-          送れなかった人には、条件を選び直してもう一度送ってください。LINE
-          の混み合いなどで一時的に受け付けられなかったことがあります。
+          送ってから 24
+          時間を過ぎたので、ここからは送り直せません。送れなかった人は下の一覧で確かめられます。
         </p>
       ) : null}
       <ul className="adm-rows">

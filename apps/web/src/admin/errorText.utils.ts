@@ -119,6 +119,10 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
     text: '今月の残りの配信数が足りないので、送りませんでした。宛先を絞ってください',
   },
   { reason: /request key was used/, text: '送る画面を開き直してから送ってください' },
+  {
+    reason: /too late to resend/,
+    text: '送ってから 24 時間を過ぎたので、ここからは送り直せません',
+  },
 ]
 
 /** 項目の運営の言葉(どの規則にも当たらないときの文に使う) */

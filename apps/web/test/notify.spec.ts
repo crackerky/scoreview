@@ -16,6 +16,7 @@ import {
   quotaState,
   sentNotice,
 } from '../src/notify/notify.utils.ts'
+import { uncertainFailure } from '../src/notify/notifyError.utils.ts'
 
 // 管理画面の「公式 LINE で送る」の、宛先の条件の読み方と言葉
 
@@ -101,12 +102,27 @@ describe('言葉', () => {
     )
     assert.equal(countsText({ pending: 0, sent: 0, skipped: 0, failed: 0 }), '宛先なし')
   })
-  test('送れなかった人がいれば誤りの色で知らせる', () => {
+  test('送れなかった人と途中で止まった人がいれば、送り直しを案内する', () => {
     assert.deepEqual(sentNotice({ pending: 0, sent: 12, skipped: 1, failed: 0 }), [
       'ok',
       '12 人に送りました',
     ])
-    assert.equal(sentNotice({ pending: 1, sent: 10, skipped: 0, failed: 2 })[0], 'error')
+    assert.deepEqual(sentNotice({ pending: 1, sent: 10, skipped: 0, failed: 2 }), [
+      'error',
+      '3 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます',
+    ])
+    assert.equal(
+      countsText({ pending: 2, sent: 0, skipped: 0, failed: 1 }),
+      '送れなかった 1 人 ・ 途中で止まった 2 人',
+    )
+  })
+  test('送ったかどうかが分からない失敗を見分ける', () => {
+    const apiError = (status: number) =>
+      Object.assign(new Error('x'), { name: 'ApiError', status, code: 'internal' })
+    assert.equal(uncertainFailure(apiError(500)), true)
+    assert.equal(uncertainFailure(new TypeError('fetch failed')), true)
+    assert.equal(uncertainFailure(apiError(409)), false, '送らなかったと分かっている')
+    assert.equal(uncertainFailure(new RangeError('form field')), false)
   })
   test('一覧には運営が書いた文だけを短く出す', () => {
     assert.equal(bodyExcerpt('ルーキーズファイナル\n\n明日は\n8 時集合です'), '明日は 8 時集合です')
@@ -163,6 +179,7 @@ describe('応答の形', () => {
     sentBy: '運営',
     createdAt: '2027-02-08T09:00:00Z',
     counts: { pending: 0, sent: 1, skipped: 0, failed: 0 },
+    canResend: false,
   }
   test('送った記録と、その詳細', () => {
     assert.equal(

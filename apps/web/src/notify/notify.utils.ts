@@ -39,7 +39,8 @@ export const audienceStatusLabels: Readonly<Record<AudienceStatus, string>> = {
 }
 
 export const jobStatusLabels: Readonly<Record<JobStatus, string>> = {
-  pending: '送っている途中',
+  // 送っている最中か、結果を書く前に止まった(LINE が受け付けたかは分からない)
+  pending: '途中で止まった',
   sent: '送った',
   skipped: 'ブロック中で送らなかった',
   failed: '送れなかった',
@@ -111,20 +112,26 @@ export function countsText(counts: NotificationCounts): string {
     parts.push(`送れなかった ${counts.failed} 人`)
   }
   if (counts.pending > 0) {
-    parts.push(`途中 ${counts.pending} 人`)
+    parts.push(`途中で止まった ${counts.pending} 人`)
   }
   return parts.length === 0 ? '宛先なし' : parts.join(' ・ ')
 }
 
-/** 送った直後の知らせ。送れなかった人がいれば誤りの色で出す */
+/** 送った直後の知らせ。送れなかった人がいれば誤りの色で出し、送り直しは記録の画面へ案内する */
 export function sentNotice(counts: NotificationCounts): ['ok' | 'error', string] {
-  if (counts.failed > 0 || counts.pending > 0) {
+  const unsent = counts.failed + counts.pending
+  if (unsent > 0) {
     return [
       'error',
-      `${counts.failed + counts.pending} 人に送れませんでした。下の記録を確かめてください`,
+      `${unsent} 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます`,
     ]
   }
   return ['ok', `${counts.sent} 人に送りました`]
+}
+
+/** 送る画面で書いた文をブラウザに残す鍵(宛先を確かめるために画面を読み直しても文を消さない) */
+export function draftStorageKey(tournamentId: number): string {
+  return `notification-draft-${tournamentId}`
 }
 
 /** 届く文から、運営が書いた部分(1 行目の大会名と空行のあと)を一覧用に短くする */
