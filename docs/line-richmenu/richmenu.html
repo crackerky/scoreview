@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  公式 LINE のリッチメニューの画像の元(2500x843、公式アカウントの管理画面の「小」の 2 分割に合わせる)。
+  左はトークに「エントリー」を送る、右はスコアサイトを開く。色はスコアサイトと同じ UP の色。
+  画像(richmenu.png)は、このページを 2500x843 の画面で開いて写したもの(ブラウザの画面写しで作り直せる)。
+  設定は公式アカウントの管理画面で行う(左はアクション「テキスト」で「エントリー」、右は「リンク」)。
+-->
+<html lang="ja">
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 2500px; height: 843px; overflow: hidden; }
+  body { display: grid; grid-template-columns: 1250px 1250px; font-family: "Noto Sans JP", sans-serif; color: #fff; }
+  .area { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 36px; position: relative; }
+  .entry { background: #b80000; }
+  .score { background: #202020; border-left: 6px solid #111; }
+  .title { font-size: 168px; font-weight: 700; letter-spacing: 0.04em; line-height: 1; }
+  .sub { font-size: 62px; font-weight: 500; opacity: 0.88; letter-spacing: 0.04em; }
+  .tap { position: absolute; bottom: 56px; right: 64px; font-size: 54px; font-weight: 700; opacity: 0.7; }
+</style>
+<div class="area entry">
+  <div class="title">エントリー</div>
+  <div class="sub">申込と、出した申込の確認</div>
+  <div class="tap">タップ ›</div>
+</div>
+<div class="area score">
+  <div class="title">大会とスコア</div>
+  <div class="sub">日程と結果を見る</div>
+  <div class="tap">タップ ›</div>
+</div>
+</html>
