@@ -65,7 +65,7 @@ func ChangePassword(
 	if err != nil {
 		return err
 	}
-	if err := store.SetOwnPassword(ctx, db, user.ID, hash, HashToken(change.Token)); err != nil {
+	if err := store.SetOwnPassword(ctx, db, user.ID, hash, domain.HashToken(change.Token)); err != nil {
 		return err
 	}
 	return store.ClearLoginFailures(ctx, db, key)

@@ -3,8 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -19,10 +17,6 @@ import (
 // 記録係が試合の途中で切れないよう 1 日の運営時間より長く、端末の置き忘れで翌日まで
 // 残らないよう 24 時間にする。延長はしない(期限が来たらログインし直す)。
 const SessionTTL = 24 * time.Hour
-
-// sessionTokenBytes はセッショントークンの乱数のバイト数。256 bit は総当たりで当てられない長さ
-// (OWASP Session Management Cheat Sheet の下限 64 bit を十分に超える)。
-const sessionTokenBytes = 32
 
 // ログイン試行の制限(docs/api.md「認証」)。
 //
@@ -87,21 +81,14 @@ func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-// newSessionToken は推測できないトークン(crypto/rand の 32 バイトを base64url)と、その SHA-256 を返す。
+// newSessionToken は推測できないトークン(domain.NewToken。256 bit は OWASP Session Management Cheat
+// Sheet の下限 64 bit を十分に超える)と、その SHA-256 を返す。
 func newSessionToken() (string, []byte, error) {
-	raw := make([]byte, sessionTokenBytes)
-	if _, err := rand.Read(raw); err != nil {
-		return "", nil, fmt.Errorf("read session token: %w", err)
+	token, err := domain.NewToken(rand.Reader)
+	if err != nil {
+		return "", nil, fmt.Errorf("make session token: %w", err)
 	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-	return token, HashToken(token), nil
-}
-
-// HashToken はトークンを保存と照合に使う SHA-256 にする。トークンは 256 bit の乱数なので、
-// 塩も遅いハッシュも要らない(辞書攻撃が成り立たない)。
-func HashToken(token string) []byte {
-	sum := sha256.Sum256([]byte(token))
-	return sum[:]
+	return token, domain.HashToken(token), nil
 }
 
 // Login はメールアドレスとパスワードでログインし、セッションを発行する。
@@ -212,10 +199,10 @@ func Authenticate(
 	if token == "" {
 		return domain.User{}, fmt.Errorf("%w: no session token", domain.ErrUnauthorized)
 	}
-	return store.FindSessionUser(ctx, db, HashToken(token), now)
+	return store.FindSessionUser(ctx, db, domain.HashToken(token), now)
 }
 
 // Logout はセッションを消す。
 func Logout(ctx context.Context, db *gorm.DB, token string) error {
-	return store.DeleteSession(ctx, db, HashToken(token))
+	return store.DeleteSession(ctx, db, domain.HashToken(token))
 }
