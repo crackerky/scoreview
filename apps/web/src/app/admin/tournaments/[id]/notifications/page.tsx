@@ -61,8 +61,10 @@ export default async function NotificationsPage(props: IdPageProps) {
                       .join(' ・ ')}
                   </span>
                 </span>
-                {item.counts.failed > 0 || item.counts.pending > 0 ? (
+                {item.counts.failed > 0 ? (
                   <Chip tone="live">送れなかった人あり</Chip>
+                ) : item.counts.pending > 0 ? (
+                  <Chip tone="warn">送っている途中</Chip>
                 ) : null}
                 <span className="adm-chevron" aria-hidden="true">
                   ›
