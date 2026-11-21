@@ -77,6 +77,18 @@ export const entryDetailSchema = entrySummarySchema.extend({
 })
 export type EntryDetail = z.infer<typeof entryDetailSchema>
 
+/** 参加者の前回の入力(代表の名前と連絡先) */
+const entryProfileSchema = z.object({ name: z.string(), phone: z.string(), email: z.string() })
+export type EntryProfile = z.infer<typeof entryProfileSchema>
+
+/** 参加者が前にほかの大会に申し込んだチーム */
+const entryPastTeamSchema = z.object({
+  fullName: z.string(),
+  shortName: z.string(),
+  members: z.array(z.object({ name: z.string(), number: z.string() })),
+})
+export type EntryPastTeam = z.infer<typeof entryPastTeamSchema>
+
 export const entryLinkMemberSchema = z.object({
   tournamentName: z.string(),
   team: entrySummarySchema,
@@ -84,6 +96,7 @@ export const entryLinkMemberSchema = z.object({
   unclaimed: z.array(entryMemberSchema),
   mine: entryMemberSchema.nullable(),
   mineAnswers: z.array(entryAnswerSchema),
+  profileName: z.string(),
   expiresAt: z.string(),
 })
 export type EntryLinkMember = z.infer<typeof entryLinkMemberSchema>
@@ -97,6 +110,8 @@ export const entryLinkSchema = z.object({
       divisions: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
       questions: z.array(entryQuestionSchema),
       mine: z.array(entryDetailSchema),
+      profile: entryProfileSchema.nullable(),
+      pastTeams: z.array(entryPastTeamSchema),
       expiresAt: z.string(),
     })
     .nullable(),

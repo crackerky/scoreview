@@ -56,6 +56,8 @@ func TestEntryLinkRoutes(t *testing.T) {
 	rec := send(t, srv, http.MethodGet, "/api/v1/entry-links/"+token, nil, nil)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"purpose":"team"`)
+	assert.Contains(t, rec.Body.String(), `"profile":null`, "nothing entered yet")
+	assert.Contains(t, rec.Body.String(), `"pastTeams":[]`)
 
 	draft, _ := json.Marshal(map[string]any{"divisionId": division.ID, "fullName": "熱海ディスクス", // 固定の値
 		"shortName": "熱海", "repName": "山田 太郎", "repPhone": "", "repEmail": "",
@@ -82,6 +84,9 @@ func TestEntryLinkRoutes(t *testing.T) {
 	rec = send(t, srv, http.MethodPost, "/api/v1/entry-links/"+member.Token+"/member", register, nil)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"mine":{`)
+	assert.Contains(t, rec.Body.String(), `"profileName":"佐藤 花子"`, "the member's input is kept for next time")
+	rec = send(t, srv, http.MethodGet, "/api/v1/entry-links/"+token, nil, nil)
+	assert.Contains(t, rec.Body.String(), `"profile":{"name":"山田 太郎","phone":"","email":""}`)
 
 	// 合言葉の違うリンク、目的の違う送信は見つからない
 	assert.Equal(t, http.StatusNotFound, send(t, srv, http.MethodGet, "/api/v1/entry-links/nope", nil, nil).Code)

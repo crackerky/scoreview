@@ -135,20 +135,25 @@ type NewEntry struct {
 	Channel    Channel
 	// RepLineUserID は LINE から申し込んだ代表の line_users の行の ID。運営の代理入力なら nil
 	RepLineUserID *int64
-	InviteCode    string
-	Answers       []Answer
-	At            time.Time
+	// Profile は同じトランザクションで上書きする、代表の前回の入力(RepLineUserID があるときだけ)
+	Profile    *ProfileUpdate
+	InviteCode string
+	Answers    []Answer
+	At         time.Time
 }
 
 // Resubmission は Store に保存させる、差し戻した申込の直し。中身は検査と整形を済ませてある(メンバーは
 // 代表が書いた並びで、本人が登録した行との合わせ方は Store がロックの中で PlanMembers で決める)。
 // Registered は代表がフォームを開いたときに本人が登録していた行の ID で、Store はロックの中の登録と
 // 比べる(その間に登録したメンバーが名前を直していると、代表の書いた名前と突き合わせられないため)。
+// RepLineUserID と Profile は、同じトランザクションで上書きする代表の前回の入力。
 type Resubmission struct {
-	Draft      Draft
-	Answers    []Answer
-	Registered []int64
-	At         time.Time
+	Draft         Draft
+	Answers       []Answer
+	Registered    []int64
+	RepLineUserID int64
+	Profile       ProfileUpdate
+	At            time.Time
 }
 
 // Member はメンバーエントリー。Registered はメンバー本人が LINE で登録したか。LineUserID はその人の
@@ -297,6 +302,11 @@ type Store interface {
 	RepEntries(ctx context.Context, tournamentID, lineUserID int64) ([]Detail, error)
 	// MemberAnswers はメンバーエントリーの答えを読む
 	MemberAnswers(ctx context.Context, memberID int64) ([]Answer, error)
+	// Profile は line_users の行 lineUserID の人の前回の入力を読む。まだ何も入れていなければ nil
+	Profile(ctx context.Context, lineUserID int64) (*Profile, error)
+	// PastTeams はこの人が代表として申し込んだチームを、大会 exceptTournamentID の申込を除いて、同じ
+	// チーム名(前後の空白と大文字小文字を除く)は最後の申込だけにして新しい順に limit まで読む
+	PastTeams(ctx context.Context, lineUserID, exceptTournamentID int64, limit int) ([]PastTeam, error)
 	// Join はメンバー登録を当てる。代表の行を選んだならその行に LINE の人を結び、名前と背番号を直す。
 	// その行がこの間に別の人に結ばれていたら domain.ErrConflict。背番号の重なりはロックの中で確かめ直す。
 	// 承認した申込なら選手も直す(無ければ作る)

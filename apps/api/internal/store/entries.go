@@ -222,7 +222,8 @@ func (s *EntryStore) ReplaceQuestions(
 	return out, nil
 }
 
-// Create は entry.Store.Create。申込、メンバー、答えを 1 つのトランザクションで保存する。同じ部門に同じ
+// Create は entry.Store.Create。申込、メンバー、答え(LINE からなら代表の前回の入力も)を 1 つの
+// トランザクションで保存する。同じ部門に同じ
 // チーム名の申込があれば、一意索引(team_entries_name_uniq)の違反が domain.ErrConflict になる。
 func (s *EntryStore) Create(
 	ctx context.Context,
@@ -247,6 +248,11 @@ func (s *EntryStore) Create(
 			}
 			if err := tx.Create(&members).Error; err != nil {
 				return writeError("create entry members", err)
+			}
+		}
+		if newEntry.RepLineUserID != nil && newEntry.Profile != nil {
+			if err := saveProfile(ctx, tx, *newEntry.RepLineUserID, *newEntry.Profile, newEntry.At); err != nil {
+				return err
 			}
 		}
 		if len(newEntry.Answers) > 0 {

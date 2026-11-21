@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/binary"
 	"strconv"
 	"testing"
 
@@ -37,13 +38,21 @@ func newEntryFixture(t *testing.T) entryFixture {
 		tournament: tournament, division: division, admin: domain.Actor{UserID: user.ID, Role: domain.RoleAdmin}}
 }
 
-// counter は 1 バイトずつ増える値を返す乱数の代わり。招待コードが申込ごとに違い、しかも決まった値になる。
-type counter struct{ next byte }
+// counter は読むたびに違う、決まった値を返す乱数の代わり。招待コードと本人用のリンクの合言葉が、発行ごとに
+// 違い、しかも決まった値になる(先頭の 8 バイトに読んだ回数を入れるので、1 バイトの値が一周しても重ならない)。
+type counter struct {
+	calls uint64
+	next  byte
+}
 
 func (c *counter) Read(buf []byte) (int, error) {
+	c.calls++
 	for i := range buf {
 		c.next++
 		buf[i] = c.next
+	}
+	if len(buf) >= 8 {
+		binary.BigEndian.PutUint64(buf, c.calls)
 	}
 	return len(buf), nil
 }

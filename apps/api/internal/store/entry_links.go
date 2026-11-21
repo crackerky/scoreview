@@ -1,8 +1,10 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,9 +17,13 @@ import (
 
 const (
 	// 受付中で一覧に載せた大会と、この人が申込を出した終わっていない大会(サブクエリは値で渡す)
-	sqlLinkTournaments   = "(status = ? AND listed) OR (status <> ? AND id IN (?))"
-	sqlRepActive         = "rep_line_user_id = ? AND status <> ?"
-	sqlMembersOfEntry    = "id IN ? AND team_entry_id = ?"
+	sqlLinkTournaments = "(status = ? AND listed) OR (status <> ? AND id IN (?))"
+	sqlRepActive       = "rep_line_user_id = ? AND status <> ?"
+	sqlMembersOfEntry  = "id IN ? AND team_entry_id = ?"
+	// 前に申し込んだチーム: 同じチーム名(前後の空白と大文字小文字を除く)は最後の申込だけ
+	sqlSelectPastTeams   = "DISTINCT ON (lower(btrim(team_name_full))) id, team_name_full, team_name_short, submitted_at"
+	sqlPastTeamsOf       = "rep_line_user_id = ? AND tournament_id <> ?"
+	sqlOrderPastTeams    = "lower(btrim(team_name_full)), submitted_at DESC, id DESC"
 	sqlOrderStartDate    = "start_date NULLS LAST, id"
 	sqlByInviteCode      = "invite_code = ?"
 	sqlByRep             = "tournament_id = ? AND rep_line_user_id = ?"
@@ -132,10 +138,77 @@ func (s *EntryStore) MemberAnswers(ctx context.Context, memberID int64) ([]entry
 	return out, nil
 }
 
+// Profile は entry.Store.Profile。
+func (s *EntryStore) Profile(ctx context.Context, lineUserID int64) (*entry.Profile, error) {
+	var rows []LineUser
+	if err := s.db.WithContext(ctx).Where(sqlByID, lineUserID).Limit(1).Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load profile of line user %d: %w", lineUserID, err)
+	}
+	if len(rows) == 0 || rows[0].ProfileUpdatedAt == nil {
+		return nil, nil
+	}
+	return &entry.Profile{Name: rows[0].Name, Phone: rows[0].Phone, Email: rows[0].Email}, nil
+}
+
+// PastTeams は entry.Store.PastTeams。問い合わせはチームの数によらず 2 回(申込、メンバー)。
+func (s *EntryStore) PastTeams(
+	ctx context.Context,
+	lineUserID, exceptTournamentID int64,
+	limit int,
+) ([]entry.PastTeam, error) {
+	db := s.db.WithContext(ctx)
+	var rows []TeamEntry
+	err := db.Model(&TeamEntry{}).Select(sqlSelectPastTeams).Where(sqlPastTeamsOf, lineUserID, exceptTournamentID).
+		Order(sqlOrderPastTeams).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list past teams of line user %d: %w", lineUserID, err)
+	}
+	slices.SortFunc(rows, func(a, b TeamEntry) int {
+		if c := b.SubmittedAt.Compare(a.SubmittedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(b.ID, a.ID)
+	})
+	if len(rows) > limit {
+		rows = rows[:limit]
+	}
+	out := make([]entry.PastTeam, len(rows))
+	if len(rows) == 0 {
+		return out, nil
+	}
+	ids := make([]int64, len(rows))
+	index := make(map[int64]int, len(rows))
+	for i, row := range rows {
+		ids[i], index[row.ID] = row.ID, i
+		out[i] = entry.PastTeam{FullName: row.TeamNameFull, ShortName: row.TeamNameShort, Members: []entry.MemberDraft{}}
+	}
+	var members []MemberEntry
+	if err := db.Where(sqlByTeamEntries, ids).Order(sqlOrderSortID).Find(&members).Error; err != nil {
+		return nil, fmt.Errorf("load members of past teams: %w", err)
+	}
+	for _, member := range members {
+		team := &out[index[member.TeamEntryID]]
+		team.Members = append(team.Members, entry.MemberDraft{Name: member.Name, Number: member.Number})
+	}
+	return out, nil
+}
+
+// saveProfile は参加者の前回の入力を上書きする(entry.ProfileUpdate)。
+func saveProfile(ctx context.Context, tx *gorm.DB, lineUserID int64, update entry.ProfileUpdate, at time.Time) error {
+	updates := map[string]any{"name": update.Name, "profile_updated_at": at, "updated_at": at}
+	if update.Contact != nil {
+		updates["phone"], updates["email"] = update.Contact.Phone, update.Contact.Email
+	}
+	if err := tx.WithContext(ctx).Model(&LineUser{}).Where(sqlByID, lineUserID).Updates(updates).Error; err != nil {
+		return writeError("save profile of line user", err)
+	}
+	return nil
+}
+
 // Join は entry.Store.Join。申込の行をロックしてから(同じチームへの同時の登録と、運営の承認と送り
 // 直しを並べる)、メンバーの行を決めて書き、答えを置き換える。背番号の重なりは、検査のあとに別の人が
 // 登録したかもしれないので、ロックの中で読み直したメンバーで確かめ直す。承認した申込なら、その行の
-// 選手も直す(無ければ作る)。
+// 選手も直す(無ければ作る)。登録した人の前回の入力(名前)も同じトランザクションで上書きする。
 func (s *EntryStore) Join(ctx context.Context, join entry.Join) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		team, err := lockEntry(ctx, tx, join.TeamEntryID)
@@ -171,7 +244,10 @@ func (s *EntryStore) Join(ctx context.Context, join entry.Join) error {
 		if err != nil {
 			return writeError("register member: the member is already registered", err)
 		}
-		return replaceMemberAnswers(ctx, tx, member.ID, join.Answers)
+		if err := replaceMemberAnswers(ctx, tx, member.ID, join.Answers); err != nil {
+			return err
+		}
+		return saveProfile(ctx, tx, join.LineUserID, join.Profile, join.At)
 	})
 }
 
@@ -214,6 +290,9 @@ func (s *EntryStore) Resubmit(ctx context.Context, id int64, resubmission entry.
 			return err
 		}
 		if err := replaceTeamAnswers(ctx, tx, id, resubmission.Answers); err != nil {
+			return err
+		}
+		if err := saveProfile(ctx, tx, resubmission.RepLineUserID, resubmission.Profile, resubmission.At); err != nil {
 			return err
 		}
 		out, err = loadEntry(ctx, tx, id)

@@ -18,16 +18,21 @@ const (
 	sqlByWebhookEvent = "webhook_event_id = ?"
 )
 
-// LineUser は line_users の行。LineUserID は公式アカウントから見たユーザー ID。
+// LineUser は line_users の行(参加者の台帳)。LineUserID は公式アカウントから見たユーザー ID。Name、Phone、
+// Email は前回の入力(migrations/00042)で、ProfileUpdatedAt が nil ならまだ何も入れていない。
 type LineUser struct {
-	ID           int64      `gorm:"column:id;primaryKey"`
-	LineUserID   string     `gorm:"column:line_user_id"`
-	Friend       bool       `gorm:"column:friend"`
-	FollowedAt   *time.Time `gorm:"column:followed_at"`
-	UnfollowedAt *time.Time `gorm:"column:unfollowed_at"`
-	UserID       *int64     `gorm:"column:user_id"`
-	CreatedAt    time.Time  `gorm:"column:created_at"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at"`
+	ID               int64      `gorm:"column:id;primaryKey"`
+	LineUserID       string     `gorm:"column:line_user_id"`
+	Friend           bool       `gorm:"column:friend"`
+	FollowedAt       *time.Time `gorm:"column:followed_at"`
+	UnfollowedAt     *time.Time `gorm:"column:unfollowed_at"`
+	UserID           *int64     `gorm:"column:user_id"`
+	Name             string     `gorm:"column:name"`
+	Phone            string     `gorm:"column:phone"`
+	Email            string     `gorm:"column:email"`
+	ProfileUpdatedAt *time.Time `gorm:"column:profile_updated_at"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。

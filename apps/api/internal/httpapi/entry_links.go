@@ -22,12 +22,26 @@ type entryLinkTournamentDTO struct {
 	Name string `json:"name"`
 }
 
+type entryProfileDTO struct {
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+	Email string `json:"email"`
+}
+
+type entryPastTeamDTO struct {
+	FullName  string                `json:"fullName"`
+	ShortName string                `json:"shortName"`
+	Members   []entryMemberInputDTO `json:"members"`
+}
+
 type entryLinkTeamDTO struct {
 	Tournament entryLinkTournamentDTO `json:"tournament"`
 	Open       bool                   `json:"open"`
 	Divisions  []entryDivisionDTO     `json:"divisions"`
 	Questions  []entryQuestionDTO     `json:"questions"`
 	Mine       []entryDetailDTO       `json:"mine"`
+	Profile    *entryProfileDTO       `json:"profile"`
+	PastTeams  []entryPastTeamDTO     `json:"pastTeams"`
 	ExpiresAt  time.Time              `json:"expiresAt"`
 }
 
@@ -38,6 +52,7 @@ type entryLinkMemberDTO struct {
 	Unclaimed      []entryMemberDTO   `json:"unclaimed"`
 	Mine           *entryMemberDTO    `json:"mine"`
 	MineAnswers    []entryAnswerDTO   `json:"mineAnswers"`
+	ProfileName    string             `json:"profileName"`
 	ExpiresAt      time.Time          `json:"expiresAt"`
 }
 
@@ -72,6 +87,17 @@ func toEntryLinkTeam(form entry.TeamForm) *entryLinkTeamDTO {
 	for i, detail := range form.Mine {
 		out.Mine[i] = toEntryDetail(detail)
 	}
+	if form.Profile != nil {
+		out.Profile = &entryProfileDTO{Name: form.Profile.Name, Phone: form.Profile.Phone, Email: form.Profile.Email}
+	}
+	out.PastTeams = make([]entryPastTeamDTO, len(form.PastTeams))
+	for i, team := range form.PastTeams {
+		members := make([]entryMemberInputDTO, len(team.Members))
+		for j, member := range team.Members {
+			members[j] = entryMemberInputDTO{Name: member.Name, Number: member.Number}
+		}
+		out.PastTeams[i] = entryPastTeamDTO{FullName: team.FullName, ShortName: team.ShortName, Members: members}
+	}
 	return out
 }
 
@@ -79,7 +105,7 @@ func toEntryLinkMember(form entry.MemberForm) *entryLinkMemberDTO {
 	out := &entryLinkMemberDTO{TournamentName: form.TournamentName, Team: toEntrySummary(form.Team),
 		Questions: toEntryQuestions(form.Questions).Questions,
 		Unclaimed: make([]entryMemberDTO, len(form.Unclaimed)), MineAnswers: toEntryAnswers(form.MineAnswers),
-		ExpiresAt: form.ExpiresAt}
+		ProfileName: form.ProfileName, ExpiresAt: form.ExpiresAt}
 	for i, member := range form.Unclaimed {
 		out.Unclaimed[i] = toEntryMember(member)
 	}

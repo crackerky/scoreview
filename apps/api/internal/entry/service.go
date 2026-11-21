@@ -138,12 +138,17 @@ func (s *Service) submit(
 	if err != nil {
 		return Detail{}, err
 	}
-	detail, err := s.store.Create(ctx, tournamentID, NewEntry{
+	newEntry := NewEntry{
 		DivisionID: checked.DivisionID, FullName: checked.FullName, ShortName: checked.ShortName,
 		RepName: checked.RepName, RepPhone: checked.RepPhone, RepEmail: checked.RepEmail,
 		Members: checked.Members, Channel: channel, RepLineUserID: rep, InviteCode: code,
 		Answers: answers, At: s.now(),
-	})
+	}
+	if rep != nil {
+		profile := RepProfile(checked)
+		newEntry.Profile = &profile
+	}
+	detail, err := s.store.Create(ctx, tournamentID, newEntry)
 	return s.withInvite(detail), err
 }
 
@@ -307,12 +312,22 @@ func (s *Service) teamForm(ctx context.Context, link Link) (TeamForm, error) {
 	for i := range mine {
 		mine[i] = s.withInvite(mine[i])
 	}
+	profile, err := s.store.Profile(ctx, link.LineUserID)
+	if err != nil {
+		return TeamForm{}, err
+	}
+	past, err := s.store.PastTeams(ctx, link.LineUserID, link.TournamentID, MaxPastTeams)
+	if err != nil {
+		return TeamForm{}, err
+	}
 	return TeamForm{
 		Tournament: TournamentRef{ID: tournament.ID, Name: tournament.Name},
 		Open:       tournament.Status == domain.TournamentEntryOpen,
 		Divisions:  tournament.Divisions,
 		Questions:  scopeOf(questions, ScopeTeam),
 		Mine:       mine,
+		Profile:    profile,
+		PastTeams:  past,
 		ExpiresAt:  link.ExpiresAt,
 	}, nil
 }
@@ -344,6 +359,13 @@ func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error)
 			return MemberForm{}, err
 		}
 		form.MineAnswers = answers
+	}
+	profile, err := s.store.Profile(ctx, link.LineUserID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	if profile != nil {
+		form.ProfileName = profile.Name
 	}
 	return form, nil
 }
@@ -405,7 +427,7 @@ func (s *Service) ResubmitByLink(
 		return Detail{}, err
 	}
 	detail, err := s.store.Resubmit(ctx, entryID, Resubmission{Draft: checked, Answers: answers,
-		Registered: registered, At: s.now()})
+		Registered: registered, RepLineUserID: link.LineUserID, Profile: RepProfile(checked), At: s.now()})
 	if err != nil {
 		return Detail{}, fmt.Errorf("resubmit entry %d: %w", entryID, err)
 	}
@@ -445,7 +467,7 @@ func (s *Service) JoinByLink(ctx context.Context, token string, draft JoinDraft)
 	}
 	err = s.store.Join(ctx, Join{TeamEntryID: link.TeamEntryID, LineUserID: link.LineUserID,
 		MemberID: checked.MemberID, Name: checked.Name, Number: checked.Number, Answers: answers,
-		At: s.now()})
+		Profile: MemberProfile(checked), At: s.now()})
 	if err != nil {
 		return MemberForm{}, err
 	}

@@ -88,6 +88,7 @@ test('本人用のリンクの応答を parse できる', () => {
       unclaimed: [{ id: 3, name: '鈴木 一郎', number: '', registered: false, playerId: null }],
       mine: { id: 4, name: '佐藤 花子', number: '12', registered: true, playerId: null },
       mineAnswers: [],
+      profileName: '佐藤 花子',
       expiresAt: '2026-11-24T01:00:00Z',
     },
   })

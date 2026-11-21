@@ -62,18 +62,22 @@ type TournamentLink struct {
 }
 
 // TeamForm は代表の申込の画面に要るもの。Open は大会が申込を受け付けているか(締めた後も、出した申込は
-// 見られる)。Mine はこの人がこの大会に出した申込(受けた順)。
+// 見られる)。Mine はこの人がこの大会に出した申込(受けた順)。Profile はこの人の前回の入力(まだ何も
+// 入れていなければ nil)、PastTeams は前にほかの大会に申し込んだチーム(新しい順、MaxPastTeams まで)。
 type TeamForm struct {
 	Tournament TournamentRef
 	Open       bool
 	Divisions  []Division
 	Questions  []Question
 	Mine       []Detail
+	Profile    *Profile
+	PastTeams  []PastTeam
 	ExpiresAt  time.Time
 }
 
 // MemberForm はメンバー登録の画面に要るもの。Unclaimed は代表が書いた、まだ誰も自分の LINE を
-// 結んでいない行。Mine はこの人がもう登録した行(無ければ nil)で、MineAnswers はその答え。
+// 結んでいない行。Mine はこの人がもう登録した行(無ければ nil)で、MineAnswers はその答え。ProfileName は
+// この人が前に入れた名前(無ければ空。まだ登録していない人の名前の欄に最初から入れる)。
 type MemberForm struct {
 	TournamentName string
 	Team           Summary
@@ -81,6 +85,7 @@ type MemberForm struct {
 	Unclaimed      []Member
 	Mine           *Member
 	MineAnswers    []Answer
+	ProfileName    string
 	ExpiresAt      time.Time
 }
 
@@ -99,7 +104,8 @@ type JoinDraft struct {
 	Answers  map[int64]string
 }
 
-// Join は Store に保存させるメンバー登録。中身は検査と整形を済ませてある。
+// Join は Store に保存させるメンバー登録。中身は検査と整形を済ませてある。Profile は同じトランザクションで
+// 上書きする、この人の前回の入力。
 type Join struct {
 	TeamEntryID int64
 	LineUserID  int64
@@ -107,6 +113,7 @@ type Join struct {
 	Name        string
 	Number      string
 	Answers     []Answer
+	Profile     ProfileUpdate
 	At          time.Time
 }
 

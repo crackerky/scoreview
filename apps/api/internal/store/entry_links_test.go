@@ -306,3 +306,74 @@ func TestEntryLinkMemberJoin(t *testing.T) {
 	_, err = f.desk.IssueMemberLink(ctx, jiro, "zzzzzzzzzzzzzzzzzzzzzzzzzz")
 	require.ErrorAs(t, err, &notFound)
 }
+
+func TestEntryLinkProfileAndPastTeams(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	b := storetest.New(t, f.db)
+	open := func() (store.Tournament, store.Division) {
+		tournament := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryOpen })
+		return tournament, b.Division(tournament.ID)
+	}
+	second, secondDivision := open()
+	third, thirdDivision := open()
+	rep := f.lineUser(t, "Urep")
+	submitTo := func(tournament int64, division int64, name, phone string) entry.Detail {
+		t.Helper()
+		draft := f.draft(name, nil)
+		draft.DivisionID, draft.RepPhone, draft.RepEmail = division, phone, "rep@example.com"
+		detail, err := f.desk.SubmitByLink(ctx, f.teamLink(t, rep, tournament).Token, draft)
+		require.NoError(t, err)
+		*f.now = f.now.Add(time.Hour)
+		return detail
+	}
+
+	// まだ何も入れていない人には、前回の入力も前のチームも無い
+	view, err := f.desk.LinkView(ctx, f.teamLink(t, rep, second.ID).Token)
+	require.NoError(t, err)
+	assert.Nil(t, view.Team.Profile)
+	assert.Empty(t, view.Team.PastTeams)
+
+	atami := submitTo(f.tournament.ID, f.division.ID, "熱海ディスクス", "090-1111-1111")
+	submitTo(third.ID, thirdDivision.ID, "Izu Flyers", "090-2222-2222")
+	// メンバーが自分の行の名前を直すと、前のチームのメンバーにもその名前が出る
+	member := f.lineUser(t, "Uhanako")
+	link, err := f.desk.IssueMemberLink(ctx, member, atami.InviteCode)
+	require.NoError(t, err)
+	sato := atami.MemberList[1].ID
+	_, err = f.desk.JoinByLink(ctx, link.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤 はなこ", Number: "12"})
+	require.NoError(t, err)
+
+	view, err = f.desk.LinkView(ctx, f.teamLink(t, rep, second.ID).Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Team.Profile)
+	assert.Equal(t, entry.Profile{Name: "山田 太郎", Phone: "090-2222-2222", Email: "rep@example.com"},
+		*view.Team.Profile, "the last input")
+	require.Len(t, view.Team.PastTeams, 2)
+	assert.Equal(t, "Izu Flyers", view.Team.PastTeams[0].FullName, "newest first")
+	assert.Equal(t, entry.PastTeam{FullName: "熱海ディスクス", ShortName: "熱海ディスクス",
+		Members: []entry.MemberDraft{{Name: "山田 太郎", Number: "7"}, {Name: "佐藤 はなこ", Number: "12"}}},
+		view.Team.PastTeams[1])
+
+	// 同じチーム名は最後の申込だけ(前後の空白と大文字小文字を除いて同じ)。今の大会の申込は出さない
+	submitTo(second.ID, secondDivision.ID, " izu flyers ", "090-3333-3333")
+	view, err = f.desk.LinkView(ctx, f.teamLink(t, rep, f.tournament.ID).Token)
+	require.NoError(t, err)
+	names := []string{}
+	for _, team := range view.Team.PastTeams {
+		names = append(names, team.FullName)
+	}
+	assert.Equal(t, []string{"izu flyers"}, names, "熱海 is in this tournament; Izu Flyers twice becomes the last one")
+
+	// メンバー登録は名前だけを上書きし、代表として入れた連絡先は消さない
+	member2, err := f.desk.IssueMemberLink(ctx, rep, atami.InviteCode)
+	require.NoError(t, err)
+	_, err = f.desk.JoinByLink(ctx, member2.Token, entry.JoinDraft{Name: "山田 たろう", Number: "70"})
+	require.NoError(t, err)
+	profile, err := store.NewEntryStore(f.db).Profile(ctx, rep)
+	require.NoError(t, err)
+	assert.Equal(t, entry.Profile{Name: "山田 たろう", Phone: "090-3333-3333", Email: "rep@example.com"}, *profile)
+	form, err := f.desk.LinkView(ctx, member2.Token)
+	require.NoError(t, err)
+	assert.Equal(t, "山田 たろう", form.Member.ProfileName)
+}
