@@ -40,20 +40,21 @@ const (
 	// この大会に、取り消していない申込をまだ出していない
 	sqlNotAppliedTo = "NOT EXISTS (SELECT 1 FROM team_entries mine " +
 		"WHERE mine.rep_line_user_id = te.rep_line_user_id AND mine.tournament_id = ? AND mine.status <> ?)"
-	sqlOrderEntriesSubmitted  = "te.submitted_at, te.id"
-	sqlOrderEntriesNewest     = "te.submitted_at DESC, te.id DESC"
-	sqlOrderMembers           = "te.submitted_at, te.id, me.sort_order, me.id"
-	sqlByRequestKey           = "request_key = ?"
-	sqlByBatch                = "batch_id = ?"
-	sqlByBatches              = "batch_id IN ?"
-	sqlJobsOfBatch            = "batch_id = ? AND line_user_id IN ?"
-	sqlSelectUnsent           = "j.line_user_id, lu.line_user_id AS user_id, j.retry_key"
-	sqlTableJobs              = "notification_jobs AS j"
-	sqlJoinJobLineUser        = "JOIN line_users lu ON lu.id = j.line_user_id"
-	sqlUnsentOfBatch          = "j.batch_id = ? AND j.status IN ? AND j.retry_key <> ''"
-	sqlOrderJobs              = "j.id"
+	sqlOrderEntriesSubmitted = "te.submitted_at, te.id"
+	sqlOrderEntriesNewest    = "te.submitted_at DESC, te.id DESC"
+	sqlOrderMembers          = "te.submitted_at, te.id, me.sort_order, me.id"
+	sqlByRequestKey          = "request_key = ?"
+	sqlByBatch               = "batch_id = ?"
+	sqlByBatches             = "batch_id IN ?"
+	sqlJobsOfBatch           = "batch_id = ? AND line_user_id IN ?"
+	// 送れなかった宛先と、持ち時間の切れた途中の宛先(送ってみる宛先が無い skipped の行は除く)
+	sqlClaimable = "batch_id = ? AND retry_key <> '' AND " +
+		"(status = ? OR (status = ? AND (claimed_until IS NULL OR claimed_until < ?)))"
+	sqlSelectLineIDs = "id, line_user_id"
+	// 結果ごとの人数と、そのうち持ち時間の切れた人数(途中の人のうち送り直せる人)
+	sqlSelectJobCountsAt = "batch_id, status, count(*) AS count, " +
+		"count(*) FILTER (WHERE claimed_until IS NULL OR claimed_until < ?) AS expired"
 	sqlOrderBatchesNewest     = "created_at DESC, id DESC"
-	sqlSelectJobCounts        = "batch_id, status, count(*) AS count"
 	sqlGroupBatchStatus       = "batch_id, status"
 	sqlSelectUserNames        = "id, display_name, email"
 	maxTeamsPerRecipient      = 3
@@ -77,15 +78,16 @@ func (NotificationBatch) TableName() string { return "notification_batches" }
 
 // NotificationJob は notification_jobs の行。
 type NotificationJob struct {
-	ID         int64      `gorm:"column:id;primaryKey"`
-	BatchID    int64      `gorm:"column:batch_id"`
-	LineUserID int64      `gorm:"column:line_user_id"`
-	Name       string     `gorm:"column:name"`
-	Teams      string     `gorm:"column:teams"`
-	Status     string     `gorm:"column:status"`
-	Error      string     `gorm:"column:error"`
-	RetryKey   string     `gorm:"column:retry_key"`
-	SentAt     *time.Time `gorm:"column:sent_at"`
+	ID           int64      `gorm:"column:id;primaryKey"`
+	BatchID      int64      `gorm:"column:batch_id"`
+	LineUserID   int64      `gorm:"column:line_user_id"`
+	Name         string     `gorm:"column:name"`
+	Teams        string     `gorm:"column:teams"`
+	Status       string     `gorm:"column:status"`
+	Error        string     `gorm:"column:error"`
+	RetryKey     string     `gorm:"column:retry_key"`
+	ClaimedUntil *time.Time `gorm:"column:claimed_until"`
+	SentAt       *time.Time `gorm:"column:sent_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -217,30 +219,45 @@ func (s *NotifyStore) FindBatch(ctx context.Context, requestKey string) (int64, 
 	return rows[0].ID, true, nil
 }
 
-// Unsent は notify.Store.Unsent。まとまりは記録した順(送った順)に、同じキーの行を集めて作る。
-func (s *NotifyStore) Unsent(ctx context.Context, batchID int64) ([]notify.Group, error) {
-	var rows []struct {
-		LineUserID int64  `gorm:"column:line_user_id"`
-		UserID     string `gorm:"column:user_id"`
-		RetryKey   string `gorm:"column:retry_key"`
-	}
-	statuses := []string{string(notify.JobPending), string(notify.JobFailed)}
-	err := s.db.WithContext(ctx).Table(sqlTableJobs).Select(sqlSelectUnsent).Joins(sqlJoinJobLineUser).
-		Where(sqlUnsentOfBatch, batchID, statuses).Order(sqlOrderJobs).Find(&rows).Error
+// Claim は notify.Store.Claim。持つ宛先を 1 回の UPDATE で選んで書き換え、書き換えた行だけを返す
+// (同時に呼ばれても、行のロックで後の UPDATE は書き換え済みの行を条件から外すので、同じまとまりを
+// 2 つの呼び出しが持つことはない)。まとまりの宛先は同じ状態と期限で書かれるので、まとめて持たれる。
+func (s *NotifyStore) Claim(ctx context.Context, batchID int64, now, until time.Time) ([]notify.Group, error) {
+	db := s.db.WithContext(ctx)
+	var claimed []NotificationJob
+	pending, failed := string(notify.JobPending), string(notify.JobFailed)
+	err := db.Model(&claimed).Clauses(clause.Returning{}).Where(sqlClaimable, batchID, failed, pending, now).
+		Updates(map[string]any{"status": pending, "claimed_until": until}).Error
 	if err != nil {
-		return nil, fmt.Errorf("list unsent recipients of notification %d: %w", batchID, err)
+		return nil, writeError("claim notification recipients", err)
+	}
+	if len(claimed) == 0 {
+		return nil, nil
+	}
+	slices.SortFunc(claimed, func(a, b NotificationJob) int { return cmp.Compare(a.ID, b.ID) })
+	ids := make([]int64, len(claimed))
+	for i, job := range claimed {
+		ids[i] = job.LineUserID
+	}
+	var users []LineUser
+	if err := db.Select(sqlSelectLineIDs).Where(sqlByIDs, ids).Find(&users).Error; err != nil {
+		return nil, fmt.Errorf("load LINE ids of notification %d: %w", batchID, err)
+	}
+	lineIDs := make(map[int64]string, len(users))
+	for _, user := range users {
+		lineIDs[user.ID] = user.LineUserID
 	}
 	var groups []notify.Group
 	index := map[string]int{}
-	for _, row := range rows {
-		at, ok := index[row.RetryKey]
+	for _, job := range claimed {
+		at, ok := index[job.RetryKey]
 		if !ok {
-			groups = append(groups, notify.Group{RetryKey: row.RetryKey})
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey})
 			at = len(groups) - 1
-			index[row.RetryKey] = at
+			index[job.RetryKey] = at
 		}
-		groups[at].LineUserIDs = append(groups[at].LineUserIDs, row.LineUserID)
-		groups[at].UserIDs = append(groups[at].UserIDs, row.UserID)
+		groups[at].LineUserIDs = append(groups[at].LineUserIDs, job.LineUserID)
+		groups[at].UserIDs = append(groups[at].UserIDs, lineIDs[job.LineUserID])
 	}
 	return groups, nil
 }
@@ -253,7 +270,11 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 		return 0, false, fmt.Errorf("encode notification audience: %w", err)
 	}
 	row := NotificationBatch{TournamentID: batch.TournamentID, RequestKey: batch.RequestKey, Audience: audience,
-		Body: batch.Body, SentBy: &batch.SentBy, CreatedAt: batch.At}
+		Body: batch.Body, CreatedAt: batch.At}
+	// 送った運営がいない送信(0)は NULL にする(users に 0 の行は無い)
+	if batch.SentBy != 0 {
+		row.SentBy = &batch.SentBy
+	}
 	created := false
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "request_key"}}, DoNothing: true}).
@@ -277,6 +298,9 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 		for i, job := range batch.Jobs {
 			jobs[i] = NotificationJob{BatchID: row.ID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
 				Status: string(job.Status), RetryKey: job.RetryKey}
+			if job.Status == notify.JobPending {
+				jobs[i].ClaimedUntil = &batch.ClaimedUntil
+			}
 		}
 		if err := tx.CreateInBatches(jobs, notificationJobsBatchSize).Error; err != nil {
 			return writeError("notification recipients", err)
@@ -311,7 +335,7 @@ func (s *NotifyStore) FinishJobs(
 }
 
 // Batches は notify.Store.Batches。問い合わせは送信の数によらず 3 回(送信、結果の人数、送った人)。
-func (s *NotifyStore) Batches(ctx context.Context, tournamentID int64) ([]notify.Batch, error) {
+func (s *NotifyStore) Batches(ctx context.Context, tournamentID int64, now time.Time) ([]notify.Batch, error) {
 	db := s.db.WithContext(ctx)
 	var rows []NotificationBatch
 	err := db.Where(sqlByTournament, tournamentID).Order(sqlOrderBatchesNewest).Find(&rows).Error
@@ -331,8 +355,9 @@ func (s *NotifyStore) Batches(ctx context.Context, tournamentID int64) ([]notify
 		BatchID int64  `gorm:"column:batch_id"`
 		Status  string `gorm:"column:status"`
 		Count   int    `gorm:"column:count"`
+		Expired int    `gorm:"column:expired"`
 	}
-	err = db.Model(&NotificationJob{}).Select(sqlSelectJobCounts).Where(sqlByBatches, ids).
+	err = db.Model(&NotificationJob{}).Select(sqlSelectJobCountsAt, now).Where(sqlByBatches, ids).
 		Group(sqlGroupBatchStatus).Find(&counts).Error
 	if err != nil {
 		return nil, fmt.Errorf("count notification results: %w", err)
@@ -347,13 +372,13 @@ func (s *NotifyStore) Batches(ctx context.Context, tournamentID int64) ([]notify
 		}
 	}
 	for _, count := range counts {
-		addCount(&out[index[count.BatchID]].Counts, notify.JobStatus(count.Status), count.Count)
+		addCount(&out[index[count.BatchID]].Counts, notify.JobStatus(count.Status), count.Count, count.Expired)
 	}
 	return out, nil
 }
 
 // Batch は notify.Store.Batch。
-func (s *NotifyStore) Batch(ctx context.Context, id int64) (notify.Batch, error) {
+func (s *NotifyStore) Batch(ctx context.Context, id int64, now time.Time) (notify.Batch, error) {
 	row, err := findByID[NotificationBatch](ctx, s.db, id, domain.ResourceNotification)
 	if err != nil {
 		return notify.Batch{}, err
@@ -375,7 +400,11 @@ func (s *NotifyStore) Batch(ctx context.Context, id int64) (notify.Batch, error)
 		status := notify.JobStatus(job.Status)
 		out.Jobs[i] = notify.Job{Name: job.Name, Teams: job.Teams, Status: status, Error: job.Error,
 			SentAt: job.SentAt}
-		addCount(&out.Counts, status, 1)
+		expired := 0
+		if job.ClaimedUntil == nil || job.ClaimedUntil.Before(now) {
+			expired = 1
+		}
+		addCount(&out.Counts, status, 1, expired)
 	}
 	return out, nil
 }
@@ -416,15 +445,19 @@ func toBatch(row NotificationBatch, names map[int64]string) (notify.Batch, error
 	return out, nil
 }
 
-func addCount(counts *notify.Counts, status notify.JobStatus, count int) {
+// addCount は結果 status の count 人を足す。expired はそのうち持ち時間の切れた人数(途中の人のうち
+// 送り直せる人を数えるのに使う)。
+func addCount(counts *notify.Counts, status notify.JobStatus, count, expired int) {
 	switch status {
 	case notify.JobPending:
 		counts.Pending += count
+		counts.Resendable += expired
 	case notify.JobSent:
 		counts.Sent += count
 	case notify.JobSkipped:
 		counts.Skipped += count
 	case notify.JobFailed:
 		counts.Failed += count
+		counts.Resendable += count
 	}
 }

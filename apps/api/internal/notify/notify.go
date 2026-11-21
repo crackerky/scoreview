@@ -93,12 +93,14 @@ type Job struct {
 	SentAt *time.Time
 }
 
-// Counts は 1 回の送信の結果ごとの人数。
+// Counts は 1 回の送信の結果ごとの人数。Resendable は今送り直せる人数(送れなかった人と、送っている
+// 送信の持ち時間が切れた途中の人。Store が now で数える)。
 type Counts struct {
-	Pending int
-	Sent    int
-	Skipped int
-	Failed  int
+	Pending    int
+	Sent       int
+	Skipped    int
+	Failed     int
+	Resendable int
 }
 
 // Batch は 1 回の送信の記録。Body は実際に届けた文(大会名の行を含む)。SentByName は送った運営の
@@ -148,7 +150,7 @@ type Group struct {
 	UserIDs     []string
 }
 
-// NewBatch は記録する送信。Body は届ける文。
+// NewBatch は記録する送信。Body は届ける文。SentBy は送った運営(0 なら運営なし)。ClaimedUntil は、この送信が送る宛先(pending)を持つ期限。
 type NewBatch struct {
 	TournamentID int64
 	RequestKey   string
@@ -156,6 +158,7 @@ type NewBatch struct {
 	Body         string
 	SentBy       int64
 	At           time.Time
+	ClaimedUntil time.Time
 	Jobs         []NewJob
 }
 
@@ -177,15 +180,16 @@ type Store interface {
 	// CreateBatch は送信と宛先ごとの行を 1 つのトランザクションで記録する。同じ RequestKey の記録が
 	// もうあれば作らず、その ID と偽を返す
 	CreateBatch(ctx context.Context, batch NewBatch) (id int64, created bool, err error)
-	// Unsent は送信 batchID の、送れなかった(failed)か送り終えていない(pending)宛先を、記録した順の
-	// まとまりで返す
-	Unsent(ctx context.Context, batchID int64) ([]Group, error)
+	// Claim は送信 batchID の、送れなかった(failed)宛先と、持ち時間が now で切れた途中(pending)の
+	// 宛先を、until まで持つことにして(pending にして)、記録した順のまとまりで返す。ほかの送信が
+	// 持っている宛先は返さない(同時に呼ばれても、1 つのまとまりは 1 つの呼び出しにだけ返す)
+	Claim(ctx context.Context, batchID int64, now, until time.Time) ([]Group, error)
 	// FinishJobs は送信 batchID の、line_users の行の ID が lineUserIDs の宛先の結果を書く
 	FinishJobs(ctx context.Context, batchID int64, lineUserIDs []int64, result JobResult) error
-	// Batches は大会の送信を新しい順に、結果ごとの人数とともに読む
-	Batches(ctx context.Context, tournamentID int64) ([]Batch, error)
+	// Batches は大会の送信を新しい順に、結果ごとの人数(送り直せる人数は now で数える)とともに読む
+	Batches(ctx context.Context, tournamentID int64, now time.Time) ([]Batch, error)
 	// Batch は送信 1 回を宛先ごとの結果とともに読む。無ければ domain.NotFound
-	Batch(ctx context.Context, id int64) (Batch, error)
+	Batch(ctx context.Context, id int64, now time.Time) (Batch, error)
 }
 
 // MaxMulticast は 1 回の Multicast に渡せる宛先の数(Messaging API のマルチキャストの上限)。
@@ -195,6 +199,10 @@ const MaxMulticast = 500
 // ResendWindow は送れなかった宛先を送り直せる期間。LINE の送り直しのキーが有効な 24 時間。
 // https://developers.line.biz/ja/docs/messaging-api/retrying-api-request/
 const ResendWindow = 24 * time.Hour
+
+// SendLease は送信がまとまりを持つ時間。api の 1 回の要求が続きうる時間(Vercel の関数の最長 800 秒)
+// より長くし、持ち時間の切れたまとまりを送っている送信が残らないようにする。
+const SendLease = 15 * time.Minute
 
 // ErrTemporary は LINE が受け付けたか分からない失敗(LINE の 5xx、応答が無い)。同じ送り直しのキーで
 // もう一度送ってよい。LINE が受け付けなかったと分かる失敗(4xx)は、送り直しても結果が変わらない。

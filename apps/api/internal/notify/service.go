@@ -168,8 +168,10 @@ func (s *Service) plan(
 	actor domain.Actor,
 	recipients []Recipient,
 ) (NewBatch, []Group, error) {
+	now := s.now()
 	batch := NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey, Audience: request.Audience,
-		Body: text, SentBy: actor.UserID, At: s.now(), Jobs: make([]NewJob, 0, len(recipients))}
+		Body: text, SentBy: actor.UserID, At: now, ClaimedUntil: now.Add(SendLease),
+		Jobs: make([]NewJob, 0, len(recipients))}
 	var groups []Group
 	for _, recipient := range recipients {
 		job := NewJob{LineUserID: recipient.LineUserID, Name: recipient.Name,
@@ -218,19 +220,21 @@ func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, te
 }
 
 // Resend は Desk.Resend。送れなかったまとまりを、記録したキーと宛先のまま送る。LINE が前に受け付けた
-// まとまり(結果を書く前に止まったもの)は、LINE が送らずに成功を返すので、2 回は届かない。
+// まとまり(結果を書く前に止まったもの)は、LINE が送らずに成功を返すので、2 回は届かない。ほかの送信が
+// 送っている途中のまとまりは送らない(Store.Claim が持たせない)。
 func (s *Service) Resend(ctx context.Context, id int64) (Batch, error) {
 	if s.sender == nil {
 		return Batch{}, fmt.Errorf("%w: the LINE settings are missing, so nothing can be sent", domain.ErrConflict)
 	}
-	batch, err := s.store.Batch(ctx, id)
+	now := s.now()
+	batch, err := s.store.Batch(ctx, id, now)
 	if err != nil {
 		return Batch{}, err
 	}
-	if !s.now().Before(batch.CreatedAt.Add(ResendWindow)) {
+	if !now.Before(batch.CreatedAt.Add(ResendWindow)) {
 		return Batch{}, fmt.Errorf("%w: it is too late to resend; the retry keys last 24 hours", domain.ErrConflict)
 	}
-	groups, err := s.store.Unsent(ctx, id)
+	groups, err := s.store.Claim(ctx, id, now, now.Add(SendLease))
 	if err != nil {
 		return Batch{}, err
 	}
@@ -266,7 +270,7 @@ func (s *Service) History(ctx context.Context, tournamentID int64) (History, err
 	if _, err := s.store.Tournament(ctx, tournamentID); err != nil {
 		return History{}, err
 	}
-	batches, err := s.store.Batches(ctx, tournamentID)
+	batches, err := s.store.Batches(ctx, tournamentID, s.now())
 	if err != nil {
 		return History{}, err
 	}
@@ -276,15 +280,14 @@ func (s *Service) History(ctx context.Context, tournamentID int64) (History, err
 	return History{Batches: batches, CanSend: s.sender != nil}, nil
 }
 
-// canResend は送れなかった宛先があり、送り直しのキーがまだ有効か。
+// canResend は今送り直せる宛先があり、送り直しのキーがまだ有効か。
 func (s *Service) canResend(batch Batch) bool {
-	unsent := batch.Counts.Failed + batch.Counts.Pending
-	return s.sender != nil && unsent > 0 && s.now().Before(batch.CreatedAt.Add(ResendWindow))
+	return s.sender != nil && batch.Counts.Resendable > 0 && s.now().Before(batch.CreatedAt.Add(ResendWindow))
 }
 
 // Batch は Desk.Batch。
 func (s *Service) Batch(ctx context.Context, id int64) (Batch, error) {
-	batch, err := s.store.Batch(ctx, id)
+	batch, err := s.store.Batch(ctx, id, s.now())
 	if err != nil {
 		return Batch{}, err
 	}

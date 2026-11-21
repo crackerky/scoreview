@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -154,7 +155,8 @@ func TestNotifyStoreBatches(t *testing.T) {
 
 	notices := store.NewNotifyStore(db)
 	ctx := context.Background()
-	batch := notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1",
+	lease := f.at.Add(notify.SendLease)
+	batch := notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1", ClaimedUntil: lease,
 		Audience: notify.Audience{Kind: notify.AudienceReps, Status: entry.StatusPending, DivisionID: 3},
 		Body:     "大会\n\n明日は 8 時集合", SentBy: admin.ID, At: f.at, Jobs: []notify.NewJob{
 			{LineUserID: first, Name: "代表 1", Teams: "熱海", Status: notify.JobPending, RetryKey: "group-1"},
@@ -175,18 +177,24 @@ func TestNotifyStoreBatches(t *testing.T) {
 	_, ok, err = notices.FindBatch(ctx, "nothing")
 	require.NoError(t, err)
 	assert.False(t, ok)
-	unsent, err := notices.Unsent(ctx, id)
+	claimed, err := notices.Claim(ctx, id, f.at, f.at.Add(time.Minute))
+	require.NoError(t, err)
+	assert.Empty(t, claimed, "the first send still holds the group")
+	claimed, err = notices.Claim(ctx, id, lease.Add(time.Second), lease.Add(time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, []notify.Group{{RetryKey: "group-1", LineUserIDs: []int64{first}, UserIDs: []string{"U1"}}},
-		unsent, "the skipped recipient has no group")
+		claimed, "a stopped group can be claimed; the skipped recipient has no group")
+	claimed, err = notices.Claim(ctx, id, lease.Add(time.Second), lease.Add(time.Hour))
+	require.NoError(t, err)
+	assert.Empty(t, claimed, "a group is claimed only once")
 
 	sentAt := f.at.Add(time.Second)
 	require.NoError(t, notices.FinishJobs(ctx, id, []int64{first}, notify.JobResult{Status: notify.JobSent, At: sentAt}))
-	unsent, err = notices.Unsent(ctx, id)
+	claimed, err = notices.Claim(ctx, id, lease.Add(2*time.Hour), lease.Add(3*time.Hour))
 	require.NoError(t, err)
-	assert.Empty(t, unsent)
+	assert.Empty(t, claimed, "a sent group is not claimed")
 
-	read, err := notices.Batch(ctx, id)
+	read, err := notices.Batch(ctx, id, f.at)
 	require.NoError(t, err)
 	assert.Equal(t, batch.Audience, read.Audience)
 	assert.Equal(t, "運営 一郎", read.SentByName)
@@ -200,7 +208,7 @@ func TestNotifyStoreBatches(t *testing.T) {
 	batch.RequestKey, batch.At = "key-2", f.at.Add(time.Hour)
 	newer, _, err := notices.CreateBatch(ctx, batch)
 	require.NoError(t, err)
-	list, err := notices.Batches(ctx, tour.ID)
+	list, err := notices.Batches(ctx, tour.ID, f.at)
 	require.NoError(t, err)
 	require.Len(t, list, 2)
 	assert.Equal(t, newer, list[0].ID, "newest first")
@@ -216,14 +224,52 @@ func TestNotifyStoreBatches(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, notices.FinishJobs(ctx, failedID, []int64{other},
 		notify.JobResult{Status: notify.JobFailed, Error: "LINE returned 429", At: sentAt}))
-	failedRead, err := notices.Batch(ctx, failedID)
+	failedRead, err := notices.Batch(ctx, failedID, f.at)
 	require.NoError(t, err)
 	assert.Nil(t, failedRead.Jobs[0].SentAt, "nothing was sent")
 	assert.Equal(t, "LINE returned 429", failedRead.Jobs[0].Error)
-	unsent, err = notices.Unsent(ctx, failedID)
+	assert.Equal(t, 1, failedRead.Counts.Resendable)
+	claimed, err = notices.Claim(ctx, failedID, f.at, f.at.Add(time.Minute))
 	require.NoError(t, err)
-	assert.Len(t, unsent, 1, "a failed recipient can be resent")
+	assert.Len(t, claimed, 1, "a failed recipient can be resent at once")
 
-	_, err = notices.Batch(ctx, 999999)
+	_, err = notices.Batch(ctx, 999999, f.at)
 	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+// 同時に送り直しても、1 つのまとまりは 1 つの送り直しにだけ渡る(同じキーの要求を LINE に同時に送らない)。
+func TestNotifyStoreClaimIsExclusive(t *testing.T) {
+	db := testdb.New(t)
+	f := &notifyFixture{db: db, at: time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)}
+	tour := storetest.New(t, db).Tournament()
+	notices := store.NewNotifyStore(db)
+	ctx := context.Background()
+	jobs := make([]notify.NewJob, 0, 40)
+	for i := range 40 {
+		jobs = append(jobs, notify.NewJob{LineUserID: f.lineUser(t, fmt.Sprintf("U%d", i), "", true),
+			Status: notify.JobPending, RetryKey: fmt.Sprintf("group-%d", i/10)})
+	}
+	id, _, err := notices.CreateBatch(ctx, notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1",
+		Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", At: f.at, ClaimedUntil: f.at, Jobs: jobs})
+	require.NoError(t, err)
+
+	later := f.at.Add(time.Minute)
+	results := make([][]notify.Group, 8)
+	var wait sync.WaitGroup
+	for i := range results {
+		wait.Go(func() {
+			claimed, claimErr := notices.Claim(ctx, id, later, later.Add(notify.SendLease))
+			assert.NoError(t, claimErr)
+			results[i] = claimed
+		})
+	}
+	wait.Wait()
+	seen := map[string]int{}
+	for _, claimed := range results {
+		for _, group := range claimed {
+			seen[group.RetryKey]++
+			assert.Len(t, group.UserIDs, 10, "a group is claimed whole")
+		}
+	}
+	assert.Equal(t, map[string]int{"group-0": 1, "group-1": 1, "group-2": 1, "group-3": 1}, seen)
 }

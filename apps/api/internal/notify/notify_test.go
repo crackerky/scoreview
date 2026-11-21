@@ -75,12 +75,13 @@ func TestCheckQuota(t *testing.T) {
 	require.NoError(t, notify.CheckQuota(notify.Quota{Used: 99999}, 1000), "no limit")
 }
 
-// fakeStore は notify.Store を覚えるだけで実装する。
+// fakeStore は notify.Store を覚えるだけで実装する。宛先の結果と持ち時間は LINE の行 ID ごとに持つ。
 type fakeStore struct {
 	recipients []notify.Recipient
 	batches    []notify.NewBatch
 	byKey      map[string]int64
 	results    map[int64]notify.JobResult
+	claims     map[int64]time.Time
 }
 
 func (s *fakeStore) Tournament(_ context.Context, id int64) (entry.Tournament, error) {
@@ -108,17 +109,32 @@ func (s *fakeStore) CreateBatch(_ context.Context, batch notify.NewBatch) (int64
 	s.byKey[batch.RequestKey] = id
 	for _, job := range batch.Jobs {
 		s.results[job.LineUserID] = notify.JobResult{Status: job.Status}
+		if job.Status == notify.JobPending {
+			s.claims[job.LineUserID] = batch.ClaimedUntil
+		}
 	}
 	return id, true, nil
 }
 
-func (s *fakeStore) Unsent(_ context.Context, id int64) ([]notify.Group, error) {
+func (s *fakeStore) claimable(lineUserID int64, now time.Time) bool {
+	switch s.results[lineUserID].Status {
+	case notify.JobFailed:
+		return true
+	case notify.JobPending:
+		return s.claims[lineUserID].Before(now)
+	default:
+		return false
+	}
+}
+
+func (s *fakeStore) Claim(_ context.Context, id int64, now, until time.Time) ([]notify.Group, error) {
 	var groups []notify.Group
 	for _, job := range s.batches[id-1].Jobs {
-		status := s.results[job.LineUserID].Status
-		if status != notify.JobFailed && status != notify.JobPending {
+		if job.RetryKey == "" || !s.claimable(job.LineUserID, now) {
 			continue
 		}
+		s.results[job.LineUserID] = notify.JobResult{Status: notify.JobPending}
+		s.claims[job.LineUserID] = until
 		if len(groups) == 0 || groups[len(groups)-1].RetryKey != job.RetryKey {
 			groups = append(groups, notify.Group{RetryKey: job.RetryKey})
 		}
@@ -136,9 +152,11 @@ func (s *fakeStore) FinishJobs(_ context.Context, _ int64, ids []int64, result n
 	return nil
 }
 
-func (s *fakeStore) Batches(context.Context, int64) ([]notify.Batch, error) { return nil, nil }
+func (s *fakeStore) Batches(context.Context, int64, time.Time) ([]notify.Batch, error) {
+	return nil, nil
+}
 
-func (s *fakeStore) Batch(_ context.Context, id int64) (notify.Batch, error) {
+func (s *fakeStore) Batch(_ context.Context, id int64, now time.Time) (notify.Batch, error) {
 	batch := s.batches[id-1]
 	out := notify.Batch{ID: id, TournamentID: batch.TournamentID, Body: batch.Body, CreatedAt: batch.At}
 	for _, job := range batch.Jobs {
@@ -151,6 +169,9 @@ func (s *fakeStore) Batch(_ context.Context, id int64) (notify.Batch, error) {
 			out.Counts.Failed++
 		case notify.JobPending:
 			out.Counts.Pending++
+		}
+		if s.claimable(job.LineUserID, now) {
+			out.Counts.Resendable++
 		}
 	}
 	return out, nil
@@ -215,7 +236,8 @@ func newService(store *fakeStore, sender *fakeSender, reported *[]error, now *ti
 }
 
 func newFakeStore(recipients []notify.Recipient) *fakeStore {
-	return &fakeStore{recipients: recipients, byKey: map[string]int64{}, results: map[int64]notify.JobResult{}}
+	return &fakeStore{recipients: recipients, byKey: map[string]int64{}, results: map[int64]notify.JobResult{},
+		claims: map[int64]time.Time{}}
 }
 
 func clock() *time.Time {
@@ -236,6 +258,7 @@ func TestSendInChunksAndOnce(t *testing.T) {
 	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err)
 	assert.Equal(t, notify.Counts{Sent: 501, Skipped: 1}, batch.Counts)
+	assert.Equal(t, store.batches[0].At.Add(notify.SendLease), store.batches[0].ClaimedUntil)
 	assert.False(t, batch.CanResend)
 	require.Len(t, sender.calls, 2)
 	assert.Len(t, sender.calls[0].to, notify.MaxMulticast)
@@ -282,7 +305,7 @@ func TestSendRetriesOnlyTemporaryFailures(t *testing.T) {
 	request.RequestKey = "key-2"
 	batch, err = service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err, "the batch is recorded even when LINE refuses it")
-	assert.Equal(t, notify.Counts{Failed: 2}, batch.Counts)
+	assert.Equal(t, notify.Counts{Failed: 2, Resendable: 2}, batch.Counts)
 	assert.Len(t, sender.calls, 1, "a refusal is not retried at once")
 	assert.Contains(t, store.results[1].Error, "returned 400")
 	assert.True(t, batch.CanResend)
@@ -299,7 +322,7 @@ func TestResendUsesTheRecordedGroups(t *testing.T) {
 	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", RequestKey: "key-1"}
 	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err)
-	assert.Equal(t, notify.Counts{Sent: 500, Failed: 1}, batch.Counts)
+	assert.Equal(t, notify.Counts{Sent: 500, Failed: 1, Resendable: 1}, batch.Counts)
 	require.Len(t, sender.calls, 3)
 	failedKey := sender.calls[1].key
 
@@ -311,12 +334,21 @@ func TestResendUsesTheRecordedGroups(t *testing.T) {
 	require.Len(t, sender.calls, 4, "only the group that failed is sent again")
 	assert.Equal(t, multicast{to: []string{"U501"}, text: "ルーキーズファイナル\n\nx", key: failedKey}, sender.calls[3])
 
+	again, err := service.Resend(context.Background(), batch.ID)
+	require.NoError(t, err)
+	assert.Len(t, sender.calls, 4, "nothing is left to resend")
+	assert.Equal(t, notify.Counts{Sent: 501}, again.Counts)
+
 	sender.failures = []error{refused()}
 	request.RequestKey = "key-2"
 	late, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
 	require.NoError(t, err)
-	*now = now.Add(notify.ResendWindow)
+	*now = now.Add(notify.ResendWindow - time.Hour)
 	read, err := service.Batch(context.Background(), late.ID)
+	require.NoError(t, err)
+	assert.True(t, read.CanResend)
+	*now = now.Add(time.Hour)
+	read, err = service.Batch(context.Background(), late.ID)
 	require.NoError(t, err)
 	assert.False(t, read.CanResend, "the retry keys have expired")
 	_, err = service.Resend(context.Background(), late.ID)
@@ -366,4 +398,38 @@ func TestPreviewCountsAndQuota(t *testing.T) {
 	assert.False(t, without.CanSend)
 	assert.Nil(t, without.Quota)
 	assert.Len(t, without.Recipients, 3, "the recipients can be checked without the LINE settings")
+}
+
+// 送っている途中のまとまりは、送っている送信の持ち時間が切れるまで送り直さない(同じキーの要求を
+// LINE に同時に送らない)。切れたら、途中で止まったものとして送り直せる。
+func TestResendWaitsForARunningSend(t *testing.T) {
+	store := newFakeStore(friends(2))
+	now := clock()
+	var reported []error
+	service := newService(store, &fakeSender{}, &reported, now)
+	_, _, err := store.CreateBatch(context.Background(), notify.NewBatch{TournamentID: 1, RequestKey: "running",
+		Body: "大会\n\nx", At: *now, ClaimedUntil: now.Add(notify.SendLease), Jobs: []notify.NewJob{
+			{LineUserID: 1, Status: notify.JobPending, RetryKey: "group-1"},
+			{LineUserID: 2, Status: notify.JobPending, RetryKey: "group-1"},
+		}})
+	require.NoError(t, err)
+	running, err := service.Batch(context.Background(), 1)
+	require.NoError(t, err)
+	assert.False(t, running.CanResend, "another send still holds the group")
+	sender := &fakeSender{}
+	service = newService(store, sender, &reported, now)
+	_, err = service.Resend(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Empty(t, sender.calls)
+
+	*now = now.Add(notify.SendLease + time.Second)
+	stopped, err := service.Batch(context.Background(), 1)
+	require.NoError(t, err)
+	assert.True(t, stopped.CanResend, "the send stopped part way")
+	resent, err := service.Resend(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, sender.calls, 1)
+	assert.Equal(t, []string{"U1", "U2"}, sender.calls[0].to)
+	assert.Equal(t, "group-1", sender.calls[0].key)
+	assert.Equal(t, notify.Counts{Sent: 2}, resent.Counts)
 }

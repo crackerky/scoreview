@@ -22,7 +22,10 @@ CREATE INDEX notification_batches_tournament_idx ON notification_batches (tourna
 -- name と teams は送った時点の宛先の名前と関わるチーム(後で申込が直されても、誰に送ったかが読める
 -- ように)。retry_key は宛先のまとまり(1 回のマルチキャスト)ごとの LINE の送り直しのキーで、送る前に
 -- 決めて残す。送れなかったまとまりを同じキーと同じ宛先で送り直せば、LINE が受け付け済みのまとまりは
--- 送られない(skipped の行は空)。
+-- 送られない(skipped の行は空)。claimed_until は、まとまりを送っている送信(最初の送信か送り直し)が
+-- そのまとまりを持っている期限。期限の間はほかの送り直しが同じキーで同時に送らない(LINE は同じキーの
+-- 要求が同時に届いたときの扱いを決めていない)。期限を過ぎても pending のまとまりは、途中で止まった
+-- ものとして送り直せる。
 CREATE TABLE notification_jobs (
   id             BIGSERIAL PRIMARY KEY,
   batch_id       BIGINT      NOT NULL REFERENCES notification_batches (id) ON DELETE CASCADE,
@@ -32,6 +35,7 @@ CREATE TABLE notification_jobs (
   status         TEXT        NOT NULL CHECK (status IN ('pending', 'sent', 'skipped', 'failed')),
   error          TEXT        NOT NULL DEFAULT '',
   retry_key      TEXT        NOT NULL DEFAULT '',
+  claimed_until  TIMESTAMPTZ,
   sent_at        TIMESTAMPTZ,
   UNIQUE (batch_id, line_user_id)
 );
