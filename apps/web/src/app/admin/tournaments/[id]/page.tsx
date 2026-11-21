@@ -11,6 +11,7 @@ import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, EntryCard, type PrimaryAction, Stat } from '@/components/admin/AdminParts'
 import { entryPaths } from '@/entry/entry.paths'
 import { countByStatus } from '@/entry/entry.utils'
+import { notifyPaths } from '@/notify/notify.paths'
 
 // 大会ホーム(Claude Design「Score View Admin」)。上の画面は要約と入口だけにし、フォームを置かない。
 // 数字の要約(試合中、終わった試合、本部の知らせ)と、本部、部門、時間割、記録係、観戦アプリの表、写真とバナー、
@@ -141,6 +142,13 @@ export default async function AdminTournamentPage(props: IdPageProps) {
             label="申込"
             sub={`申込 ${entryList.entries.length} 件、承認 ${entryCounts.approved} 件。申込で聞く質問もここから`}
             badge={entryCounts.pending > 0 ? `確認待ち ${entryCounts.pending}` : undefined}
+          />
+        ) : null}
+        {isAdmin ? (
+          <EntryCard
+            href={notifyPaths.list(id)}
+            label="公式 LINE で送る"
+            sub="申込の代表やメンバーに、条件を選んで送ります。送った記録もここから"
           />
         ) : null}
         {isAdmin ? (

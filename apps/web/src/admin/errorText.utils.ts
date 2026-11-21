@@ -76,6 +76,17 @@ const rules: readonly Rule[] = [
   },
   { field: /^questions\[(\d+)\]/, text: (_, f) => `質問 ${Number(f[1]) + 1} を確かめてください` },
   { field: /^questions$/, text: '質問は 30 問までです' },
+  { field: /^body$/, reason: /is required/, text: '送る文を書いてください' },
+  { field: /^body$/, reason: /at most/, text: '送る文は 2000 字までです' },
+  { field: /^body$/, text: '送る文に使えない文字が入っています。貼り付けた文を確かめてください' },
+  {
+    field: /^audience$/,
+    reason: /no one who can receive/,
+    text: 'この条件で送れる人がいません(ブロックしている人には送れません)',
+  },
+  // kind と status はほかの画面でも使う項目名なので、宛先の条件の理由(reps を含む)に限る
+  { field: /^(audience|kind|status)$/, reason: /reps/, text: '宛先の条件を選び直してください' },
+  { field: /^requestKey$/, text: '送る画面を開き直してから送ってください' },
 ]
 
 /** conflict の英語の理由を運営の言葉にする規則(申込など、理由を英語で返す口) */
@@ -102,6 +113,12 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
     reason: /cannot (approve|return|cancel) an entry/,
     text: 'この申込の今の状態では、その操作はできません。画面を開き直してください',
   },
+  { reason: /LINE settings are missing/, text: '公式 LINE の設定が無いので送れません' },
+  {
+    reason: /are left this month/,
+    text: '今月の残りの配信数が足りないので、送りませんでした。宛先を絞ってください',
+  },
+  { reason: /request key was used/, text: '送る画面を開き直してから送ってください' },
 ]
 
 /** 項目の運営の言葉(どの規則にも当たらないときの文に使う) */

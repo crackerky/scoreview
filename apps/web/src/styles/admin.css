@@ -2282,3 +2282,56 @@
   font-size: 13.5px;
   line-height: 1.7;
 }
+
+/* 公式 LINE で送る: 宛先の行(リンクでない行)、宛先の条件の選択、届く形の見本 */
+.adm .adm-rows li.adm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 16px;
+}
+
+.adm .adm-audience {
+  align-items: flex-start;
+  margin: 0 0 10px;
+}
+
+.adm .adm-audience small {
+  display: block;
+  font-size: 12.5px;
+}
+
+.adm-recipients {
+  margin: 0 0 22px;
+}
+
+.adm-recipients > summary {
+  min-height: var(--adm-tap);
+  margin: 0 0 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.adm-bubble-preview {
+  margin: 0 0 22px;
+}
+
+.adm-bubble-preview figcaption {
+  margin: 0 0 6px;
+  color: var(--adm-muted);
+  font-size: 13px;
+}
+
+/* LINE のトークの吹き出しに寄せる(白地の角丸。改行は文のとおり) */
+.adm .adm-bubble {
+  max-width: 32em;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-line);
+  border-radius: 18px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}

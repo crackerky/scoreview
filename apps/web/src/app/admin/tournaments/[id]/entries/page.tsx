@@ -15,6 +15,7 @@ import {
   statusLabels,
   statusTones,
 } from '@/entry/entry.utils'
+import { notifyPaths } from '@/notify/notify.paths'
 
 // 申込一覧(Lイベントの「顧客」にあたる)。大会に届いた申込を受けた順に並べ、状態で絞る。押すと申込の
 // 中身と承認の画面を開く。管理者だけ(代表の連絡先が入るため)。
@@ -62,6 +63,10 @@ export default async function EntriesPage(props: IdPageProps) {
       </div>
       <p className="adm-links">
         <a href={entryPaths.questions(id)}>申込で聞く質問を決める</a>
+        {' ・ '}
+        <a href={notifyPaths.createFor(id, { kind: 'reps', status: '', divisionId: null })}>
+          公式 LINE で代表に送る
+        </a>
         {list.entries.length > 0 ? (
           <>
             {' ・ '}
