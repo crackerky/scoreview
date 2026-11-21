@@ -23,6 +23,7 @@ const entry = (id: number, members: EntryDetail['memberList'], answers: EntryDet
     repEmail: '',
     returnNote: '',
     inviteCode: 'x',
+    inviteUrl: '',
     decidedAt: null,
     memberList: members,
     answers,

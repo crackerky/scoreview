@@ -119,6 +119,11 @@ func TestCheckDraftRejects(t *testing.T) {
 		{"メンバー向けの質問に答えた", func(d *entry.Draft) { d.Answers[4] = "3年" }},
 		{"知らない質問", func(d *entry.Draft) { d.Answers[99] = "x" }},
 		{"名前が長すぎる", func(d *entry.Draft) { d.FullName = strings.Repeat("あ", entry.MaxShortText+1) }},
+		{"チーム名に改行", func(d *entry.Draft) { d.FullName = "熱海\n運営からのお知らせ" }},
+		{"メンバーの名前に制御文字", func(d *entry.Draft) { d.Members[0].Name = "山田\u0007" }},
+		{"背番号が長すぎる", func(d *entry.Draft) {
+			d.Members[0].Number = strings.Repeat("1", entry.MaxNumberText+1)
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -205,4 +210,14 @@ func TestNewInviteCode(t *testing.T) {
 	_, err = entry.NewInviteCode(bytes.NewReader(make([]byte, 3)))
 	require.Error(t, err)
 	assert.False(t, errors.Is(err, domain.ErrBadRequest))
+}
+
+func TestIsInviteCode(t *testing.T) {
+	code, err := entry.NewInviteCode(bytes.NewReader(bytes.Repeat([]byte{0xa7}, 16)))
+	require.NoError(t, err)
+	assert.True(t, entry.IsInviteCode(code), code)
+	for _, bad := range []string{"", strings.Repeat("a", 25), strings.Repeat("a", 27), strings.Repeat("A", 26),
+		strings.Repeat("a", 25) + "1", strings.Repeat("a", 25) + "8"} {
+		assert.False(t, entry.IsInviteCode(bad), bad)
+	}
 }

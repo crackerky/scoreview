@@ -24,7 +24,7 @@ const (
 	sqlQuestionsNotIn    = "tournament_id = ? AND id NOT IN ?"
 	sqlOrderSubmitted    = "submitted_at, id"
 	sqlSelectAnswerCount = "question_id, count(*) AS answered"
-	sqlSelectMemberCount = "team_entry_id, count(*) AS members, count(user_id) AS registered"
+	sqlSelectMemberCount = "team_entry_id, count(*) AS members, count(line_user_id) AS registered"
 	sqlSelectMaxSort     = "COALESCE(MAX(sort_order), 0)"
 	sqlGroupQuestion     = "question_id"
 	sqlGroupTeamEntry    = "team_entry_id"
@@ -57,7 +57,7 @@ type TeamEntry struct {
 	RepName       string     `gorm:"column:rep_name"`
 	RepPhone      string     `gorm:"column:rep_phone"`
 	RepEmail      string     `gorm:"column:rep_email"`
-	RepUserID     *int64     `gorm:"column:rep_user_id"`
+	RepLineUserID *int64     `gorm:"column:rep_line_user_id"`
 	Channel       string     `gorm:"column:channel"`
 	Status        string     `gorm:"column:status"`
 	ReturnNote    string     `gorm:"column:return_note"`
@@ -77,7 +77,7 @@ func (TeamEntry) TableName() string { return "team_entries" }
 type MemberEntry struct {
 	ID          int64     `gorm:"column:id;primaryKey"`
 	TeamEntryID int64     `gorm:"column:team_entry_id"`
-	UserID      *int64    `gorm:"column:user_id"`
+	LineUserID  *int64    `gorm:"column:line_user_id"`
 	Name        string    `gorm:"column:name"`
 	Number      string    `gorm:"column:number"`
 	PlayerID    *int64    `gorm:"column:player_id"`
@@ -125,7 +125,8 @@ func (s *EntryStore) Tournament(ctx context.Context, id int64) (entry.Tournament
 	if err != nil {
 		return entry.Tournament{}, fmt.Errorf("load divisions of tournament %d: %w", id, err)
 	}
-	out := entry.Tournament{ID: row.ID, Status: row.Status, Divisions: make([]entry.Division, len(divisions))}
+	out := entry.Tournament{ID: row.ID, Name: row.NameJa, Status: row.Status,
+		Divisions: make([]entry.Division, len(divisions))}
 	for i, division := range divisions {
 		out.Divisions[i] = entry.Division{ID: division.ID, Name: i18n(division.NameJa, division.NameEn)}
 	}
@@ -233,7 +234,8 @@ func (s *EntryStore) Create(
 		row := TeamEntry{TournamentID: tournamentID, DivisionID: newEntry.DivisionID,
 			TeamNameFull: newEntry.FullName, TeamNameShort: newEntry.ShortName, RepName: newEntry.RepName,
 			RepPhone: newEntry.RepPhone, RepEmail: newEntry.RepEmail, Channel: string(newEntry.Channel),
-			Status: string(entry.StatusPending), InviteCode: newEntry.InviteCode, SubmittedAt: newEntry.At}
+			RepLineUserID: newEntry.RepLineUserID,
+			Status:        string(entry.StatusPending), InviteCode: newEntry.InviteCode, SubmittedAt: newEntry.At}
 		if err := tx.Create(&row).Error; err != nil {
 			return writeError("create entry: a team with the same name has already applied", err)
 		}
@@ -425,8 +427,8 @@ func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.De
 }
 
 func toEntryMember(row MemberEntry) entry.Member {
-	return entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.UserID != nil,
-		PlayerID: row.PlayerID}
+	return entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.LineUserID != nil,
+		PlayerID: row.PlayerID, LineUserID: row.LineUserID}
 }
 
 func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.Member, error) {
@@ -447,7 +449,8 @@ func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.M
 // 承認では、部門の行を先にロックしてから(大会の形の適用や組分けとチームの数を食い違わせないため。
 // ロックの順序は locks.go)、申込の行をロックする。申込が decision.From の状態でなければ、読んでから
 // 別の運営が変えたので domain.ErrConflict にする。承認するメンバーが読んだときと違っても(その間に
-// メンバーが登録した)同じく domain.ErrConflict にし、読み直してから承認させる。
+// メンバーが登録して、行が増えたか名前や背番号を直した)同じく domain.ErrConflict にし、読み直してから
+// 承認させる(選手を古い名前で作らないため)。
 func (s *EntryStore) Decide(ctx context.Context, id int64, decision entry.Decision) (entry.Detail, error) {
 	var out entry.Detail
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -542,7 +545,8 @@ func sameEntryMembers(members []entry.Member, players []entry.ApprovedPlayer) bo
 		return false
 	}
 	for i, member := range members {
-		if member.ID != players[i].MemberID {
+		player := players[i]
+		if member.ID != player.MemberID || member.Name != player.Name || member.Number != player.Number {
 			return false
 		}
 	}

@@ -6,13 +6,14 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"scoreview/api/internal/domain"
 )
 
 // 申込の上限。現実の値を十分に超える範囲で、保存の前に検証エラーにする(大きすぎる入力で DB と画面を
-// 重くしないため)。web の zod(apps/web/src/api/admin.types.ts の同名の定数)と揃える。
+// 重くしないため)。web の entryLimits(apps/web/src/api/entry.types.ts)と揃える。
 const (
 	// MaxQuestions は大会 1 つの質問の数。Lイベントの申込フォームでも 10 問前後が普通
 	MaxQuestions = 30
@@ -22,6 +23,8 @@ const (
 	MaxMembers = 60
 	// MaxShortText は名前や短い答えの文字数
 	MaxShortText = 100
+	// MaxNumberText は背番号の文字数(「00」や「#7」のような書き方も入る長さ)
+	MaxNumberText = 10
 	// MaxLongText は長い答えと差し戻しの理由の文字数
 	MaxLongText = 2000
 	// MaxNumber は数の答えの絶対値の上限
@@ -76,7 +79,7 @@ func CheckQuestions(questions, current []Question) ([]Question, error) {
 func checkQuestion(field string, question Question) (Question, error) {
 	out := question
 	out.Label = strings.TrimSpace(question.Label)
-	if err := checkText(field+".label", out.Label, MaxShortText*2, true); err != nil {
+	if err := checkLine(field+".label", out.Label, MaxShortText*2, true); err != nil {
 		return Question{}, err
 	}
 	switch question.Scope {
@@ -111,7 +114,7 @@ func checkOptions(field string, options []string) ([]string, error) {
 	seen := make(map[string]bool, len(options))
 	for i, option := range options {
 		value := strings.TrimSpace(option)
-		if err := checkText(fmt.Sprintf("%s[%d]", field, i), value, MaxShortText, true); err != nil {
+		if err := checkLine(fmt.Sprintf("%s[%d]", field, i), value, MaxShortText, true); err != nil {
 			return nil, err
 		}
 		if seen[value] {
@@ -144,7 +147,7 @@ func CheckDraft(draft Draft, tournament Tournament, questions []Question) (Draft
 	}
 	for _, text := range texts {
 		*text.value = strings.TrimSpace(*text.value)
-		if err := checkText(text.field, *text.value, MaxShortText, text.required); err != nil {
+		if err := checkLine(text.field, *text.value, MaxShortText, text.required); err != nil {
 			return Draft{}, nil, err
 		}
 	}
@@ -178,10 +181,10 @@ func checkMembers(members []MemberDraft) ([]MemberDraft, error) {
 	for i, member := range members {
 		field := fmt.Sprintf("members[%d]", i)
 		name, number := strings.TrimSpace(member.Name), strings.TrimSpace(member.Number)
-		if err := checkText(field+".name", name, MaxShortText, true); err != nil {
+		if err := checkLine(field+".name", name, MaxShortText, true); err != nil {
 			return nil, err
 		}
-		if err := checkText(field+".number", number, 10, false); err != nil {
+		if err := checkLine(field+".number", number, MaxNumberText, false); err != nil {
 			return nil, err
 		}
 		if number != "" {
@@ -230,7 +233,7 @@ func CheckAnswers(questions []Question, scope Scope, answers map[int64]string) (
 func checkAnswer(field string, question Question, value string) error {
 	switch question.Kind {
 	case KindShortText:
-		return checkText(field, value, MaxShortText*2, true)
+		return checkLine(field, value, MaxShortText*2, true)
 	case KindLongText:
 		return checkText(field, value, MaxLongText, true)
 	case KindNumber:
@@ -262,6 +265,18 @@ func checkText(field, value string, maxRunes int, required bool) error {
 	}
 	if utf8.RuneCountInString(value) > maxRunes {
 		return domain.Invalid(field, fmt.Sprintf("must be at most %d characters", maxRunes))
+	}
+	return nil
+}
+
+// checkLine は 1 行の文(名前、チーム名、短い答え)を確かめる。checkText に加えて、改行と制御文字を
+// 拒む。チーム名は公式アカウントの返信の文に入るので、改行で運営の名義の文や URL を足させないため。
+func checkLine(field, value string, maxRunes int, required bool) error {
+	if err := checkText(field, value, maxRunes, required); err != nil {
+		return err
+	}
+	if strings.ContainsFunc(value, unicode.IsControl) {
+		return domain.Invalid(field, "must not contain line breaks or control characters")
 	}
 	return nil
 }
@@ -342,6 +357,23 @@ func NewInviteCode(random io.Reader) (string, error) {
 	if _, err := io.ReadFull(random, buf); err != nil {
 		return "", fmt.Errorf("read random bytes for invite code: %w", err)
 	}
-	code := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
-	return strings.ToLower(code), nil
+	return strings.ToLower(inviteEncoding().EncodeToString(buf)), nil
+}
+
+// IsInviteCode は code が NewInviteCode の作る形(base32 の英小文字と 2〜7 の数字を 26 文字)かどうか。
+// 形の違うものは DB に聞かずに「見つからない」にできる。
+func IsInviteCode(code string) bool {
+	if len(code) != inviteEncoding().EncodedLen(inviteCodeBytes) {
+		return false
+	}
+	for _, char := range code {
+		if (char < 'a' || char > 'z') && (char < '2' || char > '7') {
+			return false
+		}
+	}
+	return true
+}
+
+func inviteEncoding() *base32.Encoding {
+	return base32.StdEncoding.WithPadding(base32.NoPadding)
 }

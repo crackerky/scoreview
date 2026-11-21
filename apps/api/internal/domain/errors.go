@@ -52,6 +52,8 @@ const (
 	ResourceGallery    Resource = "TGALLERY_ID"
 	// ResourceEntry は大会への申込(本サイト独自。参照サイトに申込は無い)
 	ResourceEntry Resource = "TEAM_ENTRY_ID"
+	// ResourceEntryLink は本人用のリンク。期限切れも見つからないものとして扱う(ID は出さない)
+	ResourceEntryLink Resource = "ENTRY_LINK"
 )
 
 // NotFoundError は ID が存在しないことを表す。errors.Is(err, ErrNotFound) が真になる。

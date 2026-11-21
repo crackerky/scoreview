@@ -3,8 +3,8 @@
 // 依存の向きは httpapi → entry ← store。httpapi は Desk だけを知り、記録の読み書き(Store)は store が
 // GORM で実装する。このパッケージは、申込の中身の検査、大会ごとの質問への答えの検査、申込の状態の
 // 移り方、承認で作るチームと選手の形といった決まりだけを持ち、HTTP も DB も知らない。申込の入口は
-// 管理画面の代理入力と LINE(LIFF)の 2 つになるが、どちらも Desk.Submit を通るので決まりは 1 か所に
-// 保たれる(docs/line-integration.md)。
+// 管理画面の代理入力(Desk.Submit)と、公式 LINE が返す本人用のリンク(Desk.SubmitByLink)の 2 つで、
+// どちらも同じ受付(Service.submit)を通るので決まりは 1 か所に保たれる(docs/line-integration.md)。
 package entry
 
 import (
@@ -85,9 +85,10 @@ type Question struct {
 	Answered int
 }
 
-// Tournament は申込を受ける大会。
+// Tournament は申込を受ける大会。Name は日本語の名前。
 type Tournament struct {
 	ID        int64
+	Name      string
 	Status    domain.TournamentStatus
 	Divisions []Division
 }
@@ -132,18 +133,33 @@ type NewEntry struct {
 	RepEmail   string
 	Members    []MemberDraft
 	Channel    Channel
-	InviteCode string
+	// RepLineUserID は LINE から申し込んだ代表の line_users の行の ID。運営の代理入力なら nil
+	RepLineUserID *int64
+	InviteCode    string
+	Answers       []Answer
+	At            time.Time
+}
+
+// Resubmission は Store に保存させる、差し戻した申込の直し。中身は検査と整形を済ませてある(メンバーは
+// 代表が書いた並びで、本人が登録した行との合わせ方は Store がロックの中で PlanMembers で決める)。
+// Registered は代表がフォームを開いたときに本人が登録していた行の ID で、Store はロックの中の登録と
+// 比べる(その間に登録したメンバーが名前を直していると、代表の書いた名前と突き合わせられないため)。
+type Resubmission struct {
+	Draft      Draft
 	Answers    []Answer
+	Registered []int64
 	At         time.Time
 }
 
-// Member はメンバーエントリー。Registered はメンバー本人が LINE で登録したか。
+// Member はメンバーエントリー。Registered はメンバー本人が LINE で登録したか。LineUserID はその人の
+// line_users の行の ID(本人用のリンクで「自分の行」を見分けるため。画面には出さない)。
 type Member struct {
 	ID         int64
 	Name       string
 	Number     string
 	Registered bool
 	PlayerID   *int64
+	LineUserID *int64
 }
 
 // Summary は申込一覧の 1 件。
@@ -169,9 +185,12 @@ type Detail struct {
 	RepEmail     string
 	ReturnNote   string
 	InviteCode   string
-	DecidedAt    *time.Time
-	MemberList   []Member
-	Answers      []Answer
+	// InviteURL はメンバーの招待リンク(公式アカウントのトークを「参加 招待コード」の入った状態で開く)。
+	// 公式アカウントのベーシック ID を設定していなければ空
+	InviteURL  string
+	DecidedAt  *time.Time
+	MemberList []Member
+	Answers    []Answer
 }
 
 // Decision は申込の状態の変更。Store は申込が From の状態のときだけ To に変える(同時に別の運営が
@@ -218,6 +237,27 @@ type Desk interface {
 	Decide(ctx context.Context, id int64, action Action, note string, actor domain.Actor) (Detail, error)
 	// Export は大会の質問と、申込の全部(中身つき、受けた順)を返す。書き出し(CSV)のため
 	Export(ctx context.Context, tournamentID int64) (Export, error)
+	// LinkView は本人用のリンクで開く画面に要るものを返す。期限切れと見つからないリンクは domain.NotFound
+	LinkView(ctx context.Context, token string) (LinkView, error)
+	// SubmitByLink は本人用のリンクから代表の申込を受け付ける(LINE からの申込)
+	SubmitByLink(ctx context.Context, token string, draft Draft) (Detail, error)
+	// ResubmitByLink は差し戻された申込を、本人用のリンクから代表が直して送り直す。申込は申込中に戻る。
+	// registered は代表がフォームを開いたときに本人が登録していたメンバーの行の ID。この代表のこの大会の
+	// 申込でなければ domain.NotFound、差し戻しでないか、本人の登録がその後に変わっていれば domain.ErrConflict
+	ResubmitByLink(ctx context.Context, token string, entryID int64, draft Draft, registered []int64) (Detail, error)
+	// JoinByLink は本人用のリンクからメンバー登録を受け付け、登録後の画面を返す
+	JoinByLink(ctx context.Context, token string, draft JoinDraft) (MemberForm, error)
+}
+
+// Links は公式アカウントのトークの受け答え(talk)が使う、本人用のリンクの発行。Service が実装する。
+type Links interface {
+	// IssueTeamLinks は代表の申込のリンクを、申込を受け付けている大会と、この人が申込を出した大会
+	// (受付を締めた後も、承認や差し戻しを見て招待を送れるように。終わった大会は除く)ごとに発行する。
+	// 大会は開催日の順
+	IssueTeamLinks(ctx context.Context, lineUserID int64) ([]TournamentLink, error)
+	// IssueMemberLink は招待コードのチームへのメンバー登録のリンクを発行する。招待コードが無ければ
+	// domain.NotFound、取り消した申込なら domain.ErrConflict
+	IssueMemberLink(ctx context.Context, lineUserID int64, inviteCode string) (IssuedLink, error)
 }
 
 // Export は書き出す大会の申込。
@@ -244,4 +284,24 @@ type Store interface {
 	Details(ctx context.Context, tournamentID int64) ([]Detail, error)
 	// Decide は Decision を当てる(Decision の説明を参照)
 	Decide(ctx context.Context, id int64, decision Decision) (Detail, error)
+	// LinkTournaments は一覧に載せていて申込を受け付けている(状態が entry_open の)大会と、この LINE の
+	// 人が代表として取り消していない申込を出した、終わっていない大会を、開催日の順に読む
+	LinkTournaments(ctx context.Context, lineUserID int64) ([]TournamentRef, error)
+	// SaveLink は本人用のリンクを、合言葉の SHA-256 とともに保存する
+	SaveLink(ctx context.Context, tokenHash []byte, link Link) error
+	// FindLink は合言葉の SHA-256 から本人用のリンクを読む。無ければ domain.NotFound
+	FindLink(ctx context.Context, tokenHash []byte) (Link, error)
+	// FindByInvite は招待コードの申込を読む。無ければ domain.NotFound
+	FindByInvite(ctx context.Context, inviteCode string) (Summary, error)
+	// RepEntries は大会にこの LINE の人が代表として出した申込を、受けた順に中身つきで読む
+	RepEntries(ctx context.Context, tournamentID, lineUserID int64) ([]Detail, error)
+	// MemberAnswers はメンバーエントリーの答えを読む
+	MemberAnswers(ctx context.Context, memberID int64) ([]Answer, error)
+	// Join はメンバー登録を当てる。代表の行を選んだならその行に LINE の人を結び、名前と背番号を直す。
+	// その行がこの間に別の人に結ばれていたら domain.ErrConflict。背番号の重なりはロックの中で確かめ直す。
+	// 承認した申込なら選手も直す(無ければ作る)
+	Join(ctx context.Context, join Join) error
+	// Resubmit は差し戻した申込を直した中身で置き換え、申込中に戻す。申込がこの間に差し戻しでなく
+	// なっていたら domain.ErrConflict。メンバーの行はロックの中で PlanMembers に沿って変える
+	Resubmit(ctx context.Context, id int64, resubmission Resubmission) (Detail, error)
 }

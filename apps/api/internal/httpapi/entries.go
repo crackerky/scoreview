@@ -95,6 +95,7 @@ type entryDetailDTO struct {
 	RepEmail     string           `json:"repEmail"`
 	ReturnNote   string           `json:"returnNote"`
 	InviteCode   string           `json:"inviteCode"`
+	InviteURL    string           `json:"inviteUrl"`
 	DecidedAt    *time.Time       `json:"decidedAt"`
 	MemberList   []entryMemberDTO `json:"memberList"`
 	Answers      []entryAnswerDTO `json:"answers"`
@@ -151,7 +152,7 @@ func toEntrySummary(summary entry.Summary) entrySummaryDTO {
 func toEntryDetail(detail entry.Detail) entryDetailDTO {
 	out := entryDetailDTO{entrySummaryDTO: toEntrySummary(detail.Summary), TournamentID: detail.TournamentID,
 		RepPhone: detail.RepPhone, RepEmail: detail.RepEmail, ReturnNote: detail.ReturnNote,
-		InviteCode: detail.InviteCode, DecidedAt: detail.DecidedAt,
+		InviteCode: detail.InviteCode, InviteURL: detail.InviteURL, DecidedAt: detail.DecidedAt,
 		MemberList: make([]entryMemberDTO, len(detail.MemberList)), Answers: toEntryAnswers(detail.Answers)}
 	for i, member := range detail.MemberList {
 		out.MemberList[i] = toEntryMember(member)

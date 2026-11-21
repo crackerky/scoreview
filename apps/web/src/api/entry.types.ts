@@ -9,6 +9,7 @@ export const entryLimits = {
   maxOptions: 30,
   maxMembers: 60,
   maxShortText: 100,
+  maxNumberText: 10,
   maxLongText: 2000,
 } as const
 
@@ -52,25 +53,64 @@ export type EntrySummary = z.infer<typeof entrySummarySchema>
 
 export const entryListSchema = z.object({ entries: z.array(entrySummarySchema) })
 
+const entryMemberSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  number: z.string(),
+  registered: z.boolean(),
+  playerId: z.number().int().nullable(),
+})
+export type EntryMember = z.infer<typeof entryMemberSchema>
+
+const entryAnswerSchema = z.object({ questionId: z.number().int(), value: z.string() })
+
 export const entryDetailSchema = entrySummarySchema.extend({
   tournamentId: z.number().int(),
   repPhone: z.string(),
   repEmail: z.string(),
   returnNote: z.string(),
   inviteCode: z.string(),
+  inviteUrl: z.string(),
   decidedAt: z.string().nullable(),
-  memberList: z.array(
-    z.object({
-      id: z.number().int(),
-      name: z.string(),
-      number: z.string(),
-      registered: z.boolean(),
-      playerId: z.number().int().nullable(),
-    }),
-  ),
-  answers: z.array(z.object({ questionId: z.number().int(), value: z.string() })),
+  memberList: z.array(entryMemberSchema),
+  answers: z.array(entryAnswerSchema),
 })
 export type EntryDetail = z.infer<typeof entryDetailSchema>
+
+export const entryLinkMemberSchema = z.object({
+  tournamentName: z.string(),
+  team: entrySummarySchema,
+  questions: z.array(entryQuestionSchema),
+  unclaimed: z.array(entryMemberSchema),
+  mine: entryMemberSchema.nullable(),
+  mineAnswers: z.array(entryAnswerSchema),
+  expiresAt: z.string(),
+})
+export type EntryLinkMember = z.infer<typeof entryLinkMemberSchema>
+
+export const entryLinkSchema = z.object({
+  purpose: z.enum(['team', 'member']),
+  team: z
+    .object({
+      tournament: z.object({ id: z.number().int(), name: z.string() }),
+      open: z.boolean(),
+      divisions: z.array(z.object({ id: z.number().int(), name: i18nTextSchema })),
+      questions: z.array(entryQuestionSchema),
+      mine: z.array(entryDetailSchema),
+      expiresAt: z.string(),
+    })
+    .nullable(),
+  member: entryLinkMemberSchema.nullable(),
+})
+export type EntryLink = z.infer<typeof entryLinkSchema>
+
+/** 本人用のリンクからのメンバー登録 */
+export type EntryJoinInput = {
+  memberId: number | null
+  name: string
+  number: string
+  answers: Array<{ questionId: number; value: string }>
+}
 
 export const entryExportSchema = z.object({
   questions: z.array(entryQuestionSchema),
@@ -80,6 +120,9 @@ export type EntryExport = z.infer<typeof entryExportSchema>
 
 /** 保存する質問。id が null なら新しく作る */
 export type EntryQuestionInput = Omit<EntryQuestion, 'id' | 'answered'> & { id: number | null }
+
+/** 差し戻した申込の送り直し。registeredIds は画面を開いたときに本人が登録していたメンバーの行 */
+export type EntryResubmitInput = EntryDraftInput & { registeredIds: number[] }
 
 /** 運営が代わりに入れる申込 */
 export type EntryDraftInput = {

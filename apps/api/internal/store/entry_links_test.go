@@ -1,0 +1,308 @@
+package store_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/entry"
+	"scoreview/api/internal/store"
+	"scoreview/api/internal/store/storetest"
+)
+
+type linkFixture struct {
+	entryFixture
+	now  *time.Time
+	desk *entry.Service
+}
+
+func newLinkFixture(t *testing.T) linkFixture {
+	t.Helper()
+	base := newEntryFixture(t)
+	now := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	clock := &now
+	desk := entry.NewService(store.NewEntryStore(base.db), entry.WithRandom(&counter{}),
+		entry.WithClock(func() time.Time { return *clock }),
+		entry.WithInviteURL(func(code string) string { return "invite:" + code }))
+	return linkFixture{entryFixture: base, now: clock, desk: desk}
+}
+
+// lineUser は公式アカウントの友だちの行を作り、その ID を返す(Webhook を受けたときに talk が作る行)。
+func (f linkFixture) lineUser(t *testing.T, id string) int64 {
+	t.Helper()
+	row := store.LineUser{LineUserID: id, Friend: true, CreatedAt: *f.now, UpdatedAt: *f.now}
+	require.NoError(t, f.db.Create(&row).Error)
+	return row.ID
+}
+
+// teamLink は lineUser に代表の申込のリンクを発行し、大会 tournamentID のリンクを返す。
+func (f linkFixture) teamLink(t *testing.T, lineUser, tournamentID int64) entry.TournamentLink {
+	t.Helper()
+	links, err := f.desk.IssueTeamLinks(context.Background(), lineUser)
+	require.NoError(t, err)
+	for _, link := range links {
+		if link.Tournament.ID == tournamentID {
+			return link
+		}
+	}
+	require.FailNow(t, "no link for the tournament", "tournament %d in %v", tournamentID, links)
+	return entry.TournamentLink{}
+}
+
+func linkedTournaments(t *testing.T, f linkFixture, lineUser int64) []int64 {
+	t.Helper()
+	links, err := f.desk.IssueTeamLinks(context.Background(), lineUser)
+	require.NoError(t, err)
+	ids := make([]int64, len(links))
+	for i, link := range links {
+		ids[i] = link.Tournament.ID
+	}
+	return ids
+}
+
+func TestEntryLinkTeamFlow(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	rep := f.lineUser(t, "Urep")
+
+	link := f.teamLink(t, rep, f.tournament.ID)
+	assert.Equal(t, f.now.Add(entry.LinkLifetime), link.ExpiresAt)
+
+	view, err := f.desk.LinkView(ctx, link.Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Team)
+	assert.True(t, view.Team.Open)
+	assert.Empty(t, view.Team.Mine)
+
+	submitted, err := f.desk.SubmitByLink(ctx, link.Token, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	assert.Equal(t, entry.ChannelLine, submitted.Channel)
+	assert.Equal(t, "invite:"+submitted.InviteCode, submitted.InviteURL)
+
+	view, err = f.desk.LinkView(ctx, link.Token)
+	require.NoError(t, err)
+	require.Len(t, view.Team.Mine, 1, "the representative sees what they submitted")
+	assert.Equal(t, submitted.ID, view.Team.Mine[0].ID)
+
+	// ほかの人のリンクからは見えない
+	other := f.teamLink(t, f.lineUser(t, "Uother"), f.tournament.ID)
+	view, err = f.desk.LinkView(ctx, other.Token)
+	require.NoError(t, err)
+	assert.Empty(t, view.Team.Mine)
+
+	// 期限が切れたら見つからないのと同じ
+	*f.now = f.now.Add(entry.LinkLifetime)
+	_, err = f.desk.LinkView(ctx, link.Token)
+	var notFound *domain.NotFoundError
+	require.ErrorAs(t, err, &notFound)
+	_, err = f.desk.SubmitByLink(ctx, link.Token, f.draft("別のチーム", nil))
+	require.ErrorAs(t, err, &notFound)
+	_, err = f.desk.LinkView(ctx, "unknown")
+	require.ErrorAs(t, err, &notFound)
+}
+
+func TestEntryLinkTournaments(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	b := storetest.New(t, f.db)
+	b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryClosed })
+	b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryOpen; row.Listed = false })
+	rep, stranger := f.lineUser(t, "Urep"), f.lineUser(t, "Ustranger")
+	assert.Equal(t, []int64{f.tournament.ID}, linkedTournaments(t, f, rep),
+		"only open, listed tournaments for someone who has not applied")
+
+	// 受付を締めた後も、申込を出した代表には、その大会のリンクを出す(承認や差し戻しを見るため)
+	_, err := f.desk.SubmitByLink(ctx, f.teamLink(t, rep, f.tournament.ID).Token, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	require.NoError(t, f.db.Model(&store.Tournament{}).Where("id = ?", f.tournament.ID).
+		Update("status", domain.TournamentEntryClosed).Error)
+	assert.Equal(t, []int64{f.tournament.ID}, linkedTournaments(t, f, rep))
+	assert.Empty(t, linkedTournaments(t, f, stranger))
+	view, err := f.desk.LinkView(ctx, f.teamLink(t, rep, f.tournament.ID).Token)
+	require.NoError(t, err)
+	assert.False(t, view.Team.Open)
+	assert.Len(t, view.Team.Mine, 1)
+
+	// 大会が終わったら出さない
+	require.NoError(t, f.db.Model(&store.Tournament{}).Where("id = ?", f.tournament.ID).
+		Update("status", domain.TournamentFinished).Error)
+	assert.Empty(t, linkedTournaments(t, f, rep))
+}
+
+func TestEntryLinkResubmit(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	rep := f.lineUser(t, "Urep")
+	link := f.teamLink(t, rep, f.tournament.ID)
+	draft := f.draft("熱海ディスクス", nil)
+	draft.Members = append(draft.Members, entry.MemberDraft{Name: "鈴木 一郎", Number: "3"})
+	submitted, err := f.desk.SubmitByLink(ctx, link.Token, draft)
+	require.NoError(t, err)
+	_, err = f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("伊東", nil))
+	require.NoError(t, err)
+
+	// 佐藤 花子が本人登録してから、運営が差し戻す
+	member, err := f.desk.IssueMemberLink(ctx, f.lineUser(t, "Uhanako"), submitted.InviteCode)
+	require.NoError(t, err)
+	sato := submitted.MemberList[1].ID
+	_, err = f.desk.JoinByLink(ctx, member.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤 花子", Number: "12"})
+	require.NoError(t, err)
+	seen := []int64{sato} // 代表が送り直しのフォームを開いたときに、本人が登録していた人
+	_, err = f.desk.ResubmitByLink(ctx, link.Token, submitted.ID, draft, seen)
+	require.ErrorIs(t, err, domain.ErrConflict, "a pending entry is not resubmitted")
+	_, err = f.desk.Decide(ctx, submitted.ID, entry.ActionReturn, "チーム名を正式名に", f.admin)
+	require.NoError(t, err)
+
+	// ほかの人のリンクからは、見つからないのと同じ
+	var notFound *domain.NotFoundError
+	_, err = f.desk.ResubmitByLink(ctx, f.teamLink(t, f.lineUser(t, "Uother"), f.tournament.ID).Token,
+		submitted.ID, draft, seen)
+	require.ErrorAs(t, err, &notFound)
+	// 同じ部門のほかの申込と同じ名前には直せない
+	renamed := draft
+	renamed.FullName = "伊東"
+	_, err = f.desk.ResubmitByLink(ctx, link.Token, submitted.ID, renamed, seen)
+	require.ErrorIs(t, err, domain.ErrConflict)
+	// フォームを開いた後に本人の登録が変わっていたら(ここでは開いたときに佐藤の登録を知らなかった)、
+	// 代表が書いた名前と突き合わせられないので、開き直させる
+	_, err = f.desk.ResubmitByLink(ctx, link.Token, submitted.ID, draft, nil)
+	require.ErrorIs(t, err, domain.ErrConflict)
+
+	fixed := draft
+	fixed.FullName = "熱海ディスクス フライングクラブ"
+	fixed.Members = []entry.MemberDraft{{Name: "田中 次郎", Number: "8"}, {Name: "山田 太郎", Number: "70"}}
+	resubmitted, err := f.desk.ResubmitByLink(ctx, link.Token, submitted.ID, fixed, seen)
+	require.NoError(t, err)
+	assert.Equal(t, entry.StatusPending, resubmitted.Status)
+	assert.Empty(t, resubmitted.ReturnNote, "a pending entry has no return note")
+	assert.Nil(t, resubmitted.DecidedAt)
+	assert.Equal(t, "熱海ディスクス フライングクラブ", resubmitted.FullName)
+	assert.Equal(t, submitted.InviteCode, resubmitted.InviteCode, "the invite stays the same")
+	got := map[string]string{}
+	for _, m := range resubmitted.MemberList {
+		got[m.Name] = m.Number
+	}
+	assert.Equal(t, map[string]string{"佐藤 花子": "12", "田中 次郎": "8", "山田 太郎": "70"}, got,
+		"the registered member stays; 鈴木 is dropped")
+	assert.Equal(t, sato, resubmitted.MemberList[0].ID)
+	assert.True(t, resubmitted.MemberList[0].Registered)
+	assert.Equal(t, submitted.MemberList[0].ID, resubmitted.MemberList[2].ID, "山田's row is reused")
+}
+
+func TestEntryStoreJoinChecksNumbersInTheLock(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	team, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	// entry.CheckJoin を通った後に、別の人が背番号 7 で登録していた場合と同じ(山田 太郎の 7)
+	err = store.NewEntryStore(f.db).Join(ctx, entry.Join{TeamEntryID: team.ID, LineUserID: f.lineUser(t, "U1"),
+		Name: "田中 次郎", Number: "7", At: *f.now})
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+}
+
+func TestEntryStoreApprovalNoticesRenamedMembers(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	team, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	approval := entry.ApprovalOf(team)
+	// 運営が読んだ後、承認の前に、佐藤 花子が自分の行の名前を直した
+	link, err := f.desk.IssueMemberLink(ctx, f.lineUser(t, "Uhanako"), team.InviteCode)
+	require.NoError(t, err)
+	sato := team.MemberList[1].ID
+	_, err = f.desk.JoinByLink(ctx, link.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤 はなこ"})
+	require.NoError(t, err)
+	_, err = store.NewEntryStore(f.db).Decide(ctx, team.ID, entry.Decision{From: entry.StatusPending,
+		To: entry.StatusApproved, DecidedBy: f.admin.UserID, At: *f.now, Approval: &approval})
+	require.ErrorIs(t, err, domain.ErrConflict, "the players would have the old name")
+}
+
+func TestEntryLinkMemberJoin(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	questions, err := f.desk.SaveQuestions(ctx, f.tournament.ID, []entry.Question{
+		{Scope: entry.ScopeMember, Label: "学年", Kind: entry.KindShortText, Required: true}})
+	require.NoError(t, err)
+	grade := questions[0].ID
+	team, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	yamada := team.MemberList[0].ID
+
+	hanako := f.lineUser(t, "Uhanako")
+	link, err := f.desk.IssueMemberLink(ctx, hanako, team.InviteCode)
+	require.NoError(t, err)
+	assert.Equal(t, "熱海ディスクス", link.TeamName)
+	view, err := f.desk.LinkView(ctx, link.Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Member)
+	assert.Len(t, view.Member.Unclaimed, 2)
+	assert.Nil(t, view.Member.Mine)
+
+	// 代表が書いた行(佐藤 花子)を自分の行として登録する
+	sato := team.MemberList[1].ID
+	form, err := f.desk.JoinByLink(ctx, link.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤 花子",
+		Number: "12", Answers: map[int64]string{grade: "3年"}})
+	require.NoError(t, err)
+	require.NotNil(t, form.Mine)
+	assert.Equal(t, sato, form.Mine.ID)
+	assert.Equal(t, "12", form.Mine.Number)
+	assert.Equal(t, []entry.Answer{{QuestionID: grade, Value: "3年"}}, form.MineAnswers)
+	assert.Len(t, form.Unclaimed, 1)
+
+	list, err := f.desk.Entries(ctx, f.tournament.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, list[0].Registered, "the progress counts the member")
+
+	// 同じ人がもう一度開いて直す(行は増えない)
+	form, err = f.desk.JoinByLink(ctx, link.Token, entry.JoinDraft{Name: "佐藤 はなこ", Number: "13",
+		Answers: map[int64]string{grade: "3年"}})
+	require.NoError(t, err)
+	assert.Equal(t, sato, form.Mine.ID)
+	detail, err := f.desk.Entry(ctx, team.ID)
+	require.NoError(t, err)
+	assert.Len(t, detail.MemberList, 2)
+
+	// ほかの人は、結ばれた行を選べない
+	taro := f.lineUser(t, "Utaro")
+	other, err := f.desk.IssueMemberLink(ctx, taro, team.InviteCode)
+	require.NoError(t, err)
+	_, err = f.desk.JoinByLink(ctx, other.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤",
+		Answers: map[int64]string{grade: "1年"}})
+	require.ErrorIs(t, err, domain.ErrConflict)
+
+	// 承認した後の登録は選手にも写る(代表の行を選べば選手を直し、新しい人なら選手を作る)
+	approved, err := f.desk.Decide(ctx, team.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	_, err = f.desk.JoinByLink(ctx, other.Token, entry.JoinDraft{MemberID: &yamada, Name: "山田 太郎",
+		Number: "77", Answers: map[int64]string{grade: "2年"}})
+	require.NoError(t, err)
+	jiro := f.lineUser(t, "Ujiro")
+	third, err := f.desk.IssueMemberLink(ctx, jiro, team.InviteCode)
+	require.NoError(t, err)
+	_, err = f.desk.JoinByLink(ctx, third.Token, entry.JoinDraft{Name: "田中 次郎", Number: "5",
+		Answers: map[int64]string{grade: "1年"}})
+	require.NoError(t, err)
+	players, err := store.ListPlayers(ctx, f.db, *approved.TeamID)
+	require.NoError(t, err)
+	byName := map[string]string{}
+	for _, player := range players {
+		byName[player.Name.Ja] = player.Number
+	}
+	assert.Equal(t, map[string]string{"山田 太郎": "77", "佐藤 はなこ": "13", "田中 次郎": "5"}, byName,
+		"佐藤's edit before approval is in the player; edits after approval reach the players")
+
+	// 取り消した申込には登録させない、リンクも出さない
+	cancelled, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("伊東", nil))
+	require.NoError(t, err)
+	_, err = f.desk.Decide(ctx, cancelled.ID, entry.ActionCancel, "", f.admin)
+	require.NoError(t, err)
+	_, err = f.desk.IssueMemberLink(ctx, jiro, cancelled.InviteCode)
+	require.ErrorIs(t, err, domain.ErrConflict)
+	var notFound *domain.NotFoundError
+	_, err = f.desk.IssueMemberLink(ctx, jiro, "zzzzzzzzzzzzzzzzzzzzzzzzzz")
+	require.ErrorAs(t, err, &notFound)
+}

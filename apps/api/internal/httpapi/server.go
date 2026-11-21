@@ -61,7 +61,8 @@ func WithBoards(boards viewing.Reader) Option {
 	return func(s *Server) { s.boards = boards }
 }
 
-// WithEntryDesk は申込の受付を差し替える(テスト用。既定は DB で読み書きする entry.Service)。
+// WithEntryDesk は申込の受付を渡す。本番は招待リンクの作り方を持たせた entry.Service を渡す(渡さなければ
+// DB で読み書きする entry.Service で、招待リンクは空になる)。
 func WithEntryDesk(desk entry.Desk) Option {
 	return func(s *Server) { s.entries = desk }
 }
@@ -100,6 +101,7 @@ func (s *Server) routes() {
 	s.liveTablesRoutes()
 	s.boardRoutes()
 	s.entryRoutes()
+	s.entryLinkRoutes()
 }
 
 // ServeHTTP はパニック回復と内部トークン検証を通してからルートへ渡す。

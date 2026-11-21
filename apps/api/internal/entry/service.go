@@ -10,14 +10,18 @@ import (
 	"scoreview/api/internal/domain"
 )
 
-// Service は Store で記録を読み書きし、申込の決まりを当てる Desk。
+// Service は Store で記録を読み書きし、申込の決まりを当てる Desk と Links。
 type Service struct {
 	store  Store
 	now    func() time.Time
 	random io.Reader
+	invite func(code string) string
 }
 
-var _ Desk = (*Service)(nil)
+var (
+	_ Desk  = (*Service)(nil)
+	_ Links = (*Service)(nil)
+)
 
 // Option は Service の構成を変える Functional Option。
 type Option func(*Service)
@@ -32,9 +36,16 @@ func WithRandom(random io.Reader) Option {
 	return func(s *Service) { s.random = random }
 }
 
+// WithInviteURL は招待コードからメンバーの招待リンクを作る関数を渡す(公式アカウントのベーシック ID を
+// 知っている LINE の層が作る)。渡さなければ招待リンクは空。
+func WithInviteURL(invite func(code string) string) Option {
+	return func(s *Service) { s.invite = invite }
+}
+
 // NewService は store で読み書きする Service を返す。
 func NewService(store Store, opts ...Option) *Service {
-	s := &Service{store: store, now: time.Now, random: rand.Reader}
+	s := &Service{store: store, now: time.Now, random: rand.Reader,
+		invite: func(string) string { return "" }}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -79,7 +90,16 @@ func (s *Service) Entries(ctx context.Context, tournamentID int64) ([]Summary, e
 
 // Entry は Desk.Entry。
 func (s *Service) Entry(ctx context.Context, id int64) (Detail, error) {
-	return s.store.Get(ctx, id)
+	detail, err := s.store.Get(ctx, id)
+	return s.withInvite(detail), err
+}
+
+// withInvite は申込に招待リンクを付ける。
+func (s *Service) withInvite(detail Detail) Detail {
+	if detail.InviteCode != "" {
+		detail.InviteURL = s.invite(detail.InviteCode)
+	}
+	return detail
 }
 
 // Submit は Desk.Submit。
@@ -87,6 +107,16 @@ func (s *Service) Submit(
 	ctx context.Context,
 	tournamentID int64,
 	channel Channel,
+	draft Draft,
+) (Detail, error) {
+	return s.submit(ctx, tournamentID, channel, nil, draft)
+}
+
+func (s *Service) submit(
+	ctx context.Context,
+	tournamentID int64,
+	channel Channel,
+	rep *int64,
 	draft Draft,
 ) (Detail, error) {
 	tournament, err := s.store.Tournament(ctx, tournamentID)
@@ -108,11 +138,13 @@ func (s *Service) Submit(
 	if err != nil {
 		return Detail{}, err
 	}
-	return s.store.Create(ctx, tournamentID, NewEntry{
+	detail, err := s.store.Create(ctx, tournamentID, NewEntry{
 		DivisionID: checked.DivisionID, FullName: checked.FullName, ShortName: checked.ShortName,
 		RepName: checked.RepName, RepPhone: checked.RepPhone, RepEmail: checked.RepEmail,
-		Members: checked.Members, Channel: channel, InviteCode: code, Answers: answers, At: s.now(),
+		Members: checked.Members, Channel: channel, RepLineUserID: rep, InviteCode: code,
+		Answers: answers, At: s.now(),
 	})
+	return s.withInvite(detail), err
 }
 
 // Decide は Desk.Decide。今の状態を読んで決まりに照らし、読んだ状態のままのときだけ変える(読んでから
@@ -146,7 +178,7 @@ func (s *Service) Decide(
 	if err != nil {
 		return Detail{}, fmt.Errorf("%s entry %d: %w", action, id, err)
 	}
-	return detail, nil
+	return s.withInvite(detail), nil
 }
 
 // Export は Desk.Export。
@@ -162,5 +194,260 @@ func (s *Service) Export(ctx context.Context, tournamentID int64) (Export, error
 	if err != nil {
 		return Export{}, err
 	}
+	for i := range details {
+		details[i] = s.withInvite(details[i])
+	}
 	return Export{Questions: questions, Entries: details}, nil
+}
+
+// IssueTeamLinks は Links.IssueTeamLinks。
+func (s *Service) IssueTeamLinks(ctx context.Context, lineUserID int64) ([]TournamentLink, error) {
+	tournaments, err := s.store.LinkTournaments(ctx, lineUserID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TournamentLink, len(tournaments))
+	for i, tournament := range tournaments {
+		issued, err := s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkTeam,
+			TournamentID: tournament.ID}, "")
+		if err != nil {
+			return nil, err
+		}
+		out[i] = TournamentLink{Tournament: tournament, Token: issued.Token, ExpiresAt: issued.ExpiresAt}
+	}
+	return out, nil
+}
+
+// IssueMemberLink は Links.IssueMemberLink。
+func (s *Service) IssueMemberLink(
+	ctx context.Context,
+	lineUserID int64,
+	inviteCode string,
+) (IssuedLink, error) {
+	team, err := s.store.FindByInvite(ctx, inviteCode)
+	if err != nil {
+		return IssuedLink{}, err
+	}
+	if err := CanJoin(team.Status); err != nil {
+		return IssuedLink{}, err
+	}
+	return s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkMember, TeamEntryID: team.ID},
+		team.FullName)
+}
+
+func (s *Service) issue(ctx context.Context, link Link, teamName string) (IssuedLink, error) {
+	token, err := domain.NewToken(s.random)
+	if err != nil {
+		return IssuedLink{}, err
+	}
+	link.ExpiresAt = s.now().Add(LinkLifetime)
+	if err := s.store.SaveLink(ctx, domain.HashToken(token), link); err != nil {
+		return IssuedLink{}, err
+	}
+	return IssuedLink{Token: token, ExpiresAt: link.ExpiresAt, TeamName: teamName}, nil
+}
+
+// openLink は合言葉のリンクを読み、期限を確かめる。
+func (s *Service) openLink(ctx context.Context, token string) (Link, error) {
+	link, err := s.store.FindLink(ctx, domain.HashToken(token))
+	if err != nil {
+		return Link{}, err
+	}
+	if err := CheckLink(link, s.now()); err != nil {
+		return Link{}, err
+	}
+	return link, nil
+}
+
+// link は合言葉のリンクを読み、期限と目的を確かめる。
+func (s *Service) link(ctx context.Context, token string, purpose LinkPurpose) (Link, error) {
+	link, err := s.openLink(ctx, token)
+	if err != nil {
+		return Link{}, err
+	}
+	if err := CheckPurpose(link, purpose); err != nil {
+		return Link{}, err
+	}
+	return link, nil
+}
+
+// LinkView は Desk.LinkView。
+func (s *Service) LinkView(ctx context.Context, token string) (LinkView, error) {
+	link, err := s.openLink(ctx, token)
+	if err != nil {
+		return LinkView{}, err
+	}
+	if link.Purpose == LinkMember {
+		form, err := s.memberForm(ctx, link)
+		if err != nil {
+			return LinkView{}, err
+		}
+		return LinkView{Purpose: LinkMember, Member: &form}, nil
+	}
+	form, err := s.teamForm(ctx, link)
+	if err != nil {
+		return LinkView{}, err
+	}
+	return LinkView{Purpose: LinkTeam, Team: &form}, nil
+}
+
+func (s *Service) teamForm(ctx context.Context, link Link) (TeamForm, error) {
+	tournament, err := s.store.Tournament(ctx, link.TournamentID)
+	if err != nil {
+		return TeamForm{}, err
+	}
+	questions, err := s.store.Questions(ctx, link.TournamentID)
+	if err != nil {
+		return TeamForm{}, err
+	}
+	mine, err := s.store.RepEntries(ctx, link.TournamentID, link.LineUserID)
+	if err != nil {
+		return TeamForm{}, err
+	}
+	for i := range mine {
+		mine[i] = s.withInvite(mine[i])
+	}
+	return TeamForm{
+		Tournament: TournamentRef{ID: tournament.ID, Name: tournament.Name},
+		Open:       tournament.Status == domain.TournamentEntryOpen,
+		Divisions:  tournament.Divisions,
+		Questions:  scopeOf(questions, ScopeTeam),
+		Mine:       mine,
+		ExpiresAt:  link.ExpiresAt,
+	}, nil
+}
+
+func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error) {
+	detail, err := s.store.Get(ctx, link.TeamEntryID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	tournament, err := s.store.Tournament(ctx, detail.TournamentID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	questions, err := s.store.Questions(ctx, detail.TournamentID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	form := MemberForm{TournamentName: tournament.Name, Team: detail.Summary,
+		Questions: scopeOf(questions, ScopeMember), Unclaimed: []Member{},
+		Mine: MemberOf(detail.MemberList, link.LineUserID), MineAnswers: []Answer{}, ExpiresAt: link.ExpiresAt}
+	for _, member := range detail.MemberList {
+		if !member.Registered {
+			form.Unclaimed = append(form.Unclaimed, member)
+		}
+	}
+	if form.Mine != nil {
+		answers, err := s.store.MemberAnswers(ctx, form.Mine.ID)
+		if err != nil {
+			return MemberForm{}, err
+		}
+		form.MineAnswers = answers
+	}
+	return form, nil
+}
+
+func scopeOf(questions []Question, scope Scope) []Question {
+	out := []Question{}
+	for _, question := range questions {
+		if question.Scope == scope {
+			out = append(out, question)
+		}
+	}
+	return out
+}
+
+// SubmitByLink は Desk.SubmitByLink。
+func (s *Service) SubmitByLink(ctx context.Context, token string, draft Draft) (Detail, error) {
+	link, err := s.link(ctx, token, LinkTeam)
+	if err != nil {
+		return Detail{}, err
+	}
+	rep := link.LineUserID
+	return s.submit(ctx, link.TournamentID, ChannelLine, &rep, draft)
+}
+
+// ResubmitByLink は Desk.ResubmitByLink。申込がこの代表のものかは、この代表がこの大会に出した申込の
+// 中にあるかで確かめる(ほかの人の申込 ID を指しても、見つからないことにする)。
+func (s *Service) ResubmitByLink(
+	ctx context.Context,
+	token string,
+	entryID int64,
+	draft Draft,
+	registered []int64,
+) (Detail, error) {
+	link, err := s.link(ctx, token, LinkTeam)
+	if err != nil {
+		return Detail{}, err
+	}
+	mine, err := s.store.RepEntries(ctx, link.TournamentID, link.LineUserID)
+	if err != nil {
+		return Detail{}, err
+	}
+	current := findDetail(mine, entryID)
+	if current == nil {
+		return Detail{}, domain.NotFound(domain.ResourceEntry, entryID)
+	}
+	tournament, err := s.store.Tournament(ctx, link.TournamentID)
+	if err != nil {
+		return Detail{}, err
+	}
+	if err := CanResubmit(current.Status, tournament.Status); err != nil {
+		return Detail{}, err
+	}
+	questions, err := s.store.Questions(ctx, link.TournamentID)
+	if err != nil {
+		return Detail{}, err
+	}
+	checked, answers, err := CheckDraft(draft, tournament, questions)
+	if err != nil {
+		return Detail{}, err
+	}
+	detail, err := s.store.Resubmit(ctx, entryID, Resubmission{Draft: checked, Answers: answers,
+		Registered: registered, At: s.now()})
+	if err != nil {
+		return Detail{}, fmt.Errorf("resubmit entry %d: %w", entryID, err)
+	}
+	return s.withInvite(detail), nil
+}
+
+func findDetail(details []Detail, id int64) *Detail {
+	for i := range details {
+		if details[i].ID == id {
+			return &details[i]
+		}
+	}
+	return nil
+}
+
+// JoinByLink は Desk.JoinByLink。
+func (s *Service) JoinByLink(ctx context.Context, token string, draft JoinDraft) (MemberForm, error) {
+	link, err := s.link(ctx, token, LinkMember)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	detail, err := s.store.Get(ctx, link.TeamEntryID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	if err := CanJoin(detail.Status); err != nil {
+		return MemberForm{}, err
+	}
+	questions, err := s.store.Questions(ctx, detail.TournamentID)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	mine := MemberOf(detail.MemberList, link.LineUserID)
+	checked, answers, err := CheckJoin(draft, detail.MemberList, mine, questions)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	err = s.store.Join(ctx, Join{TeamEntryID: link.TeamEntryID, LineUserID: link.LineUserID,
+		MemberID: checked.MemberID, Name: checked.Name, Number: checked.Number, Answers: answers,
+		At: s.now()})
+	if err != nil {
+		return MemberForm{}, err
+	}
+	return s.memberForm(ctx, link)
 }

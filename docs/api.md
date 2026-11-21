@@ -966,7 +966,7 @@ type Closing = {
 ### 申込
 
 大会への申込(docs/line-integration.md「エントリーの流れ」)。申込は `teams` と別に持ち、承認したときに部門のチームと選手を作る。代表の連絡先が入るので、読むのも変えるのも管理者だけ。
-LINE からの申込(LIFF)はまだ無く、今は電話や紙で受けた申込を運営が代わりに入れる(`channel: 'desk'`)。
+入口は、電話や紙で受けた申込を運営が代わりに入れる口(`channel: 'desk'`)と、公式 LINE が返す本人用のリンクから代表が申し込む口(`channel: 'line'`。「LINE からの申込」)の 2 つ。
 
 ```ts
 type EntryQuestion = {
@@ -995,6 +995,7 @@ type EntryDetail = EntrySummary & {
   repPhone: string; repEmail: string
   returnNote: string                 // 差し戻しの理由。差し戻し以外は ''
   inviteCode: string                 // メンバーの招待リンクのコード(英小文字と数字の 26 文字)
+  inviteUrl: string                  // 公式アカウントのトークを「参加 招待コード」の入った状態で開く URL。LINE を設定していなければ ''(LINE を設定するならベーシック ID は必須)
   decidedAt: string | null
   memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null }>
   answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
@@ -1011,7 +1012,42 @@ type EntryDetail = EntrySummary & {
 | `GET /admin/entries/{id}` | なし | `EntryDetail` |
 | `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す) |
 
-- 上限は質問 30、選択肢 30、メンバー 60、名前と短い答え 100 字(質問の文言と短い文の答えは 200 字)、長い答えと差し戻しの理由 2000 字、数の答えは ±1,000,000。
+- 上限は質問 30、選択肢 30、メンバー 60、名前と短い答え 100 字(質問の文言と短い文の答えは 200 字)、背番号 10 字、長い答えと差し戻しの理由 2000 字、数の答えは ±1,000,000。名前、チーム名、短い答え、質問の文言、選択肢は 1 行で、改行と制御文字は 400(チーム名は公式アカウントの返信に入るため)。
+
+### LINE からの申込
+
+公式アカウントに届いたメッセージの返信で返す本人用のリンク(docs/line-integration.md「本人の確かめ方」)。ログインは無く、パスの合言葉(43 文字)で本人を確かめる。合言葉が無いか、期限(発行から 3 日)が切れたら 404(`ENTRY_LINK`)。
+
+```ts
+type EntryMember = EntryDetail['memberList'][number]
+type EntryLink = {
+  purpose: 'team' | 'member'
+  team: {                            // purpose が team のとき。それ以外は null
+    tournament: { id: number; name: string }
+    open: boolean                    // 大会が受付中か(受付を閉じた後は新しい申込が 409。出した申込は見られて、差し戻しは送り直せる)
+    divisions: Array<{ id: number; name: I18nText }>
+    questions: EntryQuestion[]       // チーム向けの質問だけ
+    mine: EntryDetail[]              // この人がこの大会に出した申込(受けた順)
+    expiresAt: string
+  } | null
+  member: {                          // purpose が member のとき。それ以外は null
+    tournamentName: string
+    team: EntrySummary
+    questions: EntryQuestion[]       // メンバー向けの質問だけ
+    unclaimed: EntryMember[]         // 代表が書いた、まだ誰も LINE を結んでいない行
+    mine: EntryMember | null         // この人がもう登録した行
+    mineAnswers: Array<{ questionId: number; value: string }>
+    expiresAt: string
+  } | null
+}
+```
+
+| メソッドとパス | ボディ | 応答 |
+|---|---|---|
+| `GET /entry-links/{token}` | なし | `EntryLink` |
+| `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409 |
+| `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
+| `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
 ### 観戦アプリの表
 
