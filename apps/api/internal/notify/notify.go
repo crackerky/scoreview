@@ -1,0 +1,199 @@
+// Package notify は、管理画面から条件で選んだ相手に公式アカウントから送る(docs/line-integration.md
+// 「管理画面から送る仕組み」)。
+//
+// 依存の向きは httpapi → notify ← store。宛先の条件はコードで名前を付けたものだけにし、管理画面から
+// 自由な SQL は書かせない(宛先の選び方に権限の確認が効かなくなるため)。送る口(Sender)は LINE の
+// HTTP の形を知る line が実装する。
+package notify
+
+import (
+	"context"
+	"time"
+
+	"scoreview/api/internal/domain"
+	"scoreview/api/internal/entry"
+)
+
+// AudienceKind は宛先の条件。
+type AudienceKind string
+
+// AudienceKind の値。どれも LINE から申し込んだ人(公式アカウントの友だちとして記録した人)だけで、
+// 運営が代わりに入れた申込の代表には LINE が無いので含まない。
+const (
+	// AudienceReps はこの大会に申し込んだ代表(取り消した申込を除く。Status で状態を絞れる)
+	AudienceReps AudienceKind = "reps"
+	// AudienceIncomplete はメンバーの登録が揃っていない申込の代表(取り消した申込を除く)
+	AudienceIncomplete AudienceKind = "incomplete"
+	// AudienceParticipants は承認した申込の代表と、LINE で登録したメンバー
+	AudienceParticipants AudienceKind = "participants"
+	// AudiencePastReps はほかの大会に申し込んだことがあり、この大会にはまだ申し込んでいない代表
+	// (受付を始めたことの告知)
+	AudiencePastReps AudienceKind = "past_reps"
+)
+
+// Audience は宛先の条件と絞り込み。
+type Audience struct {
+	Kind AudienceKind
+	// Status は Kind が reps のときだけ使う申込の状態。空なら取り消した申込を除く全部
+	Status entry.Status
+	// DivisionID は部門で絞る。0 なら全部の部門(past_reps では使わない)
+	DivisionID int64
+}
+
+// Recipient は宛先の 1 人。LineUserID は line_users の行の ID、UserID は公式アカウントから見たユーザー ID。
+// Friend が偽(ブロック中)の人には送らない(送っても届かず、配信数だけが減る)。Name はその人が最後に
+// 入れた名前(無ければ申込に書かれた名前)、Teams は条件に当てはまった申込のチーム名。
+type Recipient struct {
+	LineUserID int64
+	UserID     string
+	Friend     bool
+	Name       string
+	Teams      []string
+}
+
+// Quota は公式アカウントの今月の配信数。Limit が nil なら上限が無い(追加メッセージのあるプラン)。
+type Quota struct {
+	Limit *int64
+	Used  int64
+}
+
+// Preview は送る前に確かめるもの。Heading は届く文の 1 行目に付ける大会名。Quota は LINE から読めな
+// かったときと、LINE の設定が無いときは nil。CanSend は LINE の設定があって送れるか。
+type Preview struct {
+	Heading     string
+	Recipients  []Recipient
+	Reachable   int
+	Unreachable int
+	Quota       *Quota
+	CanSend     bool
+}
+
+// JobStatus は宛先ごとの結果。
+type JobStatus string
+
+// JobStatus の値。
+const (
+	// JobPending は送る前か、送っている途中
+	JobPending JobStatus = "pending"
+	// JobSent は LINE が受け付けた(相手の端末に届いたかまでは LINE が返さない)
+	JobSent JobStatus = "sent"
+	// JobSkipped は友だちでないので送らなかった
+	JobSkipped JobStatus = "skipped"
+	// JobFailed は LINE が受け付けなかった
+	JobFailed JobStatus = "failed"
+)
+
+// Job は宛先 1 人への結果。Name と Teams は送った時点のもの。
+type Job struct {
+	Name   string
+	Teams  string
+	Status JobStatus
+	Error  string
+	SentAt *time.Time
+}
+
+// Counts は 1 回の送信の結果ごとの人数。
+type Counts struct {
+	Pending int
+	Sent    int
+	Skipped int
+	Failed  int
+}
+
+// Batch は 1 回の送信の記録。Body は実際に届けた文(大会名の行を含む)。SentByName は送った運営の
+// 表示名(運営を消していれば空)。Jobs は Store.Batch で読んだときだけ入る。
+type Batch struct {
+	ID           int64
+	TournamentID int64
+	Audience     Audience
+	Body         string
+	Automatic    bool
+	SentByName   string
+	CreatedAt    time.Time
+	Counts       Counts
+	Jobs         []Job
+}
+
+// History は大会の送信の記録(新しい順)と、今送れるか。
+type History struct {
+	Batches []Batch
+	CanSend bool
+}
+
+// Request は運営の「送る」。Body は運営が書いた文(大会名の行は Service が付ける)。RequestKey は送る
+// 画面を開くたびに作る乱数で、同じ画面から 2 回届いても 2 回目は送らない。
+type Request struct {
+	Audience   Audience
+	Body       string
+	RequestKey string
+}
+
+// NewJob は記録する宛先 1 人。
+type NewJob struct {
+	LineUserID int64
+	Name       string
+	Teams      string
+	Status     JobStatus
+}
+
+// NewBatch は記録する送信。Body は届ける文。
+type NewBatch struct {
+	TournamentID int64
+	RequestKey   string
+	Audience     Audience
+	Body         string
+	SentBy       int64
+	At           time.Time
+	Jobs         []NewJob
+}
+
+// JobResult は送った結果。
+type JobResult struct {
+	Status JobStatus
+	Error  string
+	At     time.Time
+}
+
+// Store は宛先を選び、送信を記録する。store が実装する。
+type Store interface {
+	// Tournament は大会の名前と部門を読む。無ければ domain.NotFound
+	Tournament(ctx context.Context, id int64) (entry.Tournament, error)
+	// Recipients は条件に当てはまる人を、同じ人を 1 人にまとめて返す(条件は CheckAudience で確かめてある)
+	Recipients(ctx context.Context, tournamentID int64, audience Audience) ([]Recipient, error)
+	// CreateBatch は送信と宛先ごとの行を 1 つのトランザクションで記録する。同じ RequestKey の記録が
+	// もうあれば作らず、その ID と偽を返す
+	CreateBatch(ctx context.Context, batch NewBatch) (id int64, created bool, err error)
+	// FinishJobs は送信 batchID の、line_users の行の ID が lineUserIDs の宛先の結果を書く
+	FinishJobs(ctx context.Context, batchID int64, lineUserIDs []int64, result JobResult) error
+	// Batches は大会の送信を新しい順に、結果ごとの人数とともに読む
+	Batches(ctx context.Context, tournamentID int64) ([]Batch, error)
+	// Batch は送信 1 回を宛先ごとの結果とともに読む。無ければ domain.NotFound
+	Batch(ctx context.Context, id int64) (Batch, error)
+}
+
+// MaxMulticast は 1 回の Multicast に渡せる宛先の数(Messaging API のマルチキャストの上限)。
+// https://developers.line.biz/ja/reference/messaging-api/#send-multicast-message
+const MaxMulticast = 500
+
+// Sender は公式アカウントとして送る。line が実装する。
+type Sender interface {
+	// Multicast は to(公式アカウントから見たユーザー ID。MaxMulticast 人まで)に text を送る。送った
+	// 人数が月の配信数に数えられる。retryKey(UUID)が同じ送り直しは、LINE が 1 回目を受け付けて
+	// いれば送らずに成功を返す
+	Multicast(ctx context.Context, to []string, text, retryKey string) error
+	// Quota は今月の配信数の上限と使った数を読む
+	Quota(ctx context.Context) (Quota, error)
+}
+
+// Desk は管理画面の「送る」。Service が実装する。
+type Desk interface {
+	// Preview は条件に当てはまる人と、今回使う配信数を返す
+	Preview(ctx context.Context, tournamentID int64, audience Audience) (Preview, error)
+	// Send は条件に当てはまる人に送り、記録を返す。同じ RequestKey の送信がもうあれば、送らずに
+	// その記録を返す
+	Send(ctx context.Context, tournamentID int64, request Request, actor domain.Actor) (Batch, error)
+	// History は大会の送信の記録を返す
+	History(ctx context.Context, tournamentID int64) (History, error)
+	// Batch は送信 1 回の記録を返す
+	Batch(ctx context.Context, id int64) (Batch, error)
+}
