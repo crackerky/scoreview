@@ -31,7 +31,6 @@ export default async function NotificationPage(props: IdPageProps) {
     divisionList.divisions.map((division) => [division.id, division.name.ja]),
   )
   const { counts } = detail
-  const unsent = counts.failed + counts.pending
   const resendForm = 'notification-resend'
   return (
     <AdminShell
@@ -46,9 +45,7 @@ export default async function NotificationPage(props: IdPageProps) {
         { href: notifyPaths.list(detail.tournamentId), label: '送った記録' },
       ]}
       primary={
-        detail.canResend
-          ? { label: `送れなかった ${unsent} 人に送り直す`, form: resendForm }
-          : undefined
+        detail.canResend ? { label: '送れなかった人に送り直す', form: resendForm } : undefined
       }
     >
       <ForgetDraft draftKey={draftStorageKey(detail.tournamentId)} />
@@ -60,7 +57,14 @@ export default async function NotificationPage(props: IdPageProps) {
       <div className="adm-stats">
         <Stat label="送った" value={String(counts.sent)} />
         <Stat label="ブロック中で送らなかった" value={String(counts.skipped)} />
-        <Stat label="送れなかった" value={String(unsent)} tone={unsent > 0 ? 'live' : undefined} />
+        <Stat
+          label="送れなかった"
+          value={String(counts.failed)}
+          tone={counts.failed > 0 ? 'live' : undefined}
+        />
+        {counts.pending > 0 ? (
+          <Stat label="送っている途中" value={String(counts.pending)} tone="warn" />
+        ) : null}
       </div>
       {detail.canResend ? (
         <form id={resendForm} action={resendNotificationAction} className="adm-stack">
@@ -70,7 +74,12 @@ export default async function NotificationPage(props: IdPageProps) {
             時間のあいだ)。前の送信が実は届いていた人には、2 回は届きません。
           </p>
         </form>
-      ) : unsent > 0 ? (
+      ) : counts.pending > 0 ? (
+        <p className="adm-muted">
+          送っている途中の人がいます。途中で止まったままなら、15
+          分ほどで送り直せるようになります。少しあとで、この画面を開き直してください。
+        </p>
+      ) : counts.failed > 0 ? (
         <p className="adm-muted">
           送ってから 24
           時間を過ぎたので、ここからは送り直せません。送れなかった人は下の一覧で確かめられます。

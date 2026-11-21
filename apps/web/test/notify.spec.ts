@@ -11,9 +11,12 @@ import {
   audienceFromQuery,
   audienceText,
   bodyExcerpt,
+  checkedAudience,
+  checkedFields,
   countsText,
   keepAudience,
   quotaState,
+  sameAudience,
   sentNotice,
 } from '../src/notify/notify.utils.ts'
 import { uncertainFailure } from '../src/notify/notifyError.utils.ts'
@@ -102,27 +105,58 @@ describe('言葉', () => {
     )
     assert.equal(countsText({ pending: 0, sent: 0, skipped: 0, failed: 0 }), '宛先なし')
   })
-  test('送れなかった人と途中で止まった人がいれば、送り直しを案内する', () => {
+  test('送れなかった人がいれば送り直しを、送っている途中の人がいれば待つことを案内する', () => {
     assert.deepEqual(sentNotice({ pending: 0, sent: 12, skipped: 1, failed: 0 }), [
       'ok',
       '12 人に送りました',
     ])
     assert.deepEqual(sentNotice({ pending: 1, sent: 10, skipped: 0, failed: 2 }), [
       'error',
-      '3 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます',
+      '2 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます',
+    ])
+    assert.deepEqual(sentNotice({ pending: 3, sent: 10, skipped: 0, failed: 0 }), [
+      'error',
+      '3 人は送っている途中です。少しあとで、この画面を開き直してください',
     ])
     assert.equal(
       countsText({ pending: 2, sent: 0, skipped: 0, failed: 1 }),
-      '送れなかった 1 人 ・ 途中で止まった 2 人',
+      '送れなかった 1 人 ・ 送っている途中 2 人',
     )
   })
-  test('送ったかどうかが分からない失敗を見分ける', () => {
+  test('api が送らなかったと答えた失敗のほかは、送ったかどうかが分からないとみなす', () => {
     const apiError = (status: number) =>
       Object.assign(new Error('x'), { name: 'ApiError', status, code: 'internal' })
     assert.equal(uncertainFailure(apiError(500)), true)
+    assert.equal(uncertainFailure(apiError(504)), true)
     assert.equal(uncertainFailure(new TypeError('fetch failed')), true)
+    assert.equal(
+      uncertainFailure(new SyntaxError('Unexpected token <')),
+      true,
+      '本文が JSON でない',
+    )
     assert.equal(uncertainFailure(apiError(409)), false, '送らなかったと分かっている')
-    assert.equal(uncertainFailure(new RangeError('form field')), false)
+    assert.equal(uncertainFailure(apiError(400)), false)
+  })
+  test('数えた宛先と選んでいる宛先を比べる', () => {
+    const checked = { kind: 'reps', status: 'pending', divisionId: 9 } as const
+    const form = { kind: 'reps', status: 'pending', division: '9', ...checkedFields(checked) }
+    assert.equal(sameAudience(audienceFromQuery(form), checkedAudience(form)), true)
+    const changed = { ...form, kind: 'participants' }
+    assert.equal(sameAudience(audienceFromQuery(changed), checkedAudience(changed)), false)
+    // 条件に使わない絞り込みの違いは、変えたことにしない(参加者の状態は捨てる)
+    const participants = {
+      kind: 'participants',
+      status: '',
+      division: '',
+      ...checkedFields({ kind: 'participants', status: '', divisionId: null }),
+    }
+    assert.equal(
+      sameAudience(
+        audienceFromQuery({ ...participants, status: 'approved' }),
+        checkedAudience(participants),
+      ),
+      true,
+    )
   })
   test('一覧には運営が書いた文だけを短く出す', () => {
     assert.equal(bodyExcerpt('ルーキーズファイナル\n\n明日は\n8 時集合です'), '明日は 8 時集合です')

@@ -40,7 +40,7 @@ export const audienceStatusLabels: Readonly<Record<AudienceStatus, string>> = {
 
 export const jobStatusLabels: Readonly<Record<JobStatus, string>> = {
   // 送っている最中か、結果を書く前に止まった(LINE が受け付けたかは分からない)
-  pending: '途中で止まった',
+  pending: '送っている途中',
   sent: '送った',
   skipped: 'ブロック中で送らなかった',
   failed: '送れなかった',
@@ -112,21 +112,51 @@ export function countsText(counts: NotificationCounts): string {
     parts.push(`送れなかった ${counts.failed} 人`)
   }
   if (counts.pending > 0) {
-    parts.push(`途中で止まった ${counts.pending} 人`)
+    parts.push(`送っている途中 ${counts.pending} 人`)
   }
   return parts.length === 0 ? '宛先なし' : parts.join(' ・ ')
 }
 
 /** 送った直後の知らせ。送れなかった人がいれば誤りの色で出し、送り直しは記録の画面へ案内する */
 export function sentNotice(counts: NotificationCounts): ['ok' | 'error', string] {
-  const unsent = counts.failed + counts.pending
-  if (unsent > 0) {
+  if (counts.failed > 0) {
     return [
       'error',
-      `${unsent} 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます`,
+      `${counts.failed} 人に送れませんでした。この画面の「送り直す」で、その人たちにだけ送れます`,
+    ]
+  }
+  if (counts.pending > 0) {
+    return [
+      'error',
+      `${counts.pending} 人は送っている途中です。少しあとで、この画面を開き直してください`,
     ]
   }
   return ['ok', `${counts.sent} 人に送りました`]
+}
+
+/** 宛先の条件が同じか(送る画面で、数えた宛先と選んでいる宛先を比べる) */
+export function sameAudience(left: Audience, right: Audience): boolean {
+  return (
+    left.kind === right.kind && left.status === right.status && left.divisionId === right.divisionId
+  )
+}
+
+/** 数えた宛先の条件を、送るフォームの hidden 欄の値にする(画面で選んでいる条件と比べるため) */
+export function checkedFields(audience: Audience): Record<string, string> {
+  return {
+    checkedKind: audience.kind,
+    checkedStatus: audience.status,
+    checkedDivision: audience.divisionId === null ? '' : String(audience.divisionId),
+  }
+}
+
+/** 送るフォームの hidden 欄から、数えた宛先の条件を読む */
+export function checkedAudience(form: Record<string, string | string[] | undefined>): Audience {
+  return audienceFromQuery({
+    kind: form.checkedKind,
+    status: form.checkedStatus,
+    division: form.checkedDivision,
+  })
 }
 
 /** 送る画面で書いた文をブラウザに残す鍵(宛先を確かめるために画面を読み直しても文を消さない) */
