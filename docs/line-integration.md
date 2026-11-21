@@ -137,10 +137,14 @@ LINE から出した申込の代表には、受付、送り直しの受付、承
 
 どれも LINE から申し込んだ人だけで、運営が代わりに入れた申込の代表には送れない。
 同じ人は 1 人にまとめ、届く文の 1 行目には大会名を付ける(大会をまたいで申し込んでいる人が、どの大会の話かを取り違えないように)。
-手動の「送る」は、記録を作ってから同じ要求の中で 500 人ずつマルチキャストで送り、宛先ごとの結果を書く。
+手動の「送る」は、宛先を 500 人ずつのまとまりに分け、まとまりごとに LINE の送り直しのキー[^line-retry]を決めて記録してから、同じ要求の中でマルチキャストで送り、宛先ごとの結果を書く。
 送る画面を開くたびに作る乱数で同じ送信を 2 回記録しないので、押し直しや応答の前の再送では送られない。
 今月の残りの配信数が足りなければ、一部の人にだけ届くのを避けるため、何も送らない。
-LINE が受け付けなかったまとまりは、LINE の送り直しのキーを付けて 1 回だけ送り直す(1 回目を受け付けていれば、2 回目は送られない)。
+
+LINE は、送り直しのキーが同じ要求をもう受け付けていれば送らずに 409 を返すので、受け付けたかが分からない失敗(LINE の 5xx、応答が無い)は、同じキーですぐ 1 回だけ送り直す。
+LINE が受け付けなかったと分かる失敗(4xx)は、送り直しても結果が変わらないので、すぐには送り直さない。
+送れなかったまとまりと途中で止まったまとまりは、送ってから 24 時間(キーが有効な間)、送った記録の画面から、同じキー、同じ宛先、同じ文で送り直せる。
+送り直しで新しい送信を作ると、前の送信が実は届いていた人に 2 回届くので、同じ条件で送り直すことは勧めない。
 
 自動の送信は、スケジュールで動くジョブが条件を確かめて積む。
 たとえばスコアの催促は「試合の予定終了時刻から N 分たっても結果が入っていない」で積む。
@@ -307,4 +311,5 @@ Vercel Cron ──▶ web(/cron/notify)──内部──▶ api(自動送信の
 [^line-provider-design]: [プロバイダー設計の基本 | LINE Developers](https://developers.line.biz/ja/tips/2026/06/25/provider-design-basics/)。「異なるプロバイダー配下のチャネルで取得したユーザーIDは、同じユーザーであっても異なる値になります。」
 [^line-multi-tools]: [1つのLINE公式アカウントで複数のツールからMessaging APIを使うときの確認点 | LINE Developers](https://developers.line.biz/ja/tips/2026/07/23/using-multiple-api-tools/)。
 [^line-token]: [Channel access token | LINE Developers](https://developers.line.biz/en/docs/basics/channel-access-token/)。
+[^line-retry]: LINE Developers の API の要求の再試行の説明(https://developers.line.biz/en/docs/messaging-api/retrying-api-request/ 、2026 年 11 月に確認)。送り直しのキーは最初の要求から 24 時間有効で、要求が一度受け付けられる(200)と、同じキーの要求は 409 になる。送り直しでは宛先と内容を変えないよう求めている。
 [^line-url-scheme]: [Using LINE URL scheme | LINE Developers](https://developers.line.biz/en/docs/messaging-api/using-line-url-scheme/)。
