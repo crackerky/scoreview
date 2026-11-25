@@ -1082,7 +1082,7 @@ type NotificationSummary = {
   state: 'scheduled' | 'sent' | 'cancelled' | 'skipped'   // 送る時刻を待っている / 宛先を決めて送った / 運営が取りやめた / 送る時刻に送れなかった
   note: '' | 'no_recipients' | 'quota' | 'line_not_configured'   // skipped の理由(送れる友だちがいない / 今月の残りの配信数が足りない / LINE の設定が無い)
   counts: NotificationCounts         // 宛先ごとの結果の人数(予約のあいだは全部 0)
-  canResend: boolean                 // 今送り直せる宛先(failed と、送っている送信の持ち時間 15 分が切れた pending)があり、送ってから 24 時間以内で、LINE の設定がある
+  canResend: boolean                 // 今送り直せる宛先(failed と、送っている送信の持ち時間 15 分が切れた pending)があり、送ってから(予約は送る時刻から)24 時間以内で、LINE の設定がある
 }
 type NotificationDetail = NotificationSummary & {
   jobs: Array<{
@@ -1103,7 +1103,7 @@ type NotificationDetail = NotificationSummary & {
 | `GET /admin/notifications/{id}` | なし | `NotificationDetail`(宛先は記録した順) |
 | `POST /admin/notifications/{id}/cancel` | なし | `NotificationDetail`(`state: 'cancelled'`)。予約でなければ(もう送った、取りやめた)409 |
 | `POST /internal/notifications/dispatch` | なし | `{ sent: number; skipped: number }`。送る時刻の来た予約を、送る時刻の順に 20 件まで送る(web の `/cron/notify` が 15 分ごとに呼ぶ。利用者のログインは無く、`X-Internal-Token` だけで受ける)。送る時刻に、条件に当てはまる友だちがいなければ `no_recipients`、今月の残りの配信数が足りなければ `quota`、LINE の設定が無ければ `line_not_configured` を付けて `skipped` にする。同時に呼ばれても、予約は 1 回だけ送る。予約の扱いに失敗があれば 500(宛先を書く前の失敗は予約のまま残り、次の呼び出しで扱う) |
-| `POST /admin/notifications/{id}/resend` | なし | `NotificationDetail`。`failed` の宛先と、送っている送信の持ち時間(15 分。api の 1 回の要求が続きうる時間より長い)が切れた `pending` の宛先に、記録したまとまり、送り直しのキー、届けた文のまま送り直す(LINE が前に受け付けていたまとまりは、LINE が送らずに受け付け済みと返すので、2 回は届かない)。送るまとまりは、送る前に 15 分の持ち時間を付けて取るので、同時に送り直しても、1 つのまとまりは 1 回の送り直しでだけ送る。ほかの送信が送っている途中のまとまりは送らない。送ってから 24 時間(送り直しのキーが有効な間)を過ぎていれば 409、LINE の設定が無ければ 409。送り直す宛先が無ければ何もせずに記録を返す |
+| `POST /admin/notifications/{id}/resend` | なし | `NotificationDetail`。`failed` の宛先と、送っている送信の持ち時間(15 分。api の 1 回の要求が続きうる時間より長い)が切れた `pending` の宛先に、記録したまとまり、送り直しのキー、届けた文のまま送り直す(LINE が前に受け付けていたまとまりは、LINE が送らずに受け付け済みと返すので、2 回は届かない)。送るまとまりは、送る前に 15 分の持ち時間を付けて取るので、同時に送り直しても、1 つのまとまりは 1 回の送り直しでだけ送る。ほかの送信が送っている途中のまとまりは送らない。送ってから(予約は送る時刻から)24 時間(送り直しのキーが有効な間)を過ぎていれば 409、LINE の設定が無ければ 409。送り直す宛先が無ければ何もせずに記録を返す |
 
 ### 観戦アプリの表
 

@@ -270,7 +270,7 @@ func (s *Service) Resend(ctx context.Context, id int64) (Batch, error) {
 	if err != nil {
 		return Batch{}, err
 	}
-	if !now.Before(batch.CreatedAt.Add(ResendWindow)) {
+	if !now.Before(resendStart(batch).Add(ResendWindow)) {
 		return Batch{}, fmt.Errorf("%w: it is too late to resend; the retry keys last 24 hours", domain.ErrConflict)
 	}
 	groups, err := s.store.Claim(ctx, id, now, now.Add(SendLease))
@@ -321,7 +321,17 @@ func (s *Service) History(ctx context.Context, tournamentID int64) (History, err
 
 // canResend は今送り直せる宛先があり、送り直しのキーがまだ有効か。
 func (s *Service) canResend(batch Batch) bool {
-	return s.sender != nil && batch.Counts.Resendable > 0 && s.now().Before(batch.CreatedAt.Add(ResendWindow))
+	return s.sender != nil && batch.Counts.Resendable > 0 && s.now().Before(resendStart(batch).Add(ResendWindow))
+}
+
+// resendStart は送り直しの期限を数え始める時刻。予約は送る時刻(送り直しのキーは送る時刻に作るので、
+// 予約した時刻から数えると、前日の案内のような先の予約は送る前に期限が切れる)、すぐ送った送信は
+// 記録した時刻。
+func resendStart(batch Batch) time.Time {
+	if batch.SendAt != nil {
+		return *batch.SendAt
+	}
+	return batch.CreatedAt
 }
 
 // Batch は Desk.Batch。

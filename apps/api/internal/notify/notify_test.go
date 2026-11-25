@@ -582,3 +582,32 @@ func TestDispatchSkipsAndCancel(t *testing.T) {
 	assert.Equal(t, notify.SkipQuota, read.Note, "nothing is sent when only part would arrive")
 	assert.Empty(t, sender.calls)
 }
+
+// 予約は送る時刻から 24 時間のあいだ送り直せる(予約した時刻からではない)。
+func TestResendAScheduledSendFromItsSendTime(t *testing.T) {
+	store := newFakeStore(nil)
+	sender := &fakeSender{}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	ctx := context.Background()
+	eve := now.Add(7 * 24 * time.Hour)
+	scheduled, err := service.Send(ctx, 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceParticipants},
+		Body: "x", RequestKey: "key-1", SendAt: &eve}, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+
+	store.recipients = friends(2)
+	sender.failures = []error{refused()}
+	*now = eve.Add(time.Minute)
+	_, err = service.Dispatch(ctx)
+	require.NoError(t, err)
+	read, err := service.Batch(ctx, scheduled.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Failed: 2, Resendable: 2}, read.Counts)
+	assert.True(t, read.CanResend, "a week after it was scheduled, but just after it was sent")
+
+	*now = eve.Add(time.Hour)
+	resent, err := service.Resend(ctx, scheduled.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Sent: 2}, resent.Counts)
+}
