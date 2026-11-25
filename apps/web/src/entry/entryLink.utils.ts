@@ -182,6 +182,10 @@ const conflictTexts: ReadonlyArray<{ reason: RegExp; text: string }> = [
     reason: /someone else has already registered/,
     text: 'その名前では、ほかの人がもう登録しました。名簿から選び直すか、「名簿に自分がいない」を選んでください',
   },
+  {
+    reason: /only the representative can register/,
+    text: 'その名前は代表の行です。名簿から自分の名前を選ぶか、「名簿に自分がいない」を選んでください',
+  },
   { reason: /has been cancelled/, text: 'このチームの申込は取り消されています' },
   {
     reason: /members of the entry changed/,

@@ -112,3 +112,53 @@ func TestEntryLinkRoutes(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, send(t, srv, http.MethodPost, resubmit, fixed, nil).Code,
 		"a pending entry is not resubmitted again")
 }
+
+// 名簿の代表の行は、招待のリンクを持つほかの人には出さず、選ばせない。代表本人は選べる。
+func TestEntryLinkRepRowIsTheRepresentatives(t *testing.T) {
+	db := testdb.New(t)
+	b := storetest.New(t, db)
+	tour := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryOpen })
+	division := b.Division(tour.ID)
+	entries := entry.NewService(store.NewEntryStore(db))
+	srv := httpapi.NewServer(db, testToken, httpapi.WithEntryDesk(entries))
+	ctx := context.Background()
+	lineUser := func(id string) int64 {
+		row := store.LineUser{LineUserID: id, Friend: true, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		require.NoError(t, db.Create(&row).Error)
+		return row.ID
+	}
+	rep := lineUser("Urep")
+	links, err := entries.IssueTeamLinks(ctx, rep)
+	require.NoError(t, err)
+	draft, _ := json.Marshal(map[string]any{"divisionId": division.ID, "fullName": "熱海ディスクス", // 固定の値
+		"shortName": "熱海", "repName": "山田 太郎", "repPhone": "", "repEmail": "",
+		"members": []any{map[string]any{"name": "山田太郎", "number": "1"},
+			map[string]any{"name": "佐藤 花子", "number": "12"}}, "answers": []any{}})
+	rec := send(t, srv, http.MethodPost, "/api/v1/entry-links/"+links[0].Token+"/team", draft, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var submitted struct {
+		InviteCode string `json:"inviteCode"`
+		MemberList []struct {
+			ID int64 `json:"id"`
+		} `json:"memberList"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &submitted))
+	repRow := submitted.MemberList[0].ID
+
+	other, err := entries.IssueMemberLink(ctx, lineUser("Uother"), submitted.InviteCode)
+	require.NoError(t, err)
+	rec = send(t, srv, http.MethodGet, "/api/v1/entry-links/"+other.Token, nil, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.NotContains(t, rec.Body.String(), `"name":"山田太郎"`, "the rep's row is not offered")
+	assert.Contains(t, rec.Body.String(), `"name":"佐藤 花子"`)
+	take, _ := json.Marshal(map[string]any{"memberId": repRow, "name": "山田太郎", "number": "1", // 固定の値
+		"answers": []any{}})
+	assert.Equal(t, http.StatusConflict,
+		send(t, srv, http.MethodPost, "/api/v1/entry-links/"+other.Token+"/member", take, nil).Code)
+
+	own, err := entries.IssueMemberLink(ctx, rep, submitted.InviteCode)
+	require.NoError(t, err)
+	rec = send(t, srv, http.MethodPost, "/api/v1/entry-links/"+own.Token+"/member", take, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), fmt.Sprintf(`"mine":{"id":%d`, repRow))
+}

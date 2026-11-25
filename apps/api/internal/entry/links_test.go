@@ -60,14 +60,14 @@ func TestCheckJoin(t *testing.T) {
 	answers := map[int64]string{9: "3年"}
 
 	got, checked, err := entry.CheckJoin(entry.JoinDraft{MemberID: ptr(int64(1)), Name: " 山田 太郎 ", Number: "7",
-		Answers: answers}, members, nil, memberQuestions)
+		Answers: answers}, members, nil, nil, memberQuestions)
 	require.NoError(t, err)
 	assert.Equal(t, "山田 太郎", got.Name)
 	assert.Equal(t, int64(1), *got.MemberID)
 	assert.Equal(t, []entry.Answer{{QuestionID: 9, Value: "3年"}}, checked)
 
 	// 新しく足す人は、空いた背番号なら通る
-	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "田中 次郎", Number: "8", Answers: answers}, members, nil,
+	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "田中 次郎", Number: "8", Answers: answers}, members, nil, nil,
 		memberQuestions)
 	require.NoError(t, err)
 	assert.Nil(t, got.MemberID)
@@ -75,7 +75,7 @@ func TestCheckJoin(t *testing.T) {
 	// もう登録した人は、自分の行を直す(背番号は自分のものと重なってよい)
 	mine := members[1]
 	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "佐藤 花子", Number: "12", Answers: answers}, members,
-		&mine, memberQuestions)
+		&mine, nil, memberQuestions)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), *got.MemberID)
 
@@ -96,13 +96,30 @@ func TestCheckJoin(t *testing.T) {
 		{"登録済みの人が別の行", entry.JoinDraft{MemberID: ptr(int64(1)), Name: "佐藤", Answers: answers}, &mine,
 			domain.ErrBadRequest},
 		{"必須の質問", entry.JoinDraft{Name: "田中"}, nil, domain.ErrBadRequest},
+		{"代表の行", entry.JoinDraft{MemberID: ptr(int64(3)), Name: "鈴木", Answers: answers}, nil,
+			domain.ErrConflict},
 	}
+	repRows := map[int64]bool{3: true}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, err := entry.CheckJoin(tc.draft, members, tc.mine, memberQuestions)
+			_, _, err := entry.CheckJoin(tc.draft, members, tc.mine, repRows, memberQuestions)
 			require.ErrorIs(t, err, tc.wantErr)
 		})
 	}
+}
+
+func TestRepRows(t *testing.T) {
+	rep := int64(40)
+	detail := entry.Detail{Summary: entry.Summary{RepName: "山田　太郎"}, RepLineUserID: &rep,
+		MemberList: []entry.Member{
+			{ID: 1, Name: "山田太郎"},
+			{ID: 2, Name: "佐藤 花子"},
+			{ID: 3, Name: "山田 太郎", Registered: true, LineUserID: ptr(int64(41))},
+		}}
+	assert.Equal(t, map[int64]bool{1: true}, entry.RepRows(detail, 50), "the rep's row, ignoring spaces")
+	assert.Empty(t, entry.RepRows(detail, rep), "the rep can pick their own row")
+	detail.RepLineUserID = nil
+	assert.Empty(t, entry.RepRows(detail, 50), "no one knows the rep of a desk entry")
 }
 
 func TestDecisionNotice(t *testing.T) {

@@ -385,8 +385,9 @@ func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error)
 	form := MemberForm{TournamentName: tournament.Name, Team: detail.Summary,
 		Questions: scopeOf(questions, ScopeMember), Unclaimed: []Member{},
 		Mine: MemberOf(detail.MemberList, link.LineUserID), MineAnswers: []Answer{}, ExpiresAt: link.ExpiresAt}
+	repRows := RepRows(detail, link.LineUserID)
 	for _, member := range detail.MemberList {
-		if !member.Registered {
+		if !member.Registered && !repRows[member.ID] {
 			form.Unclaimed = append(form.Unclaimed, member)
 		}
 	}
@@ -500,7 +501,7 @@ func (s *Service) JoinByLink(ctx context.Context, token string, draft JoinDraft)
 		return MemberForm{}, err
 	}
 	mine := MemberOf(detail.MemberList, link.LineUserID)
-	checked, answers, err := CheckJoin(draft, detail.MemberList, mine, questions)
+	checked, answers, err := CheckJoin(draft, detail.MemberList, mine, RepRows(detail, link.LineUserID), questions)
 	if err != nil {
 		return MemberForm{}, err
 	}

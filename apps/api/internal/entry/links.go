@@ -143,13 +143,38 @@ func CanJoin(status Status) error {
 	return nil
 }
 
+// RepRows は、line_users の行 lineUserID の人がメンバー登録で選べない名簿の行(代表の行)の ID を返す。
+// LINE で申し込んだ代表の申込で、その人が代表本人でないとき、本人がまだ登録していない、名前が代表と
+// 同じ行(空白の違いは見ない)を返す。招待のリンクはチームの中で回すので、ほかの人が代表の行を選ぶと、
+// 代表が自分の行で登録できなくなる。運営が代わりに入れた申込は、代表の LINE が分からないので返さない。
+func RepRows(detail Detail, lineUserID int64) map[int64]bool {
+	rows := map[int64]bool{}
+	if detail.RepLineUserID == nil || *detail.RepLineUserID == lineUserID {
+		return rows
+	}
+	rep := withoutSpaces(detail.RepName)
+	for _, member := range detail.MemberList {
+		if !member.Registered && withoutSpaces(member.Name) == rep {
+			rows[member.ID] = true
+		}
+	}
+	return rows
+}
+
+// withoutSpaces は名前の空白(全角も)を除く(「山田 太郎」と「山田太郎」を同じ人として比べる)。
+func withoutSpaces(name string) string {
+	return strings.Join(strings.Fields(name), "")
+}
+
 // CheckJoin はメンバー登録の中身を確かめ、前後の空白を除いた中身と、整えた答えを返す。members は
 // チームの今のメンバーで、選んだ行がこのチームの、まだ誰も結んでいない行(または自分の行)であること、
-// 背番号がほかの人と重ならないことを確かめる。mine はこの人がもう登録した行(無ければ nil)。
+// 代表の行(repRows。RepRows の結果)でないこと、背番号がほかの人と重ならないことを確かめる。mine は
+// この人がもう登録した行(無ければ nil)。
 func CheckJoin(
 	draft JoinDraft,
 	members []Member,
 	mine *Member,
+	repRows map[int64]bool,
 	questions []Question,
 ) (JoinDraft, []Answer, error) {
 	name, number := strings.TrimSpace(draft.Name), strings.TrimSpace(draft.Number)
@@ -168,6 +193,10 @@ func CheckJoin(
 		picked := findMember(members, *draft.MemberID)
 		if picked == nil {
 			return JoinDraft{}, nil, domain.Invalid("memberId", "is not a member of this team")
+		}
+		if repRows[picked.ID] {
+			return JoinDraft{}, nil, fmt.Errorf("%w: only the representative can register as the representative's row",
+				domain.ErrConflict)
 		}
 		if picked.Registered && picked.ID != self {
 			return JoinDraft{}, nil, fmt.Errorf("%w: someone else has already registered as this member",

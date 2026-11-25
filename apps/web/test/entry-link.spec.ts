@@ -118,6 +118,11 @@ describe('participantErrorText', () => {
       ],
       [
         'conflict',
+        "conflict: only the representative can register as the representative's row",
+        'その名前は代表の行です。名簿から自分の名前を選ぶか、「名簿に自分がいない」を選んでください',
+      ],
+      [
+        'conflict',
         'conflict: the entry of this team has been cancelled',
         'このチームの申込は取り消されています',
       ],

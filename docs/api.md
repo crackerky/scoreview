@@ -1040,7 +1040,7 @@ type EntryLink = {
     tournamentName: string
     team: EntrySummary
     questions: EntryQuestion[]       // メンバー向けの質問だけ
-    unclaimed: EntryMember[]         // 代表が書いた、まだ誰も LINE を結んでいない行
+    unclaimed: EntryMember[]         // 代表が書いた、まだ誰も LINE を結んでいない行。LINE で申し込んだ代表の申込では、代表の名前の行(空白の違いは見ない)を代表本人にだけ出す
     mine: EntryMember | null         // この人がもう登録した行
     mineAnswers: Array<{ questionId: number; value: string }>
     profileName: string              // この人が前に入れた名前(無ければ '')
@@ -1055,7 +1055,7 @@ type EntryLink = {
 | `GET /entry-links/{token}` | なし | `EntryLink` |
 | `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409。代表の名前、電話番号、メールアドレスを、この人の前回の入力として残す(送り直しも同じ。メンバー登録は名前だけ)。受付を公式アカウントから代表に知らせ、メンバーへの登録のお願い(招待リンク)を別の吹き出しで付ける(送り直しは受付だけ) |
 | `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
-| `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
+| `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行と、代表本人でない人が選んだ代表の行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
 ### 公式 LINE で送る
 
