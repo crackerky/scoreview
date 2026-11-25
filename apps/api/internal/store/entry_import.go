@@ -17,9 +17,10 @@ import (
 
 const (
 	sqlByLineUsers = "line_user_id IN ?"
-	// 台帳の名前と連絡先は、移す申込のほうが新しいときだけ書き換える(こちらで申し込み直した人の
-	// 入力を、前の大会の古い入力で戻さない)
-	sqlProfileIsOlder = "line_users.profile_updated_at IS NULL OR line_users.profile_updated_at < excluded.profile_updated_at"
+	// 台帳の名前と連絡先は、移す申込のほうが新しいか同じ時刻のときだけ書き換える(こちらで申し込み
+	// 直した人の入力を、前の大会の古い入力で戻さない。同じ書き出しを読み直して取り込み直したときは、
+	// 読み直した中身にする)
+	sqlProfileIsOlder = "line_users.profile_updated_at IS NULL OR line_users.profile_updated_at <= excluded.profile_updated_at"
 	// メールアドレスはメンバーの行には無いので、空なら前の値を残す
 	sqlKeepEmail    = "COALESCE(NULLIF(excluded.email, ''), line_users.email)"
 	importBatchSize = 500

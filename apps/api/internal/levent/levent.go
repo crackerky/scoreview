@@ -206,8 +206,12 @@ func findEntry(past entry.PastTournament, index map[teamAt]int, key string, divi
 }
 
 // addMember は申込にメンバーを足す。同じ人がもう登録していれば、新しい登録で書き換える(行は時刻の
-// 順に来る)。
+// 順に来る)。代表本人のメンバーの行にメールアドレスがあり、代表の書き出しに無ければ、代表の連絡先に
+// する(大会によっては、代表のメールアドレスを選手全員の書き出しでだけ聞いている)。
 func addMember(target *entry.PastEntry, member row, report *Report) {
+	if member.uid == target.RepLineID && target.RepEmail == "" {
+		target.RepEmail = member.email
+	}
 	number := member.number
 	if utf8.RuneCountInString(number) > entry.MaxNumberText {
 		number = ""

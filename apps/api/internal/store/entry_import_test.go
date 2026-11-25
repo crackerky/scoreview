@@ -87,11 +87,16 @@ func TestImportPast(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, reps, 2)
 
-	// 同じ書き出しをもう一度取り込んでも、台帳の人は増えない(大会は別に作る)
+	// 同じ書き出しを読み直してもう一度取り込んでも、台帳の人は増えず(大会は別に作る)、同じ時刻の入力は
+	// 読み直した中身にする(前の読み方で落ちていた連絡先を足せる)
 	past.Entries[0].InviteCode, past.Entries[1].InviteCode = strings.Repeat("c", 26), strings.Repeat("d", 26)
+	past.Entries[1].RepEmail = "second@example.com"
 	_, err = entries.ImportPast(ctx, past)
 	require.NoError(t, err)
 	var count int64
 	require.NoError(t, db.Model(&store.LineUser{}).Count(&count).Error)
 	assert.Equal(t, int64(3), count)
+	var second store.LineUser
+	require.NoError(t, db.Where("line_user_id = ?", lineID("b")).Take(&second).Error)
+	assert.Equal(t, "second@example.com", second.Email)
 }

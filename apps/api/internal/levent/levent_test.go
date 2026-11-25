@@ -40,6 +40,7 @@ func membersCSV() string {
 	return "\xef\xbb\xbf" + membersHeader +
 		"選手 甲,こう,男性,2005-01-01,2026-04-10 01:00:00 UTC,0,1," + uid(5) + ",千葉大学MISTRAL（オープン）,選手,,７\n" +
 		"選手 乙,おつ,女性,2005-01-01,2026-04-10 02:00:00 UTC,0,1," + uid(6) + ",千葉大学MISTRAL（ウィメン）,選手,,\n" +
+		"代表 二子,ふた,女性,2004-01-01,2026-04-10 02:30:00 UTC,0,1," + uid(2) + ",千葉大学MISTRAL（ウィメン）,代表者,b@example.com,\n" +
 		"代表 一郎,いち,男性,2004-01-01,2026-04-10 03:00:00 UTC,0,1," + uid(1) + ",千葉大学MISTRAL（オープン）,代表者,a@example.com,10\n" +
 		"選手 丙,へい,男性,2005-01-01,2026-04-10 04:00:00 UTC,0,1," + uid(7) + ",文教大学AlRS（オープン）,選手,,ないです、背番号は未定\n" +
 		"選手 丁,てい,男性,2005-01-01,2026-04-10 05:00:00 UTC,0,1," + uid(8) + ",知らないチーム（オープン）,選手,,\n" +
@@ -85,8 +86,10 @@ func TestReadMatchesMembersToTeams(t *testing.T) {
 	assert.Equal(t, 1, report.Duplicates)
 
 	assert.Equal(t, 1, past.Entries[1].Division)
-	require.Len(t, past.Entries[1].Members, 1, "the women's team gets the (ウィメン) member")
+	require.Len(t, past.Entries[1].Members, 2, "the women's team gets the (ウィメン) members")
 	assert.Equal(t, uid(6), past.Entries[1].Members[0].LineID)
+	assert.Equal(t, "b@example.com", past.Entries[1].RepEmail, "the rep's email from the member row")
+	assert.Equal(t, "a@example.com", mistral.RepEmail, "an email in the reps file is kept")
 
 	airs := past.Entries[2]
 	require.Len(t, airs.Members, 1, "the alias finds the team")
