@@ -2,7 +2,7 @@ import { runsDayOf } from '@/admin/access.utils'
 import { buildAlerts, courtCards } from '@/admin/hqBoard.utils'
 import { loadBoards } from '@/admin/hqData'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { japaneseDate, jstToday } from '@/admin/tournamentList.utils'
+import { japaneseDate } from '@/admin/tournamentList.utils'
 import { assignments, groups, matches, teams, tournaments } from '@/api/admin'
 import type { AdminDivision, AdminMatch } from '@/api/admin.types'
 import { entries } from '@/api/entry'
@@ -30,7 +30,6 @@ export default async function AdminTournamentPage(props: IdPageProps) {
   // 大会の作成、設定は管理者だけ。本部と記録係の割り当ては本部スタッフもできる
   const isAdmin = user.role === 'admin'
   const canRun = runsDayOf(user)
-  const today = jstToday(new Date())
   const [tournament, board, assignmentList, entryList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, id),
@@ -63,9 +62,9 @@ export default async function AdminTournamentPage(props: IdPageProps) {
   const live = allMatches.filter((match) => match.status === 'live').length
   const finished = allMatches.filter((match) => match.status === 'finished').length
   const keepers = assignmentList?.assignments ?? []
-  const alerts = buildAlerts(board.boards, id, keepers, today)
-  const freeCourts = courtCards(board.boards, keepers, today)
-    .filter((card) => card.keeper === null)
+  const alerts = buildAlerts(board.boards, id, keepers)
+  const freeCourts = courtCards(board.boards, keepers)
+    .filter((card) => card.needsKeeper)
     .map((card) => card.name)
   const kicker = [
     tournament.startDate ? japaneseDate(tournament.startDate) : '開催日未定',

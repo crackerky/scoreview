@@ -77,15 +77,30 @@ function allMatches(boards: DivisionBoard[]): ProgressMatch[] {
   return boards.flatMap((board) => board.matches).sort(byClock)
 }
 
-/** 試合のコートに、今日の記録係の割り当てがあるか(試合そのものへの割り当ても見る) */
-function hasKeeper(match: ProgressMatch, assignments: Assignment[], today: string): boolean {
-  return assignments.some(
-    (assignment) =>
-      assignment.matchId === match.id ||
-      (assignment.matchId === null &&
-        (assignment.field === null || assignment.field === match.field) &&
-        (assignment.date === null || assignment.date === today)),
-  )
+/**
+ * 割り当てが試合を覆うか。api が記録を受ける決まり(internal/domain/assignment.go の Covers)と同じ:
+ * 試合への割り当てはその試合だけ、そうでなければコート、日付、時刻の範囲(開始は含み終わりは含まない)が
+ * すべて合うこと。範囲の条件があるのに試合の側が未定なら覆わない。
+ */
+export function coversMatch(assignment: Assignment, match: ProgressMatch): boolean {
+  if (assignment.matchId !== null) {
+    return assignment.matchId === match.id
+  }
+  const equal = (condition: string | null, value: string | null) =>
+    condition === null || (value !== null && condition === value)
+  if (!equal(assignment.field, match.field) || !equal(assignment.date, match.date)) {
+    return false
+  }
+  // "HH:MM" は辞書順と時刻の順が一致する
+  if (assignment.from !== null && (match.time === null || match.time < assignment.from)) {
+    return false
+  }
+  return !(assignment.to !== null && (match.time === null || match.time >= assignment.to))
+}
+
+/** 試合を記録できる記録係がいるか */
+function hasKeeper(match: ProgressMatch, assignments: Assignment[]): boolean {
+  return assignments.some((assignment) => coversMatch(assignment, match))
 }
 
 /** 本部の知らせ。部門をまたいで同じ原因(同じコートの遅れ、結果待ち)を 1 件にまとめる */
@@ -93,7 +108,6 @@ export function buildAlerts(
   boards: DivisionBoard[],
   tournamentId: number,
   assignments: Assignment[],
-  today: string,
 ): HqAlert[] {
   const hq = hqPath(tournamentId)
   const matches = allMatches(boards)
@@ -147,7 +161,7 @@ export function buildAlerts(
   }
 
   const live = matches.filter((match) => match.status === 'live')
-  const noKeeper = live.filter((match) => !hasKeeper(match, assignments, today))
+  const noKeeper = live.filter((match) => !hasKeeper(match, assignments))
   if (noKeeper.length > 0) {
     alerts.push({
       key: 'no-keeper',
@@ -235,16 +249,14 @@ export type CourtCard = {
   name: string
   delay: number | null
   keeper: string | null
+  /** いま試合中か次の試合があるのに、記録できる記録係がいない */
+  needsKeeper: boolean
   live: ProgressMatch | null
   next: ProgressMatch | null
 }
 
 /** コートごとの今の試合、次の試合、遅れ、記録係 */
-export function courtCards(
-  boards: DivisionBoard[],
-  assignments: Assignment[],
-  today: string,
-): CourtCard[] {
+export function courtCards(boards: DivisionBoard[], assignments: Assignment[]): CourtCard[] {
   const courts = [...new Set(boards.flatMap((board) => board.progress.courts))].sort((a, b) =>
     a.localeCompare(b, 'ja', { numeric: true }),
   )
@@ -257,23 +269,27 @@ export function courtCards(
           todo.kind === 'court_delay' && todo.court === court && todo.minutes <= staleDelayMinutes,
       ),
     )
-    const keepers = [
-      ...new Set(
-        assignments
-          .filter(
-            (assignment) =>
-              assignment.field === court && (assignment.date === null || assignment.date === today),
-          )
-          .map((assignment) => assignment.userName),
-      ),
-    ]
+    const live = here.find((match) => match.status === 'live') ?? null
+    const next = here.find((match) => match.status === 'scheduled') ?? null
+    // コートの記録係は、いま試合中か次の試合を記録できる人(全コートや試合ごとの割り当ても含む)
+    const focus = live ?? next
+    const keepers = focus
+      ? [
+          ...new Set(
+            assignments
+              .filter((assignment) => coversMatch(assignment, focus))
+              .map((assignment) => assignment.userName),
+          ),
+        ]
+      : []
     return {
       court,
       name: courtLabel(court),
       delay: delays.length > 0 ? Math.max(...delays.map((todo) => todo.minutes)) : null,
       keeper: keepers.length > 0 ? keepers.join('、') : null,
-      live: here.find((match) => match.status === 'live') ?? null,
-      next: here.find((match) => match.status === 'scheduled') ?? null,
+      needsKeeper: focus !== null && keepers.length === 0,
+      live,
+      next,
     }
   })
 }

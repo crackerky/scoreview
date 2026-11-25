@@ -8,7 +8,6 @@ import {
 } from '@/admin/hqBoard.utils'
 import { loadBoards } from '@/admin/hqData'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { jstToday } from '@/admin/tournamentList.utils'
 import { tournaments } from '@/api/admin'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { shiftCourtAction } from '@/app/admin/_actions/hqBoard'
@@ -31,7 +30,7 @@ export default async function ShiftPage(props: IdPageProps) {
   const [tournament, board] = await loadAdmin(() =>
     Promise.all([tournaments.get(token, id), loadBoards(token, id)]),
   )
-  const courts = courtCards(board.boards, [], jstToday(new Date()))
+  const courts = courtCards(board.boards, [])
   const court = courts.find((card) => card.court === pick(query.court)) ?? courts[0]
   const asked = Number(pick(query.minutes))
   const minutes =

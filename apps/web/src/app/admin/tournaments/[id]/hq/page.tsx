@@ -16,7 +16,7 @@ import {
 import { loadBoards } from '@/admin/hqData'
 import { courtLabel } from '@/admin/scoreKeeper.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { japaneseDate, jstToday } from '@/admin/tournamentList.utils'
+import { japaneseDate } from '@/admin/tournamentList.utils'
 import { assignments, tournaments } from '@/api/admin'
 import type { ProgressMatch } from '@/api/format.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
@@ -50,7 +50,6 @@ export default async function TournamentHqPage(props: IdPageProps) {
   const { user, token } = await requireUser('any')
   const isAdmin = runsDayOf(user)
   const now = new Date()
-  const today = jstToday(now)
   const [tournament, board, assignmentList] = await loadAdmin(() =>
     Promise.all([
       tournaments.get(token, id),
@@ -59,7 +58,7 @@ export default async function TournamentHqPage(props: IdPageProps) {
     ]),
   )
   const keepers = assignmentList?.assignments ?? []
-  const alerts = buildAlerts(board.boards, id, keepers, today)
+  const alerts = buildAlerts(board.boards, id, keepers)
   const base = `/admin/tournaments/${id}/hq`
   const shellTabs: ShellTab[] = tabs.map((item) => ({
     href: item.id === 'now' ? base : `${base}?tab=${item.id}`,
@@ -94,7 +93,7 @@ export default async function TournamentHqPage(props: IdPageProps) {
             <NowTab
               tournamentId={id}
               alerts={alerts}
-              courts={courtCards(board.boards, keepers, today)}
+              courts={courtCards(board.boards, keepers)}
               groups={groupCards(board.boards, id)}
               showKeepers={isAdmin}
             />

@@ -127,7 +127,7 @@ test('同じコートの遅れは部門をまたいで 1 件にし、長い方�
       [match(2, '2', '11:40', 'scheduled'), match(3, '3', '11:40', 'scheduled')],
     ),
   ]
-  const alerts = buildAlerts(boards, 9, [], today)
+  const alerts = buildAlerts(boards, 9, [])
   assert.deepEqual(
     alerts.map((alert) => alert.title),
     ['コート 2が 12 分遅れています'],
@@ -144,7 +144,7 @@ test('結果待ちは 1 件にまとめ、試合ごとに結果の入力への�
       [match(1, '1', '10:00', 'scheduled'), match(2, '2', '10:00', 'scheduled')],
     ),
   ]
-  const [alert] = buildAlerts(boards, 9, [], today)
+  const [alert] = buildAlerts(boards, 9, [])
   assert.equal(alert?.title, '終わる時刻を過ぎて結果が入っていない試合が 2 件あります')
   assert.deepEqual(
     alert?.links.map((link) => link.label),
@@ -169,7 +169,7 @@ test('試合中の試合のコートに今日の記録係がいなければ知�
     from: null,
     to: null,
   }
-  const alerts = buildAlerts([board(1, [], live)], 9, [keeper], today)
+  const alerts = buildAlerts([board(1, [], live)], 9, [keeper])
   assert.deepEqual(
     alerts.map((alert) => [alert.chip, alert.title]),
     [['記録係なし', '記録係のいない試合が 1 件あります']],
@@ -185,7 +185,7 @@ test('確定待ちの組は確定の画面へ、同順位は進行画面へ', ()
       [group(7, 'ready'), group(8, 'tied', 'B 組')],
     ),
   ]
-  const alerts = buildAlerts(boards, 9, [], today)
+  const alerts = buildAlerts(boards, 9, [])
   assert.deepEqual(
     alerts.map((alert) => [alert.chip, alert.links[0]?.href]),
     [
@@ -207,13 +207,61 @@ test('コートの札: 試合中の試合、次の試合、遅れ、記録係', 
       ],
     ),
   ]
-  const cards = courtCards(boards, [], today)
+  const cards = courtCards(boards, [])
   assert.deepEqual(
     cards.map((card) => [card.name, card.live?.id ?? null, card.next?.id ?? null, card.delay]),
     [
       ['コート 1', 1, 2, 5],
       ['コート 2', null, 3, null],
     ],
+  )
+})
+
+test('コートの記録係: 全コート、試合ごと、時刻の範囲の割り当ても数える(api と同じ決まり)', () => {
+  const assign = (fields: Partial<Assignment>): Assignment => ({
+    id: 1,
+    userId: 5,
+    userName: '佐藤',
+    matchId: null,
+    matchCode: null,
+    field: null,
+    date: null,
+    from: null,
+    to: null,
+    ...fields,
+  })
+  const boards = [
+    board(
+      1,
+      [],
+      [
+        match(1, '1', '11:00', 'live'),
+        match(2, '2', '11:20', 'scheduled'),
+        match(3, '3', '13:00', 'scheduled'),
+      ],
+    ),
+  ]
+  const keepers = (assignments: Assignment[]) =>
+    courtCards(boards, assignments).map((card) => [card.name, card.keeper, card.needsKeeper])
+  assert.deepEqual(keepers([assign({ userName: '一郎' })]), [
+    ['コート 1', '一郎', false],
+    ['コート 2', '一郎', false],
+    ['コート 3', '一郎', false],
+  ])
+  assert.deepEqual(keepers([assign({ userName: '二郎', matchId: 2 })]), [
+    ['コート 1', null, true],
+    ['コート 2', '二郎', false],
+    ['コート 3', null, true],
+  ])
+  assert.deepEqual(keepers([assign({ userName: '三郎', from: '12:00', to: '14:00' })]), [
+    ['コート 1', null, true],
+    ['コート 2', null, true],
+    ['コート 3', '三郎', false],
+  ])
+  assert.deepEqual(
+    keepers([assign({ field: '1', date: '2026-10-26' })])[0],
+    ['コート 1', null, true],
+    '別の日の割り当ては数えない',
   )
 })
 
