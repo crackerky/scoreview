@@ -128,36 +128,6 @@ function ShellTabs({ tabs }: { tabs: ShellTab[] }) {
   )
 }
 
-/** 入口のカード(大会ホームなど)。上の画面は要約と入口だけにし、操作は入口の先の画面で行う */
-export function EntryCard({
-  href,
-  label,
-  sub,
-  badge,
-  tone,
-  highlight,
-}: {
-  href: string
-  label: string
-  sub: string
-  badge?: string
-  tone?: ChipTone
-  highlight?: boolean
-}) {
-  return (
-    <a className={`adm-entry${highlight ? ' highlight' : ''}`} href={href}>
-      <span className="adm-entry-head">
-        <span className="adm-entry-label">{label}</span>
-        {badge ? <Chip tone={tone ?? 'warn'}>{badge}</Chip> : null}
-        <span className="adm-chevron" aria-hidden="true">
-          ›
-        </span>
-      </span>
-      <span className="adm-entry-sub">{sub}</span>
-    </a>
-  )
-}
-
 export type ChipTone = 'live' | 'done' | 'sched' | 'warn' | 'ok'
 
 /** 状態の小さい札(試合中、終了、確定待ちなど) */

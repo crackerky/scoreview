@@ -452,46 +452,188 @@
   color: var(--adm-accent);
 }
 
-.adm-entries {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+/* 大会ホームの段のカード。左に段の名前、今の様子、次にやること、右にその段の入口 */
+.adm-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   margin: 0 0 24px;
 }
 
-.adm a.adm-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 96px;
-  padding: 14px 16px;
+.adm-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 16px 32px;
+  padding: 22px 24px;
   border: 1px solid var(--adm-line);
   border-radius: 14px;
   background: #fff;
+}
+
+.adm-stage.current {
+  padding: 21px 23px;
+  border: 2px solid var(--adm-primary);
+}
+
+.adm-stage-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.adm-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.adm .adm-stage-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.adm-stage-now {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--adm-accent);
+}
+
+.adm .adm-stage-status {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.adm .adm-stage-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--adm-primary-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.adm-stage-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 14px 0 0;
+}
+
+.adm-stage-numbers dt {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--adm-muted);
+}
+
+.adm-stage-numbers dd {
+  margin: 0;
+  font-family: var(--adm-font-number), "Barlow Condensed", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-stage-numbers dd.live {
+  color: var(--adm-danger);
+}
+
+.adm-stage-numbers dd.warn {
+  color: var(--adm-accent);
+}
+
+.adm a.adm-stage-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--adm-tap);
+  margin-top: 16px;
+  padding: 0 18px;
+  border: 1.5px solid var(--adm-primary);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--adm-fg);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.adm a.adm-stage-next:hover {
+  background: var(--adm-primary-soft);
+}
+
+.adm-stage-links {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adm-stage-item + .adm-stage-item {
+  border-top: 1px solid var(--adm-line-soft);
+}
+
+.adm a.adm-stage-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 8px;
   color: var(--adm-fg);
   text-decoration: none;
 }
 
-.adm a.adm-entry.highlight {
-  border: 2px solid var(--adm-primary);
+.adm a.adm-stage-link:hover {
+  background: var(--adm-bg);
 }
 
-.adm-entry-head {
+.adm a.adm-stage-next:focus-visible,
+.adm a.adm-stage-link:focus-visible {
+  outline: 2px solid var(--adm-accent);
+  outline-offset: 2px;
+}
+
+.adm-stage-link-text {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
-.adm-entry-label {
-  font-size: 16px;
-  font-weight: 800;
+.adm-stage-link-label {
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.adm-entry-sub {
+.adm-stage-link-sub {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--adm-muted);
+}
+
+@media (max-width: 760px) {
+  .adm-stage {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px 16px;
+  }
+
+  .adm-stage.current {
+    padding: 17px 15px;
+  }
+
+  .adm-stage-links {
+    margin: 0 -6px;
+  }
 }
 
 .adm-chevron {
