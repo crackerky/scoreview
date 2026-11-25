@@ -41,6 +41,7 @@ Neon には接続プール経由(pooled)と直結の 2 つの接続文字列が�
 | `LINE_MESSAGING_CHANNEL_ID` | api | 公式アカウントの Messaging API のチャネル ID(LINE Developers の「チャネル基本設定」)。シークレットと両方あるときだけ Webhook(`/line/webhook`)を受ける |
 | `LINE_MESSAGING_CHANNEL_SECRET` | api | 同じチャネルのチャネルシークレット。Sensitive にする。Webhook の署名の確かめと、15 分のチャネルアクセストークンの発行に使う |
 | `LINE_BASIC_ID` | api | 公式アカウントのベーシック ID(`@` から書く)。メンバーの招待リンクに使う |
+| `CRON_SECRET` | web | `openssl rand -hex 32` で作る。Sensitive にし、Production だけに入れる。vercel.json の `schedules`(15 分ごとに `/cron/notify`)を Vercel がこの値つきで呼び、web が確かめてから api に予約した送信を送らせる。無ければ `/cron/notify` は誰の呼び出しも受けない(予約は送られずに残る) |
 | `REFERENCE_ASSET_MODE` | web | `block`(既定)。本番に取込データを入れないので変えない |
 | `PORT` | api | Vercel が入れる |
 

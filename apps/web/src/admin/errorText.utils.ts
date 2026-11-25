@@ -87,6 +87,8 @@ const rules: readonly Rule[] = [
   // kind と status はほかの画面でも使う項目名なので、宛先の条件の理由(reps を含む)に限る
   { field: /^(audience|kind|status)$/, reason: /reps/, text: '宛先の条件を選び直してください' },
   { field: /^requestKey$/, text: '送る画面を開き直してから送ってください' },
+  { field: /^sendAt$/, reason: /future/, text: '送る日時は、今より後にしてください' },
+  { field: /^sendAt$/, reason: /within/, text: '予約できるのは 120 日先までです' },
 ]
 
 /** conflict の英語の理由を運営の言葉にする規則(申込など、理由を英語で返す口) */
@@ -119,6 +121,10 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
     text: '今月の残りの配信数が足りないので、送りませんでした。宛先を絞ってください',
   },
   { reason: /request key was used/, text: '送る画面を開き直してから送ってください' },
+  {
+    reason: /only a scheduled message can be cancelled/,
+    text: 'この予約はもう送ったか、取りやめています。画面を開き直してください',
+  },
   {
     reason: /too late to resend/,
     text: '送ってから 24 時間を過ぎたので、ここからは送り直せません',

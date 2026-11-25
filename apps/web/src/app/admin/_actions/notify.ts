@@ -1,6 +1,6 @@
 'use server'
 
-import { field, idField, runActionTo, withQuery } from '@/admin/action'
+import { field, idField, runAction, runActionTo, withQuery } from '@/admin/action'
 import { failureTarget, isApiError, withNotice } from '@/admin/form.utils'
 import { notifications } from '@/api/notify'
 import { notifyPaths } from '@/notify/notify.paths'
@@ -8,28 +8,34 @@ import {
   audienceFromQuery,
   audienceQuery,
   checkedAudience,
-  keepAudience,
+  checkedTiming,
+  keepPlan,
+  localTimeToIso,
   sameAudience,
+  sameTiming,
+  scheduleText,
   sentNotice,
+  timingFromQuery,
+  timingQuery,
 } from '@/notify/notify.utils'
 import { uncertainFailure } from '@/notify/notifyError.utils'
 
-// 管理画面から公式 LINE で送る。送るフォームは、画面で選んでいる宛先の条件(kind、status、division)と、
-// 人数を数えた宛先の条件(checked で始まる hidden 欄)の両方を持つ。
+// 管理画面から公式 LINE で送る。送るフォームは、画面で選んでいる宛先の条件と送る時刻(kind、status、
+// division、timing、at)と、人数を数えた条件と時刻(checked で始まる hidden 欄)の両方を持つ。
 
-const changedAudience =
-  '宛先を変えたので、人数を数え直しました。宛先を確かめてから、もう一度送ってください'
+const changedPlan =
+  '宛先か送る時刻を変えたので、数え直しました。確かめてから、もう一度押してください'
 
 const stoppedSend =
   '送信が途中で止まったかもしれません。同じ条件で送り直す前に、送った記録を確かめてください(途中で止まった送信は、記録の画面から送り直せます)'
 
-/** 「宛先を確かめる」。選んでいる宛先の条件で、送る画面を開き直す(書いた文は画面がブラウザに残す) */
+/** 「宛先と時刻を確かめる」。選んでいる条件と時刻で、送る画面を開き直す(書いた文は画面が残す) */
 export async function checkAudienceAction(formData: FormData): Promise<never> {
   return runActionTo(formData, async ({ form }) =>
-    withQuery(
-      notifyPaths.create(idField(form, 'tournamentId')),
-      audienceQuery(audienceFromQuery(form)),
-    ),
+    withQuery(notifyPaths.create(idField(form, 'tournamentId')), {
+      ...audienceQuery(audienceFromQuery(form)),
+      ...timingQuery(timingFromQuery(form)),
+    }),
   )
 }
 
@@ -37,12 +43,21 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
   return runActionTo(formData, async ({ token, form, back }) => {
     const tournamentId = idField(form, 'tournamentId')
     const audience = audienceFromQuery(form)
-    // 宛先の選択を変えたまま押された(JavaScript が動かないとき、ブラウザがフォームの状態を戻したときも)。
-    // 数えた人数と違う宛先に送らないよう、送らずに選んでいる宛先で数え直した画面に戻す
-    if (!sameAudience(audience, checkedAudience(form))) {
+    const timing = timingFromQuery(form)
+    const plan = { ...audienceQuery(audience), ...timingQuery(timing) }
+    // 宛先か時刻を変えたまま押された(JavaScript が動かないとき、ブラウザがフォームの状態を戻したときも)。
+    // 数えた人数や確かめた時刻と違う送信にしないよう、送らずに選んでいる条件で数え直した画面に戻す
+    if (
+      !sameAudience(audience, checkedAudience(form)) ||
+      !sameTiming(timing, checkedTiming(form))
+    ) {
+      return withQuery(notifyPaths.create(tournamentId), { ...plan, error: changedPlan })
+    }
+    const sendAt = timing.kind === 'later' ? localTimeToIso(timing.at) : null
+    if (timing.kind === 'later' && sendAt === null) {
       return withQuery(notifyPaths.create(tournamentId), {
-        ...audienceQuery(audience),
-        error: changedAudience,
+        ...plan,
+        error: '送る日時を入れてください',
       })
     }
     try {
@@ -50,7 +65,15 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
         audience,
         body: field(form, 'body'),
         requestKey: field(form, 'requestKey'),
+        sendAt,
       })
+      if (sent.state === 'scheduled' && sent.sendAt !== null) {
+        return withNotice(
+          notifyPaths.detail(sent.id),
+          'ok',
+          `${scheduleText(sent.sendAt)} に送る予約をしました`,
+        )
+      }
       const [kind, message] = sentNotice(sent.counts)
       return withNotice(notifyPaths.detail(sent.id), kind, message)
     } catch (error) {
@@ -58,10 +81,21 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
         logUnknown('send notification', error)
         return withNotice(notifyPaths.list(tournamentId), 'error', stoppedSend)
       }
-      // 宛先の条件を選び直さずに済むよう、条件を付けて送る画面へ戻す
-      return keepAudience(failureTarget(back, error), back, audience)
+      // 宛先の条件と時刻を選び直さずに済むよう、付けて送る画面へ戻す
+      return keepPlan(failureTarget(back, error), back, plan)
     }
   })
+}
+
+export async function cancelNotificationAction(formData: FormData): Promise<never> {
+  return runAction(
+    formData,
+    async ({ token, form }) => {
+      await notifications.cancel(token, idField(form, 'id'))
+      return undefined
+    },
+    '予約を取りやめました',
+  )
 }
 
 export async function resendNotificationAction(formData: FormData): Promise<never> {

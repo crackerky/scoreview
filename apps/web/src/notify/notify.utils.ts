@@ -4,9 +4,11 @@ import {
   type AudienceStatus,
   audienceKinds,
   audienceStatuses,
+  type BatchState,
   type JobStatus,
   type NotificationCounts,
   type NotificationPreview,
+  type SkipReason,
 } from '@/api/notify.types'
 
 // 管理画面の「公式 LINE で送る」の言葉と、宛先の条件の読み書き(docs/api.md「公式 LINE で送る」)。
@@ -194,18 +196,154 @@ export function quotaState(
 }
 
 /**
- * 送れなかったときの戻り先に、宛先の条件を付け直す。back は送る画面のパス(safeAdminPath はクエリを
- * 通さないので、条件は落ちている)。ログイン画面などほかの行き先はそのまま返す。
+ * 送れなかったときの戻り先に、宛先の条件と送る時刻(query)を付け直す。back は送る画面のパス
+ * (safeAdminPath はクエリを通さないので、条件は落ちている)。ログイン画面などほかの行き先はそのまま返す。
  */
-export function keepAudience(target: string, back: string, audience: Audience): string {
+export function keepPlan(
+  target: string,
+  back: string,
+  query: Record<string, string | undefined>,
+): string {
   if (!target.startsWith(`${back}?`)) {
     return target
   }
   const params = new URLSearchParams(target.slice(back.length + 1))
-  for (const [key, value] of Object.entries(audienceQuery(audience))) {
+  for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) {
       params.set(key, value)
     }
   }
   return `${back}?${params.toString()}`
+}
+
+// 送る時刻(予約)。画面の欄は日本時間の datetime-local(「2027-02-08T19:00」)で、api には RFC 3339 で渡す。
+
+/** 送る時刻の選び方。at は日本時間の欄の値(すぐ送るときは空) */
+export type Timing = { kind: 'now'; at: '' } | { kind: 'later'; at: string }
+
+/** 日本時間(UTC+9。夏時間なし) */
+const jstOffsetMs = 9 * 60 * 60 * 1000
+
+const localTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/
+
+/** 日本時間の欄の値を RFC 3339 にする。形が違うか、無い日時(2 月 30 日など)なら null */
+export function localTimeToIso(value: string): string | null {
+  const found = localTimePattern.exec(value)
+  if (!found) {
+    return null
+  }
+  const [year, month, day, hour, minute] = found.slice(1).map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ] // 正規表現の 5 つの数字の組
+  const utc = Date.UTC(year, month - 1, day, hour, minute) - jstOffsetMs
+  if (isoToLocalTime(new Date(utc).toISOString()) !== value) {
+    return null
+  }
+  return `${value}:00+09:00`
+}
+
+/** 時刻(ISO)を日本時間の欄の値にする */
+export function isoToLocalTime(iso: string): string {
+  return new Date(new Date(iso).getTime() + jstOffsetMs).toISOString().slice(0, 16)
+}
+
+const weekdays = ['日', '月', '火', '水', '木', '金', '土'] as const
+
+/** 予約の時刻の見せ方(「2月8日(日) 19:00」。日本時間) */
+export function scheduleText(iso: string): string {
+  const jst = new Date(new Date(iso).getTime() + jstOffsetMs)
+  const clock = `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`
+  return `${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日(${weekdays[jst.getUTCDay()]}) ${clock}`
+}
+
+/** クエリかフォームの欄(timing と at)から送る時刻の選び方を読む。知らない値はすぐ送る */
+export function timingFromQuery(query: Query): Timing {
+  return pick(query, 'timing') === 'later'
+    ? { kind: 'later', at: pick(query, 'at') }
+    : { kind: 'now', at: '' }
+}
+
+/** 送る時刻の選び方をクエリにする(すぐ送るときは付けない) */
+export function timingQuery(timing: Timing): Record<string, string | undefined> {
+  return timing.kind === 'later' ? { timing: 'later', at: timing.at } : {}
+}
+
+export function sameTiming(left: Timing, right: Timing): boolean {
+  return left.kind === right.kind && left.at === right.at
+}
+
+/** 数えた送る時刻を、送るフォームの hidden 欄の値にする */
+export function checkedTimingFields(timing: Timing): Record<string, string> {
+  return { checkedTiming: timing.kind, checkedAt: timing.at }
+}
+
+/** 送るフォームの hidden 欄から、数えた送る時刻を読む */
+export function checkedTiming(form: Query): Timing {
+  return timingFromQuery({ timing: form.checkedTiming, at: form.checkedAt })
+}
+
+/**
+ * 前日と当日の案内のひな形。送る時刻は運営会社と決めるまでの仮の既定(前日の夜と当日の朝。送る
+ * 画面で直せる)。
+ */
+export const reminderPresets = {
+  eve: {
+    label: '前日の案内',
+    dayOffset: -1,
+    time: '19:00',
+    greeting: '明日はよろしくお願いします。',
+  },
+  day: {
+    label: '当日の案内',
+    dayOffset: 0,
+    time: '07:00',
+    greeting: '本日はよろしくお願いします。',
+  },
+} as const
+
+export type ReminderPreset = keyof typeof reminderPresets
+
+export function parsePreset(value: string | string[] | undefined): ReminderPreset | null {
+  return value === 'eve' || value === 'day' ? value : null
+}
+
+/** 案内の送る時刻(日本時間の欄の値)。大会の日(YYYY-MM-DD)から決める */
+export function presetTime(startDate: string, preset: ReminderPreset): string {
+  const { dayOffset, time } = reminderPresets[preset]
+  const day = new Date(`${startDate}T00:00:00Z`)
+  day.setUTCDate(day.getUTCDate() + dayOffset)
+  return `${day.toISOString().slice(0, 10)}T${time}`
+}
+
+/** 案内の文のひな形(集合時刻と会場は運営が書き足す)。scoreUrl はスコアサイトの大会の URL */
+export function presetBody(preset: ReminderPreset, scoreUrl: string): string {
+  return [
+    reminderPresets[preset].greeting,
+    '',
+    '集合時刻: ',
+    '会場: ',
+    '',
+    '試合の予定と結果は、こちらで見られます。',
+    scoreUrl,
+  ].join('\n')
+}
+
+/** 送る時刻に送れなかった理由の言葉 */
+export const skipReasonLabels: Readonly<Record<Exclude<SkipReason, ''>, string>> = {
+  no_recipients: '送る時刻に、条件に当てはまる人がいませんでした',
+  quota:
+    '送る時刻に、今月の残りの配信数が足りませんでした(一部の人にだけ届かないよう、送っていません)',
+  line_not_configured: '送る時刻に、公式 LINE の設定がありませんでした',
+}
+
+/** 送信の段階の短い言葉(一覧の印) */
+export const batchStateLabels: Readonly<Record<BatchState, string>> = {
+  scheduled: '予約',
+  sent: '送った',
+  cancelled: '取りやめ',
+  skipped: '送れなかった',
 }

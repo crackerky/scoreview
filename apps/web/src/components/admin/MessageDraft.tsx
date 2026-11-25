@@ -4,18 +4,25 @@ import { useEffect, useState } from 'react'
 
 // 送る文の欄と、公式 LINE で届く形の見本。見本の 1 行目の大会名は api が付けるもの(heading)。
 // 書いた文はブラウザのタブに残し(draftKey)、宛先を確かめるために画面を読み直しても消さない。
+// initialBody(前日と当日の案内のひな形を選んで開いたとき)があれば、残した文の代わりにそれを入れる。
 export function MessageDraft({
   heading,
   maxLength,
   draftKey,
+  initialBody = '',
 }: {
   heading: string
   maxLength: number
   draftKey: string
+  initialBody?: string
 }) {
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState(initialBody)
   useEffect(() => {
     try {
+      if (initialBody !== '') {
+        window.sessionStorage.setItem(draftKey, initialBody)
+        return
+      }
       const saved = window.sessionStorage.getItem(draftKey)
       if (saved !== null) {
         setBody(saved)
@@ -23,7 +30,7 @@ export function MessageDraft({
     } catch {
       // 保存が使えないブラウザ(プライベートの窓など)では、文を残さないだけで送れる
     }
-  }, [draftKey])
+  }, [draftKey, initialBody])
   const change = (value: string) => {
     setBody(value)
     try {

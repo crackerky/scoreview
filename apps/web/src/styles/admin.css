@@ -1310,6 +1310,7 @@
 .adm input[type="number"],
 .adm input[type="date"],
 .adm input[type="time"],
+.adm input[type="datetime-local"],
 .adm input[type="url"],
 .adm input[type="search"],
 .adm select,

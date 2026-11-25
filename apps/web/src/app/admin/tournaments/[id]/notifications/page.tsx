@@ -1,12 +1,19 @@
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
 import { notifications } from '@/api/notify'
+import type { NotificationSummary } from '@/api/notify.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Chip } from '@/components/admin/AdminParts'
 import { dateTimeText } from '@/entry/entry.utils'
 import { notifyPaths } from '@/notify/notify.paths'
-import { audienceText, bodyExcerpt, countsText } from '@/notify/notify.utils'
+import {
+  audienceText,
+  batchStateLabels,
+  bodyExcerpt,
+  countsText,
+  scheduleText,
+} from '@/notify/notify.utils'
 
 // 大会で公式 LINE から送った記録(新しい順)。押すと宛先ごとの結果を開く。管理者だけ(宛先は申込の
 // 代表とメンバーのため)。
@@ -52,20 +59,18 @@ export default async function NotificationsPage(props: IdPageProps) {
                   <span className="adm-row-title">{bodyExcerpt(item.body)}</span>
                   <span className="adm-row-meta">
                     {[
-                      dateTimeText(item.createdAt),
+                      item.sendAt
+                        ? `${scheduleText(item.sendAt)} に予約`
+                        : dateTimeText(item.createdAt),
                       audienceText(item.audience, (division) => divisionNames.get(division)),
-                      countsText(item.counts),
+                      item.state === 'sent' ? countsText(item.counts) : '',
                       item.sentBy,
                     ]
                       .filter((part) => part !== '')
                       .join(' ・ ')}
                   </span>
                 </span>
-                {item.counts.failed > 0 ? (
-                  <Chip tone="live">送れなかった人あり</Chip>
-                ) : item.counts.pending > 0 ? (
-                  <Chip tone="warn">送っている途中</Chip>
-                ) : null}
+                <BatchChip item={item} />
                 <span className="adm-chevron" aria-hidden="true">
                   ›
                 </span>
@@ -76,4 +81,21 @@ export default async function NotificationsPage(props: IdPageProps) {
       )}
     </AdminShell>
   )
+}
+
+/** 一覧の印。予約、取りやめ、送れなかった予約は段階を、送った送信は結果の困りごとだけを出す */
+function BatchChip({ item }: { item: NotificationSummary }) {
+  switch (item.state) {
+    case 'scheduled':
+      return <Chip tone="sched">{batchStateLabels.scheduled}</Chip>
+    case 'cancelled':
+      return <Chip tone="done">{batchStateLabels.cancelled}</Chip>
+    case 'skipped':
+      return <Chip tone="live">{batchStateLabels.skipped}</Chip>
+    case 'sent':
+      if (item.counts.failed > 0) {
+        return <Chip tone="live">送れなかった人あり</Chip>
+      }
+      return item.counts.pending > 0 ? <Chip tone="warn">送っている途中</Chip> : null
+  }
 }

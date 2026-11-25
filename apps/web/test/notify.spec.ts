@@ -6,6 +6,7 @@ import {
   notificationListSchema,
   notificationPreviewSchema,
 } from '../src/api/notify.types.ts'
+import { isCronRequest } from '../src/notify/cron.utils.ts'
 import { notifyPaths } from '../src/notify/notify.paths.ts'
 import {
   audienceFromQuery,
@@ -14,10 +15,17 @@ import {
   checkedAudience,
   checkedFields,
   countsText,
-  keepAudience,
+  isoToLocalTime,
+  keepPlan,
+  localTimeToIso,
+  presetBody,
+  presetTime,
   quotaState,
   sameAudience,
+  sameTiming,
+  scheduleText,
   sentNotice,
+  timingFromQuery,
 } from '../src/notify/notify.utils.ts'
 import { uncertainFailure } from '../src/notify/notifyError.utils.ts'
 
@@ -69,20 +77,67 @@ describe('notifyPaths', () => {
   })
 })
 
-describe('keepAudience', () => {
+describe('keepPlan', () => {
   const back = '/admin/tournaments/5/notifications/new'
-  const audience = { kind: 'incomplete', status: '', divisionId: 9 } as const
-  test('送る画面に戻すときは、知らせに条件を付け直す', () => {
-    const target = keepAudience(`${back}?error=x`, back, audience)
+  const plan = { kind: 'incomplete', division: '9', timing: 'later', at: '2027-02-08T19:00' }
+  test('送る画面に戻すときは、知らせに条件と時刻を付け直す', () => {
+    const target = keepPlan(`${back}?error=x`, back, plan)
     const url = new URL(target, 'https://example.test')
     assert.equal(url.pathname, back)
     assert.equal(url.searchParams.get('error'), 'x')
     assert.equal(url.searchParams.get('kind'), 'incomplete')
     assert.equal(url.searchParams.get('division'), '9')
-    assert.equal(url.searchParams.get('status'), null)
+    assert.equal(url.searchParams.get('at'), '2027-02-08T19:00')
   })
   test('ログイン画面などほかの行き先はそのまま', () => {
-    assert.equal(keepAudience('/admin/login', back, audience), '/admin/login')
+    assert.equal(keepPlan('/admin/login', back, plan), '/admin/login')
+  })
+})
+
+describe('送る時刻(日本時間)', () => {
+  test('画面の欄の値を RFC 3339 にし、戻す', () => {
+    assert.equal(localTimeToIso('2027-02-08T19:00'), '2027-02-08T19:00:00+09:00')
+    assert.equal(isoToLocalTime('2027-02-08T10:00:00Z'), '2027-02-08T19:00')
+    assert.equal(localTimeToIso('2027-02-30T19:00'), null, '無い日')
+    assert.equal(localTimeToIso('2027-02-08 19:00'), null)
+    assert.equal(localTimeToIso(''), null)
+  })
+  test('予約の時刻を曜日つきで見せる', () => {
+    assert.equal(scheduleText('2027-02-08T10:00:00Z'), '2月8日(月) 19:00')
+    assert.equal(scheduleText('2027-02-08T16:30:00Z'), '2月9日(火) 01:30', '日本時間で日付が変わる')
+  })
+  test('クエリから読み、すぐ送るときは時刻を持たない', () => {
+    assert.deepEqual(timingFromQuery({ timing: 'later', at: '2027-02-08T19:00' }), {
+      kind: 'later',
+      at: '2027-02-08T19:00',
+    })
+    assert.deepEqual(timingFromQuery({ at: '2027-02-08T19:00' }), { kind: 'now', at: '' })
+    assert.equal(
+      sameTiming(
+        { kind: 'later', at: '2027-02-08T19:00' },
+        { kind: 'later', at: '2027-02-08T19:30' },
+      ),
+      false,
+    )
+  })
+  test('前日と当日の案内の時刻は大会の日から決める', () => {
+    assert.equal(presetTime('2027-02-09', 'eve'), '2027-02-08T19:00')
+    assert.equal(presetTime('2027-03-01', 'eve'), '2027-02-28T19:00', '月をまたぐ')
+    assert.equal(presetTime('2027-02-09', 'day'), '2027-02-09T07:00')
+    assert.match(presetBody('eve', 'https://score.example/tournaments/5'), /^明日は/)
+    assert.match(
+      presetBody('day', 'https://score.example/tournaments/5'),
+      /score\.example\/tournaments\/5$/,
+    )
+  })
+})
+
+describe('定期の呼び出しの確かめ', () => {
+  test('CRON_SECRET と一致する Authorization だけを受ける', () => {
+    assert.equal(isCronRequest('Bearer s3cret', 's3cret'), true)
+    assert.equal(isCronRequest('Bearer wrong!', 's3cret'), false)
+    assert.equal(isCronRequest('Bearer s3cret', undefined), false, '設定が無ければ誰も受けない')
+    assert.equal(isCronRequest(null, 's3cret'), false)
   })
 })
 
@@ -212,6 +267,9 @@ describe('応答の形', () => {
     automatic: false,
     sentBy: '運営',
     createdAt: '2027-02-08T09:00:00Z',
+    sendAt: null,
+    state: 'sent',
+    note: '',
     counts: { pending: 0, sent: 1, skipped: 0, failed: 0 },
     canResend: false,
   }

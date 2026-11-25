@@ -2,7 +2,7 @@ import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
 import { notifications } from '@/api/notify'
 import type { IdPageProps } from '@/app/_lib/pageProps'
-import { resendNotificationAction } from '@/app/admin/_actions/notify'
+import { cancelNotificationAction, resendNotificationAction } from '@/app/admin/_actions/notify'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Chip, Hidden, Stat } from '@/components/admin/AdminParts'
 import { ForgetDraft } from '@/components/admin/MessageDraft'
@@ -13,10 +13,12 @@ import {
   draftStorageKey,
   jobStatusLabels,
   jobStatusTones,
+  scheduleText,
+  skipReasonLabels,
 } from '@/notify/notify.utils'
 
 // 公式 LINE で送った 1 回。届けた文と、宛先ごとの結果(送った、ブロック中で送らなかった、送れなかった)。
-// 名前とチームは送った時点のもの。
+// 名前とチームは送った時点のもの。予約なら、送る日時と取りやめのボタン(宛先は送る時刻に決まる)。
 export default async function NotificationPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
   const { user, token } = await requireUser('admin')
@@ -30,12 +32,18 @@ export default async function NotificationPage(props: IdPageProps) {
   const divisionNames = new Map(
     divisionList.divisions.map((division) => [division.id, division.name.ja]),
   )
-  const { counts } = detail
   const resendForm = 'notification-resend'
+  const cancelForm = 'notification-cancel'
+  const scheduled = detail.state === 'scheduled'
+  const primary = scheduled
+    ? { label: '予約を取りやめる', form: cancelForm }
+    : detail.canResend
+      ? { label: '送れなかった人に送り直す', form: resendForm }
+      : undefined
   return (
     <AdminShell
       user={user}
-      title="送った文"
+      title={scheduled ? '予約した文' : '送った文'}
       kicker={[dateTimeText(detail.createdAt), detail.sentBy]
         .filter((part) => part !== '')
         .join(' ・ ')}
@@ -44,16 +52,49 @@ export default async function NotificationPage(props: IdPageProps) {
         { href: `/admin/tournaments/${detail.tournamentId}`, label: tournament.name.ja },
         { href: notifyPaths.list(detail.tournamentId), label: '送った記録' },
       ]}
-      primary={
-        detail.canResend ? { label: '送れなかった人に送り直す', form: resendForm } : undefined
-      }
+      primary={primary}
     >
       <ForgetDraft draftKey={draftStorageKey(detail.tournamentId)} />
       <p>宛先: {audienceText(detail.audience, (division) => divisionNames.get(division))}</p>
+      {detail.sendAt ? <p>送る日時: {scheduleText(detail.sendAt)}(予約)</p> : null}
+      {scheduled ? (
+        <form id={cancelForm} action={cancelNotificationAction} className="adm-stack">
+          <Hidden values={{ back: notifyPaths.detail(id), id }} />
+          <p className="adm-muted">
+            送る時刻に、そのときの条件で宛先を数え直して送ります(15
+            分ほど遅れることがあります)。今月の配信数が足りなければ送りません。
+          </p>
+        </form>
+      ) : null}
+      {detail.state === 'cancelled' ? (
+        <p className="adm-notice error">この予約は取りやめたので、送っていません。</p>
+      ) : null}
+      {detail.state === 'skipped' && detail.note !== '' ? (
+        <p className="adm-notice error">{skipReasonLabels[detail.note]}。</p>
+      ) : null}
       <figure className="adm-bubble-preview">
-        <figcaption>届けた文</figcaption>
+        <figcaption>{detail.state === 'sent' ? '届けた文' : '送る文'}</figcaption>
         <p className="adm-bubble">{detail.body}</p>
       </figure>
+      {detail.state !== 'sent' ? null : (
+        <SentResults detail={detail} resendForm={resendForm} resendBack={notifyPaths.detail(id)} />
+      )}
+    </AdminShell>
+  )
+}
+
+function SentResults({
+  detail,
+  resendForm,
+  resendBack,
+}: {
+  detail: Awaited<ReturnType<typeof notifications.get>>
+  resendForm: string
+  resendBack: string
+}) {
+  const { counts } = detail
+  return (
+    <>
       <div className="adm-stats">
         <Stat label="送った" value={String(counts.sent)} />
         <Stat label="ブロック中で送らなかった" value={String(counts.skipped)} />
@@ -68,7 +109,7 @@ export default async function NotificationPage(props: IdPageProps) {
       </div>
       {detail.canResend ? (
         <form id={resendForm} action={resendNotificationAction} className="adm-stack">
-          <Hidden values={{ back: notifyPaths.detail(id), id }} />
+          <Hidden values={{ back: resendBack, id: detail.id }} />
           <p className="adm-muted">
             送れなかった人にだけ、同じ文を送り直せます(送ってから 24
             時間のあいだ)。前の送信が実は届いていた人には、2 回は届きません。
@@ -101,6 +142,6 @@ export default async function NotificationPage(props: IdPageProps) {
           </li>
         ))}
       </ul>
-    </AdminShell>
+    </>
   )
 }
