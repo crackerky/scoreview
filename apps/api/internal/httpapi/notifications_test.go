@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -142,4 +143,68 @@ func TestNotificationsWithoutLine(t *testing.T) {
 	list := f.call(t, http.StatusOK, http.MethodGet, base, nil)
 	assert.Equal(t, false, list["canSend"])
 	assert.Equal(t, []any{}, list["notifications"])
+}
+
+// 時刻を決めて送ると予約になり、定期の呼び出しで送る時刻の来た予約を送る。予約は取りやめられる。
+func TestNotificationSchedules(t *testing.T) {
+	f := newAdminFixture(t)
+	b := storetest.New(t, f.db)
+	tour := b.Tournament(func(row *store.Tournament) { row.NameJa = "ルーキーズファイナル" })
+	division := b.Division(tour.ID)
+	rep := store.LineUser{LineUserID: "Urep", Friend: true, Name: "山田 太郎", CreatedAt: f.now, UpdatedAt: f.now}
+	require.NoError(t, f.db.Create(&rep).Error)
+	approved := f.now
+	entryRow := store.TeamEntry{TournamentID: tour.ID, DivisionID: division.ID, TeamNameFull: "熱海ディスクス",
+		TeamNameShort: "熱海", RepName: "山田 太郎", RepLineUserID: &rep.ID, Channel: "line", Status: "approved",
+		InviteCode: "code-1", SubmittedAt: f.now, DecidedAt: &approved, CreatedAt: f.now, UpdatedAt: f.now}
+	require.NoError(t, f.db.Create(&entryRow).Error)
+	sent := &multicasts{}
+	sendNow := f.now
+	f.srv = httpapi.NewServer(f.db, testToken, httpapi.WithClock(func() time.Time { return f.now }),
+		httpapi.WithNotifications(notify.NewService(store.NewNotifyStore(f.db),
+			notify.WithSender(sent, func(error) {}), notify.WithClock(func() time.Time { return sendNow }))))
+	base := fmt.Sprintf("/api/v1/admin/tournaments/%d/notifications", tour.ID)
+	eve := f.now.Add(30 * time.Hour)
+	input := func(key string) map[string]any {
+		return map[string]any{"audience": map[string]any{"kind": "participants", "status": "", "divisionId": nil},
+			"body": "明日は 8 時集合です", "requestKey": key, "sendAt": eve.Format(time.RFC3339)}
+	}
+	scheduled := f.call(t, http.StatusCreated, http.MethodPost, base, input("eve"))
+	assert.Equal(t, "scheduled", scheduled["state"])
+	sendAtText, ok := scheduled["sendAt"].(string)
+	require.True(t, ok)
+	sendAt, err := time.Parse(time.RFC3339, sendAtText)
+	require.NoError(t, err)
+	assert.True(t, eve.Equal(sendAt), "%s", sendAtText)
+	assert.Equal(t, "", scheduled["note"])
+	assert.Empty(t, sent.to)
+	later := f.call(t, http.StatusCreated, http.MethodPost, base, input("cancel-me"))
+	cancelURL := fmt.Sprintf("/api/v1/admin/notifications/%v/cancel", later["id"])
+	cancelled := f.call(t, http.StatusOK, http.MethodPost, cancelURL, nil)
+	assert.Equal(t, "cancelled", cancelled["state"])
+	f.call(t, http.StatusConflict, http.MethodPost, cancelURL, nil)
+	past := input("past")
+	past["sendAt"] = f.now.Add(-time.Hour).Format(time.RFC3339)
+	f.call(t, http.StatusBadRequest, http.MethodPost, base, past)
+
+	dispatch := "/api/v1/internal/notifications/dispatch"
+	rec := f.do(t, "", http.MethodPost, dispatch, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.JSONEq(t, `{"sent":0,"skipped":0}`, rec.Body.String(), "not yet")
+	sendNow = eve.Add(time.Minute)
+	rec = f.do(t, "", http.MethodPost, dispatch, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.JSONEq(t, `{"sent":1,"skipped":0}`, rec.Body.String())
+	require.Equal(t, [][]string{{"Urep"}}, sent.to, "the cancelled one is not sent")
+	assert.Equal(t, "ルーキーズファイナル\n\n明日は 8 時集合です", sent.texts[0])
+	detail := f.call(t, http.StatusOK, http.MethodGet, fmt.Sprintf("/api/v1/admin/notifications/%v", scheduled["id"]),
+		nil)
+	assert.Equal(t, "sent", detail["state"])
+
+	// 定期の呼び出しも web との共有秘密が要る。予約の取りやめは管理者だけ
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, dispatch, nil)
+	unauthorized := httptest.NewRecorder()
+	f.srv.ServeHTTP(unauthorized, req)
+	assert.Equal(t, http.StatusUnauthorized, unauthorized.Code)
+	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodPost, cancelURL, nil)
 }

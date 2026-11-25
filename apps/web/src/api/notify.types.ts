@@ -9,10 +9,15 @@ export const audienceKinds = ['reps', 'incomplete', 'participants', 'past_reps']
 /** reps だけで選べる申込の状態('' は取り消した申込を除く全部) */
 export const audienceStatuses = ['', 'pending', 'returned', 'approved'] as const
 export const jobStatuses = ['pending', 'sent', 'skipped', 'failed'] as const
+export const batchStates = ['scheduled', 'sent', 'cancelled', 'skipped'] as const
+/** 送る時刻に送れなかった予約の理由('' は理由なし) */
+export const skipReasons = ['', 'no_recipients', 'quota', 'line_not_configured'] as const
 
 export type AudienceKind = (typeof audienceKinds)[number]
 export type AudienceStatus = (typeof audienceStatuses)[number]
 export type JobStatus = (typeof jobStatuses)[number]
+export type BatchState = (typeof batchStates)[number]
+export type SkipReason = (typeof skipReasons)[number]
 
 export const audienceSchema = z.object({
   kind: z.enum(audienceKinds),
@@ -49,6 +54,9 @@ export const notificationSummarySchema = z.object({
   automatic: z.boolean(),
   sentBy: z.string(),
   createdAt: z.string(),
+  sendAt: z.string().nullable(),
+  state: z.enum(batchStates),
+  note: z.enum(skipReasons),
   counts: countsSchema,
   canResend: z.boolean(),
 })
@@ -72,4 +80,12 @@ export const notificationListSchema = z.object({
   canSend: z.boolean(),
 })
 
-export type NotificationInput = { audience: Audience; body: string; requestKey: string }
+/** sendAt は予約の送る時刻(RFC 3339)。null ならすぐ送る */
+export type NotificationInput = {
+  audience: Audience
+  body: string
+  requestKey: string
+  sendAt: string | null
+}
+
+export const dispatchResultSchema = z.object({ sent: z.number().int(), skipped: z.number().int() })

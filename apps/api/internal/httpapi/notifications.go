@@ -23,6 +23,10 @@ func (s *Server) notificationRoutes() {
 	s.admin("POST "+base+"/tournaments/{id}/notifications", adminOnly(), created, withPathID(s.sendNotification))
 	s.admin("GET "+base+"/notifications/{id}", adminOnly(), ok, withPathID(s.getNotification))
 	s.admin("POST "+base+"/notifications/{id}/resend", adminOnly(), ok, withPathID(s.resendNotification))
+	s.admin("POST "+base+"/notifications/{id}/cancel", adminOnly(), ok, withPathID(s.cancelNotification))
+	// 定期の呼び出し(web の /cron/notify が CRON_SECRET を確かめてから呼ぶ)。利用者のログインは無く、
+	// ほかの口と同じく web との共有秘密(X-Internal-Token)だけで受ける
+	s.handle("POST /api/v1/internal/notifications/dispatch", s.dispatchNotifications)
 }
 
 // audienceDTO は宛先の条件。status と divisionId は絞り込まないとき空と null。
@@ -67,6 +71,9 @@ type notificationSummaryDTO struct {
 	Automatic    bool                  `json:"automatic"`
 	SentBy       string                `json:"sentBy"`
 	CreatedAt    time.Time             `json:"createdAt"`
+	SendAt       *time.Time            `json:"sendAt"`
+	State        string                `json:"state"`
+	Note         string                `json:"note"`
 	Counts       notificationCountsDTO `json:"counts"`
 	CanResend    bool                  `json:"canResend"`
 }
@@ -93,6 +100,12 @@ type notificationInputDTO struct {
 	Audience   audienceDTO `json:"audience"`
 	Body       string      `json:"body"`
 	RequestKey string      `json:"requestKey"`
+	SendAt     *time.Time  `json:"sendAt"`
+}
+
+type dispatchDTO struct {
+	Sent    int `json:"sent"`
+	Skipped int `json:"skipped"`
 }
 
 func (a audienceDTO) audience() notify.Audience {
@@ -115,7 +128,8 @@ func toNotificationSummary(batch notify.Batch) notificationSummaryDTO {
 	counts := batch.Counts
 	return notificationSummaryDTO{ID: batch.ID, TournamentID: batch.TournamentID,
 		Audience: toAudienceDTO(batch.Audience), Body: batch.Body, Automatic: batch.Automatic,
-		SentBy: batch.SentByName, CreatedAt: batch.CreatedAt, Counts: notificationCountsDTO{
+		SentBy: batch.SentByName, CreatedAt: batch.CreatedAt, SendAt: batch.SendAt, State: string(batch.State),
+		Note: string(batch.Note), Counts: notificationCountsDTO{
 			Pending: counts.Pending, Sent: counts.Sent, Skipped: counts.Skipped, Failed: counts.Failed},
 		CanResend: batch.CanResend}
 }
@@ -174,7 +188,8 @@ func (s *Server) sendNotification(ctx context.Context, id int64, r *http.Request
 	if err := decodeBody(r, &body); err != nil {
 		return nil, err
 	}
-	request := notify.Request{Audience: body.Audience.audience(), Body: body.Body, RequestKey: body.RequestKey}
+	request := notify.Request{Audience: body.Audience.audience(), Body: body.Body, RequestKey: body.RequestKey,
+		SendAt: body.SendAt}
 	batch, err := s.notices.Send(ctx, id, request, actorOf(user))
 	if err != nil {
 		return nil, err
@@ -196,4 +211,23 @@ func (s *Server) resendNotification(ctx context.Context, id int64, _ *http.Reque
 		return nil, err
 	}
 	return toNotificationDetail(batch), nil
+}
+
+func (s *Server) cancelNotification(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
+	batch, err := s.notices.Cancel(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return toNotificationDetail(batch), nil
+}
+
+// dispatchNotifications は送る時刻の来た予約を送り、送った数と送れなかった数を返す。予約の扱いに
+// 失敗があれば 500 にして、定期の呼び出しのログに残す(宛先を書く前に失敗した予約は予約のまま残り、
+// 次の呼び出しでもう一度扱う。宛先を書いた後の失敗は、宛先の結果として記録に残り、送り直せる)。
+func (s *Server) dispatchNotifications(r *http.Request) (any, error) {
+	result, err := s.notices.Dispatch(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	return dispatchDTO{Sent: result.Sent, Skipped: result.Skipped}, nil
 }

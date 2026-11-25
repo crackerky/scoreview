@@ -2,6 +2,7 @@ import 'server-only'
 import { apiFetch } from './client'
 import {
   type Audience,
+  dispatchResultSchema,
   type NotificationInput,
   notificationDetailSchema,
   notificationListSchema,
@@ -38,6 +39,15 @@ export const notifications = {
     }),
   get: (token: string, id: number) =>
     apiFetch(`${admin}/notifications/${id}`, notificationDetailSchema, { sessionToken: token }),
+  /** 予約を取りやめる */
+  cancel: (token: string, id: number) =>
+    apiFetch(`${admin}/notifications/${id}/cancel`, notificationDetailSchema, {
+      method: 'POST',
+      sessionToken: token,
+    }),
+  /** 送る時刻の来た予約を送る(定期の呼び出し /cron/notify から。利用者のログインは無い) */
+  dispatch: () =>
+    apiFetch('/api/v1/internal/notifications/dispatch', dispatchResultSchema, { method: 'POST' }),
   /** 送れなかった宛先に、同じまとまりと送り直しのキーで送り直す */
   resend: (token: string, id: number) =>
     apiFetch(`${admin}/notifications/${id}/resend`, notificationDetailSchema, {

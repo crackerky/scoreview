@@ -1078,7 +1078,10 @@ type NotificationSummary = {
   automatic: boolean                 // 決まった場面で自動で送ったもの(今は常に false)
   sentBy: string                     // 送った運営の表示名(無ければメールアドレス。運営を消していれば '')
   createdAt: string
-  counts: NotificationCounts         // 宛先ごとの結果の人数
+  sendAt: string | null              // 予約の送る時刻(すぐ送った送信は null)
+  state: 'scheduled' | 'sent' | 'cancelled' | 'skipped'   // 送る時刻を待っている / 宛先を決めて送った / 運営が取りやめた / 送る時刻に送れなかった
+  note: '' | 'no_recipients' | 'quota' | 'line_not_configured'   // skipped の理由(送れる友だちがいない / 今月の残りの配信数が足りない / LINE の設定が無い)
+  counts: NotificationCounts         // 宛先ごとの結果の人数(予約のあいだは全部 0)
   canResend: boolean                 // 今送り直せる宛先(failed と、送っている送信の持ち時間 15 分が切れた pending)があり、送ってから 24 時間以内で、LINE の設定がある
 }
 type NotificationDetail = NotificationSummary & {
@@ -1096,8 +1099,10 @@ type NotificationDetail = NotificationSummary & {
 |---|---|---|
 | `GET /admin/tournaments/{id}/notifications` | なし | `{ notifications: NotificationSummary[]; canSend: boolean }`(新しい順)。`canSend` は LINE の設定があって送れるか |
 | `GET /admin/tournaments/{id}/notifications/preview?kind=&status=&divisionId=` | なし | `{ heading: string; recipients: Array<{ name: string; teams: string[]; reachable: boolean }>; reachable: number; unreachable: number; quota: { limit: number \| null; used: number } \| null; canSend: boolean }`。クエリは `NotificationAudience` と同じ(`status` と `divisionId` は省ける)。`heading` は届く文の 1 行目(大会名)。同じ人は 1 人にまとめる。`reachable: false` はブロック中で送らない人。`quota` は今月の配信数で、`limit: null` は上限なし。LINE の設定が無いか LINE から読めなければ null。条件の組み合わせの誤り、よその大会の部門は 400 |
-| `POST /admin/tournaments/{id}/notifications` | `{ audience: NotificationAudience; body: string; requestKey: string }` | `NotificationDetail`(201)。`requestKey` は送る画面を開くたびに作る乱数(英数字とハイフン、64 字まで)で、同じ `requestKey` の送信がもうあれば、ほかを確かめずに送らずにその記録を返す(押し直しで 2 回送らない。よその大会の記録なら 409)。条件に当てはまる友だちを 500 人ずつのまとまりにし、まとまりごとに LINE の送り直しのキーを決めて記録してから、同じ文を送る。`body` は前後の空白を除いて 1 字以上 2000 字まで(改行とタブのほかの制御文字は 400)。LINE の設定が無ければ 409、送れる人がいなければ 400、今月の残りの配信数が足りなければ 409(何も送らない)。LINE が受け付けたか分からない失敗(LINE の 5xx、応答が無い)は同じキーですぐ 1 回だけ送り直し、それでも送れなかったまとまりと、LINE が受け付けなかったまとまり(4xx)は `failed` として記録して 201 を返す |
+| `POST /admin/tournaments/{id}/notifications` | `{ audience: NotificationAudience; body: string; requestKey: string; sendAt?: string \| null }` | `NotificationDetail`(201)。`sendAt`(RFC 3339)があれば予約(`state: 'scheduled'`)で、宛先を持たずに記録し、送る時刻に条件で宛先を数え直して送る(今いなくても予約できる。配信数も送る時刻に確かめる)。`sendAt` は今より後で 120 日以内、でなければ 400。以下はすぐ送るとき。`requestKey` は送る画面を開くたびに作る乱数(英数字とハイフン、64 字まで)で、同じ `requestKey` の送信がもうあれば、ほかを確かめずに送らずにその記録を返す(押し直しで 2 回送らない。よその大会の記録なら 409)。条件に当てはまる友だちを 500 人ずつのまとまりにし、まとまりごとに LINE の送り直しのキーを決めて記録してから、同じ文を送る。`body` は前後の空白を除いて 1 字以上 2000 字まで(改行とタブのほかの制御文字は 400)。LINE の設定が無ければ 409、送れる人がいなければ 400、今月の残りの配信数が足りなければ 409(何も送らない)。LINE が受け付けたか分からない失敗(LINE の 5xx、応答が無い)は同じキーですぐ 1 回だけ送り直し、それでも送れなかったまとまりと、LINE が受け付けなかったまとまり(4xx)は `failed` として記録して 201 を返す |
 | `GET /admin/notifications/{id}` | なし | `NotificationDetail`(宛先は記録した順) |
+| `POST /admin/notifications/{id}/cancel` | なし | `NotificationDetail`(`state: 'cancelled'`)。予約でなければ(もう送った、取りやめた)409 |
+| `POST /internal/notifications/dispatch` | なし | `{ sent: number; skipped: number }`。送る時刻の来た予約を、送る時刻の順に 20 件まで送る(web の `/cron/notify` が 15 分ごとに呼ぶ。利用者のログインは無く、`X-Internal-Token` だけで受ける)。送る時刻に、条件に当てはまる友だちがいなければ `no_recipients`、今月の残りの配信数が足りなければ `quota`、LINE の設定が無ければ `line_not_configured` を付けて `skipped` にする。同時に呼ばれても、予約は 1 回だけ送る。予約の扱いに失敗があれば 500(宛先を書く前の失敗は予約のまま残り、次の呼び出しで扱う) |
 | `POST /admin/notifications/{id}/resend` | なし | `NotificationDetail`。`failed` の宛先と、送っている送信の持ち時間(15 分。api の 1 回の要求が続きうる時間より長い)が切れた `pending` の宛先に、記録したまとまり、送り直しのキー、届けた文のまま送り直す(LINE が前に受け付けていたまとまりは、LINE が送らずに受け付け済みと返すので、2 回は届かない)。送るまとまりは、送る前に 15 分の持ち時間を付けて取るので、同時に送り直しても、1 つのまとまりは 1 回の送り直しでだけ送る。ほかの送信が送っている途中のまとまりは送らない。送ってから 24 時間(送り直しのキーが有効な間)を過ぎていれば 409、LINE の設定が無ければ 409。送り直す宛先が無ければ何もせずに記録を返す |
 
 ### 観戦アプリの表
