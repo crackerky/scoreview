@@ -1,7 +1,6 @@
 import { runsDayOf } from '@/admin/access.utils'
 import {
   barStyleOptions,
-  divisionKindOptions,
   entryKindOptions,
   groupKindOptions,
   sideName,
@@ -54,7 +53,7 @@ export default async function AdminDivisionPage(props: IdPageProps) {
         </p>
       ) : (
         <p className="adm-actions">
-          <a href={`/admin/divisions/${id}/progress`}>本部の進行画面</a>
+          <a href={`/admin/divisions/${id}/progress`}>{division.name.ja}の進行</a>
           {isAdmin ? <a href={`/admin/divisions/${id}/format`}>大会の形(組と順位決定戦)</a> : null}
           <a href={`/admin/divisions/${id}/sheets`}>スコアシートをまとめて印刷</a>
           <a href={`/admin/tournaments/${tournament.id}/timetable`}>時間割を印刷</a>
@@ -304,16 +303,11 @@ async function AdminSections({
 
       <h2>部門の設定</h2>
       <form action={updateDivisionAction}>
-        <Hidden values={{ back, id }} />
+        {/* 区分は今どの画面の見た目も変えないので、今の値をそのまま送る */}
+        <Hidden values={{ back, id, kind: division.kind }} />
         <div className="adm-grid">
           <Field label="名前(日本語)" name="nameJa" defaultValue={division.name.ja} required />
           <Field label="名前(英語)" name="nameEn" defaultValue={division.name.en} />
-          <Select
-            label="区分"
-            name="kind"
-            options={divisionKindOptions}
-            defaultValue={division.kind}
-          />
         </div>
         <details>
           <summary>詳しい設定(並び順、参加単位、競技の種類)</summary>

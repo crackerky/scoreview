@@ -744,7 +744,7 @@ function PreviewSection(props: PreviewProps) {
       {props.locked ? (
         <p className="adm-notice error">
           結果の入った試合が {props.startedMatches}{' '}
-          件あるので、形を作り直せません(作り直すと結果が消えるため)。日程の変更は本部の進行画面の「遅れの調整」か、試合の編集で行ってください。
+          件あるので、形を作り直せません(作り直すと結果が消えるため)。日程の変更は、部門の進行の遅れの調整か、試合の編集で行ってください。
         </p>
       ) : preview.replacesGroups + preview.replacesMatches > 0 ? (
         <p className="adm-notice error">

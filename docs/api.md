@@ -978,7 +978,7 @@ type EntryQuestion = {
   options: string[]                  // choice の選択肢。それ以外は []
   answered: number                   // 答えの数(答えのある質問は kind と scope を変えられない)
 }
-type EntryStatus = 'pending' | 'returned' | 'approved' | 'cancelled'   // 申込中 / 差し戻し / 承認 / 取消
+type EntryStatus = 'pending' | 'returned' | 'approved' | 'cancelled'   // 画面では 確認待ち / 直し待ち / 参加決定 / 取消
 type EntrySummary = {
   id: number
   division: { id: number; name: I18nText }

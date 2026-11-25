@@ -9,13 +9,6 @@ export const tournamentStatusOptions = [
   { value: 'finished', label: '大会終了' },
 ] as const
 
-export const divisionKindOptions = [
-  { value: 'mixed', label: 'ミックス' },
-  { value: 'men', label: 'メン' },
-  { value: 'women', label: 'ウィメン' },
-  { value: 'none', label: 'その他(色なし)' },
-] as const
-
 export const entryKindOptions = [
   { value: 'team', label: 'チーム戦' },
   { value: 'individual', label: '個人戦' },

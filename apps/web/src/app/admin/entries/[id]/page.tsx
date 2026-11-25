@@ -15,7 +15,8 @@ import {
   statusTones,
 } from '@/entry/entry.utils'
 
-// 申込 1 件。中身(チーム、代表、メンバー、質問への答え)を確かめて、承認、差し戻し、取消をする。
+// 申込 1 件。中身(チーム、代表、メンバー、質問への答え)を確かめて、参加を決める(承認)、直してもらう
+// (差し戻し)、取り消す。
 // 承認すると部門の最後にチームができ、メンバーが選手になる。承認と差し戻しは申込中だけ、取消は承認の
 // 前だけ(承認したチームはチームの棄権で外す。api が決める)。
 export default async function EntryPage(props: IdPageProps) {
@@ -44,7 +45,7 @@ export default async function EntryPage(props: IdPageProps) {
         { href: `/admin/tournaments/${detail.tournamentId}`, label: tournament.name.ja },
         { href: entryPaths.list(detail.tournamentId), label: '申込' },
       ]}
-      primary={pending ? { label: '承認する', form: 'entry-approve' } : undefined}
+      primary={pending ? { label: '参加を決める', form: 'entry-approve' } : undefined}
     >
       <p>
         <Chip tone={statusTones[detail.status]}>{statusLabels[detail.status]}</Chip>{' '}
@@ -53,12 +54,12 @@ export default async function EntryPage(props: IdPageProps) {
         ) : null}
       </p>
       {detail.status === 'returned' ? (
-        <p className="adm-notice error">差し戻しの理由: {detail.returnNote}</p>
+        <p className="adm-notice error">直してほしいこと: {detail.returnNote}</p>
       ) : null}
       {detail.channel === 'line' && cancellable ? (
         <p className="adm-muted">
-          LINE からの申込です。承認、差し戻し、取消は、公式 LINE
-          で代表に知らせます(差し戻しの理由もそのまま届きます)。
+          LINE からの申込です。参加を決めたとき、直してもらうとき、取り消したときは、公式 LINE
+          で代表に知らせます。直してほしいことも、そのまま届きます。
         </p>
       ) : null}
 
@@ -94,7 +95,7 @@ export default async function EntryPage(props: IdPageProps) {
             <tr>
               <th>背番号</th>
               <th>名前</th>
-              <th>本人登録</th>
+              <th>LINE の登録</th>
               {memberQuestions.map((question) => (
                 <th key={question.id}>{question.label}</th>
               ))}
@@ -149,7 +150,7 @@ export default async function EntryPage(props: IdPageProps) {
           </form>
           {detail.channel === 'line' ? (
             <>
-              <h2 className="adm-section-title">差し戻す</h2>
+              <h2 className="adm-section-title">直してもらう</h2>
               <form action={decideEntryAction} className="adm-stack">
                 <Hidden values={{ back, id, action: 'return' }} />
                 <label className="adm-field">
@@ -157,14 +158,14 @@ export default async function EntryPage(props: IdPageProps) {
                   <textarea name="note" rows={3} required />
                 </label>
                 <button type="submit" className="secondary">
-                  差し戻す
+                  直してもらう
                 </button>
               </form>
             </>
           ) : (
             // 差し戻した申込を直して送り直せるのは LINE の代表だけ。運営が入れた申込は取り消して入れ直す
             <p className="adm-muted">
-              運営が代わりに入れた申込は差し戻せません。中身を直すときは、取り消してから入れ直してください。
+              運営が代わりに入れた申込は、代表に直してもらえません。中身を直すときは、取り消してから入れ直してください。
             </p>
           )}
         </>

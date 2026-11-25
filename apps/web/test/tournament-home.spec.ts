@@ -91,8 +91,8 @@ test('確認待ちの申込があれば公式 LINE を今の段にし、確認�
   assert.equal(line.next?.href, '/admin/tournaments/5/entries?status=pending')
   assert.equal(line.links.find((link) => link.label === '申込')?.chip?.label, '確認待ち 2')
   assert.equal(currentStage(stages)?.key, 'line')
-  // 形はその時点のチームで作るので、承認の前に作ると組から漏れることを知らせる
-  assert.match(stage(stages, 'build').note ?? '', /承認してから形を作ると/)
+  // 形はその時点のチームで作るので、参加を決める前に作ると組から漏れることを知らせる
+  assert.match(stage(stages, 'build').note ?? '', /参加を決めてから形を作ると/)
 })
 
 test('受付中で非公開なら、公式 LINE から申し込めないことを伝えて公開させる', () => {

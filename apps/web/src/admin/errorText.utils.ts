@@ -105,7 +105,7 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
   },
   {
     reason: /approved entry cannot be cancelled/,
-    text: '承認した申込は取り消せません。部門のチームを棄権にしてください',
+    text: '参加が決まった申込は取り消せません。部門のチームを棄権にしてください',
   },
   {
     reason: /changed by someone else|members of the entry changed/,
@@ -113,7 +113,7 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
   },
   {
     reason: /only an entry from a LINE representative can be returned/,
-    text: '運営が代わりに入れた申込は差し戻せません。取り消してから入れ直してください',
+    text: '運営が代わりに入れた申込は、代表に直してもらえません。取り消してから入れ直してください',
   },
   {
     reason: /cannot (approve|return|cancel) an entry/,

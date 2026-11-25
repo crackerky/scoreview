@@ -154,7 +154,7 @@ describe('participantErrorText', () => {
       [
         'conflict',
         'conflict: resubmit entry 5: conflict: the members of the entry changed; reload it',
-        'この間にメンバーが本人登録をしました。画面を開き直してから、もう一度直してください',
+        'この間にメンバーが LINE で登録しました。画面を開き直してから、もう一度直してください',
       ],
     ]
     for (const [code, message, want] of cases) {

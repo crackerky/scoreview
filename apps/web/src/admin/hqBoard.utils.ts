@@ -236,8 +236,8 @@ function groupAlert(
         chip: '要確認',
         tone: 'warn',
         title: todo.text,
-        body: `${board.divisionName}の本部の進行画面で直します。`,
-        links: [{ label: '進行画面で直す', href: progressPage }],
+        body: `${board.divisionName}の進行で直します。`,
+        links: [{ label: `${board.divisionName}の進行で直す`, href: progressPage }],
       }
     default:
       return null

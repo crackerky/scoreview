@@ -1,10 +1,9 @@
-import { divisionKindOptions } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { tournaments } from '@/api/admin'
 import type { IdPageProps } from '@/app/_lib/pageProps'
 import { createDivisionAction } from '@/app/admin/_actions/tournament'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import { AdminShell, Field, Hidden, Select } from '@/components/admin/AdminParts'
+import { AdminShell, Field, Hidden } from '@/components/admin/AdminParts'
 
 // 部門を作る(大会ホームの入口から)。作ったら部門の画面へ進む
 export default async function NewDivisionPage(props: IdPageProps) {
@@ -28,12 +27,13 @@ export default async function NewDivisionPage(props: IdPageProps) {
             scheduleEnabled: 'on',
             entryKind: 'team',
             statsKind: 'ultimate',
+            // 区分は今どの画面の見た目も変えないので、聞かずに決まった値を送る
+            kind: 'mixed',
           }}
         />
         <div className="adm-grid">
           <Field label="名前(日本語)" name="nameJa" required />
           <Field label="名前(英語)" name="nameEn" />
-          <Select label="日程の色" name="kind" options={divisionKindOptions} defaultValue="mixed" />
         </div>
         <details>
           <summary>詳しい設定</summary>

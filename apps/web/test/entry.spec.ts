@@ -150,8 +150,8 @@ describe('表示', () => {
     assert.equal(dateTimeText('2026-11-13T05:05:00Z'), '11月13日 14:05')
     assert.equal(dateTimeText('2026-11-13T15:30:00Z'), '11月14日 00:30')
   })
-  test('本人登録の進み具合と、はい/いいえ', () => {
-    assert.equal(registeredText(8, 6), '8 人中 6 人が本人登録')
+  test('LINE で登録した進み具合と、はい/いいえ', () => {
+    assert.equal(registeredText(8, 6), '8 人中 6 人が LINE で登録済み')
     assert.equal(registeredText(0, 0), 'メンバー未記入')
     assert.equal(answerText({ kind: 'yes_no' }, 'yes'), 'はい')
     assert.equal(answerText({ kind: 'short_text' }, 'yes'), 'yes')

@@ -55,13 +55,13 @@ export default async function ConfirmGroupPage(props: Props) {
             <strong>この組はまだ確定できません</strong>
             <span className="adm-muted">
               {group.state === 'tied'
-                ? '規程で決まらない同順位があります。進行画面で順位を決めてください。'
+                ? `規程で決まらない同順位があります。${owner.divisionName}の進行で順位を決めてください。`
                 : group.state === 'playing'
                   ? `残り ${group.remaining} 試合が終わると確定できます。`
                   : 'この組は確定済みか、前の段を待っています。'}
             </span>
             <a className="adm-go" href={`/admin/divisions/${owner.divisionId}/progress`}>
-              進行画面を開く
+              {owner.divisionName}の進行を開く
             </a>
           </div>
         )}

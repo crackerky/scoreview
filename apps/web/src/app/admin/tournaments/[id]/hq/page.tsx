@@ -27,7 +27,7 @@ import { StandingsCard } from '@/components/admin/Standings'
 
 // 大会単位の本部(Claude Design「Score View Admin」)。全部門を 1 画面にまとめ、タブで「いま」(知らせ、
 // コート、組)、「試合」(時刻ごとの全試合)、「組」(順位表)を切り替える。知らせからその作業の画面へ
-// 直接進む。同順位の決定、段の確定、棄権、大会の締め、中断は部門ごとの進行画面で行う。
+// 直接進む。同順位の決定、段の確定、棄権、大会の締め、中断は部門ごとの進行の画面で行う。
 
 const tabs = [
   { id: 'now', label: 'いま' },
@@ -332,14 +332,14 @@ function PoolsTab({ boards, tournamentId }: { boards: DivisionBoard[]; tournamen
   )
 }
 
-/** 部門ごとの進行画面(同順位の決定、段の確定、棄権、締め、中断はそこで行う) */
+/** 部門ごとの進行の画面(同順位の決定、段の確定、棄権、締め、中断はそこで行う) */
 function DivisionLinks({ boards }: { boards: DivisionBoard[] }) {
   return (
     <p className="adm-muted adm-division-links">
-      詳しい進行(同順位の決定、棄権、大会の締め、雷・雨・暑さでの中断):
+      同順位の決め方、棄権、大会の締め、雷や雨や暑さでの中断は、部門ごとの進行で行います。
       {boards.map((board) => (
         <a key={board.divisionId} href={`/admin/divisions/${board.divisionId}/progress`}>
-          {board.divisionName}の進行画面
+          {board.divisionName}の進行を開く
         </a>
       ))}
     </p>

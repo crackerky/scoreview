@@ -41,7 +41,7 @@ export default async function WithdrawPage(props: IdPageProps) {
       user={user}
       title={`${team} を棄権にする`}
       notice={notice}
-      crumbs={[{ href: progress, label: '本部の進行画面' }]}
+      crumbs={[{ href: progress, label: '部門の進行' }]}
     >
       {withdrawal.withdrawnAt ? (
         <p className="adm-notice ok">{team} は棄権済みです。後から入った試合を記録できます。</p>

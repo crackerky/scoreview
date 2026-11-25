@@ -146,11 +146,11 @@ describe('言葉', () => {
     const names = (id: number) => (id === 9 ? 'オープン' : undefined)
     assert.equal(
       audienceText({ kind: 'reps', status: 'pending', divisionId: 9 }, names),
-      '申し込んだ代表 ・ 申込中 ・ オープン',
+      '申し込んだ代表 ・ 確認待ち ・ オープン',
     )
     assert.equal(
       audienceText({ kind: 'participants', status: '', divisionId: 7 }, names),
-      '承認したチームの代表とメンバー ・ 消した部門',
+      '参加が決まったチームの代表とメンバー ・ 消した部門',
     )
   })
   test('結果の人数は 0 人の結果を書かない', () => {

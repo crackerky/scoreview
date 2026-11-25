@@ -189,7 +189,7 @@ const conflictTexts: ReadonlyArray<{ reason: RegExp; text: string }> = [
   { reason: /has been cancelled/, text: 'このチームの申込は取り消されています' },
   {
     reason: /members of the entry changed/,
-    text: 'この間にメンバーが本人登録をしました。画面を開き直してから、もう一度直してください',
+    text: 'この間にメンバーが LINE で登録しました。画面を開き直してから、もう一度直してください',
   },
   {
     reason: /changed by someone else|only a returned entry/,

@@ -46,8 +46,8 @@ export async function createEntryAction(formData: FormData): Promise<never> {
 }
 
 const decisionMessages = {
-  approve: '承認しました。部門にチームと選手を作りました',
-  return: '差し戻しました',
+  approve: '参加を決めました。部門にチームと選手を作りました',
+  return: '直し待ちにしました',
   cancel: '取り消しました',
 } as const
 

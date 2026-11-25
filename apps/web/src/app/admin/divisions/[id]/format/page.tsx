@@ -55,7 +55,7 @@ export default async function FormatWizardPage(props: IdPageProps) {
       {saved.format ? (
         <p className="adm-notice ok">
           今の形: {saved.format.title}(第 {saved.format.version} 版)。
-          <a href={`/admin/divisions/${id}/progress`}>本部の進行画面へ</a>
+          <a href={`/admin/divisions/${id}/progress`}>部門の進行へ</a>
         </p>
       ) : null}
       {saved.inherited ? (

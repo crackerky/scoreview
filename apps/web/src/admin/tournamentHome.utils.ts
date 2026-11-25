@@ -155,7 +155,7 @@ function setupStage(input: HomeInput): Stage {
 function lineStage(input: HomeInput): Stage {
   const { listed, status } = input.tournament
   const entries = input.entries ?? { total: 0, pending: 0, approved: 0 }
-  const counts = `申込 ${entries.total} 件、承認 ${entries.approved} 件`
+  const counts = `申込 ${entries.total} 件、参加決定 ${entries.approved} 件`
   const send: StageAction = {
     label: '公式 LINE で送る',
     href: notifyPaths.create(input.tournamentId),
@@ -281,10 +281,10 @@ function buildStage(input: HomeInput): Stage {
     chip: null,
     next: { label: `${first.name}の形を決める`, href: `/admin/divisions/${first.id}/format` },
     waiting: true,
-    // 形は作った時点のチームで組を作る。あとで承認したチームは組に入らない
+    // 形は作った時点のチームで組を作る。あとで参加を決めたチームは組に入らない
     note:
       pending > 0
-        ? `確認待ちの申込が ${pending} 件あります。承認してから形を作ると、そのチームも組に入ります`
+        ? `確認待ちの申込が ${pending} 件あります。参加を決めてから形を作ると、そのチームも組に入ります`
         : null,
     links,
   }

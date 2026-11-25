@@ -74,7 +74,7 @@ func NoticeMessages(notice entry.Notice, siteURL string) []Message {
 		return []Message{{Text: fmt.Sprintf("%sの直した申込を受け付けました。\n運営が確かめたら、このトークでお知らせします。",
 			team)}}
 	case entry.NoticeApproved:
-		return []Message{{Text: fmt.Sprintf("%sの%sへの申込が承認されました。\n日程と結果は、スコアサイトで見られます。\n%s/tournaments/%d",
+		return []Message{{Text: fmt.Sprintf("%sの%sへの申込を受け付け、参加が決まりました。\n日程と結果は、スコアサイトで見られます。\n%s/tournaments/%d",
 			team, tournament, siteURL, notice.Tournament.ID)}}
 	case entry.NoticeReturned:
 		return []Message{{Text: fmt.Sprintf("%sの申込について、運営から直してほしいことがあります。\n\n%s\n\n"+

@@ -249,6 +249,7 @@ func TestNotifierSendsNoticesToTheRepresentative(t *testing.T) {
 	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeReturned)))
 	assert.Contains(t, messenger.pushes["Urep"][2].Text, "\n\n短縮名を直してください\n\n")
 	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeApproved)))
+	assert.Contains(t, messenger.pushes["Urep"][3].Text, "「熱海ディスクス」の「ラバー 2027」への申込を受け付け、参加が決まりました")
 	assert.Contains(t, messenger.pushes["Urep"][3].Text, "https://score.example/tournaments/7")
 
 	// ブロックしている人には送らない

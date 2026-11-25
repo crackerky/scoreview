@@ -12,15 +12,15 @@ import { entryKinds, entryScopes, entryStatuses } from '@/api/entry.types'
 // 申込の管理画面の、画面の形への直し方とフォームの読み方。純粋な関数だけを置く。
 
 export const statusLabels: Readonly<Record<EntryStatus, string>> = {
-  pending: '申込中',
-  returned: '差し戻し',
-  approved: '承認',
+  pending: '確認待ち',
+  returned: '直し待ち',
+  approved: '参加決定',
   cancelled: '取消',
 }
 
 export const statusTones = {
   pending: 'warn',
-  // 代表が直すのを待っている。承認(ok)と見分けられるよう赤にする
+  // 代表が直すのを待っている。参加決定(ok)と見分けられるよう赤にする
   returned: 'live',
   approved: 'ok',
   cancelled: 'done',
@@ -55,9 +55,9 @@ export function parseStatus(value: string | string[] | undefined): EntryStatus |
   return entryStatuses.find((status) => status === value) ?? null
 }
 
-/** 本人登録の進み具合(「8 人中 6 人が本人登録」)。メンバーが 0 人なら空 */
+/** メンバーが LINE で登録した進み具合(「8 人中 6 人が LINE で登録済み」)。メンバーが 0 人なら空 */
 export function registeredText(members: number, registered: number): string {
-  return members === 0 ? 'メンバー未記入' : `${members} 人中 ${registered} 人が本人登録`
+  return members === 0 ? 'メンバー未記入' : `${members} 人中 ${registered} 人が LINE で登録済み`
 }
 
 /** 答えの見せ方(はい/いいえを日本語に) */

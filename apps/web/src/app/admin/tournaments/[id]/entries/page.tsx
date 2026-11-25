@@ -54,12 +54,12 @@ export default async function EntriesPage(props: IdPageProps) {
     >
       <div className="adm-stats">
         <Stat
-          label="確認を待つ申込"
+          label="確認待ち"
           value={String(counts.pending)}
           tone={counts.pending > 0 ? 'warn' : undefined}
         />
-        <Stat label="承認した申込" value={String(counts.approved)} />
-        <Stat label="差し戻し中" value={String(counts.returned)} />
+        <Stat label="参加決定" value={String(counts.approved)} />
+        <Stat label="直し待ち" value={String(counts.returned)} />
       </div>
       <p className="adm-links">
         <a href={entryPaths.questions(id)}>申込で聞く質問を決める</a>

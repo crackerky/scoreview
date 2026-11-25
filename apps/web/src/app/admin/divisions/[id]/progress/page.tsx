@@ -30,7 +30,8 @@ import { AutoRefresh } from '@/components/admin/AutoRefresh'
 import { suspensionText } from '@/components/suspension.utils'
 import '@/styles/format-admin.css'
 
-// 本部の進行画面(docs/operations/operator-experience.md「当日」1)。「いまやること」を緊急度の順に
+// 部門の進行の画面(docs/operations/operator-experience.md「当日」1)。大会単位の本部と
+// 名前を分けるため、題は「オープンの進行」にする。「いまやること」を緊急度の順に
 // 出し、試合中と次の時間帯、プールとトーナメント、遅れの調整を続ける。スマートフォンではタブで
 // 分け(レビュー M7)、30 秒ごとに自動で取り直す(M3)。中断(H2)はどのタブでも上に出す。
 
@@ -63,7 +64,7 @@ export default async function ProgressPage(props: IdPageProps) {
     { href: `/admin/divisions/${id}`, label: division.name.ja },
   ]
   return (
-    <AdminShell user={user} title={`${division.name.ja}: 本部`} notice={notice} crumbs={crumbs}>
+    <AdminShell user={user} title={`${division.name.ja}の進行`} notice={notice} crumbs={crumbs}>
       <p className="adm-actions hq-head">
         <AutoRefresh updatedAt={updatedAtText(now)} />
         <a href={`${back}?tab=${tab}`}>今すぐ更新</a>

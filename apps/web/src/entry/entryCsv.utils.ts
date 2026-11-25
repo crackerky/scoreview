@@ -21,7 +21,7 @@ function csvLine(cells: readonly string[]): string {
   return cells.map(csvCell).join(',')
 }
 
-const memberColumns = ['背番号', '名前', '本人登録'] as const
+const memberColumns = ['背番号', '名前', 'LINE の登録'] as const
 
 function teamCells(entry: EntryAdminDetail, answers: readonly string[]): string[] {
   return [

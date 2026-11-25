@@ -25,7 +25,7 @@ export default async function CloseDivisionPage(props: IdPageProps) {
       user={user}
       title={`${division.name.ja}: 大会を締める`}
       notice={notice}
-      crumbs={[{ href: progress, label: '本部の進行画面' }]}
+      crumbs={[{ href: progress, label: `${division.name.ja}の進行` }]}
     >
       {closing.closedAt ? (
         <p className="adm-notice ok">
@@ -88,7 +88,7 @@ export default async function CloseDivisionPage(props: IdPageProps) {
       {closing.closedAt ? (
         // 締めの取り消しは無いので、締めた後は締める操作を出さない
         <p className="adm-actions">
-          <a href={progress}>本部の進行画面へ戻る</a>
+          <a href={progress}>{division.name.ja}の進行へ戻る</a>
         </p>
       ) : (
         <form action={closeDivisionAction} className="hq-box danger">

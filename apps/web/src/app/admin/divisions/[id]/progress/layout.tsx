@@ -5,7 +5,7 @@ import { divisions, tournaments } from '@/api/admin'
 import { formats } from '@/api/format'
 import { AdminShell } from '@/components/admin/AdminParts'
 
-// 本部の進行画面の手前。形を決める前に開くと api が 409 を返し、画面が英語の 500 になっていた
+// 部門の進行の画面の手前。形を決める前に開くと api が 409 を返し、画面が英語の 500 になっていた
 // (運営者レビュー H12)。形が無ければ進行画面(page.tsx)を描かずに、形を決める画面へ案内する。
 
 export default async function ProgressLayout({
@@ -33,10 +33,10 @@ export default async function ProgressLayout({
     { href: `/admin/divisions/${id}`, label: division.name.ja },
   ]
   return (
-    <AdminShell user={user} title={`${division.name.ja}: 本部`} crumbs={crumbs}>
+    <AdminShell user={user} title={`${division.name.ja}の進行`} crumbs={crumbs}>
       <h2>まず大会の形を決めましょう</h2>
       <p>
-        本部の進行画面は、組と順位決定戦と時間割(大会の形)を作った後に使います。
+        部門の進行は、大会の形を作ったあとに使います。大会の形は、組と順位決定戦と時間割のことです。
         チームを登録して、形の候補から選ぶと、ここに試合の進み具合が出ます。
       </p>
       {user.role === 'admin' ? (
@@ -46,7 +46,7 @@ export default async function ProgressLayout({
           </a>
         </p>
       ) : (
-        <p className="adm-muted">大会の形は本部(管理者)が決めます。</p>
+        <p className="adm-muted">大会の形は管理者が決めます。</p>
       )}
     </AdminShell>
   )

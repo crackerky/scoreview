@@ -23,7 +23,7 @@ export const audienceKindLabels: Readonly<Record<AudienceKind, { label: string; 
     hint: '代表が書いたメンバーのうち、まだ LINE で登録していない人がいるチームの代表',
   },
   participants: {
-    label: '承認したチームの代表とメンバー',
+    label: '参加が決まったチームの代表とメンバー',
     hint: '前日の案内など、出場が決まった人みんなに送るとき。メンバーは LINE で登録した人だけです',
   },
   past_reps: {
@@ -35,9 +35,9 @@ export const audienceKindLabels: Readonly<Record<AudienceKind, { label: string; 
 /** reps で選べる申込の状態 */
 export const audienceStatusLabels: Readonly<Record<AudienceStatus, string>> = {
   '': 'すべて',
-  pending: '申込中',
-  returned: '差し戻し',
-  approved: '承認',
+  pending: '確認待ち',
+  returned: '直し待ち',
+  approved: '参加決定',
 }
 
 export const jobStatusLabels: Readonly<Record<JobStatus, string>> = {
