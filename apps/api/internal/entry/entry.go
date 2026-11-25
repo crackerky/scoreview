@@ -165,6 +165,9 @@ type Member struct {
 	Registered bool
 	PlayerID   *int64
 	LineUserID *int64
+	// Answers は本人が答えたメンバー向けの質問(申込の中身として読んだときだけ入る)。運営の画面にだけ
+	// 出し、本人用のリンクでは出さない(ほかのメンバーや代表に、学年などの答えを見せない)
+	Answers []Answer
 }
 
 // Summary は申込一覧の 1 件。

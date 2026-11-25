@@ -998,6 +998,7 @@ type EntryDetail = EntrySummary & {
   inviteUrl: string                  // 公式アカウントのトークを「参加 招待コード」の入った状態で開く URL。LINE を設定していなければ ''(LINE を設定するならベーシック ID は必須)
   decidedAt: string | null
   memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null }>
+                                     // 運営の口(/admin/…)は、メンバーごとに answers: Array<{ questionId; value }>(本人が答えたメンバー向けの質問)も付ける。本人用のリンクの口には付けない(ほかのメンバーや代表に見せない)
   answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
 }
 ```

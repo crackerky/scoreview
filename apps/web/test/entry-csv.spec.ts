@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import type { EntryDetail, EntryExport } from '../src/api/entry.types.ts'
+import type { EntryAdminDetail, EntryExport } from '../src/api/entry.types.ts'
 import { csvCell, entriesCsv, entriesCsvName } from '../src/entry/entryCsv.utils.ts'
 
 // 申込の書き出し(CSV)
 
-const entry = (id: number, members: EntryDetail['memberList'], answers: EntryDetail['answers']) =>
+const entry = (
+  id: number,
+  members: EntryAdminDetail['memberList'],
+  answers: EntryAdminDetail['answers'],
+) =>
   ({
     id,
     division: { id: 2, name: { ja: 'オープン', en: '' } },
@@ -27,7 +31,7 @@ const entry = (id: number, members: EntryDetail['memberList'], answers: EntryDet
     decidedAt: null,
     memberList: members,
     answers,
-  }) satisfies EntryDetail
+  }) satisfies EntryAdminDetail
 
 describe('csvCell', () => {
   test('区切りと引用符と改行を含む値は引用符で囲む', () => {
@@ -70,8 +74,15 @@ describe('entriesCsv', () => {
       entry(
         10,
         [
-          { id: 1, name: '山田 太郎', number: '7', registered: false, playerId: null },
-          { id: 2, name: '佐藤 花子', number: '', registered: true, playerId: null },
+          { id: 1, name: '山田 太郎', number: '7', registered: false, playerId: null, answers: [] },
+          {
+            id: 2,
+            name: '佐藤 花子',
+            number: '',
+            registered: true,
+            playerId: null,
+            answers: [{ questionId: 2, value: '2 年' }],
+          },
         ],
         [{ questionId: 1, value: 'yes' }],
       ),
@@ -84,20 +95,20 @@ describe('entriesCsv', () => {
     assert.equal(csv.charCodeAt(0), 0xfeff)
     assert.equal(lines.at(-1), '')
   })
-  test('見出しにはチーム向けの質問だけを並べる', () => {
+  test('見出しはチーム向けの質問をチームの欄の後ろに、メンバー向けの質問をメンバーの欄の後ろに並べる', () => {
     assert.equal(
       lines[0],
-      '申込番号,状態,部門,チーム名(正式),チーム名(短縮),代表,電話番号,メールアドレス,受けた日時,経路,宿泊,背番号,名前,本人登録',
+      '申込番号,状態,部門,チーム名(正式),チーム名(短縮),代表,電話番号,メールアドレス,受けた日時,経路,宿泊,背番号,名前,本人登録,学年',
     )
   })
   test('メンバー 1 人を 1 行にし、チームの欄と答えを繰り返す。メンバーの無い申込も 1 行出す', () => {
     assert.equal(
       lines[1],
-      '10,申込中,オープン,チーム10,T10,山田 太郎,090-0000-0000,,11月13日 14:05,運営が入力,はい,7,山田 太郎,まだ',
+      '10,申込中,オープン,チーム10,T10,山田 太郎,090-0000-0000,,11月13日 14:05,運営が入力,はい,7,山田 太郎,まだ,',
     )
-    assert.equal(lines[2]?.endsWith(',はい,,佐藤 花子,済み'), true)
+    assert.equal(lines[2]?.endsWith(',はい,,佐藤 花子,済み,2 年'), true, 'メンバー本人の答え')
     assert.equal(lines[3]?.startsWith('11,申込中'), true)
-    assert.equal(lines[3]?.endsWith(',,,,'), true)
+    assert.equal(lines[3]?.endsWith(',,,,,'), true)
     assert.equal(lines.length, 5)
   })
   test('ファイル名は日本時間の日付', () => {

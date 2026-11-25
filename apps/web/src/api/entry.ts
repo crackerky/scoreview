@@ -5,7 +5,7 @@ import {
   type EntryAction,
   type EntryDraftInput,
   type EntryQuestionInput,
-  entryDetailSchema,
+  entryAdminDetailSchema,
   entryExportSchema,
   entryListSchema,
   entryQuestionListSchema,
@@ -47,12 +47,21 @@ export const entries = {
     call(token, 'GET', `${admin}/tournaments/${tournamentId}/entries`, entryListSchema),
   /** 電話や紙で受けた申込を運営が代わりに入れる */
   create: (token: string, tournamentId: number, body: EntryDraftInput) =>
-    call(token, 'POST', `${admin}/tournaments/${tournamentId}/entries`, entryDetailSchema, body),
+    call(
+      token,
+      'POST',
+      `${admin}/tournaments/${tournamentId}/entries`,
+      entryAdminDetailSchema,
+      body,
+    ),
   /** 書き出し(CSV)用に、質問と申込の全部を中身つきで読む */
   export: (token: string, tournamentId: number) =>
     call(token, 'GET', `${admin}/tournaments/${tournamentId}/entries/export`, entryExportSchema),
   get: (token: string, id: number) =>
-    call(token, 'GET', `${admin}/entries/${id}`, entryDetailSchema),
+    call(token, 'GET', `${admin}/entries/${id}`, entryAdminDetailSchema),
   decide: (token: string, id: number, action: EntryAction, note: string) =>
-    call(token, 'POST', `${admin}/entries/${id}/decision`, entryDetailSchema, { action, note }),
+    call(token, 'POST', `${admin}/entries/${id}/decision`, entryAdminDetailSchema, {
+      action,
+      note,
+    }),
 }

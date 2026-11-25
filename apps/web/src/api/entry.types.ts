@@ -77,6 +77,15 @@ export const entryDetailSchema = entrySummarySchema.extend({
 })
 export type EntryDetail = z.infer<typeof entryDetailSchema>
 
+/**
+ * 運営の画面の申込。メンバーに、本人が答えたメンバー向けの質問を足す(本人用のリンクの応答には無い。
+ * ほかのメンバーや代表に見せないため)。
+ */
+export const entryAdminDetailSchema = entryDetailSchema.extend({
+  memberList: z.array(entryMemberSchema.extend({ answers: z.array(entryAnswerSchema) })),
+})
+export type EntryAdminDetail = z.infer<typeof entryAdminDetailSchema>
+
 /** 参加者の前回の入力(代表の名前と連絡先) */
 const entryProfileSchema = z.object({ name: z.string(), phone: z.string(), email: z.string() })
 export type EntryProfile = z.infer<typeof entryProfileSchema>
@@ -129,7 +138,7 @@ export type EntryJoinInput = {
 
 export const entryExportSchema = z.object({
   questions: z.array(entryQuestionSchema),
-  entries: z.array(entryDetailSchema),
+  entries: z.array(entryAdminDetailSchema),
 })
 export type EntryExport = z.infer<typeof entryExportSchema>
 

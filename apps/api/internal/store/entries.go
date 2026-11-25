@@ -21,6 +21,7 @@ const (
 	sqlByQuestions       = "question_id IN ?"
 	sqlByTeamEntry       = "team_entry_id = ?"
 	sqlByTeamEntries     = "team_entry_id IN ?"
+	sqlByMemberEntries   = "member_entry_id IN ?"
 	sqlQuestionsNotIn    = "tournament_id = ? AND id NOT IN ?"
 	sqlOrderSubmitted    = "submitted_at, id"
 	sqlSelectAnswerCount = "question_id, count(*) AS answered"
@@ -362,7 +363,7 @@ func (s *EntryStore) Details(ctx context.Context, tournamentID int64) ([]entry.D
 	return loadDetails(ctx, s.db, rows)
 }
 
-// loadEntry は申込 1 件を読む。問い合わせは 4 回(申込、部門、メンバー、答え)。
+// loadEntry は申込 1 件を読む。問い合わせは 5 回(申込、部門、メンバー、チームの答え、メンバーの答え)。
 func loadEntry(ctx context.Context, db *gorm.DB, id int64) (entry.Detail, error) {
 	row, err := findByID[TeamEntry](ctx, db, id, domain.ResourceEntry)
 	if err != nil {
@@ -375,8 +376,8 @@ func loadEntry(ctx context.Context, db *gorm.DB, id int64) (entry.Detail, error)
 	return details[0], nil
 }
 
-// loadDetails は申込の行に部門、メンバー、答えを付ける。問い合わせは申込の数によらず 3 回(部門、
-// メンバー、答え)。返す並びは rows と同じ。
+// loadDetails は申込の行に部門、メンバー、答え(チームの答えとメンバーの答え)を付ける。問い合わせは
+// 申込の数によらず 4 回(部門、メンバー、チームの答え、メンバーの答え)。返す並びは rows と同じ。
 func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.Detail, error) {
 	if len(rows) == 0 {
 		return []entry.Detail{}, nil
@@ -398,9 +399,18 @@ func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.De
 	if err := db.WithContext(ctx).Where(sqlByTeamEntries, ids).Order(sqlOrderID).Find(&answers).Error; err != nil {
 		return nil, fmt.Errorf("load answers of entries: %w", err)
 	}
+	memberAnswers, err := loadMemberAnswers(ctx, db, members)
+	if err != nil {
+		return nil, err
+	}
 	membersOf := make(map[int64][]entry.Member, len(rows))
 	for _, member := range members {
-		membersOf[member.TeamEntryID] = append(membersOf[member.TeamEntryID], toEntryMember(member))
+		read := toEntryMember(member)
+		read.Answers = memberAnswers[member.ID]
+		if read.Answers == nil {
+			read.Answers = []entry.Answer{}
+		}
+		membersOf[member.TeamEntryID] = append(membersOf[member.TeamEntryID], read)
 	}
 	answersOf := make(map[int64][]entry.Answer, len(rows))
 	for _, answer := range answers {
@@ -429,6 +439,28 @@ func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.De
 			RepEmail:   row.RepEmail,
 			ReturnNote: row.ReturnNote, InviteCode: row.InviteCode, DecidedAt: row.DecidedAt,
 			MemberList: list, Answers: given}
+	}
+	return out, nil
+}
+
+// loadMemberAnswers はメンバーの行ごとの、本人が答えたメンバー向けの質問を読む(問い合わせは 1 回)。
+func loadMemberAnswers(ctx context.Context, db *gorm.DB, members []MemberEntry) (map[int64][]entry.Answer, error) {
+	out := map[int64][]entry.Answer{}
+	if len(members) == 0 {
+		return out, nil
+	}
+	ids := make([]int64, len(members))
+	for i, member := range members {
+		ids[i] = member.ID
+	}
+	var answers []EntryAnswer
+	if err := db.WithContext(ctx).Where(sqlByMemberEntries, ids).Order(sqlOrderID).Find(&answers).Error; err != nil {
+		return nil, fmt.Errorf("load answers of members: %w", err)
+	}
+	for _, answer := range answers {
+		// メンバーエントリーの答えだけを読む(Where が member_entry_id で絞っているので nil にならない)
+		owner := *answer.MemberEntryID
+		out[owner] = append(out[owner], entry.Answer{QuestionID: answer.QuestionID, Value: answer.Value})
 	}
 	return out, nil
 }

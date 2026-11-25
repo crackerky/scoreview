@@ -1,8 +1,9 @@
-import type { EntryDetail, EntryExport } from '@/api/entry.types'
+import type { EntryAdminDetail, EntryExport } from '@/api/entry.types'
 import { answerText, channelLabels, dateTimeText, statusLabels } from './entry.utils'
 
 // 申込の書き出し(CSV)。運営が Excel で名簿として開く前提で、メンバー 1 人を 1 行にし、チームの欄と
 // チーム向けの質問への答えを各行に繰り返す(並べ替えや絞り込みをしても行がチームから離れないように)。
+// メンバー向けの質問への答えは、メンバーの欄の後ろに、その人の行にだけ書く。
 
 /** Excel が UTF-8 と読むための BOM。無いと日本語が化ける */
 const bom = '﻿'
@@ -22,7 +23,7 @@ function csvLine(cells: readonly string[]): string {
 
 const memberColumns = ['背番号', '名前', '本人登録'] as const
 
-function teamCells(entry: EntryDetail, answers: readonly string[]): string[] {
+function teamCells(entry: EntryAdminDetail, answers: readonly string[]): string[] {
   return [
     String(entry.id),
     statusLabels[entry.status],
@@ -41,6 +42,7 @@ function teamCells(entry: EntryDetail, answers: readonly string[]): string[] {
 /** 書き出す申込を CSV の文字列(BOM つき、改行は CRLF)にする */
 export function entriesCsv(data: EntryExport): string {
   const questions = data.questions.filter((question) => question.scope === 'team')
+  const memberQuestions = data.questions.filter((question) => question.scope === 'member')
   const header = [
     '申込番号',
     '状態',
@@ -54,6 +56,7 @@ export function entriesCsv(data: EntryExport): string {
     '経路',
     ...questions.map((question) => question.label),
     ...memberColumns,
+    ...memberQuestions.map((question) => question.label),
   ]
   const lines = [csvLine(header)]
   for (const entry of data.entries) {
@@ -64,12 +67,23 @@ export function entriesCsv(data: EntryExport): string {
     })
     const team = teamCells(entry, answers)
     if (entry.memberList.length === 0) {
-      lines.push(csvLine([...team, '', '', '']))
+      lines.push(csvLine([...team, '', '', '', ...memberQuestions.map(() => '')]))
       continue
     }
     for (const member of entry.memberList) {
+      const own = new Map(member.answers.map((answer) => [answer.questionId, answer.value]))
+      const memberAnswers = memberQuestions.map((question) => {
+        const value = own.get(question.id)
+        return value === undefined ? '' : answerText(question, value)
+      })
       lines.push(
-        csvLine([...team, member.number, member.name, member.registered ? '済み' : 'まだ']),
+        csvLine([
+          ...team,
+          member.number,
+          member.name,
+          member.registered ? '済み' : 'まだ',
+          ...memberAnswers,
+        ]),
       )
     }
   }

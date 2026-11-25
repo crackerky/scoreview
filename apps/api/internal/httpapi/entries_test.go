@@ -85,3 +85,57 @@ func TestEntries(t *testing.T) {
 	f.callAs(t, f.staffToken, http.StatusForbidden, http.MethodGet, entryURL, nil)
 	f.call(t, http.StatusNotFound, http.MethodGet, "/api/v1/admin/tournaments/999999/entries", nil)
 }
+
+// メンバーが自分で答えたメンバー向けの質問は、運営の申込の画面と書き出しに出る。
+func TestEntryMemberAnswersForAdmins(t *testing.T) {
+	f := newAdminFixture(t)
+	b := storetest.New(t, f.db)
+	tour := b.Tournament(func(row *store.Tournament) { row.Status = domain.TournamentEntryOpen })
+	division := b.Division(tour.ID)
+	questionsURL := fmt.Sprintf("/api/v1/admin/tournaments/%d/entry-questions", tour.ID)
+	saved := f.call(t, http.StatusOK, http.MethodPut, questionsURL, map[string]any{"questions": []any{
+		map[string]any{"id": nil, "scope": "member", "label": "学年", "kind": "short_text", "required": false,
+			"options": []string{}},
+	}})
+	questions, ok := saved["questions"].([]any)
+	require.True(t, ok)
+	question, ok := questions[0].(map[string]any)
+	require.True(t, ok)
+	questionID := jsonID(t, question["id"])
+	created := f.call(t, http.StatusCreated, http.MethodPost, fmt.Sprintf("/api/v1/admin/tournaments/%d/entries", tour.ID),
+		map[string]any{"divisionId": division.ID, "fullName": "熱海ディスクス", "shortName": "熱海", "repName": "山田 太郎",
+			"repPhone": "", "repEmail": "", "members": []any{map[string]any{"name": "佐藤 花子", "number": "7"}},
+			"answers": []any{}})
+	members, ok := created["memberList"].([]any)
+	require.True(t, ok)
+	member, ok := members[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{}, member["answers"])
+	// メンバー本人の答え(本人用のリンクのメンバー登録が書くもの)
+	memberID := jsonID(t, member["id"])
+	require.NoError(t, f.db.Create(&store.EntryAnswer{QuestionID: questionID, MemberEntryID: &memberID,
+		Value: "2 年"}).Error)
+
+	detail := f.call(t, http.StatusOK, http.MethodGet, fmt.Sprintf("/api/v1/admin/entries/%v", created["id"]), nil)
+	members, ok = detail["memberList"].([]any)
+	require.True(t, ok)
+	member, ok = members[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, []any{map[string]any{"questionId": float64(questionID), "value": "2 年"}}, member["answers"])
+	export := f.call(t, http.StatusOK, http.MethodGet, fmt.Sprintf("/api/v1/admin/tournaments/%d/entries/export", tour.ID), nil)
+	entries, ok := export["entries"].([]any)
+	require.True(t, ok)
+	exported, ok := entries[0].(map[string]any)
+	require.True(t, ok)
+	exportedMembers, ok := exported["memberList"].([]any)
+	require.True(t, ok)
+	assert.Equal(t, member, exportedMembers[0])
+}
+
+// jsonID は JSON から読んだ ID(数は float64 で読まれる)を int64 にする。
+func jsonID(t *testing.T, value any) int64 {
+	t.Helper()
+	number, ok := value.(float64)
+	require.True(t, ok, "%v is not a number", value)
+	return int64(number)
+}

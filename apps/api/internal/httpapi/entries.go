@@ -101,9 +101,23 @@ type entryDetailDTO struct {
 	Answers      []entryAnswerDTO `json:"answers"`
 }
 
+// entryAdminMemberDTO は運営の画面のメンバー。本人が答えたメンバー向けの質問を足す(本人用のリンクの
+// 応答には出さない。ほかのメンバーや代表に見せないため)。
+type entryAdminMemberDTO struct {
+	entryMemberDTO
+	Answers []entryAnswerDTO `json:"answers"`
+}
+
+// entryAdminDetailDTO は運営の画面の申込。memberList を答えつきのメンバーにする(外側の欄が、埋め込んだ
+// entryDetailDTO の同じ名前の欄より優先して JSON に出る)。
+type entryAdminDetailDTO struct {
+	entryDetailDTO
+	MemberList []entryAdminMemberDTO `json:"memberList"`
+}
+
 type entryExportDTO struct {
-	Questions []entryQuestionDTO `json:"questions"`
-	Entries   []entryDetailDTO   `json:"entries"`
+	Questions []entryQuestionDTO    `json:"questions"`
+	Entries   []entryAdminDetailDTO `json:"entries"`
 }
 
 type entryMemberInputDTO struct {
@@ -156,6 +170,16 @@ func toEntryDetail(detail entry.Detail) entryDetailDTO {
 		MemberList: make([]entryMemberDTO, len(detail.MemberList)), Answers: toEntryAnswers(detail.Answers)}
 	for i, member := range detail.MemberList {
 		out.MemberList[i] = toEntryMember(member)
+	}
+	return out
+}
+
+func toEntryAdminDetail(detail entry.Detail) entryAdminDetailDTO {
+	out := entryAdminDetailDTO{entryDetailDTO: toEntryDetail(detail),
+		MemberList: make([]entryAdminMemberDTO, len(detail.MemberList))}
+	for i, member := range detail.MemberList {
+		out.MemberList[i] = entryAdminMemberDTO{entryMemberDTO: toEntryMember(member),
+			Answers: toEntryAnswers(member.Answers)}
 	}
 	return out
 }
@@ -227,7 +251,7 @@ func (s *Server) createDeskEntry(ctx context.Context, id int64, r *http.Request,
 	if err != nil {
 		return nil, err
 	}
-	return toEntryDetail(detail), nil
+	return toEntryAdminDetail(detail), nil
 }
 
 // draft は申込のボディを entry の中身にする。同じ質問への答えが 2 つあれば検証エラー。
@@ -262,7 +286,7 @@ func (s *Server) getEntry(ctx context.Context, id int64, _ *http.Request, _ doma
 	if err != nil {
 		return nil, err
 	}
-	return toEntryDetail(detail), nil
+	return toEntryAdminDetail(detail), nil
 }
 
 func (s *Server) decideEntry(ctx context.Context, id int64, r *http.Request, user domain.User) (any, error) {
@@ -274,7 +298,7 @@ func (s *Server) decideEntry(ctx context.Context, id int64, r *http.Request, use
 	if err != nil {
 		return nil, err
 	}
-	return toEntryDetail(detail), nil
+	return toEntryAdminDetail(detail), nil
 }
 
 func (s *Server) exportEntries(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
@@ -283,9 +307,9 @@ func (s *Server) exportEntries(ctx context.Context, id int64, _ *http.Request, _
 		return nil, err
 	}
 	out := entryExportDTO{Questions: toEntryQuestions(export.Questions).Questions,
-		Entries: make([]entryDetailDTO, len(export.Entries))}
+		Entries: make([]entryAdminDetailDTO, len(export.Entries))}
 	for i, detail := range export.Entries {
-		out.Entries[i] = toEntryDetail(detail)
+		out.Entries[i] = toEntryAdminDetail(detail)
 	}
 	return out, nil
 }

@@ -30,6 +30,8 @@ export default async function EntryPage(props: IdPageProps) {
   )
   const back = entryPaths.detail(id)
   const questions = new Map(questionList.questions.map((question) => [question.id, question]))
+  // メンバー向けの質問は、メンバーの表の列にする(本人が LINE で登録したときに答える)
+  const memberQuestions = questionList.questions.filter((question) => question.scope === 'member')
   const pending = detail.status === 'pending'
   const cancellable = pending || detail.status === 'returned'
   return (
@@ -93,16 +95,30 @@ export default async function EntryPage(props: IdPageProps) {
               <th>背番号</th>
               <th>名前</th>
               <th>本人登録</th>
+              {memberQuestions.map((question) => (
+                <th key={question.id}>{question.label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {detail.memberList.map((member) => (
-              <tr key={member.id}>
-                <td className="adm-num">{member.number}</td>
-                <td>{member.name}</td>
-                <td>{member.registered ? '済み' : 'まだ'}</td>
-              </tr>
-            ))}
+            {detail.memberList.map((member) => {
+              const own = new Map(member.answers.map((answer) => [answer.questionId, answer.value]))
+              return (
+                <tr key={member.id}>
+                  <td className="adm-num">{member.number}</td>
+                  <td>{member.name}</td>
+                  <td>{member.registered ? '済み' : 'まだ'}</td>
+                  {memberQuestions.map((question) => {
+                    const value = own.get(question.id)
+                    return (
+                      <td key={question.id}>
+                        {value === undefined ? '' : answerText(question, value)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
