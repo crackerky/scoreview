@@ -1,6 +1,13 @@
 'use client'
 
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   type Audience,
   audienceKinds,
@@ -68,12 +75,40 @@ export function NotificationComposer({
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [selection, setSelection] = useState({ audience: checked, timing: checkedTime })
-  // ブラウザが戻したフォームの状態(再読み込み、戻る)も、画面に出ている選択として読む
+  // ブラウザが戻したフォームの状態(再読み込み、戻る)も、画面に出ている選択として読む。前日と当日の
+  // 案内のひな形(preset)は、文の欄に入れたら URL から外す(戻るや再読み込みで、書き足した文をひな形で
+  // 上書きしないように)
   useEffect(() => {
     if (formRef.current) {
       setSelection(selectionOf(formRef.current))
     }
+    const url = new URL(window.location.href)
+    if (url.searchParams.has('preset')) {
+      url.searchParams.delete('preset')
+      window.history.replaceState(window.history.state, '', url)
+    }
   }, [])
+  // 日時を入れたら予約を選び、「すぐ送る」を選んだら日時を消す(日時を入れたのに、すぐ送ってしまわない
+  // ように)
+  const syncTiming = (event: FormEvent<HTMLFormElement>) => {
+    const form = event.currentTarget
+    const target = event.target
+    if (target instanceof HTMLInputElement && target.name === 'at' && target.value !== '') {
+      const later = form.querySelector<HTMLInputElement>('input[name="timing"][value="later"]')
+      // checked を直に書くと React が覚えている選択とずれ、次に「すぐ送る」を押しても変化として扱われ
+      // ない。押したのと同じ形で選ぶ
+      if (later && !later.checked) {
+        later.click()
+      }
+    }
+    if (target instanceof HTMLInputElement && target.name === 'timing' && target.value === 'now') {
+      const at = form.querySelector<HTMLInputElement>('input[name="at"]')
+      if (at) {
+        at.value = ''
+      }
+    }
+    setSelection(selectionOf(form))
+  }
   const changed =
     !sameAudience(selection.audience, checked) || !sameTiming(selection.timing, checkedTime)
   // 宛先の欄で Enter を押すと、フォームの既定のボタン(画面の上の「送る」)で送られてしまうので止める
@@ -88,7 +123,7 @@ export function NotificationComposer({
       ref={formRef}
       action={sendNotificationAction}
       className="adm-stack"
-      onChange={(event) => setSelection(selectionOf(event.currentTarget))}
+      onChange={syncTiming}
       onKeyDown={stopEnter}
     >
       <Hidden

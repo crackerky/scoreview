@@ -53,6 +53,14 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
     ) {
       return withQuery(notifyPaths.create(tournamentId), { ...plan, error: changedPlan })
     }
+    // すぐ送るのに送る日時も入っている(JavaScript が動かないとき)。どちらのつもりか分からないので送らない
+    if (timing.kind === 'now' && field(form, 'at') !== '') {
+      return withQuery(notifyPaths.create(tournamentId), {
+        ...plan,
+        error:
+          '「すぐ送る」と送る日時の両方が入っています。予約するなら「日時を決めて送る」を選んでください',
+      })
+    }
     const sendAt = timing.kind === 'later' ? localTimeToIso(timing.at) : null
     if (timing.kind === 'later' && sendAt === null) {
       return withQuery(notifyPaths.create(tournamentId), {
