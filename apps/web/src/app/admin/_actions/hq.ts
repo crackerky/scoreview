@@ -63,6 +63,11 @@ export async function correctMatchAction(formData: FormData): Promise<never> {
       keep: keep ? '1' : undefined,
       next: field(form, 'next'),
     }
+    // 0-0 は、点を入れ忘れたまま押したことがほとんど。保存すると順位表と閲覧ページにすぐ出るので、
+    // 確かめの印が無ければ保存せずに、印の欄を出して戻す
+    if (left === 0 && right === 0 && field(form, 'zero') !== '1') {
+      return withQuery(back, { ...echo, seen: field(form, 'seen'), zero: 'confirm' })
+    }
     try {
       await formats.correct(token, id, {
         score: { left, right },

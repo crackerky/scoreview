@@ -56,6 +56,23 @@ function resultText(detail: MatchDetail): string {
   return `${status}${kind} ${score}`
 }
 
+/** 0-0 で保存しようとしたときの確かめ(印を付けないと保存しない。点の入れ忘れで順位表に出さないため) */
+function ZeroConfirm() {
+  return (
+    <fieldset className="adm-field hq-approval missing">
+      <legend>0-0 で保存しようとしています</legend>
+      <p className="hq-approval-why" role="alert">
+        点を入れ忘れていないか確かめてください。本当に 0-0
+        で終えた試合なら、印を付けてもう一度押してください。
+      </p>
+      <label className="adm-check">
+        <input type="checkbox" name="zero" value="1" required />
+        <span>0-0 のまま試合を終える</span>
+      </label>
+    </fieldset>
+  )
+}
+
 function DownstreamChoice({ missing }: { missing: boolean }) {
   return (
     <fieldset className={`adm-field hq-approval${missing ? ' missing' : ''}`}>
@@ -94,6 +111,7 @@ export default async function MatchResultPage(props: IdPageProps) {
   const keepEvents = pick(query.keep) === '1'
   const changed = pick(query.changed) === '1'
   const approval = pick(query.approval)
+  const zeroPending = pick(query.zero) === 'confirm'
   const next = safeAdminPath(pick(query.next) || `/admin/divisions/${match.divisionId}/progress`)
   const back = `/admin/matches/${id}/result`
   const now = currentScore(detail)
@@ -229,6 +247,7 @@ export default async function MatchResultPage(props: IdPageProps) {
               hasEvents={hasEvents}
               keepEvents={keepEvents}
             />
+            {zeroPending ? <ZeroConfirm /> : null}
             <p className="adm-muted">保存すると、閲覧ページの速報と順位表にすぐ出ます。</p>
           </form>
         )
@@ -265,6 +284,7 @@ export default async function MatchResultPage(props: IdPageProps) {
               }}
             />
             {impact.needsApproval ? <DownstreamChoice missing={approval === 'missing'} /> : null}
+            {zeroPending ? <ZeroConfirm /> : null}
           </form>
         </>
       ) : null}
