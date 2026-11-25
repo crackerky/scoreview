@@ -23,17 +23,24 @@ export type SendHandlers = {
   applied: (matchId: number, op: ScoreOp, detail: MatchDetail) => void
   /** api が操作を断った(試合が終わっていた、スコアが食い違ったなど)。操作は捨てた */
   dropped: (matchId: number, op: ScoreOp, failure: SendFailure) => void
+  /**
+   * この試合の記録係から外れていて送れなかった(403)。操作は捨てずに残し、この回はこの試合を
+   * 飛ばす(後で送り直し、割り当てが戻れば送れる)
+   */
+  held: (matchId: number, op: ScoreOp, failure: SendFailure) => void
 }
 
 /**
- * 送り終えたら done、圏外なら offline、api が一時的に応えないなら retry、ログインが切れたら login。
+ * 送り終えたら done(記録係から外れて送れなかった試合の操作は、残したまま)、圏外なら offline、
+ * api が一時的に応えないなら retry、ログインが切れたら login。
  * offline、retry、login のときは送れなかった操作を残す(後で送り直す)。
  */
 export type SendResult = 'done' | 'offline' | 'retry' | 'login'
 
 export async function sendPending(deps: SendDeps, handlers: SendHandlers): Promise<SendResult> {
+  const held = new Set<number>()
   for (;;) {
-    const next = nextOp(readDeviceQueue(deps.store))
+    const next = nextOp(readDeviceQueue(deps.store), held)
     if (next === null) {
       return 'done'
     }
@@ -55,15 +62,21 @@ export async function sendPending(deps: SendDeps, handlers: SendHandlers): Promi
       continue
     }
     const outcome = classifyFailure(response.status)
-    if (outcome !== 'drop') {
+    if (outcome === 'retry' || outcome === 'login') {
       return outcome
     }
     const body = relayErrorSchema.safeParse(response.body)
-    removeOp(deps.store, matchId, op.opId)
-    handlers.dropped(matchId, op, {
+    const failure = {
       status: response.status,
       code: body.success ? body.data.error.code : 'unknown',
       message: body.success ? body.data.error.message : `HTTP ${response.status}`,
-    })
+    }
+    if (outcome === 'hold') {
+      held.add(matchId)
+      handlers.held(matchId, op, failure)
+      continue
+    }
+    removeOp(deps.store, matchId, op.opId)
+    handlers.dropped(matchId, op, failure)
   }
 }

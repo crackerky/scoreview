@@ -197,7 +197,7 @@ describe('端末への保存と送信', () => {
     assert.equal(classifyFailure(502), 'retry')
     assert.equal(classifyFailure(401), 'login')
     assert.equal(classifyFailure(409), 'drop')
-    assert.equal(classifyFailure(403), 'drop')
+    assert.equal(classifyFailure(403), 'hold', '割り当てが戻れば送れる')
   })
 
   test('経過秒は開始時刻からの秒数(開始前は 0)', () => {

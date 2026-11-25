@@ -139,11 +139,17 @@ export function pendingCounts(queue: DeviceQueue): Map<number, number> {
   return counts
 }
 
-/** 送る順の次の操作。試合の中は記録した順に送る(取り消しが得点の後に届くように) */
-export function nextOp(queue: DeviceQueue): { matchId: number; op: ScoreOp } | null {
+/**
+ * 送る順の次の操作。試合の中は記録した順に送る(取り消しが得点の後に届くように)。skip の試合は
+ * 飛ばす(送るのを止めた試合の後ろで、ほかの試合を待たせない)
+ */
+export function nextOp(
+  queue: DeviceQueue,
+  skip: ReadonlySet<number> = new Set(),
+): { matchId: number; op: ScoreOp } | null {
   for (const [matchId, entry] of Object.entries(queue.matches)) {
     const op = entry.ops[0]
-    if (op !== undefined) {
+    if (op !== undefined && !skip.has(Number(matchId))) {
       return { matchId: Number(matchId), op }
     }
   }

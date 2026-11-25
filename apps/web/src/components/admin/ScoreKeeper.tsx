@@ -33,6 +33,7 @@ import {
   type ScoreSentDetail,
   scoreAppliedEvent,
   scoreDroppedEvent,
+  scoreHeldEvent,
   sendFinishedEvent,
   storageIsDurable,
 } from '@/admin/scoreSender'
@@ -92,6 +93,8 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
   const [authLost, setAuthLost] = useState(false)
   const [storageBroken, setStorageBroken] = useState(false)
   const [errors, setErrors] = useState<Notice[]>([])
+  // 記録係から外れていて、この試合の点を送れていない(点は端末に残して送り直す)
+  const [held, setHeld] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [toast, setToast] = useState<Toast | null>(null)
   const [undoLockedUntil, setUndoLockedUntil] = useState(0)
@@ -187,6 +190,13 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
         lastAppliedAt.current = performance.now()
         setBase(sent.detail)
         setOnline(true)
+        setHeld(false)
+      }
+    }
+    const onHeld = (event: Event) => {
+      const { matchId: refused } = (event as CustomEvent<ScoreDroppedDetail>).detail // scoreSender が出す型
+      if (refused === matchId) {
+        setHeld(true)
       }
     }
     const onDropped = (event: Event) => {
@@ -233,12 +243,14 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
     window.addEventListener(queueChangeEvent, onQueue)
     window.addEventListener(scoreAppliedEvent, onApplied)
     window.addEventListener(scoreDroppedEvent, onDropped)
+    window.addEventListener(scoreHeldEvent, onHeld)
     window.addEventListener(sendFinishedEvent, onFinished)
     window.addEventListener('storage', onStorage)
     return () => {
       window.removeEventListener(queueChangeEvent, onQueue)
       window.removeEventListener(scoreAppliedEvent, onApplied)
       window.removeEventListener(scoreDroppedEvent, onDropped)
+      window.removeEventListener(scoreHeldEvent, onHeld)
       window.removeEventListener(sendFinishedEvent, onFinished)
       window.removeEventListener('storage', onStorage)
     }
@@ -595,6 +607,13 @@ export function ScoreKeeper({ initial, isAdmin, canScore, userId, nextMatch }: P
                 >
                   ログインし直す
                 </a>
+              </p>
+            ) : null}
+            {held && pending > 0 ? (
+              // 本部が記録係の割り当てを外した。点は捨てずに残し、割り当てが戻ったら送る
+              <p className="sk-banner error" role="alert">
+                この試合の記録係から外れたため、点を {pending}{' '}
+                件送れていません。点はこの端末に残しています。本部に伝えて、記録係に戻してもらってください。戻ると自動で送ります。
               </p>
             ) : null}
             {storageBroken ? (

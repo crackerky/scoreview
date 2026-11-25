@@ -21,6 +21,8 @@ import { type SendFailure, type SendResult, sendPending } from './scoreSend.util
 export const scoreAppliedEvent = 'sv-score-applied'
 /** api が操作を断ったときのイベント。detail は ScoreDroppedDetail */
 export const scoreDroppedEvent = 'sv-score-dropped'
+/** 記録係から外れていて送れず、操作を残したときのイベント。detail は ScoreDroppedDetail */
+export const scoreHeldEvent = 'sv-score-held'
 /** 送信を終えたときのイベント。detail は SendResult */
 export const sendFinishedEvent = 'sv-score-send-finished'
 
@@ -106,6 +108,9 @@ async function sendOnce(store: KeyValueStore): Promise<SendResult> {
         dropped: (matchId, op, failure) => {
           emit(queueChangeEvent, null)
           emit(scoreDroppedEvent, { matchId, op, failure } satisfies ScoreDroppedDetail)
+        },
+        held: (matchId, op, failure) => {
+          emit(scoreHeldEvent, { matchId, op, failure } satisfies ScoreDroppedDetail)
         },
       },
     )

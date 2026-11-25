@@ -353,13 +353,20 @@ export const resultTypeLabels: Record<ResultType, string> = {
   unplayed: '未消化',
 }
 
-/** api への送信の失敗の分類。retry は後で送り直す、drop はこの操作をあきらめる、login はログインし直す */
-export function classifyFailure(status: number | null): 'retry' | 'drop' | 'login' {
+/**
+ * api への送信の失敗の分類。retry は後で送り直す、drop はこの操作をあきらめる、login はログインし直す、
+ * hold はこの試合の操作を残したまま、この試合だけ送るのを止める(403。本部が記録係の割り当てを外した。
+ * 割り当てが戻れば送れるので、記録した点を捨てない)
+ */
+export function classifyFailure(status: number | null): 'retry' | 'drop' | 'login' | 'hold' {
   if (status === null || status >= 500 || status === 408 || status === 429) {
     return 'retry'
   }
   if (status === 401) {
     return 'login'
+  }
+  if (status === 403) {
+    return 'hold'
   }
   return 'drop'
 }

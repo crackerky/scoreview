@@ -112,7 +112,11 @@ describe('全試合ぶんの送信', () => {
           return ok
         },
       },
-      { applied: (matchId) => applied.push(matchId), dropped: () => assert.fail('not dropped') },
+      {
+        applied: (matchId) => applied.push(matchId),
+        dropped: () => assert.fail('not dropped'),
+        held: () => assert.fail('not held'),
+      },
     )
     assert.equal(result, 'done')
     assert.deepEqual(sent, [`10:${uuid(1)}`, `10:${uuid(3)}`, `20:${uuid(2)}`])
@@ -136,7 +140,7 @@ describe('全試合ぶんの送信', () => {
           return ok
         },
       },
-      { applied: () => {}, dropped: () => {} },
+      { applied: () => {}, dropped: () => {}, held: () => {} },
     )
     assert.equal(result, 'offline')
     assert.deepEqual(
@@ -160,7 +164,7 @@ describe('全試合ぶんの送信', () => {
           return ok
         },
       },
-      { applied: () => {}, dropped: () => {} },
+      { applied: () => {}, dropped: () => {}, held: () => {} },
     )
     assert.deepEqual(sent, [uuid(1), uuid(9)])
   })
@@ -181,7 +185,11 @@ describe('全試合ぶんの送信', () => {
               }
             : { status: 401, body: { error: { code: 'unauthorized', message: 'login' } } },
       },
-      { applied: () => {}, dropped: (_matchId, _op, failure) => dropped.push(failure) },
+      {
+        applied: () => {},
+        dropped: (_matchId, _op, failure) => dropped.push(failure),
+        held: () => assert.fail('not held'),
+      },
     )
     assert.equal(result, 'login')
     assert.deepEqual(dropped, [
@@ -191,5 +199,42 @@ describe('全試合ぶんの送信', () => {
       matchQueueOf(readDeviceQueue(store), 10).ops.map((op) => op.opId),
       [uuid(2)],
     )
+  })
+
+  test('記録係から外れた試合(403)の操作は捨てずに残し、その試合を飛ばしてほかの試合を送る', async () => {
+    const store = memory()
+    enqueueOp(store, 10, goal(1), null)
+    enqueueOp(store, 10, goal(2), null)
+    enqueueOp(store, 20, goal(3), null)
+    const sent: string[] = []
+    const held: string[] = []
+    const result = await sendPending(
+      {
+        store,
+        post: async (matchId, op) => {
+          sent.push(op.opId)
+          return matchId === 10
+            ? { status: 403, body: { error: { code: 'forbidden', message: 'not assigned' } } }
+            : ok
+        },
+      },
+      {
+        applied: () => {},
+        dropped: () => assert.fail('not dropped'),
+        held: (matchId, op) => held.push(`${matchId}:${op.opId}`),
+      },
+    )
+    assert.equal(result, 'done')
+    assert.deepEqual(
+      sent,
+      [uuid(1), uuid(3)],
+      'the second point of match 10 waits behind the first',
+    )
+    assert.deepEqual(held, [`10:${uuid(1)}`])
+    assert.deepEqual(
+      matchQueueOf(readDeviceQueue(store), 10).ops.map((op) => op.opId),
+      [uuid(1), uuid(2)],
+    )
+    assert.equal(matchQueueOf(readDeviceQueue(store), 20).ops.length, 0)
   })
 })

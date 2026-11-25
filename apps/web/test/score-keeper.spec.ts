@@ -189,7 +189,6 @@ describe('画面の細部', () => {
       `試合終了を取り消せませんでした: ${reason}。本部の訂正の画面から訂正してください。`,
     )
     assert.match(failureMessage(goal(2, 'left'), 409, 'x'), /別の端末で変わっています/)
-    assert.match(failureMessage(goal(2, 'left'), 403, 'forbidden'), /担当ではありません/)
   })
 
   test('コートの値に「コート」が付いていれば重ねない', () => {
