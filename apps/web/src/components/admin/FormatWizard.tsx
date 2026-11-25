@@ -750,6 +750,12 @@ function PreviewSection(props: PreviewProps) {
           件は消えて、この形に置き換わります。
         </p>
       ) : null}
+      {preview.fitNote && !props.locked ? (
+        // 収まらない試合は最後の日の後(大会の日でない夜や翌日)に置かれるので、作らない(api も 400 で断る)
+        <p className="adm-notice error">
+          会場の時間に収まらない試合があるので、この形では作れません。コート数、日数、試合の長さを見直すか、ほかの形を選んでください。
+        </p>
+      ) : null}
       {props.stale && !props.locked ? (
         <p className="adm-notice error">
           条件を変えたので、作る前にプレビューを作り直してください(プレビューと違う時間割は作りません)。
@@ -761,7 +767,11 @@ function PreviewSection(props: PreviewProps) {
             この条件でプレビューを作り直す
           </button>
         ) : (
-          <button type="button" onClick={props.onApply} disabled={props.pending || props.locked}>
+          <button
+            type="button"
+            onClick={props.onApply}
+            disabled={props.pending || props.locked || preview.fitNote !== null}
+          >
             {props.rebuilding ? 'この形で作り直す' : 'この形で作る'}
           </button>
         )}

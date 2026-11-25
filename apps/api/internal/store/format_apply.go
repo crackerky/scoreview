@@ -410,6 +410,9 @@ func ApplyFormat(
 		if err != nil {
 			return err
 		}
+		if err := d.checkFits(); err != nil {
+			return err
+		}
 		if err := clearDivision(ctx, tx, divisionID); err != nil {
 			return err
 		}
@@ -431,6 +434,20 @@ func ApplyFormat(
 }
 
 // clearDivision はディビジョンの試合、グループ、段を消す(枠、格子の対応、順位の指定は連鎖で消える)。
+// checkFits は、時間割に会場の時間(大会の日)に収まらない試合があれば検証エラーを返す。収まらない
+// 試合は最後の日の終了の後(大会の日でない夜や翌日)に置かれるので、そのまま作ると、時間割と印刷に
+// 大会の日の外の試合が出る。
+func (d *formatDraft) checkFits() error {
+	if d.schedule == nil {
+		return nil
+	}
+	if note := format.OverflowNote(d.scheduleCfg, d.schedule); note != "" {
+		return domain.Invalid("schedule",
+			note+"。この形では作れません。コート数、日数、試合の長さを見直すか、ほかの形を選んでください")
+	}
+	return nil
+}
+
 func clearDivision(ctx context.Context, tx *gorm.DB, divisionID int64) error {
 	for _, model := range []any{&Match{}, &Group{}, &Stage{}} {
 		if err := tx.WithContext(ctx).Where(sqlByDivision, divisionID).Delete(model).Error; err != nil {

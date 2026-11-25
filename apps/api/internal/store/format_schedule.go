@@ -20,6 +20,17 @@ const maxShiftMinutes = 6 * 60
 const sqlTimedMatchesOfDivisions = "division_id IN ? AND field IS NOT NULL AND match_date IS NOT NULL" +
 	" AND start_time IS NOT NULL"
 
+// DivisionBusy は、ディビジョン divisionID の時間割を組むときに避けるコートと時間(同じ大会の他の
+// ディビジョンの試合)を返す。形の候補の時間割も、プレビューと作成と同じくこれを避けて組む(候補で
+// 収まると出たのに、プレビューで収まらないことが無いように)。ディビジョンが無ければ NotFound。
+func DivisionBusy(ctx context.Context, db *gorm.DB, divisionID int64, slotMinutes int) ([]format.Busy, error) {
+	division, err := findByID[Division](ctx, db, divisionID, domain.ResourceDivision)
+	if err != nil {
+		return nil, err
+	}
+	return otherDivisionBusy(ctx, db, division, slotMinutes)
+}
+
 // otherDivisionBusy は同じ大会の他のディビジョンの試合でふさがっているコートと時間(コートは大会で
 // 共有する)。試合の長さはそのディビジョンの時間割の設定の枠の長さで、設定が無ければ slotMinutes
 // (推測: 形の無いディビジョンの試合の長さは記録に無いので、こちらの枠と同じとみなす)。

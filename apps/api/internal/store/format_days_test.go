@@ -85,6 +85,13 @@ func TestApplyFormatTwoDays(t *testing.T) {
 	require.NotNil(t, short.FitNote)
 	assert.Equal(t, "17:00 までにあと 20 試合が収まりません", *short.FitNote)
 	assert.NotEmpty(t, short.Violations)
+	// 収まらない形は作らない(大会の日の外に試合を置かない)。今の時間割はそのまま残る
+	_, err = store.ApplyFormat(ctx, db, domain.Actor{Role: domain.RoleAdmin}, division.ID, input)
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+	assert.Contains(t, err.Error(), "17:00 までにあと 20 試合が収まりません。この形では作れません")
+	var kept int64
+	require.NoError(t, db.Model(&store.Match{}).Where("division_id = ?", division.ID).Count(&kept).Error)
+	assert.Equal(t, int64(48), kept)
 }
 
 func TestScheduleSettingRejectsBadDays(t *testing.T) {

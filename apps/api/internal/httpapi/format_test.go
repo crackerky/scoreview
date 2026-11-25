@@ -179,3 +179,54 @@ func TestDayOfOperations(t *testing.T) {
 	assert.InDelta(t, 30, resumed["minutes"], 0)
 	f.call(t, http.StatusConflict, http.MethodPost, tournament+"/resume", map[string]any{"minutes": nil})
 }
+
+// 形の候補も、同じ大会のほかの部門の試合が使うコートと時刻を避けて時間割を組む(候補では収まると
+// 出たのに、プレビューで収まらないことが無いように)。収まらない形は作れない。
+func TestFormatProposalsAvoidOtherDivisions(t *testing.T) {
+	f := newAdminFixture(t)
+	b := storetest.New(t, f.db)
+	tour := b.Tournament()
+	first, second := b.Division(tour.ID), b.Division(tour.ID)
+	var seeds []int64
+	for range 12 {
+		seeds = append(seeds, b.Team(first).ID)
+	}
+	open := map[string]any{"date": "2026-10-18", "start": "09:00", "slotMinutes": 20,
+		"courts": []string{"1", "2", "3", "4"}, "teamRestSlots": 0, "stageGapSlots": 0, "end": nil}
+	proposals := f.call(t, http.StatusOK, http.MethodPost,
+		fmt.Sprintf("/api/v1/admin/divisions/%d/format/proposals", first.ID),
+		map[string]any{"teams": 12, "sport": "four", "schedule": open})
+	list, ok := proposals["proposals"].([]any)
+	require.True(t, ok)
+	pb4, ok := list[0].(map[string]any)
+	require.True(t, ok)
+	f.call(t, http.StatusOK, http.MethodPut, fmt.Sprintf("/api/v1/admin/divisions/%d/format", first.ID),
+		map[string]any{"template": pb4["template"], "params": pb4["params"], "seeds": seeds, "tiebreak": "current",
+			"forfeit": map[string]any{"winner": 15, "loser": 0}, "schedule": open})
+
+	// 1 つ目の部門が 4 コートを 11:00 過ぎまで使うので、2 つ目の部門は 11:00 までに 1 試合も置けない
+	short := map[string]any{"date": "2026-10-18", "start": "09:00", "slotMinutes": 20,
+		"courts": []string{"1", "2", "3", "4"}, "teamRestSlots": 0, "stageGapSlots": 0, "end": "11:00"}
+	proposals = f.call(t, http.StatusOK, http.MethodPost,
+		fmt.Sprintf("/api/v1/admin/divisions/%d/format/proposals", second.ID),
+		map[string]any{"teams": 4, "sport": "four", "schedule": short})
+	list, ok = proposals["proposals"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, list)
+	for _, item := range list {
+		proposal, ok := item.(map[string]any)
+		require.True(t, ok)
+		assert.Positive(t, proposal["overflow"], "%v fits only if the courts of the other division are ignored",
+			proposal["id"])
+		assert.NotNil(t, proposal["fitNote"])
+	}
+	candidate, ok := list[0].(map[string]any)
+	require.True(t, ok)
+	var others []int64
+	for range 4 {
+		others = append(others, b.Team(second).ID)
+	}
+	f.call(t, http.StatusBadRequest, http.MethodPut, fmt.Sprintf("/api/v1/admin/divisions/%d/format", second.ID),
+		map[string]any{"template": candidate["template"], "params": candidate["params"], "seeds": others,
+			"tiebreak": "current", "forfeit": map[string]any{"winner": 15, "loser": 0}, "schedule": short})
+}

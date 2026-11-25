@@ -54,6 +54,10 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 		if err != nil {
 			return nil, err
 		}
+		// 同じ大会のほかの部門の試合が使うコートと時刻を、プレビューと同じく避ける
+		if cfg.Busy, err = store.DivisionBusy(ctx, s.db, id, cfg.SlotMinutes); err != nil {
+			return nil, err
+		}
 		return proposalList(format.ProposalInput{Teams: in.Teams, Sport: format.Sport(in.Sport), Schedule: &cfg})
 	}
 	day, err := domain.ParseDay("date", in.Date)

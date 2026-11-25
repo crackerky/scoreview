@@ -873,9 +873,9 @@ type Impact = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400。`schedule` の上限は別に、日数 1〜7、枠 1〜240 分、昼休み 0〜240 分、休み 0〜6 枠) |
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明。`schedule` があれば、プレビューと作成と同じく、同じ大会のほかのディビジョンの試合が使うコートと時刻を避けて数える。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400。`schedule` の上限は別に、日数 1〜7、枠 1〜240 分、昼休み 0〜240 分、休み 0〜6 枠) |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
-| `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409 |
+| `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409。時間割に会場の時間(最後の日の終了まで)に収まらない試合があれば 400(プレビューの `fitNote` が出る形は作れない) |
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null; inherited: SavedFormat \| null }`。`inherited` は大会のコピーで作った部門(形がまだ無い)のコピー元の形で、`seeds` はコピー元のシード順のチームをこの部門の同じ正式名のチームに置き換えたもの |
 | `GET /admin/formats?exclude={divisionId}` | なし | `{ formats: SavedFormat[] }`(前回の大会の形のコピー元。新しい順に 30 件) |
 | `GET /admin/divisions/{id}/progress` | なし | `Progress` |
