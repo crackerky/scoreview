@@ -103,9 +103,38 @@ type Counts struct {
 	Resendable int
 }
 
+// BatchState は送信の段階。
+type BatchState string
+
+// BatchState の値。
+const (
+	// BatchScheduled は送る時刻を待っている予約(宛先はまだ無い)
+	BatchScheduled BatchState = "scheduled"
+	// BatchSent は宛先を決めて送った(すぐ送った送信と、送る時刻の来た予約)
+	BatchSent BatchState = "sent"
+	// BatchCancelled は運営が取りやめた予約
+	BatchCancelled BatchState = "cancelled"
+	// BatchSkipped は送る時刻に送れなかった予約(理由は Note)
+	BatchSkipped BatchState = "skipped"
+)
+
+// SkipReason は送る時刻に送れなかった理由。
+type SkipReason string
+
+// SkipReason の値。
+const (
+	// SkipNoRecipients は条件に当てはまる友だちがいなかった
+	SkipNoRecipients SkipReason = "no_recipients"
+	// SkipQuota は今月の残りの配信数が足りなかった(一部の人にだけ届くのを避けて、何も送らない)
+	SkipQuota SkipReason = "quota"
+	// SkipNotConfigured は LINE の設定が無かった
+	SkipNotConfigured SkipReason = "line_not_configured"
+)
+
 // Batch は 1 回の送信の記録。Body は実際に届けた文(大会名の行を含む)。SentByName は送った運営の
 // 表示名(運営を消していれば空)。Jobs は Store.Batch で読んだときだけ入る。CanResend は送れなかった
-// 宛先を今送り直せるか(Service が決める。Store は偽のまま返す)。
+// 宛先を今送り直せるか(Service が決める。Store は偽のまま返す)。SendAt は予約の送る時刻(すぐ送った
+// 送信は nil)、Note は送れなかった予約の理由。
 type Batch struct {
 	ID           int64
 	TournamentID int64
@@ -114,6 +143,9 @@ type Batch struct {
 	Automatic    bool
 	SentByName   string
 	CreatedAt    time.Time
+	SendAt       *time.Time
+	State        BatchState
+	Note         SkipReason
 	Counts       Counts
 	Jobs         []Job
 	CanResend    bool
@@ -126,11 +158,27 @@ type History struct {
 }
 
 // Request は運営の「送る」。Body は運営が書いた文(大会名の行は Service が付ける)。RequestKey は送る
-// 画面を開くたびに作る乱数で、同じ画面から 2 回届いても 2 回目は送らない。
+// 画面を開くたびに作る乱数で、同じ画面から 2 回届いても 2 回目は送らない。SendAt は送る時刻(nil なら
+// すぐ送る)。
 type Request struct {
 	Audience   Audience
 	Body       string
 	RequestKey string
+	SendAt     *time.Time
+}
+
+// Due は送る時刻の来た予約。
+type Due struct {
+	ID           int64
+	TournamentID int64
+	Audience     Audience
+	Body         string
+}
+
+// DispatchResult は定期の呼び出しで扱った予約の数。
+type DispatchResult struct {
+	Sent    int
+	Skipped int
 }
 
 // NewJob は記録する宛先 1 人。RetryKey はその人が入るまとまりの送り直しのキー(送らない人は空)。
@@ -150,7 +198,8 @@ type Group struct {
 	UserIDs     []string
 }
 
-// NewBatch は記録する送信。Body は届ける文。SentBy は送った運営(0 なら運営なし)。ClaimedUntil は、この送信が送る宛先(pending)を持つ期限。
+// NewBatch は記録する送信。Body は届ける文。SentBy は送った運営(0 なら運営なし)。ClaimedUntil は、
+// この送信が送る宛先(pending)を持つ期限。SendAt があれば予約で、宛先(Jobs)を持たない。
 type NewBatch struct {
 	TournamentID int64
 	RequestKey   string
@@ -158,6 +207,7 @@ type NewBatch struct {
 	Body         string
 	SentBy       int64
 	At           time.Time
+	SendAt       *time.Time
 	ClaimedUntil time.Time
 	Jobs         []NewJob
 }
@@ -190,6 +240,15 @@ type Store interface {
 	Batches(ctx context.Context, tournamentID int64, now time.Time) ([]Batch, error)
 	// Batch は送信 1 回を宛先ごとの結果とともに読む。無ければ domain.NotFound
 	Batch(ctx context.Context, id int64, now time.Time) (Batch, error)
+	// DueBatches は送る時刻が now までの予約を、送る時刻の順に limit 件まで読む
+	DueBatches(ctx context.Context, now time.Time, limit int) ([]Due, error)
+	// StartScheduled は予約 id を送ったことにし、宛先を同じトランザクションで書く(宛先の持ち時間は
+	// claimedUntil まで)。予約がもう予約でなければ(ほかの呼び出しが送った、運営が取りやめた)書かずに偽
+	StartScheduled(ctx context.Context, id int64, jobs []NewJob, claimedUntil time.Time) (bool, error)
+	// SkipScheduled は予約 id を送れなかったことにする。もう予約でなければ偽
+	SkipScheduled(ctx context.Context, id int64, reason SkipReason) (bool, error)
+	// CancelScheduled は予約 id を取りやめる。もう予約でなければ偽
+	CancelScheduled(ctx context.Context, id int64) (bool, error)
 }
 
 // MaxMulticast は 1 回の Multicast に渡せる宛先の数(Messaging API のマルチキャストの上限)。
@@ -232,4 +291,8 @@ type Desk interface {
 	History(ctx context.Context, tournamentID int64) (History, error)
 	// Batch は送信 1 回の記録を返す
 	Batch(ctx context.Context, id int64) (Batch, error)
+	// Cancel は予約 id を取りやめる。もう予約でなければ domain.ErrConflict
+	Cancel(ctx context.Context, id int64) (Batch, error)
+	// Dispatch は送る時刻の来た予約を送る(定期の呼び出しから)
+	Dispatch(ctx context.Context) (DispatchResult, error)
 }

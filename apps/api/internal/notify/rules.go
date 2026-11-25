@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -87,6 +88,21 @@ func keyRune(r rune) bool {
 // 取り違えないように)。
 func Text(heading, body string) string {
 	return heading + "\n\n" + body
+}
+
+// MaxScheduleAhead は予約できる先の長さ(大会の案内に要る長さより十分長く、忘れられた予約が残り
+// 続けない長さ)。
+const MaxScheduleAhead = 120 * 24 * time.Hour
+
+// CheckSendAt は予約の送る時刻を確かめる。今より後で、MaxScheduleAhead より先でないこと。
+func CheckSendAt(sendAt, now time.Time) error {
+	if !sendAt.After(now) {
+		return domain.Invalid("sendAt", "must be in the future")
+	}
+	if sendAt.After(now.Add(MaxScheduleAhead)) {
+		return domain.Invalid("sendAt", "must be within 120 days")
+	}
+	return nil
 }
 
 // CountReachable は送れる人(友だち)と送れない人の数を返す。

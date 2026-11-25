@@ -82,6 +82,8 @@ type fakeStore struct {
 	byKey      map[string]int64
 	results    map[int64]notify.JobResult
 	claims     map[int64]time.Time
+	states     map[int64]notify.BatchState
+	notes      map[int64]notify.SkipReason
 }
 
 func (s *fakeStore) Tournament(_ context.Context, id int64) (entry.Tournament, error) {
@@ -107,6 +109,10 @@ func (s *fakeStore) CreateBatch(_ context.Context, batch notify.NewBatch) (int64
 	s.batches = append(s.batches, batch)
 	id := int64(len(s.batches))
 	s.byKey[batch.RequestKey] = id
+	s.states[id] = notify.BatchSent
+	if batch.SendAt != nil {
+		s.states[id] = notify.BatchScheduled
+	}
 	for _, job := range batch.Jobs {
 		s.results[job.LineUserID] = notify.JobResult{Status: job.Status}
 		if job.Status == notify.JobPending {
@@ -156,9 +162,52 @@ func (s *fakeStore) Batches(context.Context, int64, time.Time) ([]notify.Batch, 
 	return nil, nil
 }
 
+func (s *fakeStore) DueBatches(_ context.Context, now time.Time, limit int) ([]notify.Due, error) {
+	var out []notify.Due
+	for i, batch := range s.batches {
+		if s.states[int64(i+1)] == notify.BatchScheduled && !batch.SendAt.After(now) && len(out) < limit {
+			out = append(out, notify.Due{ID: int64(i + 1), TournamentID: batch.TournamentID,
+				Audience: batch.Audience, Body: batch.Body})
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeStore) move(id int64, to notify.BatchState) bool {
+	if s.states[id] != notify.BatchScheduled {
+		return false
+	}
+	s.states[id] = to
+	return true
+}
+
+func (s *fakeStore) StartScheduled(_ context.Context, id int64, jobs []notify.NewJob, until time.Time) (bool, error) {
+	if !s.move(id, notify.BatchSent) {
+		return false, nil
+	}
+	s.batches[id-1].Jobs = jobs
+	for _, job := range jobs {
+		s.results[job.LineUserID] = notify.JobResult{Status: job.Status}
+		if job.Status == notify.JobPending {
+			s.claims[job.LineUserID] = until
+		}
+	}
+	return true, nil
+}
+
+func (s *fakeStore) SkipScheduled(_ context.Context, id int64, reason notify.SkipReason) (bool, error) {
+	s.notes[id] = reason
+	return s.move(id, notify.BatchSkipped), nil
+}
+
+func (s *fakeStore) CancelScheduled(_ context.Context, id int64) (bool, error) {
+	return s.move(id, notify.BatchCancelled), nil
+}
+
 func (s *fakeStore) Batch(_ context.Context, id int64, now time.Time) (notify.Batch, error) {
 	batch := s.batches[id-1]
-	out := notify.Batch{ID: id, TournamentID: batch.TournamentID, Body: batch.Body, CreatedAt: batch.At}
+	out := notify.Batch{ID: id, TournamentID: batch.TournamentID, Body: batch.Body, CreatedAt: batch.At,
+		SendAt: batch.SendAt, State: s.states[id], Note: s.notes[id]}
 	for _, job := range batch.Jobs {
 		switch s.results[job.LineUserID].Status {
 		case notify.JobSent:
@@ -237,7 +286,7 @@ func newService(store *fakeStore, sender *fakeSender, reported *[]error, now *ti
 
 func newFakeStore(recipients []notify.Recipient) *fakeStore {
 	return &fakeStore{recipients: recipients, byKey: map[string]int64{}, results: map[int64]notify.JobResult{},
-		claims: map[int64]time.Time{}}
+		claims: map[int64]time.Time{}, states: map[int64]notify.BatchState{}, notes: map[int64]notify.SkipReason{}}
 }
 
 func clock() *time.Time {
@@ -432,4 +481,104 @@ func TestResendWaitsForARunningSend(t *testing.T) {
 	assert.Equal(t, []string{"U1", "U2"}, sender.calls[0].to)
 	assert.Equal(t, "group-1", sender.calls[0].key)
 	assert.Equal(t, notify.Counts{Sent: 2}, resent.Counts)
+}
+
+// 時刻を決めた送信は宛先を持たない予約として残り、送る時刻が来たら、そのときの条件の宛先に送る。
+func TestScheduleAndDispatch(t *testing.T) {
+	store := newFakeStore(nil)
+	sender := &fakeSender{}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	ctx := context.Background()
+	eve := now.Add(30 * time.Hour)
+	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceParticipants},
+		Body: "明日は 8 時集合です", RequestKey: "key-1", SendAt: &eve}
+	scheduled, err := service.Send(ctx, 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err, "no one has to be approved yet")
+	assert.Equal(t, notify.BatchScheduled, scheduled.State)
+	assert.Equal(t, "ルーキーズファイナル\n\n明日は 8 時集合です", scheduled.Body)
+	require.NotNil(t, scheduled.SendAt)
+	assert.Empty(t, sender.calls)
+
+	result, err := service.Dispatch(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{}, result, "not yet")
+
+	store.recipients = friends(3)
+	*now = eve.Add(time.Minute)
+	result, err = service.Dispatch(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{Sent: 1}, result)
+	require.Len(t, sender.calls, 1)
+	assert.Equal(t, []string{"U1", "U2", "U3"}, sender.calls[0].to, "the recipients are counted when it is sent")
+	assert.Equal(t, "ルーキーズファイナル\n\n明日は 8 時集合です", sender.calls[0].text)
+	sent, err := service.Batch(ctx, scheduled.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchSent, sent.State)
+	assert.Equal(t, notify.Counts{Sent: 3}, sent.Counts)
+
+	result, err = service.Dispatch(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{}, result, "a schedule is sent once")
+	assert.Len(t, sender.calls, 1)
+}
+
+func TestScheduleChecksTheTime(t *testing.T) {
+	var reported []error
+	now := clock()
+	service := newService(newFakeStore(nil), &fakeSender{}, &reported, now)
+	for _, at := range []time.Time{now.Add(-time.Minute), *now, now.Add(notify.MaxScheduleAhead + time.Hour)} {
+		request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x",
+			RequestKey: "key-1", SendAt: &at}
+		_, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+		var problem *domain.ValidationError
+		require.ErrorAs(t, err, &problem, "%s", at)
+	}
+}
+
+// 送る時刻に送れない予約は、理由を付けて送れなかったことにする。取りやめた予約は送らない。
+func TestDispatchSkipsAndCancel(t *testing.T) {
+	limit := int64(200)
+	store := newFakeStore(nil)
+	sender := &fakeSender{quota: notify.Quota{Limit: &limit, Used: 199}}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	ctx := context.Background()
+	at := now.Add(time.Hour)
+	schedule := func(key string) notify.Batch {
+		t.Helper()
+		batch, err := service.Send(ctx, 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps},
+			Body: "x", RequestKey: key, SendAt: &at}, domain.Actor{UserID: 7})
+		require.NoError(t, err)
+		return batch
+	}
+	nobody, cancelled := schedule("nobody"), schedule("cancelled")
+	cancelledRead, err := service.Cancel(ctx, cancelled.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchCancelled, cancelledRead.State)
+	_, err = service.Cancel(ctx, cancelled.ID)
+	require.ErrorIs(t, err, domain.ErrConflict, "only a scheduled message can be cancelled")
+
+	*now = at.Add(time.Minute)
+	result, err := service.Dispatch(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{Skipped: 1}, result)
+	read, err := service.Batch(ctx, nobody.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchSkipped, read.State)
+	assert.Equal(t, notify.SkipNoRecipients, read.Note)
+
+	*now = at.Add(-2 * time.Minute)
+	short := schedule("short")
+	store.recipients = friends(2)
+	*now = at.Add(time.Minute)
+	result, err = service.Dispatch(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{Skipped: 1}, result)
+	read, err = service.Batch(ctx, short.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.SkipQuota, read.Note, "nothing is sent when only part would arrive")
+	assert.Empty(t, sender.calls)
 }

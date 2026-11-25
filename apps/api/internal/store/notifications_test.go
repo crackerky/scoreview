@@ -273,3 +273,74 @@ func TestNotifyStoreClaimIsExclusive(t *testing.T) {
 	}
 	assert.Equal(t, map[string]int{"group-0": 1, "group-1": 1, "group-2": 1, "group-3": 1}, seen)
 }
+
+// 予約は宛先を持たずに残り、送る時刻が来たら 1 回だけ宛先を書いて送ったことになる。
+func TestNotifyStoreSchedules(t *testing.T) {
+	db := testdb.New(t)
+	f := &notifyFixture{db: db, at: time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)}
+	tour := storetest.New(t, db).Tournament()
+	notices := store.NewNotifyStore(db)
+	ctx := context.Background()
+	person := f.lineUser(t, "U1", "代表 1", true)
+	eve := f.at.Add(30 * time.Hour)
+	audience := notify.Audience{Kind: notify.AudienceParticipants}
+	schedule := func(key string) int64 {
+		t.Helper()
+		id, created, err := notices.CreateBatch(ctx, notify.NewBatch{TournamentID: tour.ID, RequestKey: key,
+			Audience: audience, Body: "大会\n\n明日", At: f.at, SendAt: &eve})
+		require.NoError(t, err)
+		require.True(t, created)
+		return id
+	}
+	first, second, third := schedule("eve-1"), schedule("eve-2"), schedule("eve-3")
+
+	read, err := notices.Batch(ctx, first, f.at)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchScheduled, read.State)
+	require.NotNil(t, read.SendAt)
+	assert.True(t, eve.Equal(*read.SendAt))
+	assert.Empty(t, read.Jobs)
+
+	due, err := notices.DueBatches(ctx, eve.Add(-time.Minute), 10)
+	require.NoError(t, err)
+	assert.Empty(t, due, "not yet")
+	due, err = notices.DueBatches(ctx, eve, 2)
+	require.NoError(t, err)
+	require.Len(t, due, 2, "the limit holds")
+	assert.Equal(t, first, due[0].ID)
+	assert.Equal(t, audience, due[0].Audience)
+	assert.Equal(t, "大会\n\n明日", due[0].Body)
+
+	jobs := []notify.NewJob{{LineUserID: person, Name: "代表 1", Status: notify.JobPending, RetryKey: "group-1"}}
+	started, err := notices.StartScheduled(ctx, first, jobs, eve.Add(notify.SendLease))
+	require.NoError(t, err)
+	assert.True(t, started)
+	started, err = notices.StartScheduled(ctx, first, jobs, eve.Add(notify.SendLease))
+	require.NoError(t, err)
+	assert.False(t, started, "a schedule starts once")
+	read, err = notices.Batch(ctx, first, eve)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchSent, read.State)
+	assert.Equal(t, notify.Counts{Pending: 1}, read.Counts, "the group is held by the send that started it")
+
+	skipped, err := notices.SkipScheduled(ctx, second, notify.SkipQuota)
+	require.NoError(t, err)
+	assert.True(t, skipped)
+	read, err = notices.Batch(ctx, second, eve)
+	require.NoError(t, err)
+	assert.Equal(t, notify.BatchSkipped, read.State)
+	assert.Equal(t, notify.SkipQuota, read.Note)
+	cancelled, err := notices.CancelScheduled(ctx, second)
+	require.NoError(t, err)
+	assert.False(t, cancelled, "a skipped schedule cannot be cancelled")
+	cancelled, err = notices.CancelScheduled(ctx, third)
+	require.NoError(t, err)
+	assert.True(t, cancelled)
+
+	due, err = notices.DueBatches(ctx, eve.Add(time.Hour), 10)
+	require.NoError(t, err)
+	assert.Empty(t, due, "nothing is left to send")
+	list, err := notices.Batches(ctx, tour.ID, eve)
+	require.NoError(t, err)
+	assert.Len(t, list, 3)
+}

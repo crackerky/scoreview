@@ -44,6 +44,9 @@ const (
 	sqlOrderEntriesNewest    = "te.submitted_at DESC, te.id DESC"
 	sqlOrderMembers          = "te.submitted_at, te.id, me.sort_order, me.id"
 	sqlByRequestKey          = "request_key = ?"
+	sqlDueBatches            = "state = ? AND send_at <= ?"
+	sqlOrderDue              = "send_at, id"
+	sqlScheduledBatch        = "id = ? AND state = ?"
 	sqlByBatch               = "batch_id = ?"
 	sqlByBatches             = "batch_id IN ?"
 	sqlJobsOfBatch           = "batch_id = ? AND line_user_id IN ?"
@@ -63,14 +66,17 @@ const (
 
 // NotificationBatch は notification_batches の行。Audience は宛先の条件の JSON。
 type NotificationBatch struct {
-	ID           int64     `gorm:"column:id;primaryKey"`
-	TournamentID int64     `gorm:"column:tournament_id"`
-	RequestKey   string    `gorm:"column:request_key"`
-	Audience     []byte    `gorm:"column:audience;type:jsonb"`
-	Body         string    `gorm:"column:body"`
-	Automatic    bool      `gorm:"column:automatic"`
-	SentBy       *int64    `gorm:"column:sent_by"`
-	CreatedAt    time.Time `gorm:"column:created_at"`
+	ID           int64      `gorm:"column:id;primaryKey"`
+	TournamentID int64      `gorm:"column:tournament_id"`
+	RequestKey   string     `gorm:"column:request_key"`
+	Audience     []byte     `gorm:"column:audience;type:jsonb"`
+	Body         string     `gorm:"column:body"`
+	Automatic    bool       `gorm:"column:automatic"`
+	SentBy       *int64     `gorm:"column:sent_by"`
+	CreatedAt    time.Time  `gorm:"column:created_at"`
+	SendAt       *time.Time `gorm:"column:send_at"`
+	State        string     `gorm:"column:state"`
+	Note         string     `gorm:"column:note"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -270,7 +276,10 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 		return 0, false, fmt.Errorf("encode notification audience: %w", err)
 	}
 	row := NotificationBatch{TournamentID: batch.TournamentID, RequestKey: batch.RequestKey, Audience: audience,
-		Body: batch.Body, CreatedAt: batch.At}
+		Body: batch.Body, CreatedAt: batch.At, SendAt: batch.SendAt, State: string(notify.BatchSent)}
+	if batch.SendAt != nil {
+		row.State = string(notify.BatchScheduled)
+	}
 	// 送った運営がいない送信(0)は NULL にする(users に 0 の行は無い)
 	if batch.SentBy != 0 {
 		row.SentBy = &batch.SentBy
@@ -291,26 +300,94 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 			return nil
 		}
 		created = true
-		if len(batch.Jobs) == 0 {
-			return nil
-		}
-		jobs := make([]NotificationJob, len(batch.Jobs))
-		for i, job := range batch.Jobs {
-			jobs[i] = NotificationJob{BatchID: row.ID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
-				Status: string(job.Status), RetryKey: job.RetryKey}
-			if job.Status == notify.JobPending {
-				jobs[i].ClaimedUntil = &batch.ClaimedUntil
-			}
-		}
-		if err := tx.CreateInBatches(jobs, notificationJobsBatchSize).Error; err != nil {
-			return writeError("notification recipients", err)
-		}
-		return nil
+		return insertJobs(tx, row.ID, batch.Jobs, batch.ClaimedUntil)
 	})
 	if err != nil {
 		return 0, false, err
 	}
 	return row.ID, created, nil
+}
+
+// insertJobs は送信 batchID の宛先の行を書く。送る宛先(pending)は claimedUntil までこの送信が持つ。
+func insertJobs(tx *gorm.DB, batchID int64, newJobs []notify.NewJob, claimedUntil time.Time) error {
+	if len(newJobs) == 0 {
+		return nil
+	}
+	jobs := make([]NotificationJob, len(newJobs))
+	for i, job := range newJobs {
+		jobs[i] = NotificationJob{BatchID: batchID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
+			Status: string(job.Status), RetryKey: job.RetryKey}
+		if job.Status == notify.JobPending {
+			jobs[i].ClaimedUntil = &claimedUntil
+		}
+	}
+	if err := tx.CreateInBatches(jobs, notificationJobsBatchSize).Error; err != nil {
+		return writeError("notification recipients", err)
+	}
+	return nil
+}
+
+// DueBatches は notify.Store.DueBatches。
+func (s *NotifyStore) DueBatches(ctx context.Context, now time.Time, limit int) ([]notify.Due, error) {
+	var rows []NotificationBatch
+	err := s.db.WithContext(ctx).Where(sqlDueBatches, string(notify.BatchScheduled), now).Order(sqlOrderDue).
+		Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list due notifications: %w", err)
+	}
+	out := make([]notify.Due, len(rows))
+	for i, row := range rows {
+		batch, err := toBatch(row, nil)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = notify.Due{ID: row.ID, TournamentID: row.TournamentID, Audience: batch.Audience, Body: row.Body}
+	}
+	return out, nil
+}
+
+// StartScheduled は notify.Store.StartScheduled。予約から送ったことへの書き換えは、予約のままのとき
+// だけ効く 1 回の UPDATE で行うので、同時に送ろうとしても宛先を書くのは 1 つだけ。
+func (s *NotifyStore) StartScheduled(
+	ctx context.Context,
+	id int64,
+	jobs []notify.NewJob,
+	claimedUntil time.Time,
+) (bool, error) {
+	started := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		started, err = moveScheduled(tx, id, map[string]any{"state": string(notify.BatchSent)})
+		if err != nil || !started {
+			return err
+		}
+		return insertJobs(tx, id, jobs, claimedUntil)
+	})
+	if err != nil {
+		return false, err
+	}
+	return started, nil
+}
+
+// SkipScheduled は notify.Store.SkipScheduled。
+func (s *NotifyStore) SkipScheduled(ctx context.Context, id int64, reason notify.SkipReason) (bool, error) {
+	return moveScheduled(s.db.WithContext(ctx), id,
+		map[string]any{"state": string(notify.BatchSkipped), "note": string(reason)})
+}
+
+// CancelScheduled は notify.Store.CancelScheduled。
+func (s *NotifyStore) CancelScheduled(ctx context.Context, id int64) (bool, error) {
+	return moveScheduled(s.db.WithContext(ctx), id, map[string]any{"state": string(notify.BatchCancelled)})
+}
+
+// moveScheduled は予約のままの送信 id だけを updates で書き換え、書き換えたかを返す。
+func moveScheduled(db *gorm.DB, id int64, updates map[string]any) (bool, error) {
+	result := db.Model(&NotificationBatch{}).Where(sqlScheduledBatch, id, string(notify.BatchScheduled)).
+		Updates(updates)
+	if result.Error != nil {
+		return false, writeError("notification schedule", result.Error)
+	}
+	return result.RowsAffected == 1, nil
 }
 
 // FinishJobs は notify.Store.FinishJobs。
@@ -437,7 +514,8 @@ func toBatch(row NotificationBatch, names map[int64]string) (notify.Batch, error
 		return notify.Batch{}, fmt.Errorf("decode audience of notification %d: %w", row.ID, err)
 	}
 	out := notify.Batch{ID: row.ID, TournamentID: row.TournamentID, Body: row.Body, Automatic: row.Automatic,
-		CreatedAt: row.CreatedAt, Audience: notify.Audience{Kind: notify.AudienceKind(audience.Kind),
+		CreatedAt: row.CreatedAt, SendAt: row.SendAt, State: notify.BatchState(row.State),
+		Note: notify.SkipReason(row.Note), Audience: notify.Audience{Kind: notify.AudienceKind(audience.Kind),
 			Status: entry.Status(audience.Status), DivisionID: audience.DivisionID}}
 	if row.SentBy != nil {
 		out.SentByName = names[*row.SentBy]

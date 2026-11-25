@@ -114,6 +114,9 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	if err != nil {
 		return Batch{}, err
 	}
+	if request.SendAt != nil {
+		return s.schedule(ctx, tournamentID, request, body, actor)
+	}
 	heading, recipients, err := s.recipients(ctx, tournamentID, request.Audience)
 	if err != nil {
 		return Batch{}, err
@@ -159,8 +162,35 @@ func (s *Service) existing(ctx context.Context, id, tournamentID int64) (Batch, 
 	return batch, nil
 }
 
-// plan は記録する送信と、送る前に決めたまとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り
-// 直しのキー)を作る。キーを記録に残すので、途中で止まっても同じまとまりを同じキーで送り直せる。
+// schedule は送る時刻を決めた送信を、宛先を持たない予約として記録する。宛先は送る時刻に数え直すので、
+// 今いなくても予約できる(承認の前に前日の案内を予約しておけるように)。配信数も送る時刻に確かめる。
+func (s *Service) schedule(
+	ctx context.Context,
+	tournamentID int64,
+	request Request,
+	body string,
+	actor domain.Actor,
+) (Batch, error) {
+	now := s.now()
+	if err := CheckSendAt(*request.SendAt, now); err != nil {
+		return Batch{}, err
+	}
+	heading, _, err := s.recipients(ctx, tournamentID, request.Audience)
+	if err != nil {
+		return Batch{}, err
+	}
+	id, created, err := s.store.CreateBatch(ctx, NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey,
+		Audience: request.Audience, Body: Text(heading, body), SentBy: actor.UserID, At: now, SendAt: request.SendAt})
+	if err != nil {
+		return Batch{}, err
+	}
+	if !created {
+		return s.existing(ctx, id, tournamentID)
+	}
+	return s.Batch(ctx, id)
+}
+
+// plan は記録する送信と、送る前に決めたまとまりを作る。
 func (s *Service) plan(
 	tournamentID int64,
 	request Request,
@@ -169,9 +199,18 @@ func (s *Service) plan(
 	recipients []Recipient,
 ) (NewBatch, []Group, error) {
 	now := s.now()
-	batch := NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey, Audience: request.Audience,
-		Body: text, SentBy: actor.UserID, At: now, ClaimedUntil: now.Add(SendLease),
-		Jobs: make([]NewJob, 0, len(recipients))}
+	jobs, groups, err := s.jobsFor(recipients)
+	if err != nil {
+		return NewBatch{}, nil, err
+	}
+	return NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey, Audience: request.Audience,
+		Body: text, SentBy: actor.UserID, At: now, ClaimedUntil: now.Add(SendLease), Jobs: jobs}, groups, nil
+}
+
+// jobsFor は宛先ごとの行と、まとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り直しのキー)を
+// 作る。キーを記録に残すので、途中で止まっても同じまとまりを同じキーで送り直せる。
+func (s *Service) jobsFor(recipients []Recipient) ([]NewJob, []Group, error) {
+	jobs := make([]NewJob, 0, len(recipients))
 	var groups []Group
 	for _, recipient := range recipients {
 		job := NewJob{LineUserID: recipient.LineUserID, Name: recipient.Name,
@@ -180,7 +219,7 @@ func (s *Service) plan(
 			if len(groups) == 0 || len(groups[len(groups)-1].UserIDs) == MaxMulticast {
 				key, err := retryKey(s.random)
 				if err != nil {
-					return NewBatch{}, nil, err
+					return nil, nil, err
 				}
 				groups = append(groups, Group{RetryKey: key})
 			}
@@ -189,9 +228,9 @@ func (s *Service) plan(
 			group.UserIDs = append(group.UserIDs, recipient.UserID)
 			job.Status, job.RetryKey = JobPending, group.RetryKey
 		}
-		batch.Jobs = append(batch.Jobs, job)
+		jobs = append(jobs, job)
 	}
-	return batch, groups, nil
+	return jobs, groups, nil
 }
 
 // deliver はまとまりごとに送り、結果を書く。LINE が受け付けたか分からない失敗(ErrTemporary)だけ、
@@ -293,4 +332,84 @@ func (s *Service) Batch(ctx context.Context, id int64) (Batch, error) {
 	}
 	batch.CanResend = s.canResend(batch)
 	return batch, nil
+}
+
+// Cancel は Desk.Cancel。
+func (s *Service) Cancel(ctx context.Context, id int64) (Batch, error) {
+	cancelled, err := s.store.CancelScheduled(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	batch, err := s.Batch(ctx, id)
+	if err != nil {
+		return Batch{}, err
+	}
+	if !cancelled {
+		return Batch{}, fmt.Errorf("%w: only a scheduled message can be cancelled", domain.ErrConflict)
+	}
+	return batch, nil
+}
+
+// dispatchLimit は 1 回の定期の呼び出しで送る予約の数の上限(残りは次の呼び出しで送る)。
+const dispatchLimit = 20
+
+// Dispatch は Desk.Dispatch。予約ごとに失敗を分け、1 つの失敗で残りを止めない。
+func (s *Service) Dispatch(ctx context.Context) (DispatchResult, error) {
+	due, err := s.store.DueBatches(ctx, s.now(), dispatchLimit)
+	if err != nil {
+		return DispatchResult{}, err
+	}
+	var result DispatchResult
+	var failed []error
+	for _, batch := range due {
+		sent, skipped, err := s.dispatchOne(ctx, batch)
+		if err != nil {
+			failed = append(failed, fmt.Errorf("dispatch notification %d: %w", batch.ID, err))
+			continue
+		}
+		if sent {
+			result.Sent++
+		}
+		if skipped {
+			result.Skipped++
+		}
+	}
+	return result, errors.Join(failed...)
+}
+
+// dispatchOne は送る時刻の来た予約を 1 つ送る。宛先を今の条件で数え、送れなければ理由を付けて送れ
+// なかったことにする(今月の配信数が足りなければ、一部の人にだけ届くのを避けて何も送らない)。
+func (s *Service) dispatchOne(ctx context.Context, due Due) (sent, skipped bool, err error) {
+	skip := func(reason SkipReason) (bool, bool, error) {
+		done, err := s.store.SkipScheduled(ctx, due.ID, reason)
+		return false, done, err
+	}
+	if s.sender == nil {
+		return skip(SkipNotConfigured)
+	}
+	recipients, err := s.store.Recipients(ctx, due.TournamentID, due.Audience)
+	if err != nil {
+		return false, false, err
+	}
+	reachable, _ := CountReachable(recipients)
+	if reachable == 0 {
+		return skip(SkipNoRecipients)
+	}
+	if quota, err := s.sender.Quota(ctx); err != nil {
+		s.report(fmt.Errorf("read LINE quota: %w", err))
+	} else if CheckQuota(quota, reachable) != nil {
+		return skip(SkipQuota)
+	}
+	jobs, groups, err := s.jobsFor(recipients)
+	if err != nil {
+		return false, false, err
+	}
+	started, err := s.store.StartScheduled(ctx, due.ID, jobs, s.now().Add(SendLease))
+	if err != nil || !started {
+		return false, false, err
+	}
+	if err := s.deliver(context.WithoutCancel(ctx), due.ID, groups, due.Body); err != nil {
+		return true, false, err
+	}
+	return true, false, nil
 }
