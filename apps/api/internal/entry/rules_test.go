@@ -221,3 +221,12 @@ func TestIsInviteCode(t *testing.T) {
 		assert.False(t, entry.IsInviteCode(bad), bad)
 	}
 }
+
+func TestCanReturn(t *testing.T) {
+	rep := int64(3)
+	require.NoError(t, entry.CanReturn(entry.ActionReturn, entry.Detail{RepLineUserID: &rep}))
+	require.ErrorIs(t, entry.CanReturn(entry.ActionReturn, entry.Detail{}), domain.ErrConflict,
+		"no one could fix a desk entry")
+	require.NoError(t, entry.CanReturn(entry.ActionCancel, entry.Detail{}))
+	require.NoError(t, entry.CanReturn(entry.ActionApprove, entry.Detail{}))
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -173,6 +174,13 @@ func TestEntryReturnKeepsTheNote(t *testing.T) {
 	ctx := context.Background()
 	submitted, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海", nil))
 	require.NoError(t, err)
+	_, err = f.desk.Decide(ctx, submitted.ID, entry.ActionReturn, "背番号を入れてください", f.admin)
+	require.ErrorIs(t, err, domain.ErrConflict, "no one could fix an entry without a LINE representative")
+	// LINE で申し込んだ代表の申込なら、差し戻して理由を残す
+	rep := store.LineUser{LineUserID: "U" + strings.Repeat("a", 32), Friend: true}
+	require.NoError(t, f.db.Create(&rep).Error)
+	require.NoError(t, f.db.Model(&store.TeamEntry{}).Where("id = ?", submitted.ID).
+		Update("rep_line_user_id", rep.ID).Error)
 	returned, err := f.desk.Decide(ctx, submitted.ID, entry.ActionReturn, "背番号を入れてください", f.admin)
 	require.NoError(t, err)
 	assert.Equal(t, entry.StatusReturned, returned.Status)

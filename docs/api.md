@@ -1011,7 +1011,7 @@ type EntryDetail = EntrySummary & {
 | `POST /admin/tournaments/{id}/entries` | `{ divisionId; fullName; shortName; repName; repPhone; repEmail; members: Array<{ name; number }>; answers: Array<{ questionId; value }> }` | `EntryDetail`(201)。`answers` はチーム向けの質問だけ。同じ部門に同じチーム名(前後の空白と大文字小文字を除いて)の取り消していない申込があれば 409。終わった大会は 409 |
 | `GET /admin/tournaments/{id}/entries/export` | なし | `{ questions: EntryQuestion[]; entries: EntryDetail[] }`(申込は受けた順。取り消した申込も含む)。管理画面の CSV の書き出しが使う |
 | `GET /admin/entries/{id}` | なし | `EntryDetail` |
-| `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す)。LINE からの申込(`channel: 'line'`)なら、公式アカウントから代表に知らせる(差し戻しは `note` を付ける。送れなくても操作は成り立ち、エラーはログに残す) |
+| `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`return` は `note`(代表に見せる直してほしい点)が必須で、代表の LINE が無い申込(運営が代わりに入れた申込など。直して送り直せる人がいない)は 409。承認と差し戻しは申込中だけ、取消は承認の前だけで、それ以外は 409(承認したチームはチームの棄権で外す)。LINE からの申込(`channel: 'line'`)なら、公式アカウントから代表に知らせる(差し戻しは `note` を付ける。送れなくても操作は成り立ち、エラーはログに残す) |
 
 - 上限は質問 30、選択肢 30、メンバー 60、名前と短い答え 100 字(質問の文言と短い文の答えは 200 字)、背番号 10 字、長い答えと差し戻しの理由 2000 字、数の答えは ±1,000,000。名前、チーム名、短い答え、質問の文言、選択肢は 1 行で、改行と制御文字は 400(チーム名は公式アカウントの返信に入るため)。
 

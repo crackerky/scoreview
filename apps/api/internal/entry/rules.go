@@ -324,6 +324,17 @@ func Next(from Status, action Action) (Status, error) {
 	return "", fmt.Errorf("%w: cannot %s an entry that is %s", domain.ErrConflict, action, from)
 }
 
+// CanReturn は申込を差し戻せるかを確かめる。差し戻した申込を直して送り直せるのは、LINE で申し込んだ
+// 代表だけなので、代表の LINE が無い申込(運営が代わりに入れた申込や、代表の LINE を消した申込)は
+// 差し戻せない(差し戻すと、誰も直せず、取り消すしか無くなる)。そのときは取り消して入れ直す。
+func CanReturn(action Action, current Detail) error {
+	if action == ActionReturn && current.RepLineUserID == nil {
+		return fmt.Errorf("%w: only an entry from a LINE representative can be returned; cancel it and enter it again",
+			domain.ErrConflict)
+	}
+	return nil
+}
+
 // CheckNote は差し戻しの理由を確かめる。差し戻しには代表が何を直せばよいかが要るので必須にし、
 // それ以外の操作には付けさせない。
 func CheckNote(action Action, note string) (string, error) {

@@ -112,6 +112,10 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
     text: 'この間に申込が変わりました。中身を確かめてから、もう一度押してください',
   },
   {
+    reason: /only an entry from a LINE representative can be returned/,
+    text: '運営が代わりに入れた申込は差し戻せません。取り消してから入れ直してください',
+  },
+  {
     reason: /cannot (approve|return|cancel) an entry/,
     text: 'この申込の今の状態では、その操作はできません。画面を開き直してください',
   },

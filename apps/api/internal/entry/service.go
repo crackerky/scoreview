@@ -198,6 +198,9 @@ func (s *Service) Decide(
 	if err != nil {
 		return Detail{}, err
 	}
+	if err := CanReturn(action, current); err != nil {
+		return Detail{}, err
+	}
 	decision := Decision{From: current.Status, To: next, Note: checkedNote, DecidedBy: actor.UserID,
 		At: s.now()}
 	if next == StatusApproved {

@@ -147,17 +147,26 @@ export default async function EntryPage(props: IdPageProps) {
           <form id="entry-approve" action={decideEntryAction}>
             <Hidden values={{ back, id, action: 'approve', note: '' }} />
           </form>
-          <h2 className="adm-section-title">差し戻す</h2>
-          <form action={decideEntryAction} className="adm-stack">
-            <Hidden values={{ back, id, action: 'return' }} />
-            <label className="adm-field">
-              <span>代表に直してほしいこと</span>
-              <textarea name="note" rows={3} required />
-            </label>
-            <button type="submit" className="secondary">
-              差し戻す
-            </button>
-          </form>
+          {detail.channel === 'line' ? (
+            <>
+              <h2 className="adm-section-title">差し戻す</h2>
+              <form action={decideEntryAction} className="adm-stack">
+                <Hidden values={{ back, id, action: 'return' }} />
+                <label className="adm-field">
+                  <span>代表に直してほしいこと</span>
+                  <textarea name="note" rows={3} required />
+                </label>
+                <button type="submit" className="secondary">
+                  差し戻す
+                </button>
+              </form>
+            </>
+          ) : (
+            // 差し戻した申込を直して送り直せるのは LINE の代表だけ。運営が入れた申込は取り消して入れ直す
+            <p className="adm-muted">
+              運営が代わりに入れた申込は差し戻せません。中身を直すときは、取り消してから入れ直してください。
+            </p>
+          )}
         </>
       ) : null}
       {cancellable ? (
