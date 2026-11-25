@@ -17,6 +17,14 @@ import {
   skipReasonLabels,
 } from '@/notify/notify.utils'
 
+/** 記録の見出し。予約のまま、取りやめ、送れなかった予約を「送った文」と呼ばない */
+const batchTitles = {
+  scheduled: '予約した文',
+  sent: '送った文',
+  cancelled: '取りやめた予約',
+  skipped: '送れなかった予約',
+} as const
+
 // 公式 LINE で送った 1 回。届けた文と、宛先ごとの結果(送った、ブロック中で送らなかった、送れなかった)。
 // 名前とチームは送った時点のもの。予約なら、送る日時と取りやめのボタン(宛先は送る時刻に決まる)。
 export default async function NotificationPage(props: IdPageProps) {
@@ -43,7 +51,7 @@ export default async function NotificationPage(props: IdPageProps) {
   return (
     <AdminShell
       user={user}
-      title={scheduled ? '予約した文' : '送った文'}
+      title={batchTitles[detail.state]}
       kicker={[dateTimeText(detail.createdAt), detail.sentBy]
         .filter((part) => part !== '')
         .join(' ・ ')}
