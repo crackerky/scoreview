@@ -76,7 +76,7 @@ func DescribeRule(rule Rule) []string {
 	if len(rule.Criteria) == 0 {
 		return []string{"順位は運営が決めます。"}
 	}
-	out := []string{"プールの順位は、" + criterionPhrase(rule.Criteria[0]) + "を上位とします。"}
+	out := []string{"組の順位は、" + criterionPhrase(rule.Criteria[0]) + "を上位とします。"}
 	if len(rule.Criteria) > 1 {
 		var rest []string
 		for i, c := range rule.Criteria[1:] {
@@ -92,8 +92,8 @@ func DescribeRule(rule Rule) []string {
 }
 
 // DescribeAdvancement は勝ち上がりの規則を、参加チームへの案内に使える日本語の文にする
-// (「各プールの 1 位(A1、B1、C1、D1)は 1〜4 位を決めるトーナメント(1st placement tournament)に
-// 進みます。1 回戦は A1 対 B1、C1 対 D1」)。最初の段のグループは対象にしない。
+// (「各組の 1 位(A組1位、B組1位、C組1位、D組1位)は 1〜4 位を決めるトーナメントに進みます。
+// 1 回戦は A組1位 対 B組1位、C組1位 対 D組1位」)。最初の段のグループは対象にしない。
 func DescribeAdvancement(plan *Plan) []string {
 	var out []string
 	usesGroupRank := false
@@ -112,17 +112,18 @@ func DescribeAdvancement(plan *Plan) []string {
 		if g.Kind == domain.GroupPool {
 			kind = "総当たり"
 		}
+		// 行き先は運営の言葉の名前で書く(エンジンの英語の名前は参加チームに見せない)
 		var text string
 		if first, last, ok := groupPlaces(g); ok && g.Final {
 			places := fmt.Sprintf("%d〜%d 位", first, last)
 			if first == last {
 				places = fmt.Sprintf("%d 位", first)
 			}
-			text = fmt.Sprintf("%s(%s)は %sを決める%s(%s)に進みます。", entrantsPhrase(plan, g),
-				strings.Join(labels, "、"), places, kind, g.Name)
+			text = fmt.Sprintf("%s(%s)は %sを決める%sに進みます。", entrantsPhrase(plan, g),
+				strings.Join(labels, "、"), places, kind)
 		} else {
-			text = fmt.Sprintf("%s(%s)は%s(%s)に進みます。", entrantsPhrase(plan, g),
-				strings.Join(labels, "、"), kind, g.Name)
+			text = fmt.Sprintf("%s(%s)は%sに進みます。", entrantsPhrase(plan, g),
+				strings.Join(labels, "、"), OperatorName(g))
 		}
 		if g.Kind == domain.GroupBracket {
 			var pairs []string
@@ -141,13 +142,13 @@ func DescribeAdvancement(plan *Plan) []string {
 		out = append(out, text)
 	}
 	if usesGroupRank {
-		out = append(out, "「A1」はプール A の 1 位を表します。プールの順位は、本部がプールの結果を確定してから次の組み合わせに反映します。")
+		out = append(out, "組の順位は、本部が組の結果を確定してから次の組み合わせに反映します。")
 	}
 	return out
 }
 
 // guideLabel は案内文での出どころの書き方。試合の勝者・敗者は参照サイトの記号([E4-負け])ではなく
-// 「E4 の負けチーム」と書く(運営者レビュー M1)。プールの順位は「A1」のまま(後の行で説明する)。
+// 「E4 の負けチーム」と書く(運営者レビュー M1)。組の順位は Source.Label の「A組1位」。
 func guideLabel(plan *Plan, src Source) string {
 	if src.Kind == SourceMatch {
 		if src.Match.Outcome == domain.OutcomeWin {
@@ -158,7 +159,7 @@ func guideLabel(plan *Plan, src Source) string {
 	return src.Label(plan)
 }
 
-// entrantsPhrase は「各プールの 1 位」「各プールの 1・2 位」のような言い方。出どころが揃わなければ
+// entrantsPhrase は「各組の 1 位」「各組の 1・2 位」のような言い方。出どころが揃わなければ
 // 「次のチーム」。
 func entrantsPhrase(plan *Plan, g Group) string {
 	var ranks []int
@@ -180,7 +181,7 @@ func entrantsPhrase(plan *Plan, g Group) string {
 	for i, r := range ranks {
 		parts[i] = fmt.Sprint(r)
 	}
-	unit := "プール"
+	unit := "組"
 	if g.Stage > 0 && len(plan.StageGroups(g.Stage-1)) > 0 {
 		prev := plan.Groups[plan.StageGroups(g.Stage - 1)[0]]
 		if prev.Kind == domain.GroupBracket {
@@ -239,6 +240,8 @@ func OperatorName(g Group) string {
 		return "決勝リーグ(" + places + "を決める)"
 	case strings.HasSuffix(g.Name, "placement tournament") && placed:
 		return places + "を決めるトーナメント"
+	case strings.HasSuffix(g.Name, "placement pool") && placed:
+		return places + "を決める総当たり"
 	}
 	return g.Name
 }

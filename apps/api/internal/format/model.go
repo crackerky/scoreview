@@ -124,14 +124,19 @@ func BandRankSource(stage, rank, order int) Source {
 	return Source{Kind: SourceBandRank, Stage: stage, Rank: rank, Order: order}
 }
 
-// Label は出どころを運営者向けの短い表記にする。group_rank は "A1"、試合の勝者と敗者は
+// Label は出どころを運営者向けの短い表記にする。group_rank は "A組1位"、試合の勝者と敗者は
 // 参照サイトの未確定表記 "[A1-勝ち]"(clone-spec B 8)。
 func (s Source) Label(plan *Plan) string {
 	switch s.Kind {
 	case SourceSeed:
 		return fmt.Sprintf("シード%d", s.Seed)
 	case SourceGroupRank:
-		return fmt.Sprintf("%s%d", plan.Groups[s.Group].Letter, s.Rank)
+		// "A1" は A 組の 1 試合目の試合番号と同じ書き方になるので、組かブロックかを添える
+		group := plan.Groups[s.Group]
+		if group.Kind == domain.GroupBracket {
+			return fmt.Sprintf("%sブロック%d位", group.Letter, s.Rank)
+		}
+		return fmt.Sprintf("%s組%d位", group.Letter, s.Rank)
 	case SourceMatch:
 		return s.Match.Label()
 	case SourceBandRank:

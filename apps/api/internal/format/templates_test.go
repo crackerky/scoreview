@@ -3,6 +3,7 @@ package format_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,13 +68,25 @@ func codesOf(ms []format.Match) []string {
 	return out
 }
 
-// labels は枠の出どころの表記を並べる。
+// labels は枠の出どころの表記を並べる。参照サイトの組み合わせと比べるので、組の順位は参照サイトの
+// 書き方("A1")に戻す(運営に見せる書き方 "A組1位" は TestGroupRankLabel で確かめる)。
 func labels(plan *format.Plan, group int) []string {
 	var out []string
 	for _, s := range plan.Groups[group].Slots {
-		out = append(out, s.Source.Label(plan))
+		out = append(out, refLabel(s.Source.Label(plan)))
 	}
 	return out
+}
+
+// refLabel は "A組1位" と "Aブロック1位" を参照サイトの "A1" にする。それ以外はそのまま。
+func refLabel(label string) string {
+	for _, unit := range []string{"組", "ブロック"} {
+		letter, rest, found := strings.Cut(label, unit)
+		if rank, ok := strings.CutSuffix(rest, "位"); found && ok {
+			return letter + rank
+		}
+	}
+	return label
 }
 
 func shapes(plan *format.Plan) []groupShape {
@@ -90,7 +103,7 @@ func sideText(plan *format.Plan, m format.Match, side format.SideRef) string {
 	if side.From != nil {
 		return side.From.Label()
 	}
-	return plan.Groups[m.Group].Slots[side.Slot-1].Source.Label(plan)
+	return refLabel(plan.Groups[m.Group].Slots[side.Slot-1].Source.Label(plan))
 }
 
 func matchTexts(plan *format.Plan, group int) []string {
@@ -172,6 +185,16 @@ func TestReference435(t *testing.T) {
 }
 
 // TestReference525 はビーチ 32 チームのブロック型(R3 2-1、clone-spec C 2.3 の 949 の 8 グループ)。
+// 組の順位は、試合番号("A1" は A 組の 1 試合目)と取り違えないよう「A組1位」と書き、
+// トーナメントのブロックの順位は「Aブロック1位」と書く。
+func TestGroupRankLabel(t *testing.T) {
+	pools := plan916(t)
+	assert.Equal(t, "A組1位", pools.Groups[4].Slots[0].Source.Label(pools))
+	blocks := plan525(t)
+	assert.Equal(t, "Aブロック1位", blocks.Groups[4].Slots[0].Source.Label(blocks))
+	assert.Equal(t, "シード1", blocks.Groups[0].Slots[0].Source.Label(blocks))
+}
+
 func TestReference525(t *testing.T) {
 	plan := plan525(t)
 	assert.Equal(t, []groupShape{
@@ -296,6 +319,7 @@ func TestUnevenPoolsUseBandRank(t *testing.T) {
 	assert.Equal(t, format.BandRankSource(0, 2, 4), plan.Groups[4].Slots[1].Source)
 	assert.Equal(t, 6, plan.Groups[5].Size())
 	assert.Equal(t, "9th placement pool", plan.Groups[5].Name)
+	assert.Equal(t, "9〜14 位を決める総当たり", format.OperatorName(plan.Groups[5]))
 }
 
 func TestT7HasBye(t *testing.T) {

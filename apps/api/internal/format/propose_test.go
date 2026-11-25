@@ -116,7 +116,12 @@ func TestDescribeRuleAndAdvancement(t *testing.T) {
 
 	lines := format.DescribeAdvancement(plan916(t))
 	require.Len(t, lines, 4)
-	assert.Equal(t, "各プールの 1 位(A1、B1、C1、D1)は 1〜4 位を決めるトーナメント(1st placement tournament)"+
-		"に進みます。1 回戦は A1 対 B1、C1 対 D1。", lines[0])
+	assert.Equal(t, "各組の 1 位(A組1位、B組1位、C組1位、D組1位)は 1〜4 位を決めるトーナメント"+
+		"に進みます。1 回戦は A組1位 対 B組1位、C組1位 対 D組1位。", lines[0])
 	assert.Contains(t, lines[2], "9〜12 位")
+	// 案内文はそのまま参加チームに渡すので、エンジンの英語の名前を出さない
+	assert.Equal(t, "組の順位は、本部が組の結果を確定してから次の組み合わせに反映します。", lines[3])
+	for _, line := range lines {
+		assert.NotContains(t, line, "placement")
+	}
 }

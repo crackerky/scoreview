@@ -272,7 +272,8 @@ func (d *formatDraft) preview() FormatPreview {
 		p.Stages = append(p.Stages, s.Name)
 	}
 	for _, g := range d.plan.Groups {
-		pg := PreviewGroup{Index: g.Index, Letter: g.Letter, Name: g.Name, Kind: g.Kind, Stage: g.Stage}
+		// 見本は管理画面にだけ出すので、エンジンの英語の名前ではなく運営の言葉の名前にする
+		pg := PreviewGroup{Index: g.Index, Letter: g.Letter, Name: format.OperatorName(g), Kind: g.Kind, Stage: g.Stage}
 		for _, slot := range g.Slots {
 			key := format.SlotKey{Group: g.Index, Position: slot.Position}
 			ps := PreviewSlot{Position: slot.Position, Label: slot.Source.Label(d.plan), Team: d.slotTeam(key)}
@@ -509,8 +510,9 @@ func (d *formatDraft) saveGroup(
 	slotIDs map[format.SlotKey]int64,
 ) (int64, error) {
 	db := tx.WithContext(ctx)
-	// 英語名は日本語名と同じにする(英語のメニューとチームページの組の名前。domain/english.go)
-	row := Group{DivisionID: division.ID, Name: g.Name, NameEn: g.Name, Kind: g.Kind, SortOrder: g.Index,
+	// 組の名前はスコアサイトに出るので運営の言葉の名前(「予選 A 組」)にし、英語名にはエンジンの
+	// 英語の名前を残す(英語のメニューとチームページの組の名前。domain/english.go)
+	row := Group{DivisionID: division.ID, Name: format.OperatorName(g), NameEn: g.Name, Kind: g.Kind, SortOrder: g.Index,
 		Linked: true, Published: true}
 	if g.Kind == domain.GroupBracket {
 		layout, err := emptyBracketLayout()

@@ -80,10 +80,12 @@ func (f formatFixture) finish(t *testing.T, code string, left, right int) {
 	require.NoError(t, err, code)
 }
 
+// groupID はエンジンの英語の名前("Qualifying pool A")で組を引く。組の名前は運営の言葉
+// (「予選 A 組」)なので、英語名の列で探す。
 func (f formatFixture) groupID(t *testing.T, name string) int64 {
 	t.Helper()
 	var rows []store.Group
-	require.NoError(t, f.db.Where("division_id = ? AND name = ?", f.division.ID, name).Find(&rows).Error)
+	require.NoError(t, f.db.Where("division_id = ? AND name_en = ?", f.division.ID, name).Find(&rows).Error)
 	require.Len(t, rows, 1, name)
 	return rows[0].ID
 }

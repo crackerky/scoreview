@@ -46,7 +46,11 @@ func TestProgressTodoOrderAndOverlap(t *testing.T) {
 	assert.Equal(t, "予選 A 組", progress.Groups[0].Label)
 	assert.Equal(t, "Qualifying pool A", progress.Groups[0].Name, "グループ名のデータは変えない")
 	assert.Equal(t, "1〜4 位を決めるトーナメント", progress.Groups[4].Label)
-	assert.Equal(t, "A1", progress.Groups[4].Slots[0].Label)
+	assert.Equal(t, "A組1位", progress.Groups[4].Slots[0].Label, "試合番号の A1 と見分ける")
+	// スコアサイトに出る組の名前は運営の言葉にし、英語名にエンジンの名前を残す
+	var row store.Group
+	require.NoError(t, f.db.First(&row, f.groupID(t, "Qualifying pool A")).Error)
+	assert.Equal(t, "予選 A 組", row.Name)
 
 	matches, err := store.ListFormatMatches(ctx, f.db, f.division.ID)
 	require.NoError(t, err)
