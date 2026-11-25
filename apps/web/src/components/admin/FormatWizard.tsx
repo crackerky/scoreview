@@ -240,8 +240,10 @@ export function FormatWizard(props: WizardProps) {
       () => applyFormatAction(divisionId, input),
       () => {
         rememberSport(cond.sport)
+        // 形を作ったら大会ホームに戻す(次の部門の形か、時間割の確かめが次にやることとして出る)。
+        // 当日の進行の画面には、作った直後はまだ用が無い
         router.push(
-          `/admin/divisions/${divisionId}/progress?ok=${encodeURIComponent('大会の形を作りました')}`,
+          `/admin/tournaments/${props.tournamentId}?ok=${encodeURIComponent('大会の形を作りました')}`,
         )
       },
     )
