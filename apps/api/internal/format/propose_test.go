@@ -67,6 +67,52 @@ func TestPropose4on4TwelveTeams(t *testing.T) {
 	assert.True(t, ids["rr2"], "2 プール + 決勝プールも候補に出る")
 }
 
+// 95 チーム(8 の倍数でない)でも、参照サイトの GAIA と同じブロックの形を候補に出す。
+func TestProposeBlocksWithCutsForAnUnevenCount(t *testing.T) {
+	start := time.Date(2026, 11, 21, 8, 30, 0, 0, time.UTC)
+	got, err := format.Propose(format.ProposalInput{Teams: 95, Courts: 16, SlotMinutes: 50, Start: start,
+		Sport: format.SportSeven})
+	require.NoError(t, err)
+	var found *format.Proposal
+	for i := range got {
+		if got[i].ID == "blocks12-cuts" {
+			found = &got[i]
+		}
+	}
+	require.NotNil(t, found, "the block format with cuts is proposed")
+	params, ok := found.Spec.Params.(format.BlocksParams)
+	require.True(t, ok)
+	assert.Equal(t, []int{16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7}, params.Cuts)
+	assert.Equal(t, 95, found.Ranked, "every team gets a final place")
+
+	// 大きさを JSON にして読み直しても同じ
+	data, err := format.EncodeParams(params)
+	require.NoError(t, err)
+	decoded, err := format.DecodeParams(format.TemplateBlocks, data)
+	require.NoError(t, err)
+	again, ok := decoded.(format.BlocksParams)
+	require.True(t, ok)
+	assert.Equal(t, params.Teams, again.Teams)
+	assert.Equal(t, params.Cuts, again.Cuts)
+
+	// 残りが 1 チームなら、最後の 8 と合わせて 4 と 5 に分ける(49 は 7 チームのブロック 7 個)
+	for teams, cuts := range map[int][]int{24: {16, 8}, 49: {16, 8, 8, 8, 4, 5}, 96: {16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8}} {
+		got, err := format.Propose(format.ProposalInput{Teams: teams, Courts: 8, SlotMinutes: 50, Start: start,
+			Sport: format.SportSeven})
+		require.NoError(t, err)
+		var spec *format.BlocksParams
+		for _, p := range got {
+			if params, ok := p.Spec.Params.(format.BlocksParams); ok && len(params.Cuts) > 0 {
+				spec = &params
+			}
+		}
+		require.NotNil(t, spec, "teams %d", teams)
+		assert.Equal(t, cuts, spec.Cuts, "teams %d", teams)
+	}
+	_, err = format.DecodeParams(format.TemplatePoolBands, []byte(`{"teams":12,"pools":4,"cuts":[8,4]}`))
+	require.ErrorIs(t, err, domain.ErrBadRequest, "cuts are only for blocks")
+}
+
 func TestProposeRejectsBadInput(t *testing.T) {
 	_, err := format.Propose(format.ProposalInput{Teams: 12, Courts: 0, SlotMinutes: 20, Sport: format.SportFour})
 	require.ErrorIs(t, err, domain.ErrBadRequest)

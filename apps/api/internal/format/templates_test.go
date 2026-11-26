@@ -115,6 +115,61 @@ func matchTexts(plan *format.Plan, group int) []string {
 	return out
 }
 
+// planGaia は参照サイトの 2026 GAIA ULTIMATE CUP のミックス(95 チーム)。8 チームのブロック 11 個と
+// 7 チームのブロック 1 個のあと、ブロックの順位を全体に並べて 16、8 × 9、7 に分ける。
+func planGaia(t *testing.T) *format.Plan {
+	return generate(t, format.TemplateBlocks, format.BlocksParams{Teams: 95,
+		Cuts: []int{16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7}})
+}
+
+// firstRound は試合の 1 回戦("M8 A1-C2" の形)。
+func firstRound(plan *format.Plan, group int) []string {
+	var out []string
+	for _, m := range plan.GroupMatches(group) {
+		if m.Round == 1 {
+			out = append(out, m.Code+" "+sideText(plan, m, m.Left)+"-"+sideText(plan, m, m.Right))
+		}
+	}
+	return out
+}
+
+// TestReferenceGaia は参照サイトのグループ(Tournament A〜L、1st〜89th placement tournament)と
+// 同じ形と組み合わせになること。2 日目の組み合わせは参照サイトの日程(部門 954)から読んだもの。
+func TestReferenceGaia(t *testing.T) {
+	plan := planGaia(t)
+	require.Len(t, plan.Groups, 23)
+	assert.Equal(t, format.BracketT7, plan.Groups[0].Bracket, "A は 7 チームで 1 位シードが 1 回戦免除")
+	assert.Equal(t, 7, plan.Groups[0].Size())
+	for g := 1; g < 12; g++ {
+		assert.Equal(t, format.BracketT8Block, plan.Groups[g].Bracket)
+	}
+	assert.Equal(t, "1st placement tournament", plan.Groups[12].Name)
+	assert.Equal(t, format.BracketT16Full, plan.Groups[12].Bracket)
+	assert.Len(t, plan.GroupMatches(12), 26, "1〜16 位を全部決める(参照サイトの M は 26 試合)")
+	assert.Equal(t, "17th placement tournament", plan.Groups[13].Name)
+	assert.Equal(t, "89th placement tournament", plan.Groups[22].Name)
+	assert.Equal(t, format.BracketT7, plan.Groups[22].Bracket)
+	// 1st placement: 12 ブロックの 1 位と A〜D の 2 位。同じブロックの 1 位と 2 位は別の山
+	assert.Equal(t, []string{"M8 A1-C2", "M9 H1-I1", "M10 D1-B2", "M11 E1-L1",
+		"M12 B1-D2", "M13 G1-J1", "M14 C1-A2", "M15 F1-K1"}, firstRound(plan, 12))
+	// 17th は E〜L の 2 位、33rd は I〜L の 3 位と A〜D の 4 位(A は 7 チームでも 4 位はある)
+	assert.Equal(t, []string{"N4 E2-L2", "N5 H2-I2", "N6 F2-K2", "N7 G2-J2"}, firstRound(plan, 13))
+	assert.Equal(t, []string{"P4 I3-D4", "P5 L3-A4", "P6 J3-C4", "P7 K3-B4"}, firstRound(plan, 15))
+	// 89th は 8 位(A には無い)の F〜L の 7 チーム。F が 1 回戦免除
+	assert.Equal(t, []string{"W4 I8-J8", "W5 G8-L8", "W6 H8-K8"}, firstRound(plan, 22))
+	ranked, _ := format.FinalPlaces(plan)
+	assert.Equal(t, 95, ranked, "all 95 teams get a final place")
+	// 運営に見せる名前
+	assert.Equal(t, "A ブロック", format.OperatorName(plan.Groups[0]))
+	assert.Equal(t, "1〜16 位を決めるトーナメント", format.OperatorName(plan.Groups[12]), "15 位は 2 チームの同順位")
+	assert.Equal(t, "17〜24 位を決めるトーナメント", format.OperatorName(plan.Groups[13]))
+	assert.Equal(t, "89〜95 位を決めるトーナメント", format.OperatorName(plan.Groups[22]))
+	// 案内文: 2 位の一部だけが 1〜16 位に進むので「各ブロックの 1・2 位」とは書かない
+	lines := format.DescribeAdvancement(plan)
+	assert.True(t, strings.HasPrefix(lines[0], "次のチーム(Aブロック1位、"), lines[0])
+	assert.True(t, strings.HasPrefix(lines[1], "次のチーム(Eブロック2位、"), "8 of the 12 2nds go to 17th: %s", lines[1])
+}
+
 // TestReference916 は 4on4 12 チームの最頻形(R3 1-2: プール戦 12 試合 + T4×3 で 12 試合)。
 func TestReference916(t *testing.T) {
 	plan := plan916(t)

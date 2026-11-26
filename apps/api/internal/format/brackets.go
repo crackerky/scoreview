@@ -119,6 +119,8 @@ func bracketDefFor(kind BracketType) (bracketDef, error) {
 		return firstRoundOnlyDef(kind, 12), nil
 	case BracketT16:
 		return t16Def(), nil
+	case BracketT16Full:
+		return t16FullDef(), nil
 	}
 	return bracketDef{}, domain.Invalid("bracket", fmt.Sprintf("unknown bracket type %q", kind))
 }
@@ -164,6 +166,42 @@ func t16Def() bracketDef {
 	add(18, 3, loseOf(4), loseOf(5), 0, 0)
 	add(19, 3, loseOf(6), loseOf(7), 0, 0)
 	add(20, 4, loseOf(18), loseOf(19), 7, 8)
+	return def
+}
+
+// t16FullDef は 16 チームで 1〜16 位を決める型。参照サイトの 2026 GAIA ULTIMATE CUP の 1st placement
+// tournament(グループ 6650、26 試合)の試合の流れに合わせる: 1 回戦 8〜15、準々決勝 4〜7、準決勝 2・3、
+// 決勝 1、3 位決定 16。準々決勝の敗者は 17・18(勝者が 5 位、敗者が 7 位の同順位)。1 回戦の敗者は
+// 20・21・24・25 で当たり、勝者どうしの 19・23 で 9 位と 11 位、敗者どうしの 22・26 で 13 位と 15 位
+// (どれも同順位)を決める。
+func t16FullDef() bracketDef {
+	def := bracketDef{kind: BracketT16Full, size: 16, slotSeeds: standardSeedOrder(16), firstRoundPairs: true}
+	add := func(number, round int, left, right bracketSide, winnerPlace, loserPlace int) {
+		def.matches = append(def.matches, bracketMatchDef{
+			number: number, round: round, left: left, right: right,
+			winnerPlace: winnerPlace, loserPlace: loserPlace,
+		})
+	}
+	add(1, 4, winOf(2), winOf(3), 1, 2)
+	add(2, 3, winOf(4), winOf(5), 0, 0)
+	add(3, 3, winOf(6), winOf(7), 0, 0)
+	for i := range 4 {
+		add(4+i, 2, winOf(8+2*i), winOf(9+2*i), 0, 0)
+	}
+	for i := range 8 {
+		add(8+i, 1, slotSide(2*i+1), slotSide(2*i+2), 0, 0)
+	}
+	add(16, 4, loseOf(2), loseOf(3), 3, 4)
+	add(17, 3, loseOf(4), loseOf(5), 5, 7)
+	add(18, 3, loseOf(6), loseOf(7), 5, 7)
+	add(19, 3, winOf(20), winOf(21), 9, 11)
+	add(20, 2, loseOf(8), loseOf(9), 0, 0)
+	add(21, 2, loseOf(10), loseOf(11), 0, 0)
+	add(22, 3, loseOf(20), loseOf(21), 13, 15)
+	add(23, 3, winOf(24), winOf(25), 9, 11)
+	add(24, 2, loseOf(12), loseOf(13), 0, 0)
+	add(25, 2, loseOf(14), loseOf(15), 0, 0)
+	add(26, 3, loseOf(24), loseOf(25), 13, 15)
 	return def
 }
 

@@ -13,6 +13,7 @@ import (
 //
 //	pool_bands:  {"teams":12,"pools":4,"bands":[{"ranks":[1],"shape":"T4","pairing":null,"name":null}]}
 //	blocks:      {"teams":32,"bands":[{"ranks":[2,3],"shape":"T8R1","pairing":null,"name":null}]}
+//	             {"teams":95,"cuts":[16,8,8,8,8,8,8,8,8,8,7]}(全体の並びを大きさで分ける。bands の代わり)
 //	round_robin: {"teams":8,"pools":2,"finalPoolRanks":[1,2]}
 //
 // pairing と name は null で既定(Band のコメント)。
@@ -21,6 +22,7 @@ type paramsJSON struct {
 	Pools          *int       `json:"pools,omitempty"`
 	Bands          []bandJSON `json:"bands,omitempty"`
 	FinalPoolRanks []int      `json:"finalPoolRanks,omitempty"`
+	Cuts           []int      `json:"cuts,omitempty"`
 }
 
 type bandJSON struct {
@@ -56,16 +58,22 @@ func DecodeParams(template string, data []byte) (any, error) {
 	}
 	switch template {
 	case TemplatePoolBands:
+		if len(raw.Cuts) > 0 {
+			return nil, domain.Invalid("params.cuts", "is only for blocks")
+		}
 		if len(raw.FinalPoolRanks) > 0 {
 			return nil, domain.Invalid("params.finalPoolRanks", "is only for round_robin")
 		}
 		return PoolBandsParams{Teams: raw.Teams, Pools: pools, Bands: bands}, nil
 	case TemplateBlocks:
 		if raw.Pools != nil || len(raw.FinalPoolRanks) > 0 {
-			return nil, domain.Invalid("params", "blocks takes teams and bands only")
+			return nil, domain.Invalid("params", "blocks takes teams, bands and cuts only")
 		}
-		return BlocksParams{Teams: raw.Teams, Bands: bands}, nil
+		return BlocksParams{Teams: raw.Teams, Bands: bands, Cuts: raw.Cuts}, nil
 	case TemplateRoundRobin:
+		if len(raw.Cuts) > 0 {
+			return nil, domain.Invalid("params.cuts", "is only for blocks")
+		}
 		if len(raw.Bands) > 0 {
 			return nil, domain.Invalid("params.bands", "is not for round_robin")
 		}
@@ -84,7 +92,7 @@ func EncodeParams(params any) ([]byte, error) {
 	case *PoolBandsParams:
 		return EncodeParams(*p)
 	case BlocksParams:
-		raw = paramsJSON{Teams: p.Teams, Bands: bandsJSON(p.Bands)}
+		raw = paramsJSON{Teams: p.Teams, Bands: bandsJSON(p.Bands), Cuts: p.Cuts}
 	case *BlocksParams:
 		return EncodeParams(*p)
 	case RoundRobinParams:

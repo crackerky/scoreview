@@ -40,6 +40,9 @@ const (
 	BracketT8R1    BracketType = "T8R1"
 	BracketT12     BracketType = "T12"
 	BracketT16     BracketType = "T16"
+	// BracketT16Full は 16 チームで 1〜16 位を決める型(参照サイトの 2026 GAIA ULTIMATE CUP の
+	// 1st placement tournament、26 試合。5 位、9 位、13 位は同順位)
+	BracketT16Full BracketType = "T16Full"
 )
 
 // Group は総当たり(pool)かトーナメント(bracket)の 1 グループ。groups 表の 1 行に当たる。

@@ -177,6 +177,25 @@ func entrantsPhrase(plan *Plan, g Group) string {
 		}
 	}
 	slices.Sort(ranks)
+	// 同じ順位の一部だけが進む(ブロックの全体の並びを大きさで分けた Cuts)なら「各ブロックの n 位」とは
+	// 言えないので、並べた出どころを見てもらう
+	if g.Stage > 0 && kind == SourceGroupRank {
+		perRank := map[int]int{}
+		for _, slot := range g.Slots {
+			perRank[slot.Source.Rank]++
+		}
+		for _, rank := range ranks {
+			have := 0
+			for _, prev := range plan.StageGroups(g.Stage - 1) {
+				if plan.Groups[prev].Size() >= rank {
+					have++
+				}
+			}
+			if perRank[rank] != have {
+				return "次のチーム"
+			}
+		}
+	}
 	parts := make([]string, len(ranks))
 	for i, r := range ranks {
 		parts[i] = fmt.Sprint(r)
@@ -215,7 +234,17 @@ func groupPlaces(g Group) (int, int, bool) {
 	if low == 0 {
 		return 0, 0, false
 	}
-	return g.RankOffset + low, g.RankOffset + high, true
+	// 最下位が同順位なら、その人数ぶん範囲を延ばす(16 チームの全順位型の最後は 15 位が 2 チーム
+	// なので「1〜16 位」、1 回戦のみの 8 チームの最後は 7 位が 2 チームなので「1〜8 位」)
+	tied := 0
+	for _, m := range def.matches {
+		for _, place := range []int{m.winnerPlace, m.loserPlace} {
+			if place == high {
+				tied++
+			}
+		}
+	}
+	return g.RankOffset + low, g.RankOffset + high + max(tied-1, 0), true
 }
 
 // OperatorName は管理画面(本部)に出すグループの名前。エンジンが作った英語の名前

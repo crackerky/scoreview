@@ -30,6 +30,8 @@ const (
 	ShapeT8R1 Shape = Shape(BracketT8R1)
 	ShapeT12  Shape = Shape(BracketT12)
 	ShapeT16  Shape = Shape(BracketT16)
+	// ShapeT16Full は 16 チームで 1〜16 位を全部決めるトーナメント(BracketT16Full)
+	ShapeT16Full Shape = Shape(BracketT16Full)
 )
 
 // Pairing は順位帯の中の組み合わせの決め方。
@@ -95,11 +97,26 @@ func (PoolBandsTemplate) Build(b *Builder, params any) error {
 type BlocksParams struct {
 	Teams int
 	Bands []Band
+	// Cuts は次の段のトーナメントの大きさの並び(Bands の代わり)。ブロックの順位を順位、ブロックの
+	// 順(A1, B1, …, A2, B2, …)に並べた全体の並びを、前から Cuts の大きさずつに分ける。合計は Teams。
+	// 参照サイトの 2026 GAIA ULTIMATE CUP(95 チーム)は 16, 8 × 9, 7(1st, 17th, …, 89th placement)
+	Cuts []int
 }
 
 // BlocksTemplate はテンプレート 2(R3 1-1 の B、15.1%)。8 チームのトーナメント(T8 ブロック型)を
 // 並べ、各ブロックの同じ順位を次の段で集める(525: 1 位 → T4、2・3 位 → T8 1 回戦のみ、…)。
+// チーム数が 8 の倍数でなければ、7 チームのブロック(T7。1 位シードが 1 回戦免除)を混ぜる(GAIA の
+// A ブロック)。ブロックの大きさが揃わないときは、次の段は Cuts で分ける。
 type BlocksTemplate struct{}
+
+// blockCount は teams を 7 か 8 チームのブロックに分けるときのブロックの数。分けられなければ 0。
+func blockCount(teams int) int {
+	blocks := (teams + blockSize - 1) / blockSize
+	if blocks < 2 || teams < (blockSize-1)*blocks {
+		return 0
+	}
+	return blocks
+}
 
 // Name はテンプレート名。
 func (BlocksTemplate) Name() string { return TemplateBlocks }
@@ -110,36 +127,145 @@ func (BlocksTemplate) Build(b *Builder, params any) error {
 	if err != nil {
 		return err
 	}
-	if p.Teams < 2*blockSize || p.Teams%blockSize != 0 {
-		return domain.Invalid("teams", fmt.Sprintf("must be a multiple of %d and at least %d, got %d",
-			blockSize, 2*blockSize, p.Teams))
+	count := blockCount(p.Teams)
+	if count == 0 {
+		return domain.Invalid("teams", fmt.Sprintf("must make at least 2 blocks of %d or %d teams, got %d",
+			blockSize-1, blockSize, p.Teams))
+	}
+	if len(p.Bands) > 0 && len(p.Cuts) > 0 {
+		return domain.Invalid("cuts", "use either bands or cuts")
 	}
 	b.SetTeams(p.Teams)
 	stage := b.AddStage("ブロック")
-	def, err := bracketDefFor(BracketT8Block)
-	if err != nil {
-		return err
-	}
 	var blocks []int
-	for _, seeds := range snakeSeeds(p.Teams, p.Teams/blockSize) {
+	for _, seeds := range snakeSeeds(p.Teams, count) {
+		kind := BracketT8Block
+		if len(seeds) < blockSize {
+			kind = BracketT7
+		}
+		def, err := bracketDefFor(kind)
+		if err != nil {
+			return err
+		}
 		sources := make([]Source, def.size)
 		for i, seed := range def.slotSeeds {
 			sources[i] = SeedSource(seeds[seed-1])
 		}
 		g, err := b.AddGroup(GroupSpec{
-			Stage: stage, Name: "Tournament {L}", Bracket: BracketT8Block, Sources: sources,
+			Stage: stage, Name: "Tournament {L}", Bracket: kind, Sources: sources,
 		})
 		if err != nil {
 			return err
 		}
 		blocks = append(blocks, g)
 	}
+	if len(p.Cuts) > 0 {
+		return addCuts(b, b.AddStage("順位決定"), blocks, p.Cuts)
+	}
 	if len(p.Bands) == 0 {
 		return nil
+	}
+	if p.Teams%blockSize != 0 {
+		return domain.Invalid("bands", "blocks of different sizes need cuts instead of bands")
 	}
 	next := b.AddStage("順位決定")
 	// 参照サイトのブロック集約は同順位どうしを当てる(525 の 5th–9th は 5th - 7th の組に各ブロックの 2 位)
 	return addBands(b, next, blocks, p.Bands, func(bandInfo) Pairing { return PairingSameRank })
+}
+
+// addCuts は前の段のブロックの順位を全体の並びにし(順位、ブロックの順。7 チームのブロックには 8 位が
+// 無い)、前から cuts の大きさずつ次の段のグループにする。グループの中は並びの順をシードにして標準の
+// 位置に置き、同じブロックの 2 チームが同じ山に入るときは下位のシードどうしを入れ替えて山を分ける
+// (参照サイトの GAIA の 1st placement は A1-C2、D1-B2、B1-D2、C1-A2)。大きさに合う形は cutShape。
+func addCuts(b *Builder, stage int, blocks []int, cuts []int) error {
+	plan := b.Plan()
+	var order []Source
+	for rank := 1; rank <= blockSize; rank++ {
+		for _, g := range blocks {
+			if plan.Groups[g].Size() >= rank {
+				order = append(order, GroupRankSource(g, rank))
+			}
+		}
+	}
+	total := 0
+	for _, size := range cuts {
+		total += size
+	}
+	if total != len(order) {
+		return domain.Invalid("cuts", fmt.Sprintf("must add up to %d teams, got %d", len(order), total))
+	}
+	offset := 0
+	for _, size := range cuts {
+		shape, ok := cutShape(size)
+		if !ok {
+			return domain.Invalid("cuts", fmt.Sprintf("no tournament or pool for %d teams", size))
+		}
+		entrants := order[offset : offset+size]
+		spec := GroupSpec{Stage: stage, Final: true, RankOffset: offset}
+		if shape == ShapePool {
+			spec.Sources = slices.Clone(entrants)
+			spec.Name = ordinal(offset+1) + " placement pool"
+		} else {
+			def, err := bracketDefFor(BracketType(shape))
+			if err != nil {
+				return err
+			}
+			seeded := separateBlocks(slices.Clone(entrants), def.slotSeeds)
+			spec.Sources = make([]Source, def.size)
+			for i, seed := range def.slotSeeds {
+				spec.Sources[i] = seeded[seed-1]
+			}
+			spec.Bracket = def.kind
+			spec.Name = placementName(def, offset)
+		}
+		if _, err := b.AddGroup(spec); err != nil {
+			return err
+		}
+		offset += size
+	}
+	return nil
+}
+
+// cutShape は Cuts の大きさに合う形。16 は全順位を決めるトーナメント、7 と 8 と 4 と 2 はトーナメント、
+// 3、5、6 は総当たり。
+func cutShape(size int) (Shape, bool) {
+	if size == 16 {
+		return ShapeT16Full, true
+	}
+	return shapeForCount(size)
+}
+
+// separateBlocks はシード順の出どころ(ブロックの順位)を、同じブロックの 2 チームが同じ山(トーナメント
+// の上半分か下半分)に入らないように並べ直す。上位シードは動かさず、下半分のシードに同じブロックが山を
+// 重ねるものがあれば、後ろのシードのうち入れ替えて両方が解ける最初のものと入れ替える。slotSeeds は
+// 枠の順のシード(上から半分が上の山)。
+func separateBlocks(seeds []Source, slotSeeds []int) []Source {
+	n := len(seeds)
+	half := map[int]int{}
+	for slot, seed := range slotSeeds {
+		half[seed] = slot * 2 / len(slotSeeds)
+	}
+	clash := func(i int) bool {
+		for j := range n {
+			if j != i && seeds[j].Group == seeds[i].Group && half[j+1] == half[i+1] {
+				return true
+			}
+		}
+		return false
+	}
+	for i := n / 2; i < n; i++ {
+		if !clash(i) {
+			continue
+		}
+		for j := i + 1; j < n; j++ {
+			seeds[i], seeds[j] = seeds[j], seeds[i]
+			if !clash(i) && !clash(j) {
+				break
+			}
+			seeds[i], seeds[j] = seeds[j], seeds[i]
+		}
+	}
+	return seeds
 }
 
 // RoundRobinParams はテンプレート 3「総当たり 1 段」のパラメータ。Pools が 1 なら全チームの

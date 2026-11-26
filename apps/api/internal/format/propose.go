@@ -167,6 +167,14 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 				Spec{Template: TemplateRoundRobin, Params: RoundRobinParams{Teams: in.Teams, Pools: 2}})
 		}
 	}
+	if blocks := blockCount(in.Teams); blocks >= 3 {
+		if cuts, ok := overallCuts(in.Teams); ok {
+			add(fmt.Sprintf("blocks%d-cuts", blocks),
+				"8 チーム(足りなければ 7 チーム)のトーナメントのブロックのあと、ブロックの順位を並べて 1〜16 位、"+
+					"17〜24 位…のトーナメントに分けます(参照サイトの 2026 GAIA ULTIMATE CUP と同じ形)",
+				Spec{Template: TemplateBlocks, Params: BlocksParams{Teams: in.Teams, Cuts: cuts}})
+		}
+	}
 	if in.Teams >= 2*blockSize && in.Teams%blockSize == 0 {
 		blocks := in.Teams / blockSize
 		if shape, ok := shapeForCount(blocks); ok && shape != ShapePool {
@@ -186,6 +194,29 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 		out[0].Recommended = true
 	}
 	return out, nil
+}
+
+// overallCuts はブロックの順位の全体の並びを分ける大きさ。1〜16 位のトーナメントのあとを 8 チームずつ
+// にし、残りを最後のグループにする(GAIA の 95 チームは 16, 8 × 9, 7)。残りが 1 チームなら、最後の 8 と
+// 合わせて 4 と 5 に分ける。17 チームより少なければ作らない。
+func overallCuts(teams int) ([]int, bool) {
+	rest := teams - 16
+	if rest < 2 {
+		return nil, false
+	}
+	cuts := []int{16}
+	for ; rest >= blockSize; rest -= blockSize {
+		cuts = append(cuts, blockSize)
+	}
+	switch {
+	case rest == 1 && cuts[len(cuts)-1] == blockSize:
+		cuts = append(cuts[:len(cuts)-1], 4, 5)
+	case rest == 1:
+		return nil, false
+	case rest > 1:
+		cuts = append(cuts, rest)
+	}
+	return cuts, true
 }
 
 type shapeCandidate struct {
