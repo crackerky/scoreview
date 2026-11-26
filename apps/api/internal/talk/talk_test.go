@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,7 +69,18 @@ func (s *fakeStore) LineUser(_ context.Context, userID string, _ time.Time) (int
 
 type fakeLinks struct {
 	tournaments []entry.TournamentRef
+	joined      []entry.JoinedTeam
 	issued      []string
+}
+
+func (l *fakeLinks) IssueJoinedLinks(_ context.Context, lineUser int64) ([]entry.JoinedLink, error) {
+	out := make([]entry.JoinedLink, len(l.joined))
+	for i, team := range l.joined {
+		token := fmt.Sprintf("joined-%d-%d", lineUser, team.TeamEntryID)
+		l.issued = append(l.issued, token)
+		out[i] = entry.JoinedLink{Team: team, Token: token}
+	}
+	return out, nil
 }
 
 func (l *fakeLinks) IssueTeamLinks(_ context.Context, lineUser int64) ([]entry.TournamentLink, error) {
@@ -137,6 +149,23 @@ func TestBotRepliesEntryLinksForEachOpenTournament(t *testing.T) {
 	assert.Contains(t, reply[0].Text, "ラバー 2027\nhttps://score.example/entry/team-1-7")
 	assert.Contains(t, reply[0].Text, "ルーキーズファイナル\nhttps://score.example/entry/team-1-9")
 	assert.Contains(t, reply[0].Text, "3 日間")
+	// まだどのチームにも登録していない人には、メンバーの登録のしかたを分けて書く
+	assert.Contains(t, reply[0].Text, "\n\nメンバーの方\n"+talk.TextMemberHowTo)
+}
+
+// メンバーとして登録した人が「エントリー」と送ったら、代表の申込とは別に、自分の登録のリンクを返す
+// (代表の申込の画面を開いて、同じチームの申込を作ってしまわないように)。
+func TestBotRepliesJoinedTeamsToAMember(t *testing.T) {
+	bot, _, links, messenger := setup()
+	links.joined = []entry.JoinedTeam{{TeamEntryID: 41, TeamName: "熱海ディスクス",
+		Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}}}
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "エントリー")}))
+	text := messenger.replies["r-1"][0].Text
+	assert.True(t, strings.HasPrefix(text, "メンバーの方\n"), "the member's own registration comes first: %s", text)
+	assert.Contains(t, text, "\n\nチームの代表の方\n大会のリンクから")
+	assert.Contains(t, text, "メンバーの方\n登録したチームの確かめと直しは、チームのリンクからできます。\n\n"+
+		"「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/joined-1-41")
+	assert.NotContains(t, text, talk.TextMemberHowTo)
 }
 
 func TestBotRichMenuPostbackAlsoStartsEntry(t *testing.T) {
@@ -150,7 +179,9 @@ func TestBotNoOpenTournament(t *testing.T) {
 	bot, _, links, messenger := setup()
 	links.tournaments = nil
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "申し込み")}))
-	assert.Equal(t, talk.TextNoOpenTournament, messenger.replies["r-1"][0].Text)
+	text := messenger.replies["r-1"][0].Text
+	assert.Equal(t, "チームの代表の方\n"+talk.TextNoOpenTournament+"\n\nメンバーの方\n"+talk.TextMemberHowTo, text)
+	assert.NotContains(t, text, "日間", "no links, so no lifetime note")
 }
 
 func TestBotJoin(t *testing.T) {

@@ -30,6 +30,13 @@ const (
 	sqlByMemberEntry     = "member_entry_id = ?"
 	sqlByMemberOfEntry   = "id = ? AND team_entry_id = ?"
 	sqlByLineUserOfEntry = "team_entry_id = ? AND line_user_id = ?"
+	// メンバーとして登録したチーム: 取り消していない申込の、終わっていない大会
+	sqlSelectJoined = "team_entries.id AS team_entry_id, team_entries.team_name_full, " +
+		"tournaments.id AS tournament_id, tournaments.name_ja"
+	sqlJoinEntryOfMember   = "JOIN team_entries ON team_entries.id = member_entries.team_entry_id"
+	sqlJoinTournamentEntry = "JOIN tournaments ON tournaments.id = team_entries.tournament_id"
+	sqlJoinedBy            = "member_entries.line_user_id = ? AND team_entries.status <> ? AND tournaments.status <> ?"
+	sqlOrderJoined         = "tournaments.start_date NULLS LAST, tournaments.id, team_entries.id"
 )
 
 // EntryLink は entry_links の行。
@@ -62,6 +69,29 @@ func (s *EntryStore) LinkTournaments(ctx context.Context, lineUserID int64) ([]e
 	out := make([]entry.TournamentRef, len(rows))
 	for i, row := range rows {
 		out[i] = entry.TournamentRef{ID: row.ID, Name: row.NameJa}
+	}
+	return out, nil
+}
+
+// JoinedTeams は entry.Store.JoinedTeams。
+func (s *EntryStore) JoinedTeams(ctx context.Context, lineUserID int64) ([]entry.JoinedTeam, error) {
+	var rows []struct {
+		TeamEntryID  int64
+		TeamNameFull string
+		TournamentID int64
+		NameJa       string
+	}
+	err := s.db.WithContext(ctx).Model(&MemberEntry{}).Select(sqlSelectJoined).
+		Joins(sqlJoinEntryOfMember).Joins(sqlJoinTournamentEntry).
+		Where(sqlJoinedBy, lineUserID, string(entry.StatusCancelled), domain.TournamentFinished).
+		Order(sqlOrderJoined).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list joined teams: %w", err)
+	}
+	out := make([]entry.JoinedTeam, len(rows))
+	for i, row := range rows {
+		out[i] = entry.JoinedTeam{TeamEntryID: row.TeamEntryID, TeamName: row.TeamNameFull,
+			Tournament: entry.TournamentRef{ID: row.TournamentID, Name: row.NameJa}}
 	}
 	return out, nil
 }

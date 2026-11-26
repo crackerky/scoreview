@@ -85,20 +85,35 @@ function TeamSection({
         />
       ))}
       {team.open ? (
-        <>
-          <h2 className="site-heading">
-            {team.mine.length > 0 ? '別のチームを申し込む' : '申込の内容'}
-          </h2>
-          <TeamEntryForm
-            token={token}
-            divisions={team.divisions}
-            questions={team.questions}
-            action={submitTeamEntryAction}
-            submitLabel="申し込む"
-            initial={profileValues(team.profile)}
-            pastTeams={team.pastTeams}
-          />
-        </>
+        team.mine.length > 0 ? (
+          // 出した申込があるなら、新しい申込の欄は畳む(申込の直後や直し待ちのときに、大きな空の欄が
+          // 続くと、もう一度書く必要があるように見え、同じチームの申込を作りやすいため)
+          <details className="entry-details">
+            <summary>別のチームも申し込む</summary>
+            <TeamEntryForm
+              token={token}
+              divisions={team.divisions}
+              questions={team.questions}
+              action={submitTeamEntryAction}
+              submitLabel="申し込む"
+              initial={profileValues(team.profile)}
+              pastTeams={team.pastTeams}
+            />
+          </details>
+        ) : (
+          <>
+            <h2 className="site-heading">申込の内容</h2>
+            <TeamEntryForm
+              token={token}
+              divisions={team.divisions}
+              questions={team.questions}
+              action={submitTeamEntryAction}
+              submitLabel="申し込む"
+              initial={profileValues(team.profile)}
+              pastTeams={team.pastTeams}
+            />
+          </>
+        )
       ) : (
         <p className="entry-notice error">この大会の新しい申込は締め切りました。</p>
       )}
@@ -125,6 +140,11 @@ function MemberSection({
       </p>
       <h1 className="site-title">{member.team.fullName} のメンバー登録</h1>
       <Done text={done} />
+      {member.mine && !done && member.team.status !== 'cancelled' ? (
+        <p className="entry-notice ok">
+          このチームに登録済みです。直すときは、書き換えてから登録を直すを押してください。
+        </p>
+      ) : null}
       {member.team.status === 'cancelled' ? (
         <p className="entry-notice error">このチームの申込は取り消されています。</p>
       ) : (

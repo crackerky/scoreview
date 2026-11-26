@@ -268,6 +268,9 @@ type Links interface {
 	// IssueMemberLink は招待コードのチームへのメンバー登録のリンクを発行する。招待コードが無ければ
 	// domain.NotFound、取り消した申込なら domain.ErrConflict
 	IssueMemberLink(ctx context.Context, lineUserID int64, inviteCode string) (IssuedLink, error)
+	// IssueJoinedLinks はこの人がメンバーとして登録したチームごとに、登録を確かめて直すリンクを発行する
+	// (「エントリー」と送ったメンバーに、チームの申込ではなく自分の登録を返すため)。大会は開催日の順
+	IssueJoinedLinks(ctx context.Context, lineUserID int64) ([]JoinedLink, error)
 }
 
 // Export は書き出す大会の申込。
@@ -297,6 +300,9 @@ type Store interface {
 	// LinkTournaments は一覧に載せていて申込を受け付けている(状態が entry_open の)大会と、この LINE の
 	// 人が代表として取り消していない申込を出した、終わっていない大会を、開催日の順に読む
 	LinkTournaments(ctx context.Context, lineUserID int64) ([]TournamentRef, error)
+	// JoinedTeams はこの LINE の人がメンバーとして登録したチームを、取り消した申込と終わった大会を除いて、
+	// 開催日の順に読む
+	JoinedTeams(ctx context.Context, lineUserID int64) ([]JoinedTeam, error)
 	// SaveLink は本人用のリンクを、合言葉の SHA-256 とともに保存する
 	SaveLink(ctx context.Context, tokenHash []byte, link Link) error
 	// FindLink は合言葉の SHA-256 から本人用のリンクを読む。無ければ domain.NotFound

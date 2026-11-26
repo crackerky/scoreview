@@ -89,13 +89,18 @@ export default async function EntriesPage(props: IdPageProps) {
               <a className="adm-row" href={entryPaths.detail(item.id)}>
                 <span className="adm-row-main">
                   <span className="adm-row-title">{item.fullName}</span>
+                  {/* 申込はチームの代表の手続き、メンバーの登録はその下の名簿の埋まり具合なので、行を分ける */}
                   <span className="adm-row-meta">
                     {[
                       item.division.name.ja,
                       `代表 ${item.repName}`,
-                      registeredText(item.members, item.registered),
                       `${dateTimeText(item.submittedAt)} ${channelLabels[item.channel]}`,
                     ].join(' ・ ')}
+                  </span>
+                  <span className="adm-row-meta">
+                    {item.members === 0
+                      ? registeredText(0, 0)
+                      : `メンバー ${registeredText(item.members, item.registered)}`}
                   </span>
                 </span>
                 <Chip tone={statusTones[item.status]}>{statusLabels[item.status]}</Chip>

@@ -171,7 +171,16 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 	for i, link := range links {
 		issued[i] = TeamLink{Tournament: link.Tournament.Name, URL: b.linkURL(link.Token)}
 	}
-	return []Message{{Text: TeamLinksText(issued)}}, nil
+	joinedLinks, err := b.links.IssueJoinedLinks(ctx, lineUser)
+	if err != nil {
+		return nil, err
+	}
+	joined := make([]JoinedTeamLink, len(joinedLinks))
+	for i, link := range joinedLinks {
+		joined[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
+			URL: b.linkURL(link.Token)}
+	}
+	return []Message{{Text: EntryReplyText(issued, joined)}}, nil
 }
 
 func (b *Bot) linkURL(token string) string {
@@ -184,7 +193,8 @@ type CommandKind int
 // CommandKind の値。
 const (
 	CommandNone CommandKind = iota
-	// CommandEntry は代表の申込(リッチメニューの「エントリー」か、トークで「エントリー」と送った)
+	// CommandEntry は申込の入口(リッチメニューの「エントリー」か、トークで「エントリー」と送った)。
+	// 代表の申込のリンクと、メンバーとして登録したチームの登録のリンクを返す
 	CommandEntry
 	// CommandJoin はメンバー登録(招待リンクで開いたトークの「参加 招待コード」)
 	CommandJoin

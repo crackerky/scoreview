@@ -277,6 +277,24 @@ func (s *Service) IssueMemberLink(
 		team.FullName)
 }
 
+// IssueJoinedLinks は Links.IssueJoinedLinks。
+func (s *Service) IssueJoinedLinks(ctx context.Context, lineUserID int64) ([]JoinedLink, error) {
+	teams, err := s.store.JoinedTeams(ctx, lineUserID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]JoinedLink, len(teams))
+	for i, team := range teams {
+		issued, err := s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkMember,
+			TeamEntryID: team.TeamEntryID}, team.TeamName)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = JoinedLink{Team: team, Token: issued.Token, ExpiresAt: issued.ExpiresAt}
+	}
+	return out, nil
+}
+
 func (s *Service) issue(ctx context.Context, link Link, teamName string) (IssuedLink, error) {
 	token, err := domain.NewToken(s.random)
 	if err != nil {

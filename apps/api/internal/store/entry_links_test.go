@@ -308,6 +308,52 @@ func TestEntryLinkMemberJoin(t *testing.T) {
 	require.ErrorAs(t, err, &notFound)
 }
 
+// メンバーとして登録した人が「エントリー」と送ったときに返す、登録したチームのリンク。取り消した申込と
+// 終わった大会のチームは出さない。リンクを開くと、その人の登録の画面になる。
+func TestEntryLinkJoinedTeams(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	atami, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	ito, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("伊東", nil))
+	require.NoError(t, err)
+	hanako := f.lineUser(t, "Uhanako")
+	none, err := f.desk.IssueJoinedLinks(ctx, hanako)
+	require.NoError(t, err)
+	assert.Empty(t, none, "not a member of any team yet")
+
+	for _, team := range []entry.Detail{atami, ito} {
+		link, err := f.desk.IssueMemberLink(ctx, hanako, team.InviteCode)
+		require.NoError(t, err)
+		_, err = f.desk.JoinByLink(ctx, link.Token, entry.JoinDraft{Name: "佐藤 花子", Number: "12",
+			Answers: map[int64]string{}})
+		require.NoError(t, err)
+	}
+	links, err := f.desk.IssueJoinedLinks(ctx, hanako)
+	require.NoError(t, err)
+	require.Len(t, links, 2)
+	assert.Equal(t, entry.JoinedTeam{TeamEntryID: atami.ID, TeamName: "熱海ディスクス",
+		Tournament: entry.TournamentRef{ID: f.tournament.ID, Name: f.tournament.NameJa}}, links[0].Team)
+	view, err := f.desk.LinkView(ctx, links[0].Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Member)
+	require.NotNil(t, view.Member.Mine, "the link opens the member's own registration")
+	assert.Equal(t, "佐藤 花子", view.Member.Mine.Name)
+
+	_, err = f.desk.Decide(ctx, atami.ID, entry.ActionCancel, "", f.admin)
+	require.NoError(t, err)
+	links, err = f.desk.IssueJoinedLinks(ctx, hanako)
+	require.NoError(t, err)
+	require.Len(t, links, 1, "a cancelled entry is left out")
+	assert.Equal(t, ito.ID, links[0].Team.TeamEntryID)
+
+	require.NoError(t, f.db.Model(&store.Tournament{}).Where("id = ?", f.tournament.ID).
+		Update("status", domain.TournamentFinished).Error)
+	links, err = f.desk.IssueJoinedLinks(ctx, hanako)
+	require.NoError(t, err)
+	assert.Empty(t, links, "a finished tournament is left out")
+}
+
 func TestEntryLinkProfileAndPastTeams(t *testing.T) {
 	f := newLinkFixture(t)
 	ctx := context.Background()

@@ -61,6 +61,21 @@ type TournamentLink struct {
 	ExpiresAt  time.Time
 }
 
+// JoinedTeam はこの LINE の人がメンバーとして登録したチーム(取り消していない申込の、終わっていない
+// 大会)。TeamEntryID は代表エントリーの ID。
+type JoinedTeam struct {
+	TeamEntryID int64
+	TeamName    string
+	Tournament  TournamentRef
+}
+
+// JoinedLink はメンバーとして登録したチームの、登録を確かめて直すリンク。
+type JoinedLink struct {
+	Team      JoinedTeam
+	Token     string
+	ExpiresAt time.Time
+}
+
 // TeamForm は代表の申込の画面に要るもの。Open は大会が申込を受け付けているか(締めた後も、出した申込は
 // 見られる)。Mine はこの人がこの大会に出した申込(受けた順)。Profile はこの人の前回の入力(まだ何も
 // 入れていなければ nil)、PastTeams は前にほかの大会に申し込んだチーム(新しい順、MaxPastTeams まで)。

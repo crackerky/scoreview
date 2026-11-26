@@ -106,6 +106,13 @@
   cursor: pointer;
 }
 
+/* 主な操作のほかに並ぶボタン(直し待ちのカードの招待。主な操作の「直して送り直す」と並ぶので枠だけにする) */
+.site .entry-button.secondary {
+  border: 1px solid var(--site-fg);
+  background: transparent;
+  color: var(--site-fg);
+}
+
 /* 送ってから応答が来るまで(SubmitFeedback が aria-busy を付ける)。押し直しで二重に申し込まない */
 .site .entry-button[aria-busy="true"] {
   opacity: 0.6;
@@ -150,7 +157,14 @@
   background: rgba(184, 0, 0, 0.4);
 }
 
-/* 差し戻された申込の「直して送り直す」。押すまでフォームを畳み、カードを長くしない */
+/* 直し待ちの申込の「直して送り直す」の見出し(カードの中の小見出し) */
+.entry-subheading {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+/* 申込を出した代表の「別のチームも申し込む」。押すまでフォームを畳み、出した申込を先に見せる */
 .entry-details {
   margin: 12px 0;
 }

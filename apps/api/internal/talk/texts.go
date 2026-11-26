@@ -15,7 +15,7 @@ const TextInviteNotFound = "招待コードが見つかりませんでした。\
 // TextTeamCancelled は取り消した申込の招待コードのときの返信。
 const TextTeamCancelled = "このチームの申込は取り消されています。\nチームの代表の方に確かめてください。"
 
-// TextNoOpenTournament は申込を受け付けている大会も、出した申込も無いときの返信。
+// TextNoOpenTournament は申込を受け付けている大会も、出した申込も無いときの、代表の方への返信。
 const TextNoOpenTournament = "いま申込を受け付けている大会はありません。"
 
 // TeamLink は返信に並べる、大会ごとの申込のリンク。
@@ -24,20 +24,53 @@ type TeamLink struct {
 	URL        string
 }
 
-// TeamLinksText は代表の申込のリンクの返信。リンクは本人用で、期限があることを書く。受付を締めた大会
-// でも、申込を出した人には、出した申込を確かめるリンクが並ぶ。
-func TeamLinksText(links []TeamLink) string {
-	if len(links) == 0 {
-		return TextNoOpenTournament
+// JoinedTeamLink は返信に並べる、メンバーとして登録したチームの登録のリンク。
+type JoinedTeamLink struct {
+	Team       string
+	Tournament string
+	URL        string
+}
+
+// TextMemberHowTo は、まだどのチームにもメンバーとして登録していない人への、登録のしかた。
+const TextMemberHowTo = "代表から届いた招待リンクを開いて、そのまま参加のメッセージを送ってください。"
+
+// EntryReplyText は「エントリー」への返信。代表とメンバーは手順が違うので、代表の方とメンバーの方に
+// 分けて書く(メンバーが代表の申込の画面を開き、同じチームの申込をもう 1 つ作ってしまわないように)。
+// 代表の方には大会ごとの申込のリンクを、メンバーの方には登録したチームの登録のリンクか、登録のしかたを
+// 並べる。リンクは本人用で、期限があることを書く。受付を締めた大会でも、申込を出した人には、出した
+// 申込を確かめるリンクが並ぶ。
+func EntryReplyText(teams []TeamLink, joined []JoinedTeamLink) string {
+	var rep strings.Builder
+	rep.WriteString("チームの代表の方\n")
+	if len(teams) == 0 {
+		rep.WriteString(TextNoOpenTournament)
+	} else {
+		rep.WriteString("大会のリンクから、申込と、出した申込の確かめができます。")
+		for _, link := range teams {
+			fmt.Fprintf(&rep, "\n\n%s\n%s", link.Tournament, link.URL)
+		}
 	}
-	var text strings.Builder
-	text.WriteString("大会への申込と、出した申込の確かめは、大会のリンクからできます。\n")
-	fmt.Fprintf(&text, "リンクはあなた専用で、%d 日間使えます。ほかの人に送らないでください。",
-		entry.LinkLifetimeDays)
-	for _, link := range links {
-		fmt.Fprintf(&text, "\n\n%s\n%s", link.Tournament, link.URL)
+	var member strings.Builder
+	member.WriteString("メンバーの方\n")
+	if len(joined) == 0 {
+		member.WriteString(TextMemberHowTo)
+	} else {
+		// チーム名は代表が書いたものなので「」で囲む(MemberLinkText と同じ)
+		member.WriteString("登録したチームの確かめと直しは、チームのリンクからできます。")
+		for _, link := range joined {
+			fmt.Fprintf(&member, "\n\n「%s」%s\n%s", link.Team, link.Tournament, link.URL)
+		}
 	}
-	return text.String()
+	// メンバーとして登録した人には、自分の登録を先に見せる(代表の申込のリンクの後ろに埋もれないように)
+	parts := []string{rep.String(), member.String()}
+	if len(joined) > 0 {
+		parts = []string{member.String(), rep.String()}
+	}
+	if len(teams)+len(joined) > 0 {
+		parts = append(parts, fmt.Sprintf("リンクはあなた専用で、%d 日間使えます。ほかの人に送らないでください。",
+			entry.LinkLifetimeDays))
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 // MemberLinkText はメンバー登録のリンクの返信。チーム名は代表が書いたものなので「」で囲み、公式
