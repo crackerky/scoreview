@@ -1,6 +1,7 @@
 'use server'
 
-import { field, idField, inputError, runAction } from '@/admin/action'
+import { field, idField, inputError, runAction, runStateAction } from '@/admin/action'
+import type { AdminFormState } from '@/admin/form.utils'
 import { entries } from '@/api/entry'
 import { entryActions } from '@/api/entry.types'
 import { entryPaths } from '@/entry/entry.paths'
@@ -17,8 +18,15 @@ function rowCount(form: Record<string, string | string[]>): number {
   return rows
 }
 
-export async function saveEntryQuestionsAction(formData: FormData): Promise<never> {
-  return runAction(formData, async ({ token, form }) => {
+/**
+ * 申込で聞く質問の保存。質問は何問も書くので、誤りで戻すと書いた欄が全部消えていた。誤りは文で返し、
+ * 欄は画面に残す(components/admin/EntryQuestionsForm)。
+ */
+export async function saveEntryQuestionsAction(
+  _state: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  return runStateAction(formData, async ({ token, form }) => {
     await entries.saveQuestions(
       token,
       idField(form, 'tournamentId'),

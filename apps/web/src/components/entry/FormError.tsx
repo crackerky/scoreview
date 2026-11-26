@@ -11,9 +11,11 @@ type Props = {
   error: string | null
   /** 送信の結果ごとに変わる値(同じ文が続けて出たときも、もう一度動かすため) */
   attempt: object
+  /** 文の見た目。管理画面のフォームでは管理画面の知らせの形にする */
+  className?: string
 }
 
-export function FormError({ error, attempt }: Props) {
+export function FormError({ error, attempt, className = 'entry-notice error' }: Props) {
   const ref = useRef<HTMLParagraphElement>(null)
   useEffect(() => {
     // attempt は送信の結果が変わったことを知らせるだけで、中身は使わない
@@ -24,7 +26,7 @@ export function FormError({ error, attempt }: Props) {
     }
   }, [error, attempt])
   return error === null ? null : (
-    <p ref={ref} className="entry-notice error" role="alert" tabIndex={-1}>
+    <p ref={ref} className={className} role="alert" tabIndex={-1}>
       {error}
     </p>
   )

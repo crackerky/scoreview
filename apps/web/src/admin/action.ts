@@ -2,7 +2,14 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { ZodError } from 'zod'
-import { failureTarget, formToObject, safeAdminPath, withNotice } from './form.utils'
+import {
+  type AdminFormState,
+  failureTarget,
+  failureText,
+  formToObject,
+  safeAdminPath,
+  withNotice,
+} from './form.utils'
 import { readSessionToken } from './session'
 
 export type ActionContext = {
@@ -56,6 +63,37 @@ export async function runAction(
     target = failureTarget(back, error)
   }
   // 閲覧ページは api を no-store で読むが、管理画面の同じパスの描画結果を捨てて読み直させる
+  revalidatePath('/admin', 'layout')
+  redirect(target)
+}
+
+/**
+ * runAction の、誤りのときに元の画面へ戻さず、文を返す版。長いフォームで、誤りのたびに書いた欄が消えない
+ * ようにする(送る側は submitLinkForm で送り、React に欄を最初の値へ戻させない)。成功なら runAction と
+ * 同じく、run が返したパス(無ければ back)へ知らせつきで移る。
+ */
+export async function runStateAction(
+  formData: FormData,
+  run: (ctx: ActionContext) => Promise<string | undefined>,
+  okMessage = '保存しました',
+): Promise<AdminFormState> {
+  const form = formToObject(formData)
+  const back = safeAdminPath(form.back)
+  const token = await readSessionToken()
+  if (token === null) {
+    redirect('/admin/login')
+  }
+  let target: string
+  try {
+    const next = await run({ token, form, back })
+    target = withNotice(next ?? back, 'ok', okMessage)
+  } catch (error) {
+    const text = failureText(error)
+    if (text === null) {
+      redirect('/admin/login')
+    }
+    return { error: text }
+  }
   revalidatePath('/admin', 'layout')
   redirect(target)
 }

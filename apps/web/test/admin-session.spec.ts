@@ -5,6 +5,7 @@ import { canScore, decideAccess, runsDayOf } from '../src/admin/access.utils.ts'
 import {
   describeZodError,
   failureTarget,
+  failureText,
   formToObject,
   safeAdminPath,
   withNotice,
@@ -143,6 +144,21 @@ describe('Server Actions の共通処理', () => {
     )
     assert.throws(() => failureTarget('/admin/x', apiError(500, 'internal')))
     assert.throws(() => failureTarget('/admin/x', new TypeError('fetch failed')))
+  })
+
+  test('画面に残すフォームの誤りの文: 401 は null、4xx と入力エラーは文、それ以外は投げ直す', () => {
+    const apiError = (status: number, code: string) =>
+      Object.assign(new Error('message'), { name: 'ApiError', status, code })
+    assert.equal(failureText(apiError(401, 'unauthorized')), null)
+    assert.equal(
+      failureText(apiError(409, 'conflict')),
+      'ほかの操作と重なったため保存できませんでした。画面を開き直してください',
+    )
+    const zodError = z
+      .object({ name: z.string().min(1, '入力してください') })
+      .safeParse({ name: '' }).error
+    assert.equal(failureText(zodError), 'name: 入力してください')
+    assert.throws(() => failureText(apiError(500, 'internal')))
   })
 })
 

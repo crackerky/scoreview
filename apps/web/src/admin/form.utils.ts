@@ -55,20 +55,35 @@ export function describeZodError(error: ZodError): string {
  * 文面つきで戻す。それ以外(api の 500、通信失敗)は握りつぶさず投げ直す(エラー境界へ)。
  */
 export function failureTarget(back: string, error: unknown): string {
+  const text = failureText(error)
+  return text === null ? '/admin/login' : withNotice(back, 'error', text)
+}
+
+/**
+ * 失敗を運営に見せる文にする(failureTarget の文面)。ログインが切れた(401)なら null。api の 500 と
+ * 通信失敗は握りつぶさず投げ直す(エラー境界へ)。
+ */
+export function failureText(error: unknown): string | null {
   if (isApiError(error)) {
     if (error.status === 401) {
-      return '/admin/login'
+      return null
     }
-    // 503(混雑)は待てば通るので、エラー画面ではなく元の画面に文面つきで戻す
+    // 503(混雑)は待てば通るので、エラー画面ではなく元の画面に文面で出す
     if (error.status < 500 || error.code === 'unavailable') {
-      return withNotice(back, 'error', operatorErrorText(error.code, error.message))
+      return operatorErrorText(error.code, error.message)
     }
   }
   if (error instanceof ZodError) {
-    return withNotice(back, 'error', describeZodError(error))
+    return describeZodError(error)
   }
   throw error
 }
+
+/**
+ * 書いた欄を残したまま誤りを出すフォーム(runStateAction)の送信の結果。error は画面に出す文。
+ * 成功したときは別の画面へ移るので使わない。
+ */
+export type AdminFormState = { error: string | null }
 
 /**
  * api の ApiError(src/api/client.ts)かどうか。client.ts は server-only を読み込むので、このファイルを
