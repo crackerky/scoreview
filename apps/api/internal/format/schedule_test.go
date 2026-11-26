@@ -1,6 +1,7 @@
 package format_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -51,6 +52,36 @@ func TestScheduleTwoPoolsFourCourts(t *testing.T) {
 	assert.Equal(t, "A3", sched.Assignments[0].Code, "時刻とコートの順")
 }
 
+// TestScheduleRotatesAllGroupsLikeTheReferenceSite は参照サイトの 2026 GAIA ULTIMATE CUP のミックス
+// (8 チームのブロック 12 個、16 コート、50 分、休み 1)と同じ並べ方になること。段の全ブロックの 1 回戦を
+// A〜D → E〜H → I〜L と詰めてから 2 回戦へ進み、9 スロットで終わる(グループを 2 つずつ回すと、
+// I〜L が午後に残って 2 スロット延びていた)。
+func TestScheduleRotatesAllGroupsLikeTheReferenceSite(t *testing.T) {
+	plan := generate(t, format.TemplateBlocks, format.BlocksParams{Teams: 96})
+	courts := make([]string, 16)
+	for i := range courts {
+		courts[i] = fmt.Sprint(i + 1)
+	}
+	cfg := format.ScheduleConfig{Start: dayStart, SlotMinutes: 50, Courts: courts, TeamRestSlots: 1}
+	sched, err := format.BuildSchedule(plan, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, sched.Violations)
+	got := byCode(sched.Assignments)
+	for i, codes := range [][]string{
+		{"A4", "D7"}, {"E4", "H7"}, {"I4", "L7"}, // 1 回戦
+		{"A2", "D11"}, {"E2", "H11"}, {"I2", "L11"}, // 2 回戦
+		{"A1", "D12"}, {"E1", "H12"}, {"I1", "L12"}, // 3 回戦
+	} {
+		for _, code := range codes {
+			assert.Equal(t, at(50*i), got[code].Start, code)
+		}
+	}
+	// 各ブロックは同じ 4 面のコートを使い続ける
+	assert.Equal(t, "1", got["A4"].Court)
+	assert.Equal(t, "1", got["A1"].Court)
+	assert.Equal(t, "16", got["L12"].Court)
+}
+
 // TestSchedule4on4BackToBack は 4on4(休み 0 で連戦を許す)の 916 型を 4 コートで組む。
 func TestSchedule4on4BackToBack(t *testing.T) {
 	plan := plan916(t)
@@ -63,12 +94,15 @@ func TestSchedule4on4BackToBack(t *testing.T) {
 	assert.Equal(t, at(0), got["A2"].Start)
 	assert.Equal(t, at(20), got["A1"].Start)
 	assert.Equal(t, at(40), got["A3"].Start)
-	// A+B と C+D を同じ時間帯に並べ、プールは 3 スロットで終わる。順位決定は次のスロットから
+	// 4 プールの同じ回戦を同じ時間帯に並べ、プールは 3 スロットで終わる。順位決定は次のスロットから、
+	// 3 つの T4 の準決勝をグループの順に詰め(E と F が 10:00、G が 10:20)、決勝は準決勝の終わった
+	// グループから空いたコートへ入れる(E の決勝は G の準決勝と同じ 10:20)。全部で 3 スロットで終わる
 	assert.Equal(t, at(0), got["C2"].Start)
 	assert.Equal(t, at(60), got["E2"].Start)
+	assert.Equal(t, at(60), got["F2"].Start)
 	assert.Equal(t, at(80), got["E1"].Start)
-	assert.Equal(t, at(100), got["G2"].Start)
-	assert.Equal(t, at(120), got["G1"].Start)
+	assert.Equal(t, at(80), got["G2"].Start)
+	assert.Equal(t, at(100), got["G1"].Start)
 
 	// 同じ形を休み 1 で組むと連戦はなくなり、時間が延びる
 	cfg.TeamRestSlots = 1

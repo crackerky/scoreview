@@ -9,9 +9,10 @@ import (
 	"scoreview/api/internal/domain"
 )
 
-// DefaultGroupsInParallel はいくつのグループを組にして全コートへ並べるかの既定。参照サイトの運用
-// (482 は A+B → C+D、R3 5-4)に合わせて 2。
-const DefaultGroupsInParallel = 2
+// 参照サイト(クラブジュニア)の時間割は、段の全グループの 1 回戦をグループの順に全コートへ詰め、
+// 全部の 1 回戦が終わってから 2 回戦へ進む(2026 GAIA ULTIMATE CUP のミックスは 8 チームのブロック
+// 12 個を 16 コートで A〜D → E〜H → I〜L と回し、全員が 2 スロット休む。482 の A+B → C+D、525 の
+// ブロック A→B→C→D も同じ並べ方)。GroupsInParallel を指定しなければ、段の全グループを 1 つの組にする。
 
 // ScheduleConfig は時間割の生成の入力。
 type ScheduleConfig struct {
@@ -24,7 +25,7 @@ type ScheduleConfig struct {
 	TeamRestSlots int
 	// StageGapSlots は段の間に空けるスロット数
 	StageGapSlots int
-	// GroupsInParallel は何グループずつ組にして回すか。0 なら DefaultGroupsInParallel
+	// GroupsInParallel は何グループずつ組にして回すか。0 なら段の全グループ(参照サイトの並べ方)
 	GroupsInParallel int
 	// End はすべての試合が終わっていなければならない時刻。ゼロ値なら制限なし
 	End time.Time
@@ -144,7 +145,7 @@ func scheduleConstraints(plan *Plan) constraintSet {
 	return cs
 }
 
-// BuildSchedule は段ごとに、グループを GroupsInParallel 個ずつ組にして、組の試合を
+// BuildSchedule は段ごとに、グループを GroupsInParallel 個(既定は段の全部)ずつ組にして、組の試合を
 // (ラウンド、グループ、番号)の順に、制約を満たす最も早いスロットの空いているコートへ置く。
 // スロットは各日の開始から終了までを枠の長さで刻み、昼休みに重なる枠を除いたもの(日をまたがない)。
 // 会場の時間内に置けない試合は、休憩の制約を緩めて置き、それでも無理なら最後の日の終了の後に置き、
@@ -171,9 +172,6 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 		}
 	}
 	parallel := cfg.GroupsInParallel
-	if parallel == 0 {
-		parallel = DefaultGroupsInParallel
-	}
 	tl := newTimeline(days, cfg.Breaks, cfg.SlotMinutes)
 	if tl.inHours == 0 {
 		return nil, domain.Invalid("schedule", "会場の時間に 1 試合も入りません。終了時刻か 1 試合の枠の長さを見直してください")
@@ -238,7 +236,11 @@ func BuildSchedule(plan *Plan, cfg ScheduleConfig) (*Schedule, error) {
 			}
 		}
 		stageLast := stageStart - 1
-		for chunk := range slices.Chunk(groups, parallel) {
+		size := parallel
+		if size == 0 {
+			size = max(len(groups), 1)
+		}
+		for chunk := range slices.Chunk(groups, size) {
 			var ms []Match
 			for _, g := range chunk {
 				ms = append(ms, plan.GroupMatches(g)...)
