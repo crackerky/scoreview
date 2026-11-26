@@ -57,6 +57,7 @@ const decisionMessages = {
   approve: '参加を決めました。部門にチームと選手を作りました',
   return: '直し待ちにしました',
   cancel: '取り消しました',
+  reopen: '参加の決定を取り消し、確認待ちに戻しました。部門のチームと選手を消しました',
 } as const
 
 export async function decideEntryAction(formData: FormData): Promise<never> {

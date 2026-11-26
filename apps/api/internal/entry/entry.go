@@ -71,6 +71,9 @@ const (
 	ActionApprove Action = "approve"
 	ActionReturn  Action = "return"
 	ActionCancel  Action = "cancel"
+	// ActionReopen は参加の決定(承認)を取り消して確認待ちに戻す。承認で作ったチームと選手は消す
+	// (押し間違いを戻すため。チームが組や試合に入った後は戻せない)
+	ActionReopen Action = "reopen"
 )
 
 // Question は大会ごとの質問。ID が 0 の質問は新しく作る。Answered は答えの数で、読むときだけ入る。
@@ -212,6 +215,14 @@ type Decision struct {
 	DecidedBy int64
 	At        time.Time
 	Approval  *Approval
+	// Reopen は参加の決定を取り消して確認待ちに戻す(ActionReopen)。承認で作ったチームと選手を消す
+	Reopen *Reopen
+}
+
+// Reopen は参加の決定を取り消すときの、申込の部門(組や試合を作る操作と順番に行うため、部門を
+// ロックする)。
+type Reopen struct {
+	DivisionID int64
 }
 
 // Approval は承認で作る部門のチームと選手。

@@ -116,7 +116,11 @@ const conflictRules: ReadonlyArray<{ reason: RegExp; text: string }> = [
     text: '運営が代わりに入れた申込は、代表に直してもらえません。取り消してから入れ直してください',
   },
   {
-    reason: /cannot (approve|return|cancel) an entry/,
+    reason: /team is already in groups or matches/,
+    text: 'このチームはもう組や試合に入っているので、参加の決定を取り消せません。部門のチームを棄権にしてください',
+  },
+  {
+    reason: /cannot (approve|return|cancel|reopen) an entry/,
     text: 'この申込の今の状態では、その操作はできません。画面を開き直してください',
   },
   { reason: /LINE settings are missing/, text: '公式 LINE の設定が無いので送れません' },

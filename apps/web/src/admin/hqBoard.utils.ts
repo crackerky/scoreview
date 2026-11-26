@@ -425,6 +425,28 @@ export function suggestedShift(delay: number | null): number {
   return Math.min(20, Math.max(5, Math.ceil(delay / 5) * 5))
 }
 
+/** 時間をずらしたあとの「元に戻す」に要るもの(本部の画面の ?undoCourt= など) */
+export type ShiftUndo = { court: string; minutes: number; divisionIds: number[] }
+
+/**
+ * 時間をずらした直後に本部の画面へ付けて戻すクエリから、元に戻す操作を読む。形が合わなければ null
+ * (ずらす時間は 5〜20 分の選択肢、部門は数字の ID の並び)。
+ */
+export function shiftUndoOf(
+  query: Record<string, string | string[] | undefined>,
+): ShiftUndo | null {
+  const court = query.undoCourt
+  const minutes = Number(query.undoMinutes)
+  const divisions = query.undoDivisions
+  if (typeof court !== 'string' || court === '' || typeof divisions !== 'string') {
+    return null
+  }
+  if (![5, 10, 15, 20].includes(minutes) || !/^\d+(,\d+)*$/.test(divisions)) {
+    return null
+  }
+  return { court, minutes, divisionIds: divisions.split(',').map(Number) }
+}
+
 export type ConfirmEffect = { match: ProgressMatch; left: string; right: string }
 
 /**

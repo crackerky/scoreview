@@ -283,10 +283,13 @@ func TestNotifierSendsNoticesToTheRepresentative(t *testing.T) {
 	assert.Contains(t, messenger.pushes["Urep"][3].Text, "「熱海ディスクス」の「ラバー 2027」への申込を受け付け、参加が決まりました")
 	assert.Contains(t, messenger.pushes["Urep"][3].Text, "https://score.example/tournaments/7")
 
+	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeReopened)))
+	assert.Contains(t, messenger.pushes["Urep"][4].Text, "「熱海ディスクス」の「ラバー 2027」への申込は、運営の確認待ちに戻りました")
+
 	// ブロックしている人には送らない
 	store.friends["Urep"] = false
 	require.NoError(t, notifier.Notify(ctx, notice(entry.NoticeCancelled)))
-	assert.Len(t, messenger.pushes["Urep"], 4)
+	assert.Len(t, messenger.pushes["Urep"], 5)
 
 	var notFound *domain.NotFoundError
 	require.ErrorAs(t, notifier.Notify(ctx, entry.Notice{Kind: entry.NoticeApproved, LineUserID: 99}), &notFound)

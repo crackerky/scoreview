@@ -10,6 +10,7 @@ import {
   groupCards,
   matchesByTime,
   shiftPreview,
+  shiftUndoOf,
   staleDelayMinutes,
   suggestedShift,
 } from '../src/admin/hqBoard.utils.ts'
@@ -330,4 +331,17 @@ test('組を確定すると入る先: この組の順位を指す試合に、今
     effects.map((effect) => [effect.match.id, effect.left, effect.right]),
     [[1, '湘南(A組1位)', 'B組2位']],
   )
+})
+
+test('時間をずらした直後の「元に戻す」は、形の合うクエリからだけ読む', () => {
+  assert.deepEqual(shiftUndoOf({ undoCourt: '3', undoMinutes: '10', undoDivisions: '4,7' }), {
+    court: '3',
+    minutes: 10,
+    divisionIds: [4, 7],
+  })
+  assert.equal(shiftUndoOf({}), null)
+  assert.equal(shiftUndoOf({ undoCourt: '3', undoMinutes: '25', undoDivisions: '4' }), null)
+  assert.equal(shiftUndoOf({ undoCourt: '3', undoMinutes: '-10', undoDivisions: '4' }), null)
+  assert.equal(shiftUndoOf({ undoCourt: '3', undoMinutes: '10', undoDivisions: '4;drop' }), null)
+  assert.equal(shiftUndoOf({ undoCourt: '', undoMinutes: '10', undoDivisions: '4' }), null)
 })

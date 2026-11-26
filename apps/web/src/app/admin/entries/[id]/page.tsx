@@ -18,9 +18,11 @@ import {
 // 申込 1 件。中身(チーム、代表、メンバー、質問への答え)を確かめて、参加を決める(承認)、直してもらう
 // (差し戻し)、取り消す。
 // 承認すると部門の最後にチームができ、メンバーが選手になる。承認と差し戻しは申込中だけ、取消は承認の
-// 前だけ(承認したチームはチームの棄権で外す。api が決める)。
+// 前だけ(承認したチームはチームの棄権で外す。api が決める)。参加を決める前には、何が起きるかを書いた
+// 確かめの欄を挟む(?confirm=approve)。押し間違えたら、チームが組や試合に入る前なら確認待ちに戻せる。
 export default async function EntryPage(props: IdPageProps) {
   const { id, notice } = await readAdminPage(props)
+  const query = await props.searchParams
   const { user, token } = await requireUser('admin')
   const detail = await loadAdmin(() => entries.get(token, id))
   const [tournament, questionList] = await loadAdmin(() =>
@@ -35,6 +37,7 @@ export default async function EntryPage(props: IdPageProps) {
   const memberQuestions = questionList.questions.filter((question) => question.scope === 'member')
   const pending = detail.status === 'pending'
   const cancellable = pending || detail.status === 'returned'
+  const confirming = pending && query.confirm === 'approve'
   return (
     <AdminShell
       user={user}
@@ -45,8 +48,39 @@ export default async function EntryPage(props: IdPageProps) {
         { href: `/admin/tournaments/${detail.tournamentId}`, label: tournament.name.ja },
         { href: entryPaths.list(detail.tournamentId), label: '申込' },
       ]}
-      primary={pending ? { label: '参加を決める', form: 'entry-approve' } : undefined}
+      primary={
+        confirming
+          ? { label: 'この内容で参加を決める', form: 'entry-approve' }
+          : pending
+            ? { label: '参加を決める', href: `${back}?confirm=approve` }
+            : undefined
+      }
     >
+      {confirming ? (
+        <section className="adm-card adm-confirm" aria-labelledby="approve-title">
+          <h2 id="approve-title" className="adm-block-title">
+            参加を決めると、次のことが起きます
+          </h2>
+          <ul>
+            <li>
+              {detail.division.name.ja}の最後に、チーム {detail.fullName} を作ります
+              {detail.memberList.length > 0
+                ? `。メンバー ${detail.memberList.length} 人を選手にします`
+                : ''}
+            </li>
+            {detail.channel === 'line' ? (
+              <li>代表に、参加が決まったと公式 LINE で知らせます</li>
+            ) : null}
+            <li>押し間違えたときは、チームが組や試合に入る前なら、確認待ちに戻せます</li>
+          </ul>
+          <p className="adm-actions">
+            <button type="submit" form="entry-approve">
+              この内容で参加を決める
+            </button>
+            <a href={back}>やめる</a>
+          </p>
+        </section>
+      ) : null}
       <p>
         <Chip tone={statusTones[detail.status]}>{statusLabels[detail.status]}</Chip>{' '}
         {detail.status === 'approved' && detail.teamId !== null ? (
@@ -169,6 +203,29 @@ export default async function EntryPage(props: IdPageProps) {
             </p>
           )}
         </>
+      ) : null}
+      {detail.status === 'approved' ? (
+        <section className="adm-stack">
+          <h2 className="adm-section-title">参加の決定を取り消す</h2>
+          <p className="adm-muted">
+            押し間違えたときに使います。確認待ちに戻し、部門のチーム {detail.fullName}{' '}
+            と選手を消します。
+            {detail.channel === 'line'
+              ? '代表には、確認待ちに戻ったと公式 LINE で知らせます。'
+              : ''}
+            チームが組や試合に入った後は取り消せないので、部門のチームを棄権にしてください。
+          </p>
+          <form action={decideEntryAction} className="adm-actions">
+            <Hidden values={{ back, id, action: 'reopen', note: '' }} />
+            <label className="adm-check">
+              <input type="checkbox" name="confirm" required />
+              <span>参加の決定を取り消して、確認待ちに戻す</span>
+            </label>
+            <button type="submit" className="danger">
+              取り消す
+            </button>
+          </form>
+        </section>
       ) : null}
       {cancellable ? (
         <form action={decideEntryAction} className="adm-actions">

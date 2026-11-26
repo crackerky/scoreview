@@ -173,6 +173,10 @@ func TestNext(t *testing.T) {
 		{entry.StatusApproved, entry.ActionApprove, "", domain.ErrConflict},
 		{entry.StatusApproved, entry.ActionCancel, "", domain.ErrConflict},
 		{entry.StatusCancelled, entry.ActionReturn, "", domain.ErrConflict},
+		// 参加の決定の押し間違いは確認待ちに戻せる。決める前の申込は戻すものが無い
+		{entry.StatusApproved, entry.ActionReopen, entry.StatusPending, nil},
+		{entry.StatusPending, entry.ActionReopen, "", domain.ErrConflict},
+		{entry.StatusCancelled, entry.ActionReopen, "", domain.ErrConflict},
 		{entry.StatusPending, "delete", "", domain.ErrBadRequest},
 	}
 	for _, tc := range cases {

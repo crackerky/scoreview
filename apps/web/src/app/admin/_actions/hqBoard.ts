@@ -1,6 +1,6 @@
 'use server'
 
-import { field, idField, inputError, runActionTo } from '@/admin/action'
+import { field, idField, inputError, runActionTo, withQuery } from '@/admin/action'
 import { withNotice } from '@/admin/form.utils'
 import { hqPath } from '@/admin/hqBoard.utils'
 import { courtLabel } from '@/admin/scoreKeeper.utils'
@@ -13,7 +13,8 @@ const shiftChoices = [5, 10, 15, 20]
 
 /**
  * コートのまだ始まっていない試合を、部門をまたいでまとめてずらす。api のずらし方は部門ごとなので、
- * そのコートに試合のある部門(divisionIds)ごとに呼ぶ。
+ * そのコートに試合のある部門(divisionIds)ごとに呼ぶ。ずらしたあとの本部の画面には「元に戻す」を出す
+ * (同じコートを同じ分だけ逆にずらす。minutes が負なら元に戻す操作)。
  */
 export async function shiftCourtAction(formData: FormData): Promise<never> {
   return runActionTo(formData, async ({ token, form }) => {
@@ -23,7 +24,7 @@ export async function shiftCourtAction(formData: FormData): Promise<never> {
     if (court === '') {
       throw inputError('ずらすコートを選んでください')
     }
-    if (!shiftChoices.includes(minutes)) {
+    if (!shiftChoices.includes(Math.abs(minutes))) {
       throw inputError('ずらす時間を選んでください')
     }
     const divisionIds = field(form, 'divisionIds')
@@ -35,11 +36,19 @@ export async function shiftCourtAction(formData: FormData): Promise<never> {
       const result = await formats.shift(token, divisionId, court, minutes)
       moved += result.moved
     }
-    return withNotice(
-      hqPath(tournamentId),
-      'ok',
-      `${courtLabel(court)}の ${moved} 試合を ${minutes} 分ずらしました`,
-    )
+    if (minutes < 0) {
+      return withNotice(
+        hqPath(tournamentId),
+        'ok',
+        `${courtLabel(court)}の ${moved} 試合を元の時刻に戻しました`,
+      )
+    }
+    return withQuery(hqPath(tournamentId), {
+      ok: `${courtLabel(court)}の ${moved} 試合を ${minutes} 分ずらしました`,
+      undoCourt: court,
+      undoMinutes: minutes,
+      undoDivisions: divisionIds.join(','),
+    })
   })
 }
 

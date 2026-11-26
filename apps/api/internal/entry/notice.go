@@ -21,6 +21,8 @@ const (
 	NoticeReturned NoticeKind = "returned"
 	// NoticeCancelled は運営が取り消した
 	NoticeCancelled NoticeKind = "cancelled"
+	// NoticeReopened は運営が参加の決定を取り消して、確認待ちに戻した
+	NoticeReopened NoticeKind = "reopened"
 )
 
 // Notice は代表に知らせる出来事。LineUserID は代表の line_users の行の ID、Entry は出来事の後の申込
@@ -45,6 +47,8 @@ func DecisionNotice(action Action) NoticeKind {
 		return NoticeApproved
 	case ActionReturn:
 		return NoticeReturned
+	case ActionReopen:
+		return NoticeReopened
 	default:
 		return NoticeCancelled
 	}

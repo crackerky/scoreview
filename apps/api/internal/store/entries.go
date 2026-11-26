@@ -28,7 +28,9 @@ const (
 	sqlSelectMemberCount = "team_entry_id, count(*) AS members, count(line_user_id) AS registered"
 	sqlSelectMaxSort     = "COALESCE(MAX(sort_order), 0)"
 	sqlGroupQuestion     = "question_id"
-	sqlGroupTeamEntry    = "team_entry_id"
+	// 参加の決定を取り消すチームが、組や試合にもう入っているか
+	sqlMatchOfTeam    = "left_team_id = ? OR right_team_id = ?"
+	sqlGroupTeamEntry = "team_entry_id"
 )
 
 // EntryQuestion は entry_questions の行。Options は文字列の配列の JSON。
@@ -498,6 +500,12 @@ func (s *EntryStore) Decide(ctx context.Context, id int64, decision entry.Decisi
 				return err
 			}
 		}
+		if decision.Reopen != nil {
+			// 形を作る操作と順に行う(作っている間にチームが組へ入らないように)
+			if err := lockDivision(ctx, tx, decision.Reopen.DivisionID); err != nil {
+				return err
+			}
+		}
 		row, err := lockEntry(ctx, tx, id)
 		if err != nil {
 			return err
@@ -516,6 +524,13 @@ func (s *EntryStore) Decide(ctx context.Context, id int64, decision entry.Decisi
 				return err
 			}
 			updates["team_id"] = teamID
+		}
+		if decision.Reopen != nil {
+			if err := reopenEntry(ctx, tx, row); err != nil {
+				return err
+			}
+			// 確認待ちは運営がまだ決めていない状態なので、決めた記録を空に戻す
+			updates["team_id"], updates["decided_at"], updates["decided_by"] = nil, nil, nil
 		}
 		if err := tx.Model(&TeamEntry{}).Where(sqlByID, id).Updates(updates).Error; err != nil {
 			return writeError("decide entry", err)
@@ -577,6 +592,34 @@ func approveEntry(ctx context.Context, tx *gorm.DB, row TeamEntry, approval entr
 		}
 	}
 	return team.ID, nil
+}
+
+// reopenEntry は参加の決定で作ったチーム(選手は外部キーで一緒に消え、メンバーエントリーの選手は
+// 空になる)を消す。チームがもう組や試合に入っていれば消さずに domain.ErrConflict(消すと組と試合から
+// チームが抜けるので、部門の画面で棄権にしてもらう)。
+func reopenEntry(ctx context.Context, tx *gorm.DB, row TeamEntry) error {
+	if row.TeamID == nil {
+		return nil
+	}
+	teamID := *row.TeamID
+	db := tx.WithContext(ctx)
+	var used int64
+	for _, query := range []*gorm.DB{
+		db.Model(&GroupTeam{}).Where(sqlByTeam, teamID),
+		db.Model(&GroupSlot{}).Where(sqlByTeam, teamID),
+		db.Model(&Match{}).Where(sqlMatchOfTeam, teamID, teamID),
+	} {
+		var count int64
+		if err := query.Count(&count).Error; err != nil {
+			return fmt.Errorf("check where team %d is used: %w", teamID, err)
+		}
+		used += count
+	}
+	if used > 0 {
+		return fmt.Errorf("%w: the team is already in groups or matches; withdraw the team instead",
+			domain.ErrConflict)
+	}
+	return DeleteTeam(ctx, tx, teamID)
 }
 
 func sameEntryMembers(members []entry.Member, players []entry.ApprovedPlayer) bool {

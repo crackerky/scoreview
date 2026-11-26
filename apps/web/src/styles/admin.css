@@ -709,6 +709,18 @@
   background: #fff;
 }
 
+/* 取り返しにくい操作の前の確かめ(何が起きるかを並べ、押すボタンを置く) */
+.adm-confirm {
+  margin-bottom: 16px;
+  border: 2px solid var(--adm-primary);
+}
+
+.adm-confirm ul {
+  margin: 0;
+  padding-left: 1.2em;
+  line-height: 1.8;
+}
+
 .adm .adm-go {
   display: inline-flex;
   align-items: center;

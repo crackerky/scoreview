@@ -11,6 +11,7 @@ import {
   type HqAlert,
   matchesByTime,
   resultHref,
+  shiftUndoOf,
   sideName,
 } from '@/admin/hqBoard.utils'
 import { loadBoards } from '@/admin/hqData'
@@ -20,8 +21,15 @@ import { japaneseDate } from '@/admin/tournamentList.utils'
 import { assignments, tournaments } from '@/api/admin'
 import type { ProgressMatch } from '@/api/format.types'
 import type { IdPageProps } from '@/app/_lib/pageProps'
+import { shiftCourtAction } from '@/app/admin/_actions/hqBoard'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import { AdminShell, Chip, type ChipTone, type ShellTab } from '@/components/admin/AdminParts'
+import {
+  AdminShell,
+  Chip,
+  type ChipTone,
+  Hidden,
+  type ShellTab,
+} from '@/components/admin/AdminParts'
 import { AutoRefresh } from '@/components/admin/AutoRefresh'
 import { StandingsCard } from '@/components/admin/Standings'
 
@@ -68,6 +76,8 @@ export default async function TournamentHqPage(props: IdPageProps) {
   }))
   const crumbs = [{ href: `/admin/tournaments/${id}`, label: tournament.name.ja }]
   const several = board.boards.length > 1
+  // 時間をずらした直後だけ、同じコートを同じ分だけ逆にずらす「元に戻す」を出す
+  const undo = isAdmin ? shiftUndoOf(query) : null
   return (
     <AdminShell
       user={user}
@@ -82,6 +92,22 @@ export default async function TournamentHqPage(props: IdPageProps) {
           : undefined
       }
     >
+      {undo ? (
+        <form action={shiftCourtAction} className="adm-actions">
+          <Hidden
+            values={{
+              back: base,
+              tournamentId: id,
+              court: undo.court,
+              minutes: -undo.minutes,
+              divisionIds: undo.divisionIds.join(','),
+            }}
+          />
+          <button type="submit" className="secondary">
+            {courtLabel(undo.court)}の試合を {undo.minutes} 分早めて元に戻す
+          </button>
+        </form>
+      ) : null}
       {board.boards.length === 0 ? (
         <NoBoard tournamentId={id} />
       ) : (

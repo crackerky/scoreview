@@ -169,6 +169,53 @@ func TestEntryApproveCreatesTeamAndPlayers(t *testing.T) {
 	assert.Len(t, again, len(teams))
 }
 
+// 参加の決定の押し間違いを戻す: 確認待ちに戻し、承認で作ったチームと選手を消す。もう一度参加を決め
+// られる。チームが組に入った後は戻さない(棄権で外す)。
+func TestEntryReopenRemovesTheApprovedTeam(t *testing.T) {
+	f := newEntryFixture(t)
+	ctx := context.Background()
+	submitted, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	approved, err := f.desk.Decide(ctx, submitted.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	teamID := *approved.TeamID
+
+	reopened, err := f.desk.Decide(ctx, submitted.ID, entry.ActionReopen, "", f.admin)
+	require.NoError(t, err)
+	assert.Equal(t, entry.StatusPending, reopened.Status)
+	assert.Nil(t, reopened.TeamID)
+	assert.Nil(t, reopened.DecidedAt)
+	for _, member := range reopened.MemberList {
+		assert.Nil(t, member.PlayerID, "the players made by the approval are gone")
+	}
+	var notFound *domain.NotFoundError
+	_, err = store.GetAdminTeam(ctx, f.db, teamID)
+	require.ErrorAs(t, err, &notFound, "the team made by the approval is gone")
+
+	// 確認待ちに戻ったので、もう一度参加を決められる
+	again, err := f.desk.Decide(ctx, submitted.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	require.NotNil(t, again.TeamID)
+
+	// 組に入ったチームは消さない
+	group := store.Group{DivisionID: f.division.ID, Name: "予選 A 組", Kind: domain.GroupPool}
+	require.NoError(t, f.db.Create(&group).Error)
+	require.NoError(t, f.db.Create(&store.GroupTeam{GroupID: group.ID, TeamID: *again.TeamID}).Error)
+	_, err = f.desk.Decide(ctx, submitted.ID, entry.ActionReopen, "", f.admin)
+	require.ErrorIs(t, err, domain.ErrConflict)
+	kept, err := f.desk.Entry(ctx, submitted.ID)
+	require.NoError(t, err)
+	assert.Equal(t, entry.StatusApproved, kept.Status)
+	_, err = store.GetAdminTeam(ctx, f.db, *again.TeamID)
+	require.NoError(t, err, "the team in a group stays")
+
+	// 確認待ちの申込は戻せない(戻すのは参加を決めた申込だけ)
+	pending, err := f.desk.Submit(ctx, f.tournament.ID, entry.ChannelDesk, f.draft("伊東", nil))
+	require.NoError(t, err)
+	_, err = f.desk.Decide(ctx, pending.ID, entry.ActionReopen, "", f.admin)
+	require.ErrorIs(t, err, domain.ErrConflict)
+}
+
 func TestEntryReturnKeepsTheNote(t *testing.T) {
 	f := newEntryFixture(t)
 	ctx := context.Background()

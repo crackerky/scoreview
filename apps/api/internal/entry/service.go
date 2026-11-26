@@ -207,6 +207,9 @@ func (s *Service) Decide(
 		approval := ApprovalOf(current)
 		decision.Approval = &approval
 	}
+	if action == ActionReopen {
+		decision.Reopen = &Reopen{DivisionID: current.Division.ID}
+	}
 	detail, err := s.store.Decide(ctx, id, decision)
 	if err != nil {
 		return Detail{}, fmt.Errorf("%s entry %d: %w", action, id, err)

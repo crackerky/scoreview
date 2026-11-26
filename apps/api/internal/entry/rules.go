@@ -300,6 +300,7 @@ func CanSubmit(status domain.TournamentStatus, channel Channel) error {
 // 承認と差し戻しは運営の確認を待っている申込(申込中)だけにできる。取消は承認する前ならいつでも
 // できる。承認した申込を取り消さないのは、チームがもう組分けと試合に入っているかもしれないからで、
 // そのときは部門の画面でチームを棄権にする(既存の棄権の扱い。docs/line-integration.md)。
+// 承認の押し間違いは、確認待ちに戻せる(ActionReopen。チームが組や試合に入る前だけ。store が確かめる)。
 func Next(from Status, action Action) (Status, error) {
 	switch action {
 	case ActionApprove:
@@ -318,8 +319,12 @@ func Next(from Status, action Action) (Status, error) {
 			return "", fmt.Errorf("%w: an approved entry cannot be cancelled; withdraw the team instead",
 				domain.ErrConflict)
 		}
+	case ActionReopen:
+		if from == StatusApproved {
+			return StatusPending, nil
+		}
 	default:
-		return "", domain.Invalid("action", "must be approve, return or cancel")
+		return "", domain.Invalid("action", "must be approve, return, cancel or reopen")
 	}
 	return "", fmt.Errorf("%w: cannot %s an entry that is %s", domain.ErrConflict, action, from)
 }

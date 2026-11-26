@@ -16,7 +16,7 @@ export const entryLimits = {
 export const entryScopes = ['team', 'member'] as const
 export const entryKinds = ['short_text', 'long_text', 'choice', 'number', 'yes_no'] as const
 export const entryStatuses = ['pending', 'returned', 'approved', 'cancelled'] as const
-export const entryActions = ['approve', 'return', 'cancel'] as const
+export const entryActions = ['approve', 'return', 'cancel', 'reopen'] as const
 
 export type EntryScope = (typeof entryScopes)[number]
 export type EntryKind = (typeof entryKinds)[number]
