@@ -330,6 +330,9 @@ type Store interface {
 	// ScorerTeams はこの LINE の人が記録係に選ばれたチームを、参加が決まった申込の終わっていない大会に
 	// 限って、開催日の順に読む
 	ScorerTeams(ctx context.Context, lineUserID int64) ([]ScorerTeam, error)
+	// ScorerMatches はチーム teamIDs のそれぞれが記録する、まだ終わっていない試合を時間割の順に読む
+	// (記録するのは、左のチームに記録係がいれば左、いなければ右のチーム)
+	ScorerMatches(ctx context.Context, teamIDs []int64) (map[int64][]ScorerMatch, error)
 	// EnsureScorer は記録係の利用者(users.team_scorer。パスワードは持たない)を、この LINE の人に
 	// 結んで用意し(あれば使う)、大会 tournamentID の担当にして、利用者の ID を返す。LINE の人が
 	// もう別の利用者(運営)に結ばれていれば、その利用者を担当にする

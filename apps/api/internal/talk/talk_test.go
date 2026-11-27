@@ -185,14 +185,15 @@ func TestBotRepliesEntryLinksForEachOpenTournament(t *testing.T) {
 	reply := messenger.replies["r-1"]
 	require.Len(t, reply, 1)
 	assert.Contains(t, reply[0].Text, "書かなくても申し込めます")
-	assert.Contains(t, reply[0].Text, "ラバー 2027\nhttps://score.example/entry/team-1-7")
-	assert.Contains(t, reply[0].Text, "ルーキーズファイナル\nhttps://score.example/entry/team-1-9")
 	assert.Contains(t, reply[0].Text, "3 日間")
 	assert.NotContains(t, reply[0].Text, "メンバー登録は", "the rep sees only the rep's way in")
+	// 大会はボタンで選ぶ(ボタンが本人用の申込のリンクを開く)
+	assert.Equal(t, []talk.Choice{{Label: "ラバー 2027", URL: "https://score.example/entry/team-1-7"},
+		{Label: "ルーキーズファイナル", URL: "https://score.example/entry/team-1-9"}}, reply[0].Choices)
 
 	// ボタンを押さずに「代表」と打っても同じ
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", "代表")}))
-	assert.Contains(t, messenger.replies["r-2"][0].Text, "ラバー 2027")
+	assert.Len(t, messenger.replies["r-2"][0].Choices, 2)
 }
 
 // メンバーを選ぶと、登録したチームのリンクを返す(代表の申込のリンクは返さない。代表の申込の画面を
@@ -202,9 +203,10 @@ func TestBotRepliesJoinedTeamsToAMember(t *testing.T) {
 	links.joined = []entry.JoinedTeam{{TeamEntryID: 41, TeamName: "熱海ディスクス",
 		Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}}}
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("1", "U1", talk.PostbackEntryMember)}))
-	text := messenger.replies["r-1"][0].Text
-	assert.True(t, strings.HasPrefix(text, "登録したチームの確かめと直しは、チームのリンクからできます。\n\n"+
-		"「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/joined-1-41"), text)
+	reply := messenger.replies["r-1"][0]
+	assert.True(t, strings.HasPrefix(reply.Text, "登録したチームの確かめと直しは、チームのボタンからできます。"), reply.Text)
+	assert.Equal(t, []talk.Choice{{Label: "熱海ディスクス ・ ラバー 2027", URL: "https://score.example/entry/joined-1-41"}},
+		reply.Choices)
 	assert.Equal(t, []string{"joined-1-41"}, links.issued, "no rep links for a member")
 
 	// まだどのチームにも登録していない人には、登録のしかたを返す
@@ -239,7 +241,8 @@ func TestBotJoin(t *testing.T) {
 		message("3", "U1", "参加 cccccccccccccccccccccccccc"),
 	}))
 	assert.Contains(t, messenger.replies["r-1"][0].Text, "「熱海ディスクス」のメンバー登録")
-	assert.Contains(t, messenger.replies["r-1"][0].Text, "https://score.example/entry/member-1")
+	assert.Equal(t, []talk.Choice{{Label: "登録の画面を開く", URL: "https://score.example/entry/member-1"}},
+		messenger.replies["r-1"][0].Choices)
 	assert.Equal(t, talk.TextInviteNotFound, messenger.replies["r-2"][0].Text)
 	assert.Equal(t, talk.TextTeamCancelled, messenger.replies["r-3"][0].Text)
 }
@@ -335,6 +338,8 @@ func TestCommandOf(t *testing.T) {
 		talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: talk.PostbackEntryRep}))
 	assert.Equal(t, talk.Command{Kind: talk.CommandEntryMember},
 		talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: talk.PostbackEntryMember}))
+	assert.Equal(t, talk.Command{Kind: talk.CommandScore},
+		talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: talk.PostbackScore}))
 }
 
 func notice(kind entry.NoticeKind) entry.Notice {
@@ -401,11 +406,22 @@ func TestBotRepliesScorerLinks(t *testing.T) {
 	bot, _, links, messenger := setup()
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "記録")}))
 	assert.Equal(t, talk.TextNotScorer, messenger.replies["r-1"][0].Text)
+	assert.Equal(t, []talk.Choice{{Label: "スコアサイトを見る", URL: "https://score.example/"}},
+		messenger.replies["r-1"][0].Choices, "someone who is not a scorer can still see the scores")
 
+	day := time.Date(2027, 2, 9, 0, 0, 0, 0, time.UTC)
 	links.scorer = []entry.ScorerTeam{{MemberName: "佐藤 花子", JoinedTeam: entry.JoinedTeam{TeamEntryID: 41,
-		TeamName: "熱海ディスクス", Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}}}}
-	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", " きろく ")}))
-	text := messenger.replies["r-2"][0].Text
-	assert.Contains(t, text, "「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/scorer-1-41")
-	assert.Contains(t, text, "3 日間")
+		TeamName: "熱海ディスクス", Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}},
+		Matches: []entry.ScorerMatch{{ID: 501, Date: &day, Start: "10:00", Field: "3", Opponent: "神戸"},
+			{ID: 502}}}}
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", "スコアを入れる")}))
+	reply := messenger.replies["r-2"][0]
+	assert.Contains(t, reply.Text, "「熱海ディスクス」ラバー 2027の記録係です。")
+	assert.Contains(t, reply.Text, "3 日間")
+	// 試合はボタンで選び、押すとその試合のスコアの画面が開く。一覧のボタンも付ける
+	assert.Equal(t, []talk.Choice{
+		{Label: "2/9 10:00 コート 3 対 神戸", URL: "https://score.example/entry/scorer-1-41?match=501"},
+		{Label: "相手未定", URL: "https://score.example/entry/scorer-1-41?match=502"},
+		{Label: "自分たちの試合の一覧", URL: "https://score.example/entry/scorer-1-41"},
+	}, reply.Choices)
 }

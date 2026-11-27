@@ -556,6 +556,13 @@ func TestTeamScorerScoresOnlyItsTeamsMatches(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, links, 1)
 	assert.Equal(t, "熱海ディスクス", links[0].Team.TeamName)
+	// 返信のボタンにする、これから熱海が記録する試合(伊豆との試合は伊豆が記録する)
+	var upcoming []int64
+	for _, match := range links[0].Team.Matches {
+		upcoming = append(upcoming, match.ID)
+		assert.NotEmpty(t, match.Opponent, "the opponent is Ito")
+	}
+	assert.ElementsMatch(t, []int64{itoVsAtami.ID, atamiVsIto.ID}, upcoming)
 	view, err := f.desk.LinkView(ctx, links[0].Token)
 	require.NoError(t, err)
 	require.NotNil(t, view.Scorer)
@@ -608,6 +615,35 @@ func TestTeamScorerScoresOnlyItsTeamsMatches(t *testing.T) {
 	ok, err := store.CanScoreMatch(ctx, f.db, userID, atamiVsIto.ID)
 	require.NoError(t, err)
 	assert.False(t, ok)
+}
+
+// 記録係の返信に並べる試合は、終わっていない試合を時間割の順に。
+func TestScorerMatchesInScheduleOrder(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	b := storetest.New(t, f.db)
+	atami := f.lineTeam(t, "熱海ディスクス", "Urep1", "Uhanako")
+	ito := f.lineTeam(t, "伊東", "Urep2", "")
+	late := b.Match(f.division, &atami, &ito)
+	early := b.Match(f.division, &ito, &atami)
+	done := b.Match(f.division, &atami, &ito)
+	day := time.Date(2027, 2, 9, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, f.db.Model(&store.Match{}).Where("id = ?", late.ID).
+		Updates(map[string]any{"match_date": day, "start_time": "11:40", "field": "1"}).Error)
+	require.NoError(t, f.db.Model(&store.Match{}).Where("id = ?", early.ID).
+		Updates(map[string]any{"match_date": day, "start_time": "10:00", "field": "3"}).Error)
+	require.NoError(t, f.db.Model(&store.Match{}).Where("id = ?", done.ID).
+		Update("status", string(domain.MatchFinished)).Error)
+	got, err := store.NewEntryStore(f.db).ScorerMatches(ctx, []int64{atami.ID})
+	require.NoError(t, err)
+	require.Len(t, got[atami.ID], 2, "the finished match is left out")
+	assert.Equal(t, early.ID, got[atami.ID][0].ID)
+	assert.Equal(t, "10:00", got[atami.ID][0].Start)
+	assert.Equal(t, "3", got[atami.ID][0].Field)
+	assert.Equal(t, late.ID, got[atami.ID][1].ID)
+	empty, err := store.NewEntryStore(f.db).ScorerMatches(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
 }
 
 // 「記録係を選んでいないチームの代表」は、参加が決まったチームのうち記録係を選んでいないチームの代表だけ。

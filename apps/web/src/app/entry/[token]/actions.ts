@@ -14,6 +14,7 @@ import {
   participantErrorText,
   registeredIdsFromForm,
   scorerChoiceFromForm,
+  scorerLanding,
 } from '@/entry/entryLink.utils'
 
 // 本人用のリンクの画面(/entry/{合言葉})の送信。ログインは無く、合言葉だけで本人を確かめる(api が確かめる)。
@@ -114,5 +115,7 @@ export async function scorerSignInAction(
     }
     return { error: participantErrorText(error.code, error.message) }
   }
-  redirect('/admin')
+  // 公式 LINE の試合のボタンから開いたら、その試合のスコアの画面へ(記録できる試合かは、その画面が
+  // 確かめる)
+  redirect(scorerLanding(form.match))
 }

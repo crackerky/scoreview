@@ -39,9 +39,12 @@ const (
 	sqlJoinedBy            = "member_entries.line_user_id = ? AND team_entries.status <> ? AND tournaments.status <> ?"
 	sqlOrderJoined         = "tournaments.start_date NULLS LAST, tournaments.id, team_entries.id"
 	// 記録係に選ばれたチーム: 参加が決まった申込の、終わっていない大会。メンバーの行を通して LINE の人を見る
-	sqlSelectScorerTeams = sqlSelectJoined + ", member_entries.name AS member_name"
-	sqlJoinScorerEntry   = "JOIN team_entries ON team_entries.scorer_member_id = member_entries.id"
-	sqlScorerBy          = "member_entries.line_user_id = ? AND team_entries.status = ? AND tournaments.status <> ?"
+	sqlSelectScorerTeams = sqlSelectJoined + ", member_entries.name AS member_name, team_entries.team_id"
+	// 記録係のチームの、まだ終わっていない試合(時間割の順)
+	sqlUnfinishedMatchesOf = "(left_team_id IN ? OR right_team_id IN ?) AND status <> ?"
+	sqlOrderSchedule       = "match_date NULLS LAST, start_time NULLS LAST, id"
+	sqlJoinScorerEntry     = "JOIN team_entries ON team_entries.scorer_member_id = member_entries.id"
+	sqlScorerBy            = "member_entries.line_user_id = ? AND team_entries.status = ? AND tournaments.status <> ?"
 	// 記録係の利用者のメールアドレス(ログインには使わない。users.email の一意を満たすための値)
 	scorerEmailFormat = "line-scorer-%d@scorer.invalid"
 )
@@ -111,6 +114,7 @@ func (s *EntryStore) ScorerTeams(ctx context.Context, lineUserID int64) ([]entry
 		TournamentID int64
 		NameJa       string
 		MemberName   string
+		TeamID       *int64
 	}
 	err := s.db.WithContext(ctx).Model(&MemberEntry{}).Select(sqlSelectScorerTeams).
 		Joins(sqlJoinScorerEntry).Joins(sqlJoinTournamentEntry).
@@ -124,6 +128,64 @@ func (s *EntryStore) ScorerTeams(ctx context.Context, lineUserID int64) ([]entry
 		out[i] = entry.ScorerTeam{MemberName: row.MemberName, JoinedTeam: entry.JoinedTeam{
 			TeamEntryID: row.TeamEntryID, TeamName: row.TeamNameFull,
 			Tournament: entry.TournamentRef{ID: row.TournamentID, Name: row.NameJa}}}
+		if row.TeamID != nil {
+			out[i].TeamID = *row.TeamID
+		}
+	}
+	return out, nil
+}
+
+// ScorerMatches は entry.Store.ScorerMatches。試合と、関わるチームの記録係の有無と名前を 1 回ずつ読む。
+func (s *EntryStore) ScorerMatches(ctx context.Context, teamIDs []int64) (map[int64][]entry.ScorerMatch, error) {
+	out := map[int64][]entry.ScorerMatch{}
+	if len(teamIDs) == 0 {
+		return out, nil
+	}
+	db := s.db.WithContext(ctx)
+	var matches []Match
+	err := db.Where(sqlUnfinishedMatchesOf, teamIDs, teamIDs, string(domain.MatchFinished)).Order(sqlOrderSchedule).
+		Find(&matches).Error
+	if err != nil {
+		return nil, fmt.Errorf("list matches of scorer teams: %w", err)
+	}
+	involved := []int64{}
+	for _, match := range matches {
+		for _, id := range []*int64{match.LeftTeamID, match.RightTeamID} {
+			if id != nil && !slices.Contains(involved, *id) {
+				involved = append(involved, *id)
+			}
+		}
+	}
+	if len(involved) == 0 {
+		return out, nil
+	}
+	var withScorer []int64
+	err = db.Model(&TeamEntry{}).Where(sqlTeamsWithScorer, involved, string(entry.StatusApproved)).
+		Pluck("team_id", &withScorer).Error
+	if err != nil {
+		return nil, fmt.Errorf("load teams with a scorer: %w", err)
+	}
+	var teams []Team
+	if err := db.Where(sqlByIDs, involved).Find(&teams).Error; err != nil {
+		return nil, fmt.Errorf("load team names: %w", err)
+	}
+	names := make(map[int64]string, len(teams))
+	for _, team := range teams {
+		names[team.ID] = cmp.Or(team.NameShortJa, team.NameFullJa)
+	}
+	for _, match := range matches {
+		recorder, ok := recorderTeam(match, withScorer)
+		if !ok || !slices.Contains(teamIDs, recorder) {
+			continue
+		}
+		item := entry.ScorerMatch{ID: match.ID, Date: match.MatchDate, Start: clockOf(match),
+			Field: deref(match.Field)}
+		for _, id := range []*int64{match.LeftTeamID, match.RightTeamID} {
+			if id != nil && *id != recorder {
+				item.Opponent = names[*id]
+			}
+		}
+		out[recorder] = append(out[recorder], item)
 	}
 	return out, nil
 }

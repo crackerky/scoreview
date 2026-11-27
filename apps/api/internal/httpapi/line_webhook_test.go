@@ -41,9 +41,16 @@ func (r *replies) Push(_ context.Context, to string, messages []talk.Message) er
 	return nil
 }
 
+// Reply は返した文を覚える。ボタンの開くリンクは文の後ろに 1 行ずつ足す(リンクを文から取り出せるように)。
 func (r *replies) Reply(_ context.Context, _ string, messages []talk.Message) error {
 	for _, message := range messages {
-		r.texts = append(r.texts, message.Text)
+		text := message.Text
+		for _, choice := range message.Choices {
+			if choice.URL != "" {
+				text += "\n" + choice.URL
+			}
+		}
+		r.texts = append(r.texts, text)
 	}
 	return nil
 }

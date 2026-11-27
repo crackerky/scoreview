@@ -48,12 +48,16 @@ type Message struct {
 	Choices []Choice
 }
 
-// Choice は文の下のボタン 1 つ。Label はボタンの文字(LINE の決まりで 20 字まで)、Data は押したときに届く
-// ポストバックのデータ(PostbackEntryRep など)。
+// Choice は文の下のボタン 1 つ。Label はボタンの文字(MaxChoiceLabel 字まで)。URL があれば押すとその
+// ページを開き、無ければ Data(PostbackEntryRep など)がポストバックで届く。
 type Choice struct {
 	Label string
 	Data  string
+	URL   string
 }
+
+// MaxChoiceLabel はボタンの文字の上限(LINE の Flex Message のボタンは 40 字まで)。
+const MaxChoiceLabel = 40
 
 // Messenger は公式アカウントとして送る。line が実装する。
 type Messenger interface {
@@ -186,19 +190,19 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 		case err != nil:
 			return nil, err
 		}
-		return []Message{{Text: MemberLinkText(link.TeamName, b.linkURL(link.Token))}}, nil
+		return []Message{MemberLinkMessage(link.TeamName, b.linkURL(link.Token))}, nil
 	}
 	if command.Kind == CommandScore {
 		links, err := b.links.IssueScorerLinks(ctx, lineUser)
 		if err != nil {
 			return nil, err
 		}
-		scorer := make([]JoinedTeamLink, len(links))
+		scorer := make([]ScorerTeamLink, len(links))
 		for i, link := range links {
-			scorer[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
-				URL: b.linkURL(link.Token)}
+			scorer[i] = ScorerTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
+				URL: b.linkURL(link.Token), Matches: link.Team.Matches}
 		}
-		return []Message{{Text: ScorerLinksText(scorer)}}, nil
+		return ScorerMessages(scorer, b.siteURL), nil
 	}
 	if command.Kind == CommandEntryMember {
 		joinedLinks, err := b.links.IssueJoinedLinks(ctx, lineUser)
@@ -210,7 +214,7 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 			joined[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
 				URL: b.linkURL(link.Token)}
 		}
-		return []Message{{Text: MemberReplyText(joined)}}, nil
+		return []Message{MemberReplyMessage(joined)}, nil
 	}
 	links, err := b.links.IssueTeamLinks(ctx, lineUser)
 	if err != nil {
@@ -220,7 +224,7 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 	for i, link := range links {
 		issued[i] = TeamLink{Tournament: link.Tournament.Name, URL: b.linkURL(link.Token)}
 	}
-	return []Message{{Text: RepReplyText(issued)}}, nil
+	return []Message{RepReplyMessage(issued)}, nil
 }
 
 func (b *Bot) linkURL(token string) string {
@@ -261,11 +265,13 @@ type Command struct {
 }
 
 // ポストバックのデータ。PostbackEntry はリッチメニューの「エントリー」、PostbackEntryRep と
-// PostbackEntryMember は「エントリー」への返信のボタン(リッチメニューに置いてもよい)。
+// PostbackEntryMember は「エントリー」への返信のボタン(リッチメニューに置いてもよい)、PostbackScore は
+// リッチメニューの「スコアを入れる」。
 const (
 	PostbackEntry       = "action=entry"
 	PostbackEntryRep    = "action=entry-rep"
 	PostbackEntryMember = "action=entry-member"
+	PostbackScore       = "action=score"
 )
 
 // isRepWord は代表の入口として受け取る言葉か(ボタンを押さずに手で打ったとき。文の中の「代表」は運営との
@@ -299,7 +305,7 @@ func isEntryWord(text string) bool {
 // isScoreWord は記録係が記録の画面を開く言葉か。
 func isScoreWord(text string) bool {
 	switch text {
-	case "記録", "きろく", "記録係", "スコア", "スコア入力":
+	case "記録", "きろく", "記録係", "スコア", "スコア入力", "スコアを入れる":
 		return true
 	}
 	return false
@@ -329,6 +335,8 @@ func CommandOf(event Event) Command {
 			return Command{Kind: CommandEntryRep}
 		case PostbackEntryMember:
 			return Command{Kind: CommandEntryMember}
+		case PostbackScore:
+			return Command{Kind: CommandScore}
 		}
 		return Command{}
 	}

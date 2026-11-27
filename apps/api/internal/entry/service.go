@@ -304,6 +304,20 @@ func (s *Service) IssueScorerLinks(ctx context.Context, lineUserID int64) ([]Sco
 	if err != nil {
 		return nil, err
 	}
+	teamIDs := make([]int64, 0, len(teams))
+	for _, team := range teams {
+		if team.TeamID != 0 {
+			teamIDs = append(teamIDs, team.TeamID)
+		}
+	}
+	matches, err := s.store.ScorerMatches(ctx, teamIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range teams {
+		upcoming := matches[teams[i].TeamID]
+		teams[i].Matches = upcoming[:min(len(upcoming), MaxScorerMatches)]
+	}
 	out := make([]ScorerLink, len(teams))
 	for i, team := range teams {
 		issued, err := s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkScorer,

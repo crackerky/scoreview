@@ -119,6 +119,24 @@ type LinkView struct {
 type ScorerTeam struct {
 	JoinedTeam
 	MemberName string
+	// TeamID は参加が決まって部門にできたチーム(Store.ScorerTeams が読む)
+	TeamID int64
+	// Matches はこのチームが記録する、まだ終わっていない試合を時間割の順に MaxScorerMatches まで
+	// (Service.IssueScorerLinks が付ける。公式 LINE の返信のボタンにする)
+	Matches []ScorerMatch
+}
+
+// MaxScorerMatches は記録係への返信に並べる、これからの試合の数。
+const MaxScorerMatches = 3
+
+// ScorerMatch は記録係のチームがこれから記録する試合 1 つ。Date、Start、Field は時間割のとおり(無ければ
+// nil か空)。Opponent は相手のチームの名前(まだ決まっていなければ空)。
+type ScorerMatch struct {
+	ID       int64
+	Date     *time.Time
+	Start    string
+	Field    string
+	Opponent string
 }
 
 // ScorerLink は記録係が記録の画面に入る本人用のリンク。

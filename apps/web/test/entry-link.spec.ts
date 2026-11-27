@@ -15,6 +15,7 @@ import {
   registeredIdsFromForm,
   resubmitValues,
   scorerChoiceFromForm,
+  scorerLanding,
   shareToLineUrl,
 } from '../src/entry/entryLink.utils.ts'
 
@@ -304,4 +305,14 @@ test('記録係のリンクの応答を parse できる', () => {
     },
   })
   assert.equal(parsed.scorer?.memberName, '佐藤 花子')
+})
+
+describe('記録係が入ったあとに開く画面', () => {
+  test('公式 LINE の試合のボタンからならその試合のスコアの画面、ほかは担当の試合の一覧', () => {
+    assert.equal(scorerLanding('501'), '/admin/matches/501/score')
+    assert.equal(scorerLanding(undefined), '/admin')
+    assert.equal(scorerLanding('0'), '/admin')
+    assert.equal(scorerLanding('1/../../users'), '/admin')
+    assert.equal(scorerLanding(['501']), '/admin')
+  })
 })

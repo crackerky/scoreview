@@ -199,12 +199,17 @@ func toMessages(messages []talk.Message) []any {
 			out[i] = textMessage{Type: "text", Text: message.Text}
 			continue
 		}
-		// 選ぶボタンはポストバックで届け、押したことがトークに本人の発言として残るよう displayText を付ける
+		// 選ぶボタンはポストバックで届け、押したことがトークに本人の発言として残るよう displayText を付ける。
+		// URL のあるボタンはそのページを開く
 		// https://developers.line.biz/ja/reference/messaging-api/#postback-action
+		// https://developers.line.biz/ja/reference/messaging-api/#uri-action
 		actions := make([]map[string]any, len(message.Choices))
 		for j, choice := range message.Choices {
 			actions[j] = map[string]any{"type": "postback", "label": choice.Label, "data": choice.Data,
 				"displayText": choice.Label}
+			if choice.URL != "" {
+				actions[j] = map[string]any{"type": "uri", "label": choice.Label, "uri": choice.URL}
+			}
 		}
 		out[i] = cardMessage(message.Text, actions)
 	}

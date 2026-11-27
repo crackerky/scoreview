@@ -57,7 +57,9 @@ export default async function EntryLinkPage(props: Props) {
       <SubmitFeedback />
       {view.team ? <TeamSection token={token} team={view.team} done={done} /> : null}
       {view.member ? <MemberSection token={token} member={view.member} done={done} /> : null}
-      {view.scorer ? <ScorerSection token={token} scorer={view.scorer} /> : null}
+      {view.scorer ? (
+        <ScorerSection token={token} scorer={view.scorer} match={matchOfQuery(query.match)} />
+      ) : null}
     </SiteShell>
   )
 }
@@ -172,25 +174,36 @@ function MemberSection({
   )
 }
 
+/** 公式 LINE の試合のボタンから開いたときの試合(?match=。数でなければ null) */
+function matchOfQuery(value: string | string[] | undefined): number | null {
+  const id = typeof value === 'string' && /^[1-9][0-9]{0,15}$/.test(value) ? Number(value) : null
+  return id
+}
+
+// 記録係のリンクで開く画面。公式 LINE の試合のボタン(?match=)から開いたら、その試合のスコアの画面に、
+// 一覧のボタンから開いたら担当の試合の一覧に、そのまま入る(ScorerSignIn が開いたときに送る)。
 function ScorerSection({
   token,
   scorer,
+  match,
 }: {
   token: string
   scorer: NonNullable<EntryLink['scorer']>
+  match: number | null
 }) {
   return (
     <>
       <p className="entry-kicker">{scorer.tournamentName}</p>
       <h1 className="site-title">{scorer.teamName} の記録係</h1>
       <p>
-        {scorer.memberName}{' '}
-        さん、自分たちの試合のスコアを入れてください。ボタンを押すと、担当の試合の一覧が開きます。
+        {scorer.memberName} さん、
+        {match === null ? '担当の試合の一覧' : '試合のスコアの画面'}
+        を開いています。開かないときは、下のボタンを押してください。
       </p>
-      <ScorerSignIn token={token} action={scorerSignInAction} />
+      <ScorerSignIn token={token} match={match} action={scorerSignInAction} />
       <p className="entry-muted">
         このリンクはあなた専用です。{dateTimeText(scorer.expiresAt)} まで使えます。切れたら、公式
-        LINE で「記録」と送ってください。
+        LINE のメニューの「スコアを入れる」を押してください。
       </p>
     </>
   )

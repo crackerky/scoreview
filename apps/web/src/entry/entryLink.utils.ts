@@ -229,3 +229,13 @@ export function participantErrorText(code: string, message: string): string {
   }
   return '混み合っています。少し待ってから、もう一度送ってください'
 }
+
+/**
+ * 記録係がリンクから入ったあとに開く画面。公式 LINE の試合のボタンから開いたとき(match が試合の ID)は
+ * その試合のスコアの画面、それ以外は担当の試合の一覧。
+ */
+export function scorerLanding(match: unknown): string {
+  return typeof match === 'string' && /^[1-9][0-9]{0,15}$/.test(match)
+    ? `/admin/matches/${match}/score`
+    : '/admin'
+}

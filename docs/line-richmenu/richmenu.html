@@ -1,30 +1,28 @@
 <!doctype html>
 <!--
-  公式 LINE のリッチメニューの画像の元(2500x843、公式アカウントの管理画面の「小」の 2 分割に合わせる)。
-  左はトークに「エントリー」を送る、右はスコアサイトを開く。色はスコアサイトと同じ UP の色。
-  画像(richmenu.png)は、このページを 2500x843 の画面で開いて写したもの(ブラウザの画面写しで作り直せる)。
-  設定は公式アカウントの管理画面で行う(左はアクション「テキスト」で「エントリー」、右は「リンク」)。
+  公式 LINE のリッチメニューの画像の元(2500x1686、公式アカウントの管理画面の「大」の 4 分割に合わせる)。
+  役割ごとに入口を分ける(docs/line-integration.md「リッチメニュー」)。左上は代表の申込、右上はメンバー
+  登録、左下はスコアサイトを見る、右下は記録係がスコアを入れる。色はスコアサイトと同じ UP の色。
+  画像(richmenu.png)は、このページを 2500x1686 の画面で開いて写したもの(ブラウザの画面写しで作り直せる)。
+  公式アカウントの管理画面で作るときのアクションは、左上がテキスト「代表として申し込む」、右上がテキスト
+  「メンバーとして登録する」、左下がリンク(スコアサイト)、右下がテキスト「スコアを入れる」。
 -->
-<html lang="ja">
-<meta charset="utf-8">
-<style>
-  html, body { margin: 0; width: 2500px; height: 843px; overflow: hidden; }
-  body { display: grid; grid-template-columns: 1250px 1250px; font-family: "Noto Sans JP", sans-serif; color: #fff; }
-  .area { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 36px; position: relative; }
-  .entry { background: #b80000; }
-  .score { background: #202020; border-left: 6px solid #111; }
-  .title { font-size: 168px; font-weight: 700; letter-spacing: 0.04em; line-height: 1; }
-  .sub { font-size: 62px; font-weight: 500; opacity: 0.88; letter-spacing: 0.04em; }
-  .tap { position: absolute; bottom: 56px; right: 64px; font-size: 54px; font-weight: 700; opacity: 0.7; }
-</style>
-<div class="area entry">
-  <div class="title">エントリー</div>
-  <div class="sub">申込と、出した申込の確認</div>
-  <div class="tap">タップ ›</div>
-</div>
-<div class="area score">
-  <div class="title">大会とスコア</div>
-  <div class="sub">日程と結果を見る</div>
-  <div class="tap">タップ ›</div>
-</div>
-</html>
+<html lang="ja"><head><meta charset="utf-8"><style>
+html,body{margin:0;width:2500px;height:1686px;font-family:'Noto Sans JP',sans-serif}
+.menu{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:1686px;background:#202020;color:#fff;border-top:18px solid #b80000;box-sizing:border-box}
+.cell{display:flex;flex-direction:column;justify-content:center;padding:0 120px;position:relative;white-space:nowrap;border-color:#3a3a3a;border-style:solid;border-width:0}
+.cell:nth-child(odd){border-right-width:6px}
+.cell:nth-child(-n+2){border-bottom-width:6px}
+.cell.score{background:#2a2a2a}
+.tag{font-size:62px;font-weight:700;color:#b5b5b5}
+.label{font-size:136px;font-weight:900;line-height:1.15;margin:16px 0 22px}
+.sub{font-size:62px;font-weight:500;color:#d6d6d6}
+.arrow{position:absolute;right:110px;top:50%;transform:translateY(-50%);font-size:150px;color:#6b6b6b;font-weight:300}
+.score .label{color:#fff}
+.score .tag{color:#ff8a8a}
+</style></head><body><div class="menu">
+<div class="cell"><div class="tag">チームの代表の方</div><div class="label">代表の申込</div><div class="sub">チームで大会に申し込む</div><div class="arrow">›</div></div>
+<div class="cell"><div class="tag">選手の方</div><div class="label">メンバー登録</div><div class="sub">代表から届く招待リンクで登録</div><div class="arrow">›</div></div>
+<div class="cell score"><div class="tag">観戦</div><div class="label">スコアを見る</div><div class="sub">日程と結果、トーナメント</div><div class="arrow">›</div></div>
+<div class="cell score"><div class="tag">チームの記録係の方</div><div class="label">スコアを入れる</div><div class="sub">自分たちの試合の結果を入れる</div><div class="arrow">›</div></div>
+</div></body></html>
