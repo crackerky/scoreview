@@ -56,6 +56,7 @@ type notificationPreviewDTO struct {
 	CanSend     bool           `json:"canSend"`
 	Variables   []variableDTO  `json:"variables"`
 	SampleName  string         `json:"sampleName"`
+	Everyone    bool           `json:"everyone"`
 }
 
 // variableDTO は文に書ける差し込み({name})と、送る画面の見本の人の値。
@@ -116,6 +117,7 @@ type notificationInputDTO struct {
 	Audience   audienceDTO             `json:"audience"`
 	Body       string                  `json:"body"`
 	Buttons    []notificationButtonDTO `json:"buttons"`
+	ConfirmAll bool                    `json:"confirmAll"`
 	RequestKey string                  `json:"requestKey"`
 	SendAt     *time.Time              `json:"sendAt"`
 }
@@ -198,7 +200,8 @@ func (s *Server) previewNotification(ctx context.Context, id int64, r *http.Requ
 	}
 	out := notificationPreviewDTO{Heading: preview.Heading, Recipients: make([]recipientDTO, len(preview.Recipients)),
 		Reachable: preview.Reachable, Unreachable: preview.Unreachable, CanSend: preview.CanSend,
-		Variables: make([]variableDTO, len(preview.Variables)), SampleName: preview.SampleName}
+		Variables: make([]variableDTO, len(preview.Variables)), SampleName: preview.SampleName,
+		Everyone: preview.Everyone}
 	for i, variable := range preview.Variables {
 		out.Variables[i] = variableDTO{Name: variable.Name, Example: variable.Example}
 	}
@@ -217,7 +220,7 @@ func (s *Server) sendNotification(ctx context.Context, id int64, r *http.Request
 		return nil, err
 	}
 	request := notify.Request{Audience: body.Audience.audience(), Body: body.Body, RequestKey: body.RequestKey,
-		SendAt: body.SendAt, Buttons: make([]notify.Button, len(body.Buttons))}
+		SendAt: body.SendAt, Buttons: make([]notify.Button, len(body.Buttons)), ConfirmAll: body.ConfirmAll}
 	for i, button := range body.Buttons {
 		request.Buttons[i] = notify.Button{Kind: notify.ButtonKind(button.Kind), Label: button.Label, URL: button.URL}
 	}

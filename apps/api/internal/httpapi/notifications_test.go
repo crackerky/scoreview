@@ -35,6 +35,13 @@ func (m *multicasts) Multicast(_ context.Context, to []string, message notify.Me
 	return nil
 }
 
+func (m *multicasts) Broadcast(_ context.Context, message notify.Message, _ string) error {
+	m.to, m.texts = append(m.to, nil), append(m.texts, message.Text)
+	return nil
+}
+
+func (*multicasts) FriendCount(context.Context) (int64, bool, error) { return 150, true, nil }
+
 func (m *multicasts) Quota(context.Context) (notify.Quota, error) {
 	limit := int64(200)
 	return notify.Quota{Limit: &limit, Used: 12}, nil

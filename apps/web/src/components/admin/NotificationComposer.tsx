@@ -163,7 +163,7 @@ export function NotificationComposer({
           }))}
         />
         <Select
-          label="部門(前の大会の代表には使いません)"
+          label="部門(前の大会の代表と友だち全員には使いません)"
           name="division"
           defaultValue={checked.divisionId === null ? '' : String(checked.divisionId)}
           options={[{ value: '', label: 'すべての部門' }, ...divisions]}

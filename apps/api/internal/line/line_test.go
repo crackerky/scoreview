@@ -311,3 +311,47 @@ func TestClientSendsButtonsAsACard(t *testing.T) {
 	assert.Contains(t, string(data), `"action":{"label":"申込を開く","text":"エントリー","type":"message"}`)
 	assert.Contains(t, string(data), `"uri":"https://score.example/tournaments/7"`)
 }
+
+// 友だち全員には一斉送信で送り、送り直しのキーを付ける。人数の見込みは、前日から順に LINE が数え終えた
+// 最初の日の友だちの数からブロックの数を引いたもの(日付は日本時間)。
+func TestClientBroadcastsAndCountsFriends(t *testing.T) {
+	var dates []string
+	var broadcast map[string]any
+	var key string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth2/v3/token":
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+		case "/v2/bot/message/broadcast":
+			key = r.Header.Get("X-Line-Retry-Key")
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&broadcast))
+			respond(w, `{}`)
+		case "/v2/bot/insight/followers":
+			date := r.URL.Query().Get("date")
+			dates = append(dates, date)
+			if date == "20261126" {
+				respond(w, `{"status":"unready"}`)
+				return
+			}
+			respond(w, `{"status":"ready","followers":130,"targetedReaches":100,"blocks":10}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	// 日本時間では 11 月 27 日の朝(UTC ではまだ 26 日)
+	now := func() time.Time { return time.Date(2026, 11, 26, 23, 0, 0, 0, time.UTC) }
+	client := line.NewClient("1656", "secret", server.URL, now)
+	require.NoError(t, client.Broadcast(context.Background(), notify.Message{Text: "大会\n\nお知らせ"}, "key-1"))
+	assert.Equal(t, "key-1", key)
+	assert.NotContains(t, broadcast, "to")
+	count, known, err := client.FriendCount(context.Background())
+	require.NoError(t, err)
+	assert.True(t, known)
+	assert.Equal(t, int64(120), count)
+	assert.Equal(t, []string{"20261126", "20261125"}, dates)
+	again, _, err := client.FriendCount(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, count, again)
+	assert.Len(t, dates, 2, "the count is reused for a while (LINE allows 60 reads an hour)")
+}

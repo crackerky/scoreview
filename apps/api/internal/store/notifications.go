@@ -55,6 +55,7 @@ const (
 	sqlByBatch               = "batch_id = ?"
 	sqlByBatches             = "batch_id IN ?"
 	sqlJobsOfBatch           = "batch_id = ? AND line_user_id IN ?"
+	sqlEveryoneJobOfBatch    = "batch_id = ? AND line_user_id IS NULL"
 	// 送れなかった宛先と、持ち時間の切れた途中の宛先(送ってみる宛先が無い skipped の行は除く)
 	sqlClaimable = "batch_id = ? AND retry_key <> '' AND " +
 		"(status = ? OR (status = ? AND (claimed_until IS NULL OR claimed_until < ?)))"
@@ -91,9 +92,10 @@ func (NotificationBatch) TableName() string { return "notification_batches" }
 
 // NotificationJob は notification_jobs の行。
 type NotificationJob struct {
-	ID           int64      `gorm:"column:id;primaryKey"`
-	BatchID      int64      `gorm:"column:batch_id"`
-	LineUserID   int64      `gorm:"column:line_user_id"`
+	ID      int64 `gorm:"column:id;primaryKey"`
+	BatchID int64 `gorm:"column:batch_id"`
+	// LineUserID は宛先の line_users の行(友だち全員の行は nil。migrations/00050)
+	LineUserID   *int64     `gorm:"column:line_user_id"`
 	Name         string     `gorm:"column:name"`
 	Teams        string     `gorm:"column:teams"`
 	Status       string     `gorm:"column:status"`
@@ -229,6 +231,9 @@ func (s *NotifyStore) Recipients(
 	case notify.AudiencePastReps:
 		queries = append(queries, reps.Where(sqlEntriesNotOf, tournamentID).Where(sqlEntryStatusIsNot, cancelled).
 			Where(sqlNotAppliedTo, tournamentID, cancelled).Order(sqlOrderEntriesNewest))
+	case notify.AudienceFriends:
+		// 友だち全員は LINE の一斉送信で送り、宛先の人を選ばない
+		return []notify.Recipient{}, nil
 	default:
 		return nil, domain.Invalid("kind", "is unknown")
 	}
@@ -340,9 +345,11 @@ func (s *NotifyStore) Claim(ctx context.Context, batchID int64, now, until time.
 		return nil, nil
 	}
 	slices.SortFunc(claimed, func(a, b NotificationJob) int { return cmp.Compare(a.ID, b.ID) })
-	ids := make([]int64, len(claimed))
-	for i, job := range claimed {
-		ids[i] = job.LineUserID
+	ids := make([]int64, 0, len(claimed))
+	for _, job := range claimed {
+		if job.LineUserID != nil {
+			ids = append(ids, *job.LineUserID)
+		}
 	}
 	var users []LineUser
 	if err := db.Select(sqlSelectLineIDs).Where(sqlByIDs, ids).Find(&users).Error; err != nil {
@@ -358,12 +365,15 @@ func (s *NotifyStore) Claim(ctx context.Context, batchID int64, now, until time.
 		at, ok := index[job.RetryKey]
 		if !ok {
 			// 同じまとまりの人には同じ文を送ったので、最初の人の文をまとまりの文にする
-			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body})
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body,
+				Everyone: job.LineUserID == nil})
 			at = len(groups) - 1
 			index[job.RetryKey] = at
 		}
-		groups[at].LineUserIDs = append(groups[at].LineUserIDs, job.LineUserID)
-		groups[at].UserIDs = append(groups[at].UserIDs, lineIDs[job.LineUserID])
+		if job.LineUserID != nil {
+			groups[at].LineUserIDs = append(groups[at].LineUserIDs, *job.LineUserID)
+			groups[at].UserIDs = append(groups[at].UserIDs, lineIDs[*job.LineUserID])
+		}
 	}
 	return groups, nil
 }
@@ -419,8 +429,12 @@ func insertJobs(tx *gorm.DB, batchID int64, newJobs []notify.NewJob, claimedUnti
 	}
 	jobs := make([]NotificationJob, len(newJobs))
 	for i, job := range newJobs {
-		jobs[i] = NotificationJob{BatchID: batchID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
+		jobs[i] = NotificationJob{BatchID: batchID, Name: job.Name, Teams: job.Teams,
 			Status: string(job.Status), RetryKey: job.RetryKey, Body: job.Body}
+		// 友だち全員の行(LineUserID が 0)は line_users の行を持たない
+		if job.LineUserID != 0 {
+			jobs[i].LineUserID = &newJobs[i].LineUserID
+		}
 		if job.Status == notify.JobPending {
 			jobs[i].ClaimedUntil = &claimedUntil
 		}
@@ -502,15 +516,23 @@ func (s *NotifyStore) FinishJobs(
 	lineUserIDs []int64,
 	result notify.JobResult,
 ) error {
-	// sent_at は LINE が受け付けた時刻なので、送れなかった行には書かない(送り直しで送れたら書く)
+	return s.finish(s.db.WithContext(ctx).Model(&NotificationJob{}).Where(sqlJobsOfBatch, batchID, lineUserIDs), result)
+}
+
+// FinishEveryone は notify.Store.FinishEveryone。
+func (s *NotifyStore) FinishEveryone(ctx context.Context, batchID int64, result notify.JobResult) error {
+	return s.finish(s.db.WithContext(ctx).Model(&NotificationJob{}).Where(sqlEveryoneJobOfBatch, batchID), result)
+}
+
+// finish は rows(宛先の行の問い合わせ)に結果を書く。sent_at は LINE が受け付けた時刻なので、送れな
+// かった行には書かない(送り直しで送れたら書く)。
+func (*NotifyStore) finish(rows *gorm.DB, result notify.JobResult) error {
 	var sentAt *time.Time
 	if result.Status == notify.JobSent {
 		sentAt = &result.At
 	}
 	updates := map[string]any{"status": string(result.Status), "error": result.Error, "sent_at": sentAt}
-	err := s.db.WithContext(ctx).Model(&NotificationJob{}).Where(sqlJobsOfBatch, batchID, lineUserIDs).
-		Updates(updates).Error
-	if err != nil {
+	if err := rows.Updates(updates).Error; err != nil {
 		return writeError("notification result", err)
 	}
 	return nil

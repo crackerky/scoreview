@@ -78,9 +78,13 @@ func (s *Service) Preview(ctx context.Context, tournamentID int64, audience Audi
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{Heading: heading, Recipients: recipients, CanSend: s.sender != nil}
+	preview := Preview{Heading: heading, Recipients: recipients, CanSend: s.sender != nil,
+		Everyone: audience.Kind == AudienceFriends}
 	preview.SampleName, preview.Variables = Examples(audience.Kind, recipients, s.invite)
 	preview.Reachable, preview.Unreachable = CountReachable(recipients)
+	if preview.Everyone {
+		preview.Reachable, _ = s.reach(ctx, audience.Kind, recipients)
+	}
 	if s.sender != nil {
 		quota, err := s.sender.Quota(ctx)
 		if err != nil {
@@ -134,6 +138,10 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	if body, err = CheckVariables(body, request.Audience.Kind); err != nil {
 		return Batch{}, err
 	}
+	// 友だち全員には、申し込んでいない人も含めて届き、取り消せないので、運営が確かめてから送る
+	if request.Audience.Kind == AudienceFriends && !request.ConfirmAll {
+		return Batch{}, domain.Invalid("confirmAll", "is required to send to every friend")
+	}
 	if request.Buttons, err = s.buttons(tournamentID, request.Buttons); err != nil {
 		return Batch{}, err
 	}
@@ -144,15 +152,18 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	if err != nil {
 		return Batch{}, err
 	}
-	reachable, _ := CountReachable(recipients)
-	if reachable == 0 {
+	// 友だち全員の人数を LINE がまだ数えていなければ(known が偽)、人数と配信数を確かめずに送る
+	reachable, known := s.reach(ctx, request.Audience.Kind, recipients)
+	if known && reachable == 0 {
 		return Batch{}, domain.Invalid("audience", "has no one who can receive the message")
 	}
 	// 足りなければ LINE が途中から受け付けなくなり、一部の人にだけ届く。読めなければ送ってみる
-	if quota, err := s.sender.Quota(ctx); err != nil {
-		s.report(fmt.Errorf("read LINE quota: %w", err))
-	} else if err := CheckQuota(quota, reachable); err != nil {
-		return Batch{}, err
+	if known {
+		if quota, err := s.sender.Quota(ctx); err != nil {
+			s.report(fmt.Errorf("read LINE quota: %w", err))
+		} else if err := CheckQuota(quota, reachable); err != nil {
+			return Batch{}, err
+		}
 	}
 	text := Text(heading, body)
 	batch, groups, err := s.plan(tournamentID, request, text, actor, recipients)
@@ -241,7 +252,7 @@ func (s *Service) plan(
 	recipients []Recipient,
 ) (NewBatch, []Group, error) {
 	now := s.now()
-	jobs, groups, err := s.jobsFor(recipients, text)
+	jobs, groups, err := s.jobsFor(request.Audience.Kind, recipients, text)
 	if err != nil {
 		return NewBatch{}, nil, err
 	}
@@ -252,7 +263,16 @@ func (s *Service) plan(
 
 // jobsFor は宛先ごとの行と、まとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り直しのキー)を
 // 作る。キーを記録に残すので、途中で止まっても同じまとまりを同じキーで送り直せる。
-func (s *Service) jobsFor(recipients []Recipient, text string) ([]NewJob, []Group, error) {
+func (s *Service) jobsFor(kind AudienceKind, recipients []Recipient, text string) ([]NewJob, []Group, error) {
+	// 友だち全員は一斉送信 1 回。宛先の人は分からないので「友だち全員」の 1 行を記録する
+	if kind == AudienceFriends {
+		key, err := retryKey(s.random)
+		if err != nil {
+			return nil, nil, err
+		}
+		return []NewJob{{Name: EveryoneName, Status: JobPending, RetryKey: key}},
+			[]Group{{RetryKey: key, Everyone: true}}, nil
+	}
 	jobs := make([]NewJob, 0, len(recipients))
 	var groups []Group
 	// 差し込みがあれば人ごとに文を作り、同じ文になった人を同じまとまりにする(LINE は 1 回の送信で
@@ -296,9 +316,15 @@ func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, ba
 		if group.Text != "" {
 			message.Text = group.Text
 		}
-		sendErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey)
+		send := func() error {
+			if group.Everyone {
+				return s.sender.Broadcast(ctx, message, group.RetryKey)
+			}
+			return s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey)
+		}
+		sendErr := send()
 		if errors.Is(sendErr, ErrTemporary) {
-			if retryErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey); retryErr == nil {
+			if retryErr := send(); retryErr == nil {
 				sendErr = nil
 			} else {
 				sendErr = errors.Join(sendErr, retryErr)
@@ -309,8 +335,12 @@ func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, ba
 			s.report(fmt.Errorf("send notification %d: %w", batchID, sendErr))
 			result = JobResult{Status: JobFailed, Error: clip(sendErr.Error(), maxJobError), At: result.At}
 		}
-		if err := s.store.FinishJobs(ctx, batchID, group.LineUserIDs, result); err != nil {
-			return err
+		finish := s.store.FinishJobs(ctx, batchID, group.LineUserIDs, result)
+		if group.Everyone {
+			finish = s.store.FinishEveryone(ctx, batchID, result)
+		}
+		if finish != nil {
+			return finish
 		}
 	}
 	return nil
@@ -459,16 +489,18 @@ func (s *Service) dispatchOne(ctx context.Context, due Due) (sent, skipped bool,
 	if err != nil {
 		return false, false, err
 	}
-	reachable, _ := CountReachable(recipients)
-	if reachable == 0 {
+	reachable, known := s.reach(ctx, due.Audience.Kind, recipients)
+	if known && reachable == 0 {
 		return skip(SkipNoRecipients)
 	}
-	if quota, err := s.sender.Quota(ctx); err != nil {
-		s.report(fmt.Errorf("read LINE quota: %w", err))
-	} else if CheckQuota(quota, reachable) != nil {
-		return skip(SkipQuota)
+	if known {
+		if quota, err := s.sender.Quota(ctx); err != nil {
+			s.report(fmt.Errorf("read LINE quota: %w", err))
+		} else if CheckQuota(quota, reachable) != nil {
+			return skip(SkipQuota)
+		}
 	}
-	jobs, groups, err := s.jobsFor(recipients, due.Body)
+	jobs, groups, err := s.jobsFor(due.Audience.Kind, recipients, due.Body)
 	if err != nil {
 		return false, false, err
 	}
@@ -480,4 +512,22 @@ func (s *Service) dispatchOne(ctx context.Context, due Due) (sent, skipped bool,
 		return true, false, err
 	}
 	return true, false, nil
+}
+
+// reach は送って届く人数。友だち全員は LINE の数からの見込みで、LINE がまだ数えていないか読めなければ
+// known は偽(ほかの条件は記録した友だちの数で、いつも分かる)。
+func (s *Service) reach(ctx context.Context, kind AudienceKind, recipients []Recipient) (count int, known bool) {
+	if kind != AudienceFriends {
+		count, _ = CountReachable(recipients)
+		return count, true
+	}
+	if s.sender == nil {
+		return 0, false
+	}
+	friends, known, err := s.sender.FriendCount(ctx)
+	if err != nil {
+		s.report(fmt.Errorf("read LINE friend count: %w", err))
+		return 0, false
+	}
+	return int(friends), known
 }

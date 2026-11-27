@@ -142,11 +142,13 @@ func (s *fakeStore) Claim(_ context.Context, id int64, now, until time.Time) ([]
 		s.results[job.LineUserID] = notify.JobResult{Status: notify.JobPending}
 		s.claims[job.LineUserID] = until
 		if len(groups) == 0 || groups[len(groups)-1].RetryKey != job.RetryKey {
-			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body})
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body, Everyone: job.LineUserID == 0})
 		}
 		group := &groups[len(groups)-1]
-		group.LineUserIDs = append(group.LineUserIDs, job.LineUserID)
-		group.UserIDs = append(group.UserIDs, fmt.Sprintf("U%d", job.LineUserID))
+		if job.LineUserID != 0 {
+			group.LineUserIDs = append(group.LineUserIDs, job.LineUserID)
+			group.UserIDs = append(group.UserIDs, fmt.Sprintf("U%d", job.LineUserID))
+		}
 	}
 	return groups, nil
 }
@@ -155,6 +157,12 @@ func (s *fakeStore) FinishJobs(_ context.Context, _ int64, ids []int64, result n
 	for _, id := range ids {
 		s.results[id] = result
 	}
+	return nil
+}
+
+// FinishEveryone は友だち全員の行(LineUserID が 0)の結果を書く。
+func (s *fakeStore) FinishEveryone(_ context.Context, _ int64, result notify.JobResult) error {
+	s.results[0] = result
 	return nil
 }
 
@@ -231,23 +239,41 @@ type fakeSender struct {
 	calls    []multicast
 	failures []error
 	quota    notify.Quota
+	// friends と friendsKnown は FriendCount が返す友だちの数の見込み
+	friends      int64
+	friendsKnown bool
 }
 
+// multicast は送った 1 回。everyone は友だち全員への一斉送信(to は空)。
 type multicast struct {
-	to      []string
-	text    string
-	buttons []notify.Button
-	key     string
+	to       []string
+	text     string
+	buttons  []notify.Button
+	key      string
+	everyone bool
 }
 
 func (s *fakeSender) Multicast(_ context.Context, to []string, message notify.Message, retryKey string) error {
 	s.calls = append(s.calls, multicast{to: to, text: message.Text, buttons: message.Buttons, key: retryKey})
+	return s.result()
+}
+
+func (s *fakeSender) Broadcast(_ context.Context, message notify.Message, retryKey string) error {
+	s.calls = append(s.calls, multicast{text: message.Text, buttons: message.Buttons, key: retryKey, everyone: true})
+	return s.result()
+}
+
+func (s *fakeSender) result() error {
 	if len(s.failures) > 0 {
 		err := s.failures[0]
 		s.failures = s.failures[1:]
 		return err
 	}
 	return nil
+}
+
+func (s *fakeSender) FriendCount(context.Context) (int64, bool, error) {
+	return s.friends, s.friendsKnown, nil
 }
 
 func (s *fakeSender) Quota(context.Context) (notify.Quota, error) { return s.quota, nil }
@@ -762,4 +788,95 @@ func TestPreviewShowsVariables(t *testing.T) {
 	members, err := service.Preview(context.Background(), 1, notify.Audience{Kind: notify.AudienceParticipants})
 	require.NoError(t, err)
 	assert.Equal(t, []notify.Variable{{Name: "チーム名", Example: "熱海"}}, members.Variables)
+}
+
+// 友だち全員には、運営が確かめたときだけ一斉送信で 1 回送り、「友だち全員」の 1 行を記録する。人数は
+// LINE の数からの見込みで配信数を確かめ、LINE がまだ数えていなければ確かめずに送る。
+func TestSendToEveryFriend(t *testing.T) {
+	store := newFakeStore(nil)
+	limit := int64(1000)
+	sender := &fakeSender{friends: 120, friendsKnown: true, quota: notify.Quota{Limit: &limit, Used: 900},
+		failures: []error{temporary(), temporary()}}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	everyone := notify.Audience{Kind: notify.AudienceFriends}
+
+	preview, err := service.Preview(context.Background(), 1, everyone)
+	require.NoError(t, err)
+	assert.True(t, preview.Everyone)
+	assert.Equal(t, 120, preview.Reachable)
+	assert.Empty(t, preview.Variables, "nothing can be filled in for people who are not known")
+
+	request := notify.Request{Audience: everyone, Body: "来年の大会のお知らせ", RequestKey: "key-1"}
+	_, err = service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrBadRequest, "the operator has to confirm")
+	request.ConfirmAll = true
+	_, err = service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrConflict, "120 friends do not fit in the 100 messages left")
+	assert.Empty(t, sender.calls)
+
+	sender.quota = notify.Quota{Limit: &limit, Used: 0}
+	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	require.Len(t, sender.calls, 2, "a temporary failure is sent again once with the same key")
+	assert.True(t, sender.calls[0].everyone)
+	assert.Equal(t, sender.calls[0].key, sender.calls[1].key)
+	assert.Equal(t, notify.Counts{Failed: 1, Resendable: 1}, batch.Counts)
+	require.Len(t, store.batches[0].Jobs, 1)
+	assert.Equal(t, notify.NewJob{Name: notify.EveryoneName, Status: notify.JobPending,
+		RetryKey: sender.calls[0].key}, store.batches[0].Jobs[0])
+
+	*now = now.Add(time.Hour)
+	batch, err = service.Resend(context.Background(), batch.ID)
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Sent: 1}, batch.Counts)
+	require.Len(t, sender.calls, 3)
+	assert.Equal(t, multicast{text: "ルーキーズファイナル\n\n来年の大会のお知らせ", key: sender.calls[0].key, everyone: true},
+		sender.calls[2])
+
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: everyone, Body: "{チーム名}",
+		RequestKey: "key-2", ConfirmAll: true}, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrBadRequest, "no team to fill in")
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceFriends,
+		DivisionID: 3}, Body: "x", RequestKey: "key-3", ConfirmAll: true}, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrBadRequest, "every friend takes no division")
+
+	// LINE がまだ数えていなければ、人数と配信数を確かめずに送る
+	sender.friends, sender.friendsKnown, sender.quota = 0, false, notify.Quota{Limit: &limit, Used: 1000}
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: everyone, Body: "x", RequestKey: "key-4",
+		ConfirmAll: true}, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	assert.True(t, sender.calls[len(sender.calls)-1].everyone)
+}
+
+// 友だち全員の予約も、送る時刻に一斉送信で送る。
+func TestDispatchToEveryFriend(t *testing.T) {
+	store := newFakeStore(nil)
+	sender := &fakeSender{friends: 10, friendsKnown: true}
+	var reported []error
+	now := clock()
+	service := newService(store, sender, &reported, now)
+	at := now.Add(time.Hour)
+	_, err := service.Send(context.Background(), 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceFriends},
+		Body: "x", RequestKey: "key-1", ConfirmAll: true, SendAt: &at}, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	assert.Empty(t, sender.calls)
+	*now = at
+	result, err := service.Dispatch(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{Sent: 1}, result)
+	require.Len(t, sender.calls, 1)
+	assert.True(t, sender.calls[0].everyone)
+
+	sender.friendsKnown = true
+	sender.friends = 0
+	later := now.Add(time.Hour)
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceFriends},
+		Body: "y", RequestKey: "key-2", ConfirmAll: true, SendAt: &later}, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	*now = later
+	result, err = service.Dispatch(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, notify.DispatchResult{Skipped: 1}, result, "LINE counted no friends")
 }

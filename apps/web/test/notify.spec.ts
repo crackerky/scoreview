@@ -306,6 +306,7 @@ describe('応答の形', () => {
       canSend: false,
       variables: [{ name: 'チーム名', example: '' }],
       sampleName: '',
+      everyone: false,
     })
     assert.equal(preview.recipients[0]?.reachable, false)
   })
@@ -357,5 +358,22 @@ describe('差し込み', () => {
   test('差し込みを書いたか', () => {
     assert.equal(usesVariables('｛まだ登録していない人｝', variableNames), true)
     assert.equal(usesVariables('{ほか}', variableNames), false)
+  })
+})
+
+describe('公式 LINE の友だち全員', () => {
+  test('部門と状態では絞らない', () => {
+    assert.deepEqual(audienceFromQuery({ kind: 'friends', status: 'pending', division: '3' }), {
+      kind: 'friends',
+      status: '',
+      divisionId: null,
+    })
+  })
+  test('一斉送信 1 回の結果は、人数ではなく送れたかで書く', () => {
+    const sent = { pending: 0, sent: 1, skipped: 0, failed: 0 }
+    assert.equal(countsText(sent, true), '友だち全員に送った')
+    assert.deepEqual(sentNotice(sent, true), ['ok', '友だち全員に送りました'])
+    assert.equal(sentNotice({ ...sent, sent: 0, failed: 1 }, true)[0], 'error')
+    assert.equal(countsText(sent), '送った 1 人')
   })
 })

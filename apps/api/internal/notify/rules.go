@@ -33,13 +33,13 @@ func CheckAudience(audience Audience, tournament entry.Tournament) error {
 		if audience.Status != "" {
 			return domain.Invalid("status", "is only for reps")
 		}
-	case AudiencePastReps:
+	case AudiencePastReps, AudienceFriends:
 		// まだ申し込んでいない人に送るので、この大会の部門や申込の状態では絞れない
 		if audience.Status != "" || audience.DivisionID != 0 {
-			return domain.Invalid("audience", "past_reps takes no status or division")
+			return domain.Invalid("audience", string(audience.Kind)+" takes no status or division")
 		}
 	default:
-		return domain.Invalid("kind", "must be reps, incomplete, participants, past_reps or no_scorer")
+		return domain.Invalid("kind", "must be reps, incomplete, participants, past_reps, no_scorer or friends")
 	}
 	if audience.DivisionID == 0 {
 		return nil

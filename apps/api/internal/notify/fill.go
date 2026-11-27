@@ -37,11 +37,14 @@ type RecipientEntry struct {
 }
 
 // VariablesFor は宛先の条件で使える差し込み。招待リンクとまだ登録していない人は、この大会に申し込んだ
-// 代表に送るときだけ(メンバーと前の大会の代表には、この大会の招待リンクが無い)。
+// 代表に送るときだけ(メンバーと前の大会の代表には、この大会の招待リンクが無い)。友だち全員には、
+// 誰に届くか分からないので差し込めない。
 func VariablesFor(kind AudienceKind) []string {
 	switch kind {
 	case AudienceReps, AudienceIncomplete, AudienceNoScorer:
 		return []string{VarTeam, VarInvite, VarUnregistered}
+	case AudienceFriends:
+		return []string{}
 	default:
 		return []string{VarTeam}
 	}
@@ -76,8 +79,7 @@ func CheckVariables(body string, kind AudienceKind) (string, error) {
 			found = found || ok == name
 		}
 		if !found {
-			return "", domain.Invalid("body",
-				fmt.Sprintf("{%s} can be used only for the reps of this tournament", name))
+			return "", domain.Invalid("body", fmt.Sprintf("{%s} cannot be used for this audience", name))
 		}
 	}
 	return normalized, nil

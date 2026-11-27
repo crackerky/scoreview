@@ -41,7 +41,21 @@ type Client struct {
 	mu      sync.Mutex
 	token   string
 	expires time.Time
+
+	// friends は FriendCount の答えを friendsTTL の間使い回す(LINE の数の読み出しは 1 時間に 60 回まで)
+	friendsMu sync.Mutex
+	friends   friendCount
 }
+
+// friendCount は読んだ友だちの数の見込みと、読んだ時刻。
+type friendCount struct {
+	count int64
+	known bool
+	at    time.Time
+}
+
+// friendsTTL は友だちの数を使い回す時間(LINE は日ごとに数えるので、30 分で変わることはまず無い)。
+const friendsTTL = 30 * time.Minute
 
 var (
 	_ talk.Messenger = (*Client)(nil)
@@ -77,7 +91,65 @@ func (c *Client) Push(ctx context.Context, to string, messages []talk.Message) e
 // https://developers.line.biz/ja/docs/messaging-api/retrying-api-request/
 func (c *Client) Multicast(ctx context.Context, to []string, message notify.Message, retryKey string) error {
 	body := map[string]any{"to": to, "messages": []any{toNotifyMessage(message)}}
-	err := c.post(ctx, "/v2/bot/message/multicast", body, retryKey)
+	return sendResult(c.post(ctx, "/v2/bot/message/multicast", body, retryKey))
+}
+
+// Broadcast は notify.Sender.Broadcast。送り直しのキーと失敗の扱いは Multicast と同じ。
+// https://developers.line.biz/ja/reference/messaging-api/#send-broadcast-message
+func (c *Client) Broadcast(ctx context.Context, message notify.Message, retryKey string) error {
+	body := map[string]any{"messages": []any{toNotifyMessage(message)}}
+	return sendResult(c.post(ctx, "/v2/bot/message/broadcast", body, retryKey))
+}
+
+// friendDays は友だちの数を読む日の数(前日から。LINE は日ごとの数を後から数えるので、前日の数が
+// まだ無いことがある)。
+const friendDays = 3
+
+// FriendCount は notify.Sender.FriendCount。前日から順に、LINE が数え終えた最初の日の友だちの数(友だち
+// になった人の累計)からブロックしている人の数を引く(日付は日本時間)。どの日もまだ数えていなければ
+// known は偽。答えは friendsTTL の間使い回す。
+// https://developers.line.biz/ja/reference/messaging-api/#get-number-of-followers
+func (c *Client) FriendCount(ctx context.Context) (int64, bool, error) {
+	c.friendsMu.Lock()
+	defer c.friendsMu.Unlock()
+	now := c.now()
+	if !c.friends.at.IsZero() && now.Before(c.friends.at.Add(friendsTTL)) {
+		return c.friends.count, c.friends.known, nil
+	}
+	count, known, err := c.readFriendCount(ctx, now)
+	if err != nil {
+		return 0, false, err
+	}
+	c.friends = friendCount{count: count, known: known, at: now}
+	return count, known, nil
+}
+
+func (c *Client) readFriendCount(ctx context.Context, now time.Time) (int64, bool, error) {
+	day := now.In(japan())
+	for range friendDays {
+		day = day.AddDate(0, 0, -1)
+		var got struct {
+			Status    string `json:"status"`
+			Followers int64  `json:"followers"`
+			Blocks    int64  `json:"blocks"`
+		}
+		if err := c.get(ctx, "/v2/bot/insight/followers?date="+day.Format("20060102"), &got); err != nil {
+			return 0, false, err
+		}
+		if got.Status == "ready" {
+			return max(got.Followers-got.Blocks, 0), true, nil
+		}
+	}
+	return 0, false, nil
+}
+
+// japan は日本時間(LINE の数の日付の区切り)。
+func japan() *time.Location { return time.FixedZone("JST", 9*60*60) }
+
+// sendResult は送る要求の結果を notify の決まりにする。同じ retryKey の要求を LINE がもう受け付けて
+// いれば、LINE は送らずに 409 を返すので成功として扱う。LINE の 5xx と応答が無い失敗は
+// notify.ErrTemporary を包み、4xx は LINE が受け付けなかった失敗のまま返す。
+func sendResult(err error) error {
 	var failed *apiError
 	switch {
 	case err == nil:
@@ -130,7 +202,7 @@ func toMessages(messages []talk.Message) []textMessage {
 
 // maxAltText は LINE のカードの代わりの文(通知やトークの一覧に出る)の上限。
 // https://developers.line.biz/ja/reference/messaging-api/#flex-message
-const maxAltText = 400
+const maxAltText = 1500
 
 // toNotifyMessage は運営が送るものを LINE のメッセージにする。ボタンが無ければ文だけ、あれば文の下に
 // ボタンを縦に並べたカード(Flex Message の bubble)にする。申込のボタンは公式アカウントに「エントリー」を

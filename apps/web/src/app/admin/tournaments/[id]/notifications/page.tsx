@@ -63,7 +63,9 @@ export default async function NotificationsPage(props: IdPageProps) {
                         ? `${scheduleText(item.sendAt)} に予約`
                         : dateTimeText(item.createdAt),
                       audienceText(item.audience, (division) => divisionNames.get(division)),
-                      item.state === 'sent' ? countsText(item.counts) : '',
+                      item.state === 'sent'
+                        ? countsText(item.counts, item.audience.kind === 'friends')
+                        : '',
                       item.sentBy,
                     ]
                       .filter((part) => part !== '')

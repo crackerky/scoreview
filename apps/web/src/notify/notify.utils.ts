@@ -36,6 +36,10 @@ export const audienceKindLabels: Readonly<Record<AudienceKind, { label: string; 
     label: '前の大会に申し込んだ代表',
     hint: 'この大会にまだ申し込んでいない人だけ。受付を始めた知らせに使います',
   },
+  friends: {
+    label: '公式 LINE の友だち全員',
+    hint: '申し込んでいない人にも届きます。取り消せないので、送る前に人数を確かめる欄があります',
+  },
 }
 
 /** reps で選べる申込の状態 */
@@ -79,7 +83,7 @@ export function audienceFromQuery(query: Query): Audience {
   return {
     kind,
     status: kind === 'reps' ? status : '',
-    divisionId: kind === 'past_reps' ? null : divisionId,
+    divisionId: kind === 'past_reps' || kind === 'friends' ? null : divisionId,
   }
 }
 
@@ -107,8 +111,14 @@ export function audienceText(
   return parts.join(' ・ ')
 }
 
-/** 送った結果の人数の 1 行(0 人の結果は書かない) */
-export function countsText(counts: NotificationCounts): string {
+/**
+ * 送った結果の人数の 1 行(0 人の結果は書かない)。友だち全員(everyone)は一斉送信 1 回の結果なので、
+ * 人数ではなく送れたかを書く。
+ */
+export function countsText(counts: NotificationCounts, everyone = false): string {
+  if (everyone) {
+    return everyoneText(counts)
+  }
   const parts: string[] = []
   if (counts.sent > 0) {
     parts.push(`送った ${counts.sent} 人`)
@@ -126,7 +136,17 @@ export function countsText(counts: NotificationCounts): string {
 }
 
 /** 送った直後の知らせ。送れなかった人がいれば誤りの色で出し、送り直しは記録の画面へ案内する */
-export function sentNotice(counts: NotificationCounts): ['ok' | 'error', string] {
+export function sentNotice(counts: NotificationCounts, everyone = false): ['ok' | 'error', string] {
+  if (everyone) {
+    return counts.sent > 0
+      ? ['ok', '友だち全員に送りました']
+      : [
+          'error',
+          counts.failed > 0
+            ? '友だち全員に送れませんでした。この画面の「送り直す」で送り直せます'
+            : '送っている途中です。少しあとで、この画面を開き直してください',
+        ]
+  }
   if (counts.failed > 0) {
     return [
       'error',
@@ -447,4 +467,12 @@ export const variableNames = ['チーム名', '招待リンク', 'まだ登録�
 /** 文に差し込みを書いたか(全角の括弧も) */
 export function usesVariables(text: string, names: ReadonlyArray<string>): boolean {
   return names.some((name) => text.includes(`{${name}}`) || text.includes(`｛${name}｝`))
+}
+
+/** 友だち全員への一斉送信の結果の 1 行 */
+function everyoneText(counts: NotificationCounts): string {
+  if (counts.sent > 0) {
+    return '友だち全員に送った'
+  }
+  return counts.failed > 0 ? '送れなかった' : '送っている途中'
 }

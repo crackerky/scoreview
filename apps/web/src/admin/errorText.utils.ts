@@ -80,8 +80,13 @@ const rules: readonly Rule[] = [
   { field: /^body$/, reason: /at most/, text: '送る文は 2000 字までです' },
   {
     field: /^body$/,
-    reason: /can be used only for the reps/,
-    text: '招待リンクとまだ登録していない人の差し込みは、この大会に申し込んだ代表に送るときだけ使えます',
+    reason: /^\{(.+)\} cannot be used for this audience$/,
+    text: (matched) =>
+      `「${matched[1]}」はこの宛先には差し込めません。招待リンクとまだ登録していない人はこの大会に申し込んだ代表に、チーム名は友だち全員のほかに使えます`,
+  },
+  {
+    field: /^confirmAll$/,
+    text: '友だち全員に送るときは、人数を確かめる欄に印を付けてください',
   },
   { field: /^body$/, text: '送る文に使えない文字が入っています。貼り付けた文を確かめてください' },
   {

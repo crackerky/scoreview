@@ -33,7 +33,13 @@ const (
 	// AudienceNoScorer は参加が決まった申込のうち、まだ記録係を選んでいないチームの代表(記録係を選んで
 	// もらう頼みと催促)
 	AudienceNoScorer AudienceKind = "no_scorer"
+	// AudienceFriends は公式アカウントの友だち全員(申し込んでいない人も。LINE の一斉送信で送り、宛先の
+	// 人は分からない。人数は LINE の前日までの数からの見込み)
+	AudienceFriends AudienceKind = "friends"
 )
+
+// EveryoneName は友だち全員に送った送信の、宛先の行の名前。
+const EveryoneName = "公式 LINE の友だち全員"
 
 // ButtonKind は届く文の下のボタンの種類。
 type ButtonKind string
@@ -101,6 +107,9 @@ type Preview struct {
 	// Variables はこの宛先の条件で使える差し込みと、SampleName の人の値(送る画面の見本)
 	Variables  []Variable
 	SampleName string
+	// Everyone は友だち全員に送る条件か。そのとき Recipients は空で、Reachable は LINE の数からの
+	// 見込み(読めなければ 0)
+	Everyone bool
 }
 
 // JobStatus は宛先ごとの結果。
@@ -196,9 +205,11 @@ type History struct {
 // 画面を開くたびに作る乱数で、同じ画面から 2 回届いても 2 回目は送らない。SendAt は送る時刻(nil なら
 // すぐ送る)。
 type Request struct {
-	Audience   Audience
-	Body       string
-	Buttons    []Button
+	Audience Audience
+	Body     string
+	Buttons  []Button
+	// ConfirmAll は友だち全員に送ることを運営が確かめたか(友だち全員に送るときは必須)
+	ConfirmAll bool
 	RequestKey string
 	SendAt     *time.Time
 }
@@ -237,6 +248,8 @@ type Group struct {
 	UserIDs     []string
 	// Text はこのまとまりに差し込んで送る文(差し込みの無い送信は空で、送信の文を送る)
 	Text string
+	// Everyone は友だち全員への一斉送信のまとまり(LineUserIDs と UserIDs は空)
+	Everyone bool
 }
 
 // NewBatch は記録する送信。Body は届ける文。SentBy は送った運営(0 なら運営なし)。ClaimedUntil は、
@@ -278,6 +291,8 @@ type Store interface {
 	Claim(ctx context.Context, batchID int64, now, until time.Time) ([]Group, error)
 	// FinishJobs は送信 batchID の、line_users の行の ID が lineUserIDs の宛先の結果を書く
 	FinishJobs(ctx context.Context, batchID int64, lineUserIDs []int64, result JobResult) error
+	// FinishEveryone は送信 batchID の、友だち全員の行の結果を書く
+	FinishEveryone(ctx context.Context, batchID int64, result JobResult) error
 	// Batches は大会の送信を新しい順に、結果ごとの人数(送り直せる人数は now で数える)とともに読む
 	Batches(ctx context.Context, tournamentID int64, now time.Time) ([]Batch, error)
 	// Batch は送信 1 回を宛先ごとの結果とともに読む。無ければ domain.NotFound
@@ -315,6 +330,12 @@ type Sender interface {
 	// 人数が月の配信数に数えられる。retryKey(UUID)が同じ送り直しは、LINE が 1 回目を受け付けて
 	// いれば送らずに成功を返す。受け付けたか分からない失敗は ErrTemporary を包んで返す
 	Multicast(ctx context.Context, to []string, message Message, retryKey string) error
+	// Broadcast は公式アカウントの友だち全員に message を送る(送り直しのキーと失敗の扱いは Multicast と
+	// 同じ)。届く人数が月の配信数に数えられる
+	Broadcast(ctx context.Context, message Message, retryKey string) error
+	// FriendCount は友だち全員に送ったときに届く人数の見込み(LINE の前日までの友だちの数からブロック
+	// された数を引いたもの)。LINE がまだ数えていなければ known は偽
+	FriendCount(ctx context.Context) (count int64, known bool, err error)
 	// Quota は今月の配信数の上限と使った数を読む
 	Quota(ctx context.Context) (Quota, error)
 }

@@ -286,6 +286,36 @@ func TestNotifyStoreClaimIsExclusive(t *testing.T) {
 	assert.Equal(t, map[string]int{"group-0": 1, "group-1": 1, "group-2": 1, "group-3": 1}, seen)
 }
 
+// 友だち全員の送信は、line_users の行を持たない「友だち全員」の 1 行を記録し、送り直しでは一斉送信の
+// まとまりとして取り、結果を書ける。
+func TestNotifyStoreEveryoneRow(t *testing.T) {
+	db := testdb.New(t)
+	f := &notifyFixture{db: db, at: time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)}
+	tour := storetest.New(t, db).Tournament()
+	notices := store.NewNotifyStore(db)
+	ctx := context.Background()
+	everyone := notify.Audience{Kind: notify.AudienceFriends}
+	recipients, err := notices.Recipients(ctx, tour.ID, everyone)
+	require.NoError(t, err)
+	assert.Empty(t, recipients, "no one is chosen for a broadcast")
+
+	id, _, err := notices.CreateBatch(ctx, notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1",
+		Audience: everyone, Body: "x", At: f.at, ClaimedUntil: f.at, Jobs: []notify.NewJob{
+			{Name: notify.EveryoneName, Status: notify.JobPending, RetryKey: "all-1"}}})
+	require.NoError(t, err)
+	later := f.at.Add(time.Minute)
+	claimed, err := notices.Claim(ctx, id, later, later.Add(notify.SendLease))
+	require.NoError(t, err)
+	assert.Equal(t, []notify.Group{{RetryKey: "all-1", Everyone: true}}, claimed)
+	require.NoError(t, notices.FinishEveryone(ctx, id, notify.JobResult{Status: notify.JobSent, At: later}))
+	batch, err := notices.Batch(ctx, id, later)
+	require.NoError(t, err)
+	assert.Equal(t, notify.Counts{Sent: 1}, batch.Counts)
+	require.Len(t, batch.Jobs, 1)
+	assert.Equal(t, notify.EveryoneName, batch.Jobs[0].Name)
+	assert.Equal(t, notify.JobSent, batch.Jobs[0].Status)
+}
+
 // 予約は宛先を持たずに残り、送る時刻が来たら 1 回だけ宛先を書いて送ったことになる。
 func TestNotifyStoreSchedules(t *testing.T) {
 	db := testdb.New(t)

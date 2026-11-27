@@ -111,26 +111,31 @@ function SentResults({
   resendBack: string
 }) {
   const { counts } = detail
+  // 友だち全員は一斉送信 1 回なので、人数ではなく下の 1 行で結果を見せる
+  const everyone = detail.audience.kind === 'friends'
   return (
     <>
-      <div className="adm-stats">
-        <Stat label="送った" value={String(counts.sent)} />
-        <Stat label="ブロック中で送らなかった" value={String(counts.skipped)} />
-        <Stat
-          label="送れなかった"
-          value={String(counts.failed)}
-          tone={counts.failed > 0 ? 'live' : undefined}
-        />
-        {counts.pending > 0 ? (
-          <Stat label="送っている途中" value={String(counts.pending)} tone="warn" />
-        ) : null}
-      </div>
+      {everyone ? null : (
+        <div className="adm-stats">
+          <Stat label="送った" value={String(counts.sent)} />
+          <Stat label="ブロック中で送らなかった" value={String(counts.skipped)} />
+          <Stat
+            label="送れなかった"
+            value={String(counts.failed)}
+            tone={counts.failed > 0 ? 'live' : undefined}
+          />
+          {counts.pending > 0 ? (
+            <Stat label="送っている途中" value={String(counts.pending)} tone="warn" />
+          ) : null}
+        </div>
+      )}
       {detail.canResend ? (
         <form id={resendForm} action={resendNotificationAction} className="adm-stack">
           <Hidden values={{ back: resendBack, id: detail.id }} />
           <p className="adm-muted">
-            送れなかった人にだけ、同じ文を送り直せます(送ってから 24
-            時間のあいだ)。前の送信が実は届いていた人には、2 回は届きません。
+            {everyone
+              ? '同じ文を、友だち全員に送り直せます(送ってから 24 時間のあいだ)。前の送信を LINE が実は受け付けていたら、2 回は届きません。'
+              : '送れなかった人にだけ、同じ文を送り直せます(送ってから 24 時間のあいだ)。前の送信が実は届いていた人には、2 回は届きません。'}
           </p>
         </form>
       ) : counts.pending > 0 ? (

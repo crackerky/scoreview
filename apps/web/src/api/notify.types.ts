@@ -11,6 +11,7 @@ export const audienceKinds = [
   'participants',
   'past_reps',
   'no_scorer',
+  'friends',
 ] as const
 /** reps だけで選べる申込の状態('' は取り消した申込を除く全部) */
 export const audienceStatuses = ['', 'pending', 'returned', 'approved'] as const
@@ -44,6 +45,8 @@ export const notificationPreviewSchema = z.object({
   /** この宛先の条件で文に書ける差し込み({name})と、sampleName の人の値 */
   variables: z.array(z.object({ name: z.string(), example: z.string() })),
   sampleName: z.string(),
+  /** 友だち全員の条件か(recipients は空で、reachable は LINE の数からの見込み。読めなければ 0) */
+  everyone: z.boolean(),
 })
 export type NotificationPreview = z.infer<typeof notificationPreviewSchema>
 
@@ -107,6 +110,8 @@ export type NotificationInput = {
   audience: Audience
   body: string
   buttons: NotificationButtonInput[]
+  /** 友だち全員に送ることを運営が確かめたか(友だち全員のときは必須) */
+  confirmAll: boolean
   requestKey: string
   sendAt: string | null
 }

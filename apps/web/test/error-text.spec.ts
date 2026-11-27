@@ -84,11 +84,12 @@ test('validationParts は「項目: 理由」を分け、項目が無ければ�
       'ボタンは 3 つまでです',
     )
     assert.equal(
-      operatorErrorText(
-        'bad_request',
-        'body: {招待リンク} can be used only for the reps of this tournament',
-      ),
-      '招待リンクとまだ登録していない人の差し込みは、この大会に申し込んだ代表に送るときだけ使えます',
+      operatorErrorText('bad_request', 'body: {招待リンク} cannot be used for this audience'),
+      '「招待リンク」はこの宛先には差し込めません。招待リンクとまだ登録していない人はこの大会に申し込んだ代表に、チーム名は友だち全員のほかに使えます',
+    )
+    assert.equal(
+      operatorErrorText('bad_request', 'confirmAll: is required to send to every friend'),
+      '友だち全員に送るときは、人数を確かめる欄に印を付けてください',
     )
   })
 })

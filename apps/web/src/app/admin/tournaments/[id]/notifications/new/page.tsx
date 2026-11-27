@@ -109,18 +109,22 @@ export default async function NewNotificationPage(props: IdPageProps) {
         variables={preview.variables}
         sampleName={preview.sampleName}
       >
-        <div className="adm-stats">
-          <Stat
-            label={timing.kind === 'later' ? '今の宛先の人数' : '送る人'}
-            value={String(preview.reachable)}
-          />
-          <Stat
-            label="ブロック中で送らない人"
-            value={String(preview.unreachable)}
-            tone={preview.unreachable > 0 ? 'warn' : undefined}
-          />
-          <Stat label="今回使う配信数" value={`${preview.reachable} 通`} />
-        </div>
+        {preview.everyone ? (
+          <EveryoneStats reachable={preview.reachable} />
+        ) : (
+          <div className="adm-stats">
+            <Stat
+              label={timing.kind === 'later' ? '今の宛先の人数' : '送る人'}
+              value={String(preview.reachable)}
+            />
+            <Stat
+              label="ブロック中で送らない人"
+              value={String(preview.unreachable)}
+              tone={preview.unreachable > 0 ? 'warn' : undefined}
+            />
+            <Stat label="今回使う配信数" value={`${preview.reachable} 通`} />
+          </div>
+        )}
         {timing.kind === 'later' ? (
           <p className="adm-muted">
             {quota.text}
@@ -143,7 +147,19 @@ export default async function NewNotificationPage(props: IdPageProps) {
             の設定が要ります。
           </p>
         )}
-        {preview.recipients.length === 0 ? (
+        {preview.everyone ? (
+          <label className="adm-check adm-audience">
+            <input type="checkbox" name="confirmAll" required />
+            <span>
+              公式 LINE の友だち全員
+              {preview.reachable > 0 ? `(約 ${preview.reachable} 人)` : ''}
+              に送ることを確かめました
+              <small className="adm-muted">
+                大会に申し込んでいない人にも届きます。送ったあとは取り消せません
+              </small>
+            </span>
+          </label>
+        ) : preview.recipients.length === 0 ? (
           <p className="adm-muted">今、この条件に当てはまる人はいません。</p>
         ) : (
           <details className="adm-recipients">
@@ -174,7 +190,7 @@ export default async function NewNotificationPage(props: IdPageProps) {
  */
 function primaryAction(
   formId: string,
-  preview: { canSend: boolean; reachable: number },
+  preview: { canSend: boolean; reachable: number; everyone: boolean },
   quotaEnough: boolean,
   later: boolean,
   sendAt: string | null,
@@ -184,7 +200,39 @@ function primaryAction(
       ? { label: `${scheduleText(sendAt)} に送る予約をする`, form: formId }
       : { label: '予約する', form: formId, disabled: true }
   }
+  // 友だち全員は、LINE がまだ数えていなくても(見込みが 0)送れる
+  if (preview.everyone) {
+    return preview.canSend && quotaEnough
+      ? {
+          label: `友だち全員${preview.reachable > 0 ? `(約 ${preview.reachable} 人)` : ''}に送る`,
+          form: formId,
+        }
+      : { label: '送る', form: formId, disabled: true }
+  }
   return preview.canSend && preview.reachable > 0 && quotaEnough
     ? { label: `${preview.reachable} 人に送る`, form: formId }
     : { label: '送る', form: formId, disabled: true }
+}
+
+/**
+ * 友だち全員の人数の見込み。宛先の人は LINE の一斉送信で決まるので一覧は無く、人数は LINE が数えた
+ * 前日までの友だちの数から、ブロックしている人を除いたもの(まだ数えていなければ分からない)。
+ */
+function EveryoneStats({ reachable }: { reachable: number }) {
+  return (
+    <>
+      <div className="adm-stats">
+        <Stat label="送る人(見込み)" value={reachable > 0 ? `約 ${reachable}` : '不明'} />
+        <Stat
+          label="今回使う配信数(見込み)"
+          value={reachable > 0 ? `約 ${reachable} 通` : '不明'}
+        />
+      </div>
+      <p className="adm-muted">
+        {reachable > 0
+          ? '人数は、LINE が数えた前日までの友だちの数から、ブロックしている人を除いた見込みです。'
+          : 'LINE がまだ友だちの数を数えていないので、人数と配信数は送るまで分かりません。'}
+      </p>
+    </>
+  )
 }

@@ -74,6 +74,7 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
         audience,
         body: field(form, 'body'),
         buttons: buttonsFromForm(form),
+        confirmAll: audience.kind === 'friends' && field(form, 'confirmAll') === 'on',
         requestKey: field(form, 'requestKey'),
         sendAt,
       })
@@ -84,7 +85,7 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
           `${scheduleText(sent.sendAt)} に送る予約をしました`,
         )
       }
-      const [kind, message] = sentNotice(sent.counts)
+      const [kind, message] = sentNotice(sent.counts, sent.audience.kind === 'friends')
       return withNotice(notifyPaths.detail(sent.id), kind, message)
     } catch (error) {
       if (uncertainFailure(error)) {
@@ -112,8 +113,13 @@ export async function resendNotificationAction(formData: FormData): Promise<neve
   return runActionTo(formData, async ({ token, form, back }) => {
     try {
       const sent = await notifications.resend(token, idField(form, 'id'))
-      const [kind, message] = sentNotice(sent.counts)
-      return withNotice(back, kind, kind === 'ok' ? '送れなかった人に送り直しました' : message)
+      const everyone = sent.audience.kind === 'friends'
+      const [kind, message] = sentNotice(sent.counts, everyone)
+      return withNotice(
+        back,
+        kind,
+        kind === 'ok' && !everyone ? '送れなかった人に送り直しました' : message,
+      )
     } catch (error) {
       if (uncertainFailure(error)) {
         logUnknown('resend notification', error)

@@ -139,8 +139,21 @@ LINE から出した申込の代表には、受付、送り直しの受付、承
 - メンバーの登録が揃っていない代表
 - 承認したチームの代表と、LINE で登録したメンバー
 - 前の大会に申し込み、この大会にはまだ申し込んでいない代表(受付を始めた知らせ)
+- 記録係をまだ選んでいないチームの代表
+- 公式 LINE の友だち全員
 
-どれも LINE から申し込んだ人だけで、運営が代わりに入れた申込の代表には送れない。
+友だち全員のほかは LINE から申し込んだ人だけで、運営が代わりに入れた申込の代表には送れない。
+友だち全員は LINE の一斉送信[^line-broadcast]で送るので、申し込んでいない人や、この仕組みが記録する前に友だちになった人にも届き、宛先の人は分からない。
+取り消せず、配信数を一度に多く使うので、送る画面で人数の見込み(LINE が数えた前日の友だちの数からブロックの数を引いたもの[^line-followers])と配信数を見せ、運営が確かめる欄に印を付けたときだけ送る。
+文には差し込みが使えない(誰に届くか分からないため)。
+
+文の下には、押すと開くボタンを 3 つまで付けられる(申込を開く、スコアサイトを見る、運営が書いたリンク)。
+ボタンがあれば、文とボタンを LINE のカード(Flex Message)で送る。
+申込を開くボタンは公式アカウントに「エントリー」と送るボタンで、押した人に本人用の申込のリンクが返る(リンクは人ごとに違うので、ボタンに直接は入れられない)。
+
+申し込んだ人への送信では、文に差し込み({チーム名}、{招待リンク}、{まだ登録していない人})を書ける。
+送る人ごとにその人のチームの値に置き換え、置き換えた文が同じ人どうしをまとめて送る(LINE の 1 回の送信は全員に同じ文を送るため)。
+置き換えた文は人ごとに記録し、送り直しでは記録した文を同じキーで送る(1 回目と違う文にしない)。
 同じ人は 1 人にまとめ、届く文の 1 行目には大会名を付ける(大会をまたいで申し込んでいる人が、どの大会の話かを取り違えないように)。
 手動の「送る」は、宛先を 500 人ずつのまとまりに分け、まとまりごとに LINE の送り直しのキー[^line-retry]を決めて記録してから、同じ要求の中でマルチキャストで送り、宛先ごとの結果を書く。
 送る画面を開くたびに作る乱数で同じ送信を 2 回記録しないので、押し直しや応答の前の再送では送られない。
@@ -356,5 +369,7 @@ Vercel schedules(15 分ごと)──▶ web(/cron/notify)──内部──▶ a
 [^line-provider-design]: [プロバイダー設計の基本 | LINE Developers](https://developers.line.biz/ja/tips/2026/06/25/provider-design-basics/)。「異なるプロバイダー配下のチャネルで取得したユーザーIDは、同じユーザーであっても異なる値になります。」
 [^line-multi-tools]: [1つのLINE公式アカウントで複数のツールからMessaging APIを使うときの確認点 | LINE Developers](https://developers.line.biz/ja/tips/2026/07/23/using-multiple-api-tools/)。
 [^line-token]: [Channel access token | LINE Developers](https://developers.line.biz/en/docs/basics/channel-access-token/)。
+[^line-broadcast]: Messaging API リファレンスの「ブロードキャストメッセージを送る」(https://developers.line.biz/ja/reference/messaging-api/#send-broadcast-message 、2026 年 11 月に確認)。宛先を指定せず、友だち全員に送る。送り直しのキーに対応し(API の要求の再試行の説明の一覧にもある)、要求は 1 時間に 60 回まで。
+[^line-followers]: Messaging API リファレンスの「友だち数を取得する」(https://developers.line.biz/ja/reference/messaging-api/#get-number-of-followers 、2026 年 11 月に確認)。日付は日本時間で、数え終えるまでふつう 1 日ほどかかる(それまでは unready)。followers は友だちになった人の累計でブロックされても減らず、blocks はその日にブロックしている人の数。要求は 1 時間に 60 回まで。
 [^line-retry]: LINE Developers の API の要求の再試行の説明(https://developers.line.biz/en/docs/messaging-api/retrying-api-request/ 、2026 年 11 月に確認)。送り直しのキーは最初の要求から 24 時間有効で、要求が一度受け付けられる(200)と、同じキーの要求は 409 になる。送り直しでは宛先と内容を変えないよう求めている。
 [^line-url-scheme]: [Using LINE URL scheme | LINE Developers](https://developers.line.biz/en/docs/messaging-api/using-line-url-scheme/)。
