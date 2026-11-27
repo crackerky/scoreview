@@ -208,7 +208,8 @@ func withoutSpaces(name string) string {
 // CheckJoin はメンバー登録の中身を確かめ、前後の空白を除いた中身と、整えた答えを返す。members は
 // チームの今のメンバーで、選んだ行がこのチームの、まだ誰も結んでいない行(または自分の行)であること、
 // 代表の行(repRows。RepRows の結果)でないこと、背番号がほかの人と重ならないことを確かめる。mine は
-// この人がもう登録した行(無ければ nil)。
+// この人がもう登録した行(無ければ nil)。名簿から選ばずに書いた名前が、まだ誰も結んでいない行の名前と
+// 1 つだけ同じなら、その行で登録する。
 func CheckJoin(
 	draft JoinDraft,
 	members []Member,
@@ -246,6 +247,16 @@ func CheckJoin(
 		}
 		self = picked.ID
 	}
+	// 名簿から選ばなくても、まだ誰も登録していない同じ名前の行(空白の違いは見ない)があれば、その行で
+	// 登録する(代表の名簿と本人の登録が二重にならないように)。背番号を空にしたなら、代表が書いた背番号を残す
+	if draft.MemberID == nil && mine == nil {
+		if row := unclaimedNamed(members, repRows, name); row != nil {
+			self = row.ID
+			if number == "" {
+				number = row.Number
+			}
+		}
+	}
 	if err := CheckNumberFree(members, self, number); err != nil {
 		return JoinDraft{}, nil, err
 	}
@@ -282,6 +293,24 @@ func MemberOf(members []Member, lineUserID int64) *Member {
 		}
 	}
 	return nil
+}
+
+// unclaimedNamed は、まだ誰も登録していない、代表の行でない、名前が name の行(空白の違いは見ない。
+// 同じ名前の行が 2 つ以上なら、どれか分からないので nil)。
+func unclaimedNamed(members []Member, repRows map[int64]bool, name string) *Member {
+	want := withoutSpaces(name)
+	var found *Member
+	for i := range members {
+		row := &members[i]
+		if row.Registered || repRows[row.ID] || withoutSpaces(row.Name) != want {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = row
+	}
+	return found
 }
 
 func findMember(members []Member, id int64) *Member {

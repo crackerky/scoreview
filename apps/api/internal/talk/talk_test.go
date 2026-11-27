@@ -162,46 +162,71 @@ func message(id, user, text string) talk.Event {
 	return talk.Event{ID: id, Type: talk.EventMessage, UserID: user, ReplyToken: "r-" + id, Text: text}
 }
 
-func TestBotRepliesEntryLinksForEachOpenTournament(t *testing.T) {
-	bot, _, _, messenger := setup()
+// 「エントリー」には、まず代表かメンバーかを選ぶボタンを返す(リンクはまだ作らない)。
+func TestBotAsksRepOrMember(t *testing.T) {
+	bot, _, links, messenger := setup()
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", " エントリー ")}))
 	reply := messenger.replies["r-1"]
 	require.Len(t, reply, 1)
+	assert.Equal(t, talk.TextEntryChoice, reply[0].Text)
+	assert.Equal(t, []talk.Choice{{Label: "代表として申し込む", Data: talk.PostbackEntryRep},
+		{Label: "メンバーとして登録する", Data: talk.PostbackEntryMember}}, reply[0].Choices)
+	assert.Empty(t, links.issued)
+}
+
+func postback(id, user, data string) talk.Event {
+	return talk.Event{ID: id, Type: talk.EventPostback, UserID: user, ReplyToken: "r-" + id, PostbackData: data}
+}
+
+// 代表を選ぶと、大会ごとの申込のリンクを返し、メンバーの名前は書かなくてもよいことを先に書く。
+func TestBotRepliesEntryLinksForEachOpenTournament(t *testing.T) {
+	bot, _, _, messenger := setup()
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("1", "U1", talk.PostbackEntryRep)}))
+	reply := messenger.replies["r-1"]
+	require.Len(t, reply, 1)
+	assert.Contains(t, reply[0].Text, "書かなくても申し込めます")
 	assert.Contains(t, reply[0].Text, "ラバー 2027\nhttps://score.example/entry/team-1-7")
 	assert.Contains(t, reply[0].Text, "ルーキーズファイナル\nhttps://score.example/entry/team-1-9")
 	assert.Contains(t, reply[0].Text, "3 日間")
-	// まだどのチームにも登録していない人には、メンバーの登録のしかたを分けて書く
-	assert.Contains(t, reply[0].Text, "\n\nメンバーの方\n"+talk.TextMemberHowTo)
+	assert.NotContains(t, reply[0].Text, "メンバー登録は", "the rep sees only the rep's way in")
+
+	// ボタンを押さずに「代表」と打っても同じ
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", "代表")}))
+	assert.Contains(t, messenger.replies["r-2"][0].Text, "ラバー 2027")
 }
 
-// メンバーとして登録した人が「エントリー」と送ったら、代表の申込とは別に、自分の登録のリンクを返す
-// (代表の申込の画面を開いて、同じチームの申込を作ってしまわないように)。
+// メンバーを選ぶと、登録したチームのリンクを返す(代表の申込のリンクは返さない。代表の申込の画面を
+// 開いて、同じチームの申込を作ってしまわないように)。
 func TestBotRepliesJoinedTeamsToAMember(t *testing.T) {
 	bot, _, links, messenger := setup()
 	links.joined = []entry.JoinedTeam{{TeamEntryID: 41, TeamName: "熱海ディスクス",
 		Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}}}
-	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "エントリー")}))
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("1", "U1", talk.PostbackEntryMember)}))
 	text := messenger.replies["r-1"][0].Text
-	assert.True(t, strings.HasPrefix(text, "メンバーの方\n"), "the member's own registration comes first: %s", text)
-	assert.Contains(t, text, "\n\nチームの代表の方\n大会のリンクから")
-	assert.Contains(t, text, "メンバーの方\n登録したチームの確かめと直しは、チームのリンクからできます。\n\n"+
-		"「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/joined-1-41")
-	assert.NotContains(t, text, talk.TextMemberHowTo)
+	assert.True(t, strings.HasPrefix(text, "登録したチームの確かめと直しは、チームのリンクからできます。\n\n"+
+		"「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/joined-1-41"), text)
+	assert.Equal(t, []string{"joined-1-41"}, links.issued, "no rep links for a member")
+
+	// まだどのチームにも登録していない人には、登録のしかたを返す
+	links.joined = nil
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", "メンバー登録")}))
+	assert.Equal(t, talk.TextMemberHowTo, messenger.replies["r-2"][0].Text)
 }
 
 func TestBotRichMenuPostbackAlsoStartsEntry(t *testing.T) {
 	bot, _, _, messenger := setup()
 	event := talk.Event{ID: "1", Type: talk.EventPostback, UserID: "U1", ReplyToken: "r", PostbackData: talk.PostbackEntry}
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{event}))
-	assert.Len(t, messenger.replies["r"], 1)
+	require.Len(t, messenger.replies["r"], 1)
+	assert.Len(t, messenger.replies["r"][0].Choices, 2)
 }
 
 func TestBotNoOpenTournament(t *testing.T) {
 	bot, _, links, messenger := setup()
 	links.tournaments = nil
-	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "申し込み")}))
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("1", "U1", talk.PostbackEntryRep)}))
 	text := messenger.replies["r-1"][0].Text
-	assert.Equal(t, "チームの代表の方\n"+talk.TextNoOpenTournament+"\n\nメンバーの方\n"+talk.TextMemberHowTo, text)
+	assert.Equal(t, talk.TextNoOpenTournament, text)
 	assert.NotContains(t, text, "日間", "no links, so no lifetime note")
 }
 
@@ -252,7 +277,7 @@ func TestBotHelpsOncePerDay(t *testing.T) {
 
 func TestBotHandlesTheSameEventOnce(t *testing.T) {
 	bot, _, links, _ := setup()
-	event := message("1", "U1", "エントリー")
+	event := postback("1", "U1", talk.PostbackEntryRep)
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{event, event}))
 	assert.Len(t, links.issued, 2, "one link per open tournament, not two rounds")
 }
@@ -294,6 +319,10 @@ func TestCommandOf(t *testing.T) {
 		{"エントリーしたいです", talk.Command{Kind: talk.CommandEntry}},
 		{"大会に申し込みたい", talk.Command{Kind: talk.CommandEntry}},
 		{"記録の画面はどこですか", talk.Command{Kind: talk.CommandScore}},
+		// 代表とメンバーの入口は、決まった言い方だけ(運営とのやりとりの「代表の山田です」には返さない)
+		{"代表として申し込む", talk.Command{Kind: talk.CommandEntryRep}},
+		{"メンバー登録", talk.Command{Kind: talk.CommandEntryMember}},
+		{"代表の山田です。質問があります", talk.Command{Kind: talk.CommandHelp}},
 		// 知らない言葉には使い方の案内
 		{"こんにちは", talk.Command{Kind: talk.CommandHelp}},
 		{"", talk.Command{}},
@@ -302,6 +331,10 @@ func TestCommandOf(t *testing.T) {
 		assert.Equal(t, tc.want, talk.CommandOf(talk.Event{Type: talk.EventMessage, Text: tc.text}), tc.text)
 	}
 	assert.Equal(t, talk.Command{}, talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: "other"}))
+	assert.Equal(t, talk.Command{Kind: talk.CommandEntryRep},
+		talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: talk.PostbackEntryRep}))
+	assert.Equal(t, talk.Command{Kind: talk.CommandEntryMember},
+		talk.CommandOf(talk.Event{Type: talk.EventPostback, PostbackData: talk.PostbackEntryMember}))
 }
 
 func notice(kind entry.NoticeKind) entry.Notice {

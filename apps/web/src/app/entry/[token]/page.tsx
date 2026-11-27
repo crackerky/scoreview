@@ -40,7 +40,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 /** 送った後の知らせ(?done=) */
 const doneTexts: Readonly<Record<string, string>> = {
-  team: '申込を受け付けました。運営が確かめるまでお待ちください。下のボタンから、メンバーに登録のお願いを送れます。',
+  team: '申込を受け付けました。運営が確かめるまでお待ちください。次に、下のボタンからメンバーに招待リンクを送ってください。メンバーは各自の LINE から自分の名前を入れて登録します。代表の方も選手として出るなら、同じ招待リンクから登録してください。',
   resubmit: '直した申込を受け付けました。運営が確かめるまでお待ちください。',
   member: '登録しました。大会のお知らせは、この公式 LINE に届きます。',
   scorer:
@@ -112,6 +112,9 @@ function TeamSection({
           </details>
         ) : (
           <>
+            <p className="entry-lead">
+              代表の方の申込です。チームと代表の方のことを入れてください。メンバーは、申し込んだあとに届く招待リンクから、各自で登録します。
+            </p>
             <h2 className="site-heading">申込の内容</h2>
             <TeamEntryForm
               token={token}
@@ -154,7 +157,9 @@ function MemberSection({
         <p className="entry-notice ok">
           このチームに登録済みです。直すときは、書き換えてから登録を直すを押してください。
         </p>
-      ) : null}
+      ) : member.mine ? null : (
+        <p className="entry-lead">メンバーの方の登録です。自分の名前を入れて、登録してください。</p>
+      )}
       {member.team.status === 'cancelled' ? (
         <p className="entry-notice error">このチームの申込は取り消されています。</p>
       ) : (

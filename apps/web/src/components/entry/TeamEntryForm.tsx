@@ -53,7 +53,13 @@ export function TeamEntryForm({
   const listId = useId()
   // 前のチームを選んだときは全部を入れる。チーム名を書いて合ったときは、まだ空の欄だけを埋める
   // (書きかけの短縮名やメンバー表を消さないため)
-  const choose = (past: EntryPastTeam) => setTeam(pastTeamValues(past))
+  // メンバーの名前の欄は畳んでおき、名前が入っているとき(送り直し、前のチームから入れたとき)は開く
+  const [listOpen, setListOpen] = useState(team.members.trim() !== '')
+  const choose = (past: EntryPastTeam) => {
+    const values = pastTeamValues(past)
+    setTeam(values)
+    setListOpen((open) => open || values.members.trim() !== '')
+  }
   const typeName = (fullName: string) => {
     const past = findPastTeam(pastTeams, fullName)
     const values = past ? pastTeamValues(past) : null
@@ -62,6 +68,9 @@ export function TeamEntryForm({
       shortName: current.shortName || (values?.shortName ?? ''),
       members: current.members || (values?.members ?? ''),
     }))
+    if (values && values.members.trim() !== '') {
+      setListOpen(true)
+    }
   }
   return (
     <form action={formAction} onSubmit={submitLinkForm(formAction)} className="entry-form">
@@ -167,20 +176,30 @@ export function TeamEntryForm({
           </ul>
         </div>
       ) : null}
-      <label className="entry-field">
-        <span>
-          {registered.length > 0 ? 'ほかのメンバー' : 'メンバー'}
-          (1 行に 1
-          人。背番号は名前の前に。メンバー本人が招待リンクから登録するので、空でもかまいません)
-        </span>
-        <textarea
-          name="members"
-          rows={6}
-          placeholder={'7 山田 太郎\n12 佐藤 花子'}
-          value={team.members}
-          onChange={(event) => setTeam({ ...team, members: event.target.value })}
-        />
-      </label>
+      {/* メンバーは申し込んだあとに招待リンクから各自で登録するので、名簿は分かる人だけが書く欄にして
+          畳む */}
+      <details
+        className="entry-details"
+        open={listOpen}
+        onToggle={(event) => setListOpen(event.currentTarget.open)}
+      >
+        <summary>
+          {registered.length > 0
+            ? 'ほかのメンバーの名前を書いておく'
+            : 'メンバーの名前を書いておく'}
+          (分かれば。書かなくても申し込めます)
+        </summary>
+        <label className="entry-field">
+          <span>1 行に 1 人。背番号は名前の前に</span>
+          <textarea
+            name="members"
+            rows={6}
+            placeholder={'7 山田 太郎\n12 佐藤 花子'}
+            value={team.members}
+            onChange={(event) => setTeam({ ...team, members: event.target.value })}
+          />
+        </label>
+      </details>
       {questions.map((question) => (
         <EntryAnswerField
           key={question.id}

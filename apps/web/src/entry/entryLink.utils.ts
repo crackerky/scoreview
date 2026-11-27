@@ -129,7 +129,7 @@ export function resubmitValues(entry: EntryDetail): Record<string, string> {
  * メンバーで、新しいリンクの受け取り方が違う。
  */
 export const linkUnusableText =
-  'リンクの期限が切れたか、リンクが正しくありません。代表の方は公式 LINE にもう一度「エントリー」と送ると、新しいリンクが届きます。メンバーの方は、代表の方から届いた招待リンクを開き直してください。'
+  'リンクの期限が切れたか、リンクが正しくありません。代表の方は公式 LINE にもう一度「エントリー」と送り、代表として申し込むを押すと、新しいリンクが届きます。メンバーの方は、代表の方から届いた招待リンクを開き直してください。'
 
 /** 項目の参加者向けの呼び方 */
 function fieldName(field: string): string {

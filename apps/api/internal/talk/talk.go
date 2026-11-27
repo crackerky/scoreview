@@ -41,9 +41,18 @@ type Event struct {
 	At           time.Time
 }
 
-// Message は返すメッセージ。今は文だけ。
+// Message は返すメッセージ。Choices があれば、文の下に押せるボタンを並べる(押すとそのボタンの Data が
+// ポストバックで届き、トークにはボタンの文字が本人の発言として出る)。
 type Message struct {
-	Text string
+	Text    string
+	Choices []Choice
+}
+
+// Choice は文の下のボタン 1 つ。Label はボタンの文字(LINE の決まりで 20 字まで)、Data は押したときに届く
+// ポストバックのデータ(PostbackEntryRep など)。
+type Choice struct {
+	Label string
+	Data  string
 }
 
 // Messenger は公式アカウントとして送る。line が実装する。
@@ -149,6 +158,8 @@ func (b *Bot) respond(ctx context.Context, event Event) error {
 
 func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Message, error) {
 	switch command.Kind {
+	case CommandEntry:
+		return []Message{EntryChoiceMessage()}, nil
 	case CommandJoinHelp:
 		return []Message{{Text: TextJoinHowTo}}, nil
 	case CommandHelp:
@@ -189,6 +200,18 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 		}
 		return []Message{{Text: ScorerLinksText(scorer)}}, nil
 	}
+	if command.Kind == CommandEntryMember {
+		joinedLinks, err := b.links.IssueJoinedLinks(ctx, lineUser)
+		if err != nil {
+			return nil, err
+		}
+		joined := make([]JoinedTeamLink, len(joinedLinks))
+		for i, link := range joinedLinks {
+			joined[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
+				URL: b.linkURL(link.Token)}
+		}
+		return []Message{{Text: MemberReplyText(joined)}}, nil
+	}
 	links, err := b.links.IssueTeamLinks(ctx, lineUser)
 	if err != nil {
 		return nil, err
@@ -197,16 +220,7 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 	for i, link := range links {
 		issued[i] = TeamLink{Tournament: link.Tournament.Name, URL: b.linkURL(link.Token)}
 	}
-	joinedLinks, err := b.links.IssueJoinedLinks(ctx, lineUser)
-	if err != nil {
-		return nil, err
-	}
-	joined := make([]JoinedTeamLink, len(joinedLinks))
-	for i, link := range joinedLinks {
-		joined[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
-			URL: b.linkURL(link.Token)}
-	}
-	return []Message{{Text: EntryReplyText(issued, joined)}}, nil
+	return []Message{{Text: RepReplyText(issued)}}, nil
 }
 
 func (b *Bot) linkURL(token string) string {
@@ -220,8 +234,13 @@ type CommandKind int
 const (
 	CommandNone CommandKind = iota
 	// CommandEntry は申込の入口(リッチメニューの「エントリー」か、トークで「エントリー」と送った)。
-	// 代表の申込のリンクと、メンバーとして登録したチームの登録のリンクを返す
+	// 代表として申し込むか、メンバーとして登録するかを選ぶボタンを返す
 	CommandEntry
+	// CommandEntryRep は代表の入口(「代表として申し込む」を押した)。大会ごとの申込のリンクを返す
+	CommandEntryRep
+	// CommandEntryMember はメンバーの入口(「メンバーとして登録する」を押した)。登録したチームのリンクか、
+	// 登録のしかたを返す
+	CommandEntryMember
 	// CommandJoin はメンバー登録(招待リンクで開いたトークの「参加 招待コード」)
 	CommandJoin
 	// CommandScore はチームの記録係が記録の画面を開く(トークで「記録」と送った)
@@ -241,8 +260,32 @@ type Command struct {
 	InviteCode string
 }
 
-// PostbackEntry はリッチメニューの「エントリー」のポストバックのデータ。
-const PostbackEntry = "action=entry"
+// ポストバックのデータ。PostbackEntry はリッチメニューの「エントリー」、PostbackEntryRep と
+// PostbackEntryMember は「エントリー」への返信のボタン(リッチメニューに置いてもよい)。
+const (
+	PostbackEntry       = "action=entry"
+	PostbackEntryRep    = "action=entry-rep"
+	PostbackEntryMember = "action=entry-member"
+)
+
+// isRepWord は代表の入口として受け取る言葉か(ボタンを押さずに手で打ったとき。文の中の「代表」は運営との
+// やりとりにもよく出るので、決まった言い方だけを受ける)。
+func isRepWord(text string) bool {
+	switch text {
+	case "代表", "代表です", "代表として申し込む", "代表の申込", "代表の申し込み", "代表エントリー":
+		return true
+	}
+	return false
+}
+
+// isMemberWord はメンバーの入口として受け取る言葉か(isRepWord と同じく、決まった言い方だけ)。
+func isMemberWord(text string) bool {
+	switch text {
+	case "メンバー", "メンバーです", "メンバーとして登録する", "メンバー登録", "メンバーエントリー", "選手登録":
+		return true
+	}
+	return false
+}
 
 // isEntryWord は代表の申込として受け取る言葉か。リッチメニューの文のほか、手で打ちそうな言い方も受ける。
 func isEntryWord(text string) bool {
@@ -279,14 +322,25 @@ func inviteCodeOf(text string) string {
 // (スマートフォンの入力で招待コードの先頭が大文字になることがあるため)。
 func CommandOf(event Event) Command {
 	if event.Type == EventPostback {
-		if event.PostbackData == PostbackEntry {
+		switch event.PostbackData {
+		case PostbackEntry:
 			return Command{Kind: CommandEntry}
+		case PostbackEntryRep:
+			return Command{Kind: CommandEntryRep}
+		case PostbackEntryMember:
+			return Command{Kind: CommandEntryMember}
 		}
 		return Command{}
 	}
 	text := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(event.Text, "　", " ")))
 	if code := inviteCodeOf(text); code != "" {
 		return Command{Kind: CommandJoin, InviteCode: code}
+	}
+	if isRepWord(text) {
+		return Command{Kind: CommandEntryRep}
+	}
+	if isMemberWord(text) {
+		return Command{Kind: CommandEntryMember}
 	}
 	// 決まった言葉のほか、文の中にその言葉があれば同じものとして受ける(「エントリーしたいです」など)
 	if isEntryWord(text) || containsAny(text, "エントリ", "申込", "申し込", "もうしこ") {

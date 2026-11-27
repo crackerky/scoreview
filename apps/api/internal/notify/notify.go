@@ -46,7 +46,7 @@ type ButtonKind string
 
 // ButtonKind の値。
 const (
-	// ButtonEntry は公式アカウントに「エントリー」と送るボタン(押すと本人用の申込のリンクが返る)
+	// ButtonEntry は代表の申込の入口のボタン(押すと本人用の申込のリンクが返る)
 	ButtonEntry ButtonKind = "entry"
 	// ButtonSite はスコアサイトの大会のページを開くボタン(URL は Service が決める)
 	ButtonSite ButtonKind = "site"

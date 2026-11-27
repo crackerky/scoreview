@@ -308,7 +308,8 @@ func TestClientSendsButtonsAsACard(t *testing.T) {
 	assert.Equal(t, "大会\n\n明日は 8 時", sent["altText"])
 	data, err := json.Marshal(sent["contents"])
 	require.NoError(t, err)
-	assert.Contains(t, string(data), `"action":{"label":"申込を開く","text":"エントリー","type":"message"}`)
+	assert.Contains(t, string(data),
+		`"action":{"data":"action=entry-rep","displayText":"申込を開く","label":"申込を開く","type":"postback"}`)
 	assert.Contains(t, string(data), `"uri":"https://score.example/tournaments/7"`)
 }
 
@@ -354,4 +355,29 @@ func TestClientBroadcastsAndCountsFriends(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, count, again)
 	assert.Len(t, dates, 2, "the count is reused for a while (LINE allows 60 reads an hour)")
+}
+
+// 選ぶボタンのある返信は、ポストバックのボタンを並べたカードにし、押したボタンの文字がトークに残るように
+// する。
+func TestClientRepliesChoicesAsACard(t *testing.T) {
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth2/v3/token" {
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+			return
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		respond(w, `{}`)
+	}))
+	defer server.Close()
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	require.NoError(t, client.Reply(context.Background(), "r", []talk.Message{talk.EntryChoiceMessage(), {Text: "文だけ"}}))
+	messages := got["messages"].([]any) //nolint:forcetypeassert // テストで JSON の形を読む
+	require.Len(t, messages, 2)
+	data, err := json.Marshal(messages[0])
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"type":"flex"`)
+	assert.Contains(t, string(data),
+		`{"data":"action=entry-member","displayText":"メンバーとして登録する","label":"メンバーとして登録する","type":"postback"}`)
+	assert.Equal(t, map[string]any{"type": "text", "text": "文だけ"}, messages[1])
 }

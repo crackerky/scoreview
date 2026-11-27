@@ -72,6 +72,24 @@ func TestCheckJoin(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got.MemberID)
 
+	// 名簿から選ばなくても、まだ誰も登録していない同じ名前の行があれば、その行で登録する(空白の違いは
+	// 見ない。背番号を空にしたら代表が書いた背番号を残す)
+	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "山田太郎", Answers: answers}, members, nil, nil,
+		memberQuestions)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), *got.MemberID)
+	assert.Equal(t, "7", got.Number)
+	// 代表の行と、もう結ばれた行には自動で結ばない
+	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "鈴木 一郎", Answers: answers}, members, nil,
+		map[int64]bool{3: true}, memberQuestions)
+	require.NoError(t, err)
+	assert.Nil(t, got.MemberID)
+	twins := []entry.Member{members[0], members[1], members[2], {ID: 4, Name: "山田太郎"}}
+	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "山田 太郎", Answers: answers}, twins, nil, nil,
+		memberQuestions)
+	require.NoError(t, err)
+	assert.Nil(t, got.MemberID, "two rows of the same name: which one is not known")
+
 	// もう登録した人は、自分の行を直す(背番号は自分のものと重なってよい)
 	mine := members[1]
 	got, _, err = entry.CheckJoin(entry.JoinDraft{Name: "佐藤 花子", Number: "12", Answers: answers}, members,

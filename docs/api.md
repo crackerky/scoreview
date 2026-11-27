@@ -1099,8 +1099,8 @@ type NotificationSummary = {
   canResend: boolean                 // 今送り直せる宛先(failed と、送っている送信の持ち時間 15 分が切れた pending)があり、送ってから(予約は送る時刻から)24 時間以内で、LINE の設定がある
   buttons: NotificationButton[]      // 文の下のボタン(無ければ [] で、文だけで届けた)
 }
-// 文の下のボタン。entry は公式アカウントに「エントリー」と送るボタン(押した人に本人用の申込のリンクが
-// 返る。url は '')、site はスコアサイトの大会のページ(url は送るときに決めた実際の行き先)、url は運営が
+// 文の下のボタン。entry は代表の申込の入口のボタン(「代表として申し込む」と同じポストバック。押した人に
+// 本人用の申込のリンクが返る。url は '')、site はスコアサイトの大会のページ(url は送るときに決めた実際の行き先)、url は運営が
 // 書いた URL
 type NotificationButton = { kind: 'entry' | 'site' | 'url'; label: string; url: string }
 type NotificationDetail = NotificationSummary & {

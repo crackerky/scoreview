@@ -70,7 +70,7 @@ func linkToken(t *testing.T, text string) string {
 	return found[1]
 }
 
-// 公式 LINE で「エントリー」と送った代表が、返ってきた本人用のリンクで申し込み、招待リンクで
+// 公式 LINE で「エントリー」と送った代表が、代表を選んで返ってきた本人用のリンクで申し込み、招待リンクで
 // メンバーが「参加」を送って登録するまで。
 func TestLineEntryFlow(t *testing.T) {
 	db := testdb.New(t)
@@ -90,6 +90,13 @@ func TestLineEntryFlow(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 	assert.Empty(t, sent.texts)
 
+	rec = send(t, srv, http.MethodPost, "/api/v1/line/webhook", body, signature(body))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []string{talk.TextEntryChoice}, sent.texts, "first, the rep or the member is asked")
+	sent.texts = nil
+
+	// 「代表として申し込む」(ボタンを押さずに打った言い方)で、大会の申込のリンクが返る
+	body = lineEvent("01C", "Urep", "代表として申し込む")
 	rec = send(t, srv, http.MethodPost, "/api/v1/line/webhook", body, signature(body))
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Len(t, sent.texts, 1)

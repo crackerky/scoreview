@@ -15,6 +15,13 @@
   font-size: 13px;
 }
 
+/* 画面の初めの、この画面で何をするかの一言 */
+.entry-lead {
+  margin: 8px 0 20px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
 .entry-notice {
   margin: 12px 0;
   padding: 12px 14px;

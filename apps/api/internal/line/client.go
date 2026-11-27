@@ -192,10 +192,21 @@ type textMessage struct {
 	Text string `json:"text"`
 }
 
-func toMessages(messages []talk.Message) []textMessage {
-	out := make([]textMessage, len(messages))
+func toMessages(messages []talk.Message) []any {
+	out := make([]any, len(messages))
 	for i, message := range messages {
-		out[i] = textMessage{Type: "text", Text: message.Text}
+		if len(message.Choices) == 0 {
+			out[i] = textMessage{Type: "text", Text: message.Text}
+			continue
+		}
+		// 選ぶボタンはポストバックで届け、押したことがトークに本人の発言として残るよう displayText を付ける
+		// https://developers.line.biz/ja/reference/messaging-api/#postback-action
+		actions := make([]map[string]any, len(message.Choices))
+		for j, choice := range message.Choices {
+			actions[j] = map[string]any{"type": "postback", "label": choice.Label, "data": choice.Data,
+				"displayText": choice.Label}
+		}
+		out[i] = cardMessage(message.Text, actions)
 	}
 	return out
 }
@@ -205,27 +216,37 @@ func toMessages(messages []talk.Message) []textMessage {
 const maxAltText = 1500
 
 // toNotifyMessage は運営が送るものを LINE のメッセージにする。ボタンが無ければ文だけ、あれば文の下に
-// ボタンを縦に並べたカード(Flex Message の bubble)にする。申込のボタンは公式アカウントに「エントリー」を
-// 送り(押すと本人用の申込のリンクが返る)、ほかのボタンは URL を開く。
-// https://developers.line.biz/ja/reference/messaging-api/#message-action
+// ボタンを縦に並べたカード(Flex Message の bubble)にする。申込のボタンは代表の入口のポストバックを送り
+// (押すと本人用の申込のリンクが返る)、ほかのボタンは URL を開く。
+// https://developers.line.biz/ja/reference/messaging-api/#postback-action
 // https://developers.line.biz/ja/reference/messaging-api/#uri-action
 func toNotifyMessage(message notify.Message) any {
 	if len(message.Buttons) == 0 {
 		return textMessage{Type: "text", Text: message.Text}
 	}
-	buttons := make([]map[string]any, len(message.Buttons))
+	actions := make([]map[string]any, len(message.Buttons))
 	for i, button := range message.Buttons {
-		action := map[string]any{"type": "uri", "label": button.Label, "uri": button.URL}
+		actions[i] = map[string]any{"type": "uri", "label": button.Label, "uri": button.URL}
+		// 申込を開くボタンは代表の入口と同じポストバック(押した人に代表の申込のリンクが返る)
 		if button.Kind == notify.ButtonEntry {
-			action = map[string]any{"type": "message", "label": button.Label, "text": "エントリー"}
+			actions[i] = map[string]any{"type": "postback", "label": button.Label, "data": talk.PostbackEntryRep,
+				"displayText": button.Label}
 		}
+	}
+	return cardMessage(message.Text, actions)
+}
+
+// cardMessage は文の下にボタンを縦に並べたカード(Flex Message の bubble)。先頭のボタンだけ目立たせる。
+func cardMessage(text string, actions []map[string]any) map[string]any {
+	buttons := make([]map[string]any, len(actions))
+	for i, action := range actions {
 		style := "secondary"
 		if i == 0 {
 			style = "primary"
 		}
 		buttons[i] = map[string]any{"type": "button", "style": style, "height": "sm", "action": action}
 	}
-	alt := []rune(message.Text)
+	alt := []rune(text)
 	if len(alt) > maxAltText {
 		alt = alt[:maxAltText]
 	}
@@ -235,7 +256,7 @@ func toNotifyMessage(message notify.Message) any {
 		"contents": map[string]any{
 			"type": "bubble",
 			"body": map[string]any{"type": "box", "layout": "vertical", "contents": []any{
-				map[string]any{"type": "text", "text": message.Text, "wrap": true, "size": "md"},
+				map[string]any{"type": "text", "text": text, "wrap": true, "size": "md"},
 			}},
 			"footer": map[string]any{"type": "box", "layout": "vertical", "spacing": "sm", "contents": buttons},
 		},

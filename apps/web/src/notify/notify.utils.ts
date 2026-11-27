@@ -367,7 +367,7 @@ export const scorerRequestBody = [
   '',
   '試合のスコアを入れる記録係を、チームから 1 人選んでください。記録係は、自分たちの試合のスコアを入れます。',
   '',
-  'メニューの「エントリー」を押すか「エントリー」と送ると、申込の画面が開きます。記録係は、LINE でメンバー登録をした人から選べます。',
+  '下の申込を開くを押すと、申込の画面のリンクが届きます。記録係は、LINE でメンバー登録をした人から選べます。',
 ].join('\n')
 
 /** 送る時刻に送れなかった理由の言葉 */
@@ -433,7 +433,7 @@ export function buttonDestination(button: {
 }): string {
   switch (button.kind) {
     case 'entry':
-      return '公式 LINE に「エントリー」と送り、その人の申込のリンクが返ります'
+      return 'その人の代表の申込のリンクが公式 LINE から届きます'
     case 'site':
       return button.url === '' ? 'この大会のスコアサイトのページを開きます' : button.url
     case 'url':

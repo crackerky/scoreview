@@ -21,8 +21,7 @@ const TextJoinHowTo = "メンバー登録は、チームの代表から届いた
 
 // TextHelp は知らない言葉への使い方の案内(同じ人に 1 日 1 回だけ返す)。
 const TextHelp = "このトークでできること\n\n" +
-	"大会への申込と、出した申込の確かめ\n「エントリー」と送るか、メニューの「エントリー」を押してください。\n\n" +
-	"メンバー登録\nチームの代表から届いた招待リンクを開いてください。\n\n" +
+	"大会への申込とメンバー登録\n「エントリー」と送るか、メニューの「エントリー」を押して、代表かメンバーかを選んでください。\n\n" +
 	"記録係の記録\n「記録」と送ってください。\n\n" +
 	"ほかのご用件は、このままメッセージを送ってください。運営が確かめます。"
 
@@ -43,45 +42,59 @@ type JoinedTeamLink struct {
 }
 
 // TextMemberHowTo は、まだどのチームにもメンバーとして登録していない人への、登録のしかた。
-const TextMemberHowTo = "代表から届いた招待リンクを開いて、そのまま参加のメッセージを送ってください。"
+const TextMemberHowTo = "メンバー登録は、チームの代表が申し込んだあとにできます。\n" +
+	"代表から届く招待リンクを開いて、そのまま「参加」のメッセージを送ってください。名前は自分で入れます。"
 
-// EntryReplyText は「エントリー」への返信。代表とメンバーは手順が違うので、代表の方とメンバーの方に
-// 分けて書く(メンバーが代表の申込の画面を開き、同じチームの申込をもう 1 つ作ってしまわないように)。
-// 代表の方には大会ごとの申込のリンクを、メンバーの方には登録したチームの登録のリンクか、登録のしかたを
-// 並べる。リンクは本人用で、期限があることを書く。受付を締めた大会でも、申込を出した人には、出した
-// 申込を確かめるリンクが並ぶ。
-func EntryReplyText(teams []TeamLink, joined []JoinedTeamLink) string {
-	var rep strings.Builder
-	rep.WriteString("チームの代表の方\n")
+// TextEntryChoice は「エントリー」への返信。代表とメンバーで入口が違うので、本人に選んでもらう。
+const TextEntryChoice = "チームの代表の方は、大会への申込から始めてください。\n" +
+	"メンバーの方は、代表が申し込んだあとに、代表から届く招待リンクで登録します。\n\n" +
+	"どちらか選んでください。"
+
+// EntryChoiceMessage は「エントリー」への返信の、代表かメンバーかを選ぶボタンつきの文。
+func EntryChoiceMessage() Message {
+	return Message{Text: TextEntryChoice, Choices: []Choice{
+		{Label: "代表として申し込む", Data: PostbackEntryRep},
+		{Label: "メンバーとして登録する", Data: PostbackEntryMember},
+	}}
+}
+
+// linkNote はリンクの扱いの一文。
+func linkNote() string {
+	return fmt.Sprintf("リンクはあなた専用で、%d 日間使えます。ほかの人に送らないでください。", entry.LinkLifetimeDays)
+}
+
+// RepReplyText は代表の入口への返信。大会ごとの申込のリンクを並べる。メンバーの名前は分かる人だけ書けば
+// よく、申し込むとメンバーに送る招待リンクが届くことを先に書く(メンバー表を埋めないと申し込めないと
+// 思わせないため)。受付を締めた大会でも、申込を出した人には、出した申込を確かめるリンクが並ぶ。
+func RepReplyText(teams []TeamLink) string {
 	if len(teams) == 0 {
-		rep.WriteString(TextNoOpenTournament)
-	} else {
-		rep.WriteString("大会のリンクから、申込と、出した申込の確かめができます。")
-		for _, link := range teams {
-			fmt.Fprintf(&rep, "\n\n%s\n%s", link.Tournament, link.URL)
-		}
+		return TextNoOpenTournament
 	}
-	var member strings.Builder
-	member.WriteString("メンバーの方\n")
+	var text strings.Builder
+	text.WriteString("代表の方の申込は、大会のリンクから入れます。出した申込の確かめと直しも、同じリンクからできます。\n" +
+		"メンバーの名前は、分かれば書いてください。書かなくても申し込めます。\n" +
+		"申し込むと、メンバーに送る招待リンクが届きます。")
+	for _, link := range teams {
+		fmt.Fprintf(&text, "\n\n%s\n%s", link.Tournament, link.URL)
+	}
+	text.WriteString("\n\n" + linkNote())
+	return text.String()
+}
+
+// MemberReplyText はメンバーの入口への返信。登録したチームがあればその確かめと直しのリンクを、無ければ
+// 登録のしかたを返す。
+func MemberReplyText(joined []JoinedTeamLink) string {
 	if len(joined) == 0 {
-		member.WriteString(TextMemberHowTo)
-	} else {
+		return TextMemberHowTo
+	}
+	var text strings.Builder
+	text.WriteString("登録したチームの確かめと直しは、チームのリンクからできます。")
+	for _, link := range joined {
 		// チーム名は代表が書いたものなので「」で囲む(MemberLinkText と同じ)
-		member.WriteString("登録したチームの確かめと直しは、チームのリンクからできます。")
-		for _, link := range joined {
-			fmt.Fprintf(&member, "\n\n「%s」%s\n%s", link.Team, link.Tournament, link.URL)
-		}
+		fmt.Fprintf(&text, "\n\n「%s」%s\n%s", link.Team, link.Tournament, link.URL)
 	}
-	// メンバーとして登録した人には、自分の登録を先に見せる(代表の申込のリンクの後ろに埋もれないように)
-	parts := []string{rep.String(), member.String()}
-	if len(joined) > 0 {
-		parts = []string{member.String(), rep.String()}
-	}
-	if len(teams)+len(joined) > 0 {
-		parts = append(parts, fmt.Sprintf("リンクはあなた専用で、%d 日間使えます。ほかの人に送らないでください。",
-			entry.LinkLifetimeDays))
-	}
-	return strings.Join(parts, "\n\n")
+	text.WriteString("\n\nほかのチームに登録するときは、そのチームの代表から届く招待リンクを開いてください。\n" + linkNote())
+	return text.String()
 }
 
 // TextNotScorer は記録係に選ばれていない人が「記録」と送ったときの返信。
@@ -141,7 +154,8 @@ func NoticeMessages(notice entry.Notice, siteURL string) []Message {
 			team, tournament, siteURL, notice.Tournament.ID)}}
 	case entry.NoticeReturned:
 		return []Message{{Text: fmt.Sprintf("%sの申込について、運営から直してほしいことがあります。\n\n%s\n\n"+
-			"メニューの「エントリー」を押すか「エントリー」と送ると、直す画面が開きます。", team, detail.ReturnNote)}}
+			"下のボタンを押すと、直す画面のリンクが届きます。", team, detail.ReturnNote),
+			Choices: []Choice{{Label: "直す画面を開く", Data: PostbackEntryRep}}}}
 	case entry.NoticeScorerChosen:
 		return []Message{{Text: fmt.Sprintf("%sの%sの記録係になりました。\n"+
 			"当日は、このトークで「記録」と送ると、記録の画面が開きます。自分たちの試合のスコアを入れてください。",
