@@ -78,6 +78,11 @@ const rules: readonly Rule[] = [
   { field: /^questions$/, text: '質問は 30 問までです' },
   { field: /^body$/, reason: /is required/, text: '送る文を書いてください' },
   { field: /^body$/, reason: /at most/, text: '送る文は 2000 字までです' },
+  {
+    field: /^body$/,
+    reason: /can be used only for the reps/,
+    text: '招待リンクとまだ登録していない人の差し込みは、この大会に申し込んだ代表に送るときだけ使えます',
+  },
   { field: /^body$/, text: '送る文に使えない文字が入っています。貼り付けた文を確かめてください' },
   {
     field: /^buttons\[\d+\]\.url$/,

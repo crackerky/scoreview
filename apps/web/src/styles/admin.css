@@ -2478,6 +2478,15 @@
   margin: 0 0 22px;
 }
 
+/* 差し込みのボタンの並び(押すと文の欄に {チーム名} などが入る) */
+.adm-variables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
 .adm-bubble-preview figcaption {
   margin: 0 0 6px;
   color: var(--adm-muted);

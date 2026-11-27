@@ -106,6 +106,8 @@ export default async function NewNotificationPage(props: IdPageProps) {
               : ''
         }
         initialButtons={query.template === 'scorer' ? scorerRequestButtons : undefined}
+        variables={preview.variables}
+        sampleName={preview.sampleName}
       >
         <div className="adm-stats">
           <Stat

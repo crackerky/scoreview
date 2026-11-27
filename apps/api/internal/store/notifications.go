@@ -23,9 +23,13 @@ const (
 	sqlTableTeamEntries    = "team_entries AS te"
 	sqlTableMemberEntries  = "member_entries AS me"
 	sqlSelectRepRecipients = "lu.id, lu.line_user_id, lu.friend, lu.name AS profile_name, " +
-		"te.rep_name AS entry_name, te.team_name_full AS team_name"
+		"te.rep_name AS entry_name, te.team_name_full AS team_name, te.id AS entry_id, te.invite_code, TRUE AS rep"
 	sqlSelectMemberRecipients = "lu.id, lu.line_user_id, lu.friend, lu.name AS profile_name, " +
-		"me.name AS entry_name, te.team_name_full AS team_name"
+		"me.name AS entry_name, te.team_name_full AS team_name, te.id AS entry_id, '' AS invite_code, FALSE AS rep"
+	// 代表が書いたメンバーのうち、まだ自分の LINE を結んでいない人({まだ登録していない人} の差し込み)
+	sqlSelectUnregistered = "me.team_entry_id, me.name"
+	sqlUnregisteredOf     = "me.team_entry_id IN ? AND me.line_user_id IS NULL"
+	sqlOrderUnregistered  = "me.team_entry_id, me.sort_order, me.id"
 	sqlJoinRepLineUser    = "JOIN line_users lu ON lu.id = te.rep_line_user_id"
 	sqlJoinMemberLineUser = "JOIN line_users lu ON lu.id = me.line_user_id"
 	sqlJoinMemberEntry    = "JOIN team_entries te ON te.id = me.team_entry_id"
@@ -97,6 +101,8 @@ type NotificationJob struct {
 	RetryKey     string     `gorm:"column:retry_key"`
 	ClaimedUntil *time.Time `gorm:"column:claimed_until"`
 	SentAt       *time.Time `gorm:"column:sent_at"`
+	// Body はその人に差し込んで送った文(migrations/00049。差し込みの無い送信は空)
+	Body string `gorm:"column:body"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -169,6 +175,16 @@ type recipientRow struct {
 	ProfileName string `gorm:"column:profile_name"`
 	EntryName   string `gorm:"column:entry_name"`
 	TeamName    string `gorm:"column:team_name"`
+	EntryID     int64  `gorm:"column:entry_id"`
+	InviteCode  string `gorm:"column:invite_code"`
+	// Rep はこの行が代表として(メンバーではなく)の行か
+	Rep bool `gorm:"column:rep"`
+}
+
+// unregisteredRow はまだ登録していないメンバー 1 人。
+type unregisteredRow struct {
+	TeamEntryID int64  `gorm:"column:team_entry_id"`
+	Name        string `gorm:"column:name"`
 }
 
 // Recipients は notify.Store.Recipients。問い合わせは条件ごとに 1 回(参加者は代表とメンバーの 2 回)。
@@ -224,14 +240,44 @@ func (s *NotifyStore) Recipients(
 		}
 		rows = append(rows, found...)
 	}
-	return collectRecipients(rows), nil
+	unregistered, err := s.unregistered(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	return collectRecipients(rows, unregistered), nil
+}
+
+// unregistered は代表の行の申込ごとの、まだ登録していないメンバーの名前(書いた順)。
+func (s *NotifyStore) unregistered(ctx context.Context, rows []recipientRow) (map[int64][]string, error) {
+	var ids []int64
+	for _, row := range rows {
+		if row.Rep {
+			ids = append(ids, row.EntryID)
+		}
+	}
+	out := map[int64][]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var found []unregisteredRow
+	err := s.db.WithContext(ctx).Table(sqlTableMemberEntries).Select(sqlSelectUnregistered).
+		Where(sqlUnregisteredOf, ids).Order(sqlOrderUnregistered).Find(&found).Error
+	if err != nil {
+		return nil, fmt.Errorf("list unregistered members: %w", err)
+	}
+	for _, row := range found {
+		out[row.TeamEntryID] = append(out[row.TeamEntryID], row.Name)
+	}
+	return out, nil
 }
 
 // collectRecipients は行を人ごとにまとめる。並びは最初に出てきた順で、チーム名は 1 人につき
 // maxTeamsPerRecipient まで(画面で宛先を見分けるためのもので、全部は要らない)。
-func collectRecipients(rows []recipientRow) []notify.Recipient {
+func collectRecipients(rows []recipientRow, unregistered map[int64][]string) []notify.Recipient {
 	out := []notify.Recipient{}
 	index := make(map[int64]int, len(rows))
+	// entries は人ごとの、申込の id から Entries の位置(代表とメンバーの両方で同じ申込に出てくる人は 1 つに)
+	entries := make(map[int64]map[int64]int, len(rows))
 	for _, row := range rows {
 		at, ok := index[row.ID]
 		if !ok {
@@ -247,6 +293,19 @@ func collectRecipients(rows []recipientRow) []notify.Recipient {
 		recipient := &out[at]
 		if len(recipient.Teams) < maxTeamsPerRecipient && !slices.Contains(recipient.Teams, row.TeamName) {
 			recipient.Teams = append(recipient.Teams, row.TeamName)
+		}
+		item := notify.RecipientEntry{Team: row.TeamName}
+		if row.Rep {
+			item.InviteCode, item.Unregistered = row.InviteCode, unregistered[row.EntryID]
+		}
+		if entries[row.ID] == nil {
+			entries[row.ID] = map[int64]int{}
+		}
+		if pos, seen := entries[row.ID][row.EntryID]; !seen {
+			entries[row.ID][row.EntryID] = len(recipient.Entries)
+			recipient.Entries = append(recipient.Entries, item)
+		} else if row.Rep {
+			recipient.Entries[pos] = item
 		}
 	}
 	return out
@@ -298,7 +357,8 @@ func (s *NotifyStore) Claim(ctx context.Context, batchID int64, now, until time.
 	for _, job := range claimed {
 		at, ok := index[job.RetryKey]
 		if !ok {
-			groups = append(groups, notify.Group{RetryKey: job.RetryKey})
+			// 同じまとまりの人には同じ文を送ったので、最初の人の文をまとまりの文にする
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body})
 			at = len(groups) - 1
 			index[job.RetryKey] = at
 		}
@@ -360,7 +420,7 @@ func insertJobs(tx *gorm.DB, batchID int64, newJobs []notify.NewJob, claimedUnti
 	jobs := make([]NotificationJob, len(newJobs))
 	for i, job := range newJobs {
 		jobs[i] = NotificationJob{BatchID: batchID, LineUserID: job.LineUserID, Name: job.Name, Teams: job.Teams,
-			Status: string(job.Status), RetryKey: job.RetryKey}
+			Status: string(job.Status), RetryKey: job.RetryKey, Body: job.Body}
 		if job.Status == notify.JobPending {
 			jobs[i].ClaimedUntil = &claimedUntil
 		}

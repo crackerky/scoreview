@@ -79,6 +79,8 @@ type Recipient struct {
 	Friend     bool
 	Name       string
 	Teams      []string
+	// Entries は差し込みの値の元(関わるチームを全部。Teams は画面で見分けるための数件)
+	Entries []RecipientEntry
 }
 
 // Quota は公式アカウントの今月の配信数。Limit が nil なら上限が無い(追加メッセージのあるプラン)。
@@ -96,6 +98,9 @@ type Preview struct {
 	Unreachable int
 	Quota       *Quota
 	CanSend     bool
+	// Variables はこの宛先の条件で使える差し込みと、SampleName の人の値(送る画面の見本)
+	Variables  []Variable
+	SampleName string
 }
 
 // JobStatus は宛先ごとの結果。
@@ -220,6 +225,8 @@ type NewJob struct {
 	Teams      string
 	Status     JobStatus
 	RetryKey   string
+	// Body はその人に差し込んで送る文(差し込みの無い送信は空で、送信の Body を送る)
+	Body string
 }
 
 // Group は 1 回のマルチキャストで送る宛先のまとまり。送り直すときは、同じキーで同じ宛先に同じ文を
@@ -228,6 +235,8 @@ type Group struct {
 	RetryKey    string
 	LineUserIDs []int64
 	UserIDs     []string
+	// Text はこのまとまりに差し込んで送る文(差し込みの無い送信は空で、送信の文を送る)
+	Text string
 }
 
 // NewBatch は記録する送信。Body は届ける文。SentBy は送った運営(0 なら運営なし)。ClaimedUntil は、

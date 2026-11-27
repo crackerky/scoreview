@@ -1,8 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NotificationButtonInput } from '@/api/notify.types'
-import { type DraftButtons, defaultButtonLabels, noDraftButtons } from '@/notify/notify.utils'
+import {
+  type DraftButtons,
+  defaultButtonLabels,
+  fillExample,
+  noDraftButtons,
+  usesVariables,
+} from '@/notify/notify.utils'
 import { LineBubble } from './LineBubble'
 
 const buttonFields = ['buttonEntry', 'buttonSite', 'linkLabel', 'linkUrl'] as const
@@ -64,19 +70,26 @@ function saveButtons(key: string, fields: DraftButtons) {
 // 書いた文はブラウザのタブに残し(draftKey)、宛先を確かめるために画面を読み直しても消さない。
 // initialBody(前日と当日の案内のひな形を選んで開いたとき)があれば、残した文の代わりにそれを入れる。
 // 文の下のボタンの欄も同じように残す。ひな形で開いたときは、ひな形のボタン(initialButtons)にする。
+// 差し込み(variables)は、押すと文の欄のカーソルの位置に {チーム名} などを入れ、見本では sampleName の
+// 人の値に置き換えて見せる。
 export function MessageDraft({
   heading,
   maxLength,
   draftKey,
   initialBody = '',
   initialButtons = noDraftButtons,
+  variables = [],
+  sampleName = '',
 }: {
   heading: string
   maxLength: number
   draftKey: string
   initialBody?: string
   initialButtons?: DraftButtons
+  variables?: ReadonlyArray<{ name: string; example: string }>
+  sampleName?: string
 }) {
+  const textRef = useRef<HTMLTextAreaElement>(null)
   const [body, setBody] = useState(initialBody)
   const [buttons, setButtons] = useState(initialButtons)
   useEffect(() => {
@@ -114,12 +127,32 @@ export function MessageDraft({
       // 保存が使えないブラウザでは、文を残さないだけで送れる
     }
   }
+  // 押した差し込みをカーソルの位置に入れ、カーソルを入れた後ろに置く(続けて書けるように)
+  const insert = (name: string) => {
+    const field = textRef.current
+    const token = `{${name}}`
+    const start = field?.selectionStart ?? body.length
+    const end = field?.selectionEnd ?? body.length
+    change(body.slice(0, start) + token + body.slice(end))
+    window.requestAnimationFrame(() => {
+      field?.focus()
+      field?.setSelectionRange(start + token.length, start + token.length)
+    })
+  }
   const length = [...body].length
+  const written = body.trim() === '' ? 'ここに送る文が入ります' : body.trim()
+  const personal =
+    sampleName !== '' &&
+    usesVariables(
+      written,
+      variables.map((variable) => variable.name),
+    )
   return (
     <div className="adm-message">
       <label className="adm-field">
         <span>送る文</span>
         <textarea
+          ref={textRef}
           name="body"
           rows={8}
           maxLength={maxLength}
@@ -131,6 +164,24 @@ export function MessageDraft({
       <p className="adm-muted">
         {length} / {maxLength} 字。1 行目に大会名を付けて送ります。
       </p>
+      {variables.length === 0 ? null : (
+        <>
+          <div className="adm-variables">
+            <span>差し込む</span>
+            {variables.map((variable) => (
+              <button
+                key={variable.name}
+                type="button"
+                className="secondary"
+                onClick={() => insert(variable.name)}
+              >
+                {variable.name}
+              </button>
+            ))}
+          </div>
+          <p className="adm-muted">送る人ごとに、その人のチームの値に置き換えて送ります。</p>
+        </>
+      )}
       <fieldset>
         <legend>文の下のボタン(押すと開くもの。3 つまで)</legend>
         <label className="adm-check adm-audience">
@@ -163,6 +214,7 @@ export function MessageDraft({
           <label className="adm-field">
             <span>リンクのボタンの文字(20 字まで)</span>
             <input
+              type="text"
               name="linkLabel"
               maxLength={20}
               placeholder="会場の地図"
@@ -186,9 +238,9 @@ export function MessageDraft({
         </div>
       </fieldset>
       <figure className="adm-bubble-preview">
-        <figcaption>届く形</figcaption>
+        <figcaption>{personal ? `届く形(${sampleName}さんの場合)` : '届く形'}</figcaption>
         <LineBubble
-          text={`${heading}\n\n${body.trim() === '' ? 'ここに送る文が入ります' : body.trim()}`}
+          text={`${heading}\n\n${fillExample(written, variables)}`}
           buttons={previewButtons(buttons)}
         />
       </figure>

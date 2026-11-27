@@ -17,6 +17,7 @@ import {
   checkedAudience,
   checkedFields,
   countsText,
+  fillExample,
   isoToLocalTime,
   keepPlan,
   localTimeToIso,
@@ -28,6 +29,8 @@ import {
   scheduleText,
   sentNotice,
   timingFromQuery,
+  usesVariables,
+  variableNames,
 } from '../src/notify/notify.utils.ts'
 import { uncertainFailure } from '../src/notify/notifyError.utils.ts'
 
@@ -301,6 +304,8 @@ describe('応答の形', () => {
       unreachable: 1,
       quota: null,
       canSend: false,
+      variables: [{ name: 'チーム名', example: '' }],
+      sampleName: '',
     })
     assert.equal(preview.recipients[0]?.reachable, false)
   })
@@ -335,5 +340,22 @@ describe('文の下のボタン', () => {
       'https://s.example/t/1',
     )
     assert.match(buttonDestination({ kind: 'site', url: '' }), /スコアサイト/)
+  })
+})
+
+describe('差し込み', () => {
+  const variables = [
+    { name: 'チーム名', example: '熱海' },
+    { name: '招待リンク', example: '' },
+  ]
+  test('見本では、見本の人の値に置き換え(全角の括弧も)、値の無いものは書いたまま見せる', () => {
+    assert.equal(
+      fillExample('{チーム名}と｛チーム名｝ {招待リンク}', variables),
+      '熱海と熱海 {招待リンク}',
+    )
+  })
+  test('差し込みを書いたか', () => {
+    assert.equal(usesVariables('｛まだ登録していない人｝', variableNames), true)
+    assert.equal(usesVariables('{ほか}', variableNames), false)
   })
 })

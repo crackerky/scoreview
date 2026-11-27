@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -119,6 +120,13 @@ func TestNotifyStoreRecipients(t *testing.T) {
 	assert.Equal(t, []string{"熱海", "熱海 B"}, reps[0].Teams)
 	assert.Equal(t, "Uatami", reps[0].UserID)
 	assert.True(t, reps[0].Friend)
+	// 差し込みの元: 申込ごとの招待コードと、まだ自分の LINE を結んでいないメンバー(書いた順)
+	require.Len(t, reps[0].Entries, 2)
+	assert.Equal(t, "熱海", reps[0].Entries[0].Team)
+	assert.Regexp(t, `^code-\d+$`, reps[0].Entries[0].InviteCode)
+	assert.Equal(t, []string{"鈴木"}, reps[0].Entries[0].Unregistered)
+	assert.Equal(t, []string{"田中"}, reps[0].Entries[1].Unregistered)
+	assert.Empty(t, reps[1].Entries[0].Unregistered, "Kobe has every member registered")
 	assert.Equal(t, []string{"神戸の代表(前回の入力)"},
 		names(read(notify.Audience{Kind: notify.AudienceReps, Status: entry.StatusPending})))
 	assert.Equal(t, []string{"神戸の代表(前回の入力)"},
@@ -128,8 +136,10 @@ func TestNotifyStoreRecipients(t *testing.T) {
 	assert.Equal(t, []string{"熱海の代表"}, names(incomplete), "Kobe has every member registered")
 	assert.Equal(t, []string{"熱海", "熱海 B"}, incomplete[0].Teams)
 
-	assert.Equal(t, []string{"熱海の代表", "佐藤 花子"},
-		names(read(notify.Audience{Kind: notify.AudienceParticipants})), "approved entries only")
+	participants := read(notify.Audience{Kind: notify.AudienceParticipants})
+	assert.Equal(t, []string{"熱海の代表", "佐藤 花子"}, names(participants), "approved entries only")
+	assert.Equal(t, []notify.RecipientEntry{{Team: "熱海"}}, participants[1].Entries,
+		"a member gets the team but not the invite")
 	assert.Empty(t, read(notify.Audience{Kind: notify.AudienceParticipants, DivisionID: women.ID}))
 
 	pastReps := read(notify.Audience{Kind: notify.AudiencePastReps})
@@ -247,7 +257,7 @@ func TestNotifyStoreClaimIsExclusive(t *testing.T) {
 	jobs := make([]notify.NewJob, 0, 40)
 	for i := range 40 {
 		jobs = append(jobs, notify.NewJob{LineUserID: f.lineUser(t, fmt.Sprintf("U%d", i), "", true),
-			Status: notify.JobPending, RetryKey: fmt.Sprintf("group-%d", i/10)})
+			Status: notify.JobPending, RetryKey: fmt.Sprintf("group-%d", i/10), Body: fmt.Sprintf("text-%d", i/10)})
 	}
 	id, _, err := notices.CreateBatch(ctx, notify.NewBatch{TournamentID: tour.ID, RequestKey: "key-1",
 		Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", At: f.at, ClaimedUntil: f.at, Jobs: jobs})
@@ -269,6 +279,8 @@ func TestNotifyStoreClaimIsExclusive(t *testing.T) {
 		for _, group := range claimed {
 			seen[group.RetryKey]++
 			assert.Len(t, group.UserIDs, 10, "a group is claimed whole")
+			assert.Equal(t, strings.Replace(group.RetryKey, "group", "text", 1), group.Text,
+				"a resend sends the text filled in for the group")
 		}
 	}
 	assert.Equal(t, map[string]int{"group-0": 1, "group-1": 1, "group-2": 1, "group-3": 1}, seen)

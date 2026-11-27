@@ -16,6 +16,8 @@ import {
   jobStatusTones,
   scheduleText,
   skipReasonLabels,
+  usesVariables,
+  variableNames,
 } from '@/notify/notify.utils'
 
 /** 記録の見出し。予約のまま、取りやめ、送れなかった予約を「送った文」と呼ばない */
@@ -82,7 +84,14 @@ export default async function NotificationPage(props: IdPageProps) {
         <p className="adm-notice error">{skipReasonLabels[detail.note]}。</p>
       ) : null}
       <figure className="adm-bubble-preview">
-        <figcaption>{detail.state === 'sent' ? '届けた文' : '送る文'}</figcaption>
+        <figcaption>
+          {detail.state === 'sent' ? '届けた文' : '送る文'}
+          {usesVariables(detail.body, variableNames)
+            ? detail.state === 'sent'
+              ? '(差し込みは、人ごとにその人のチームの値に置き換えて送りました)'
+              : '(差し込みは、送る人ごとにその人のチームの値に置き換えます)'
+            : ''}
+        </figcaption>
         <LineBubble text={detail.body} buttons={detail.buttons} />
       </figure>
       {detail.state !== 'sent' ? null : (

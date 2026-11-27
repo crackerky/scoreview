@@ -41,6 +41,9 @@ export const notificationPreviewSchema = z.object({
   unreachable: z.number().int(),
   quota: z.object({ limit: z.number().int().nullable(), used: z.number().int() }).nullable(),
   canSend: z.boolean(),
+  /** この宛先の条件で文に書ける差し込み({name})と、sampleName の人の値 */
+  variables: z.array(z.object({ name: z.string(), example: z.string() })),
+  sampleName: z.string(),
 })
 export type NotificationPreview = z.infer<typeof notificationPreviewSchema>
 

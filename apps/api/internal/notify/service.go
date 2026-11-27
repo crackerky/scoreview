@@ -25,6 +25,8 @@ type Service struct {
 	random io.Reader
 	// siteURL はスコアサイトの URL(スコアサイトのボタンの行き先の前半。末尾の / は無い)
 	siteURL string
+	// invite は招待コードからメンバーの招待リンクを作る({招待リンク} の差し込み)
+	invite func(code string) string
 }
 
 var _ Desk = (*Service)(nil)
@@ -44,6 +46,12 @@ func WithSiteURL(siteURL string) Option {
 	return func(s *Service) { s.siteURL = strings.TrimRight(siteURL, "/") }
 }
 
+// WithInviteURL は招待コードからメンバーの招待リンクを作る関数を渡す(entry.WithInviteURL と同じもの)。
+// 渡さなければ {招待リンク} は空になる。
+func WithInviteURL(invite func(code string) string) Option {
+	return func(s *Service) { s.invite = invite }
+}
+
 // WithClock は現在時刻の取り方を差し替える(テスト用)。
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
@@ -56,7 +64,8 @@ func WithRandom(random io.Reader) Option {
 
 // NewService は store で読み書きする Service を返す。
 func NewService(store Store, opts ...Option) *Service {
-	s := &Service{store: store, report: func(error) {}, now: time.Now, random: rand.Reader}
+	s := &Service{store: store, report: func(error) {}, now: time.Now, random: rand.Reader,
+		invite: func(string) string { return "" }}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -70,6 +79,7 @@ func (s *Service) Preview(ctx context.Context, tournamentID int64, audience Audi
 		return Preview{}, err
 	}
 	preview := Preview{Heading: heading, Recipients: recipients, CanSend: s.sender != nil}
+	preview.SampleName, preview.Variables = Examples(audience.Kind, recipients, s.invite)
 	preview.Reachable, preview.Unreachable = CountReachable(recipients)
 	if s.sender != nil {
 		quota, err := s.sender.Quota(ctx)
@@ -119,6 +129,9 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	}
 	body, err := CheckBody(request.Body)
 	if err != nil {
+		return Batch{}, err
+	}
+	if body, err = CheckVariables(body, request.Audience.Kind); err != nil {
 		return Batch{}, err
 	}
 	if request.Buttons, err = s.buttons(tournamentID, request.Buttons); err != nil {
@@ -228,7 +241,7 @@ func (s *Service) plan(
 	recipients []Recipient,
 ) (NewBatch, []Group, error) {
 	now := s.now()
-	jobs, groups, err := s.jobsFor(recipients)
+	jobs, groups, err := s.jobsFor(recipients, text)
 	if err != nil {
 		return NewBatch{}, nil, err
 	}
@@ -239,24 +252,35 @@ func (s *Service) plan(
 
 // jobsFor は宛先ごとの行と、まとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り直しのキー)を
 // 作る。キーを記録に残すので、途中で止まっても同じまとまりを同じキーで送り直せる。
-func (s *Service) jobsFor(recipients []Recipient) ([]NewJob, []Group, error) {
+func (s *Service) jobsFor(recipients []Recipient, text string) ([]NewJob, []Group, error) {
 	jobs := make([]NewJob, 0, len(recipients))
 	var groups []Group
+	// 差し込みがあれば人ごとに文を作り、同じ文になった人を同じまとまりにする(LINE は 1 回の送信で
+	// 同じ文しか送れない)。open は文ごとの、まだ空きのあるまとまり
+	personal := len(usedVariables(text)) > 0
+	open := map[string]int{}
 	for _, recipient := range recipients {
 		job := NewJob{LineUserID: recipient.LineUserID, Name: recipient.Name,
 			Teams: strings.Join(recipient.Teams, "、"), Status: JobSkipped}
 		if recipient.Friend {
-			if len(groups) == 0 || len(groups[len(groups)-1].UserIDs) == MaxMulticast {
+			filled := ""
+			if personal {
+				filled = Fill(text, recipient, s.invite)
+			}
+			at, ok := open[filled]
+			if !ok || len(groups[at].UserIDs) == MaxMulticast {
 				key, err := retryKey(s.random)
 				if err != nil {
 					return nil, nil, err
 				}
-				groups = append(groups, Group{RetryKey: key})
+				groups = append(groups, Group{RetryKey: key, Text: filled})
+				at = len(groups) - 1
+				open[filled] = at
 			}
-			group := &groups[len(groups)-1]
+			group := &groups[at]
 			group.LineUserIDs = append(group.LineUserIDs, recipient.LineUserID)
 			group.UserIDs = append(group.UserIDs, recipient.UserID)
-			job.Status, job.RetryKey = JobPending, group.RetryKey
+			job.Status, job.RetryKey, job.Body = JobPending, group.RetryKey, filled
 		}
 		jobs = append(jobs, job)
 	}
@@ -266,8 +290,12 @@ func (s *Service) jobsFor(recipients []Recipient) ([]NewJob, []Group, error) {
 // deliver はまとまりごとに送り、結果を書く。LINE が受け付けたか分からない失敗(ErrTemporary)だけ、
 // 同じキーでもう 1 回送る(1 回目を LINE が受け付けていれば、2 回目は送られずに成功になる)。
 // 結果を書けなければそこで止める(残りのまとまりは pending のまま残り、Resend で送れる)。
-func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, message Message) error {
+func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, base Message) error {
 	for _, group := range groups {
+		message := base
+		if group.Text != "" {
+			message.Text = group.Text
+		}
 		sendErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey)
 		if errors.Is(sendErr, ErrTemporary) {
 			if retryErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey); retryErr == nil {
@@ -440,7 +468,7 @@ func (s *Service) dispatchOne(ctx context.Context, due Due) (sent, skipped bool,
 	} else if CheckQuota(quota, reachable) != nil {
 		return skip(SkipQuota)
 	}
-	jobs, groups, err := s.jobsFor(recipients)
+	jobs, groups, err := s.jobsFor(recipients, due.Body)
 	if err != nil {
 		return false, false, err
 	}

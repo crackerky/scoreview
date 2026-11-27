@@ -142,7 +142,7 @@ func (s *fakeStore) Claim(_ context.Context, id int64, now, until time.Time) ([]
 		s.results[job.LineUserID] = notify.JobResult{Status: notify.JobPending}
 		s.claims[job.LineUserID] = until
 		if len(groups) == 0 || groups[len(groups)-1].RetryKey != job.RetryKey {
-			groups = append(groups, notify.Group{RetryKey: job.RetryKey})
+			groups = append(groups, notify.Group{RetryKey: job.RetryKey, Text: job.Body})
 		}
 		group := &groups[len(groups)-1]
 		group.LineUserIDs = append(group.LineUserIDs, job.LineUserID)
@@ -657,4 +657,109 @@ func TestSendWithButtons(t *testing.T) {
 		notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", RequestKey: "key-2",
 			Buttons: []notify.Button{{Kind: notify.ButtonSite}}}, domain.Actor{UserID: 7})
 	require.ErrorIs(t, err, domain.ErrBadRequest)
+}
+
+func invite(code string) string { return "https://line.example/" + code }
+
+// 差し込みは宛先の人のチームの値に置き換える。チームが 2 つ以上なら、チーム名を前に付けて並べる。
+func TestFill(t *testing.T) {
+	one := notify.Recipient{Name: "代表", Teams: []string{"熱海"}, Entries: []notify.RecipientEntry{
+		{Team: "熱海", InviteCode: "a1", Unregistered: []string{"佐藤", "鈴木"}}}}
+	assert.Equal(t, "熱海のみなさん https://line.example/a1 まだ: 佐藤、鈴木",
+		notify.Fill("{チーム名}のみなさん {招待リンク} まだ: {まだ登録していない人}", one, invite))
+	two := notify.Recipient{Name: "代表", Entries: []notify.RecipientEntry{
+		{Team: "熱海", InviteCode: "a1"}, {Team: "熱海 B", InviteCode: "b2", Unregistered: []string{"田中"}}}}
+	assert.Equal(t, "熱海、熱海 B\n熱海 https://line.example/a1\n熱海 B https://line.example/b2\n熱海: いません\n熱海 B: 田中",
+		notify.Fill("{チーム名}\n{招待リンク}\n{まだ登録していない人}", two, invite))
+	member := notify.Recipient{Name: "メンバー", Teams: []string{"神戸"}}
+	assert.Equal(t, "神戸", notify.Fill("{チーム名}", member, invite), "the team names without entries")
+	assert.Equal(t, "{ほか}", notify.Fill("{ほか}", one, invite), "an unknown name is left as written")
+}
+
+// 全角の括弧も差し込みとして読み、招待リンクとまだ登録していない人は、この大会の代表に送るときだけ使える。
+func TestCheckVariables(t *testing.T) {
+	got, err := notify.CheckVariables("｛チーム名｝の｛招待リンク｝", notify.AudienceIncomplete)
+	require.NoError(t, err)
+	assert.Equal(t, "{チーム名}の{招待リンク}", got)
+	_, err = notify.CheckVariables("{チーム名}", notify.AudiencePastReps)
+	require.NoError(t, err)
+	for _, kind := range []notify.AudienceKind{notify.AudienceParticipants, notify.AudiencePastReps} {
+		_, err = notify.CheckVariables("{招待リンク}", kind)
+		require.ErrorIs(t, err, domain.ErrBadRequest, kind)
+		_, err = notify.CheckVariables("｛まだ登録していない人｝", kind)
+		require.ErrorIs(t, err, domain.ErrBadRequest, kind)
+	}
+}
+
+// 差し込みがあれば人ごとの文で送り、同じ文になった人は 1 回のまとめた送信にする。人ごとの文は記録に
+// 残し、送り直しも同じ文で送る。
+func TestSendFillsInPerRecipient(t *testing.T) {
+	recipients := []notify.Recipient{
+		{LineUserID: 1, UserID: "U1", Friend: true, Name: "熱海の代表", Teams: []string{"熱海"},
+			Entries: []notify.RecipientEntry{{Team: "熱海", InviteCode: "a1", Unregistered: []string{"佐藤"}}}},
+		{LineUserID: 2, UserID: "U2", Friend: true, Name: "神戸の代表", Teams: []string{"神戸"},
+			Entries: []notify.RecipientEntry{{Team: "神戸", InviteCode: "k1"}}},
+		{LineUserID: 3, UserID: "U3", Friend: false, Name: "ブロック中", Teams: []string{"取消"}},
+		{LineUserID: 4, UserID: "U4", Friend: true, Name: "熱海の副代表", Teams: []string{"熱海"},
+			Entries: []notify.RecipientEntry{{Team: "熱海"}}},
+	}
+	store := newFakeStore(recipients)
+	sender := &fakeSender{failures: []error{nil, refused()}}
+	var reported []error
+	now := clock()
+	service := notify.NewService(store, notify.WithSender(sender, func(err error) { reported = append(reported, err) }),
+		notify.WithRandom(sequence()), notify.WithClock(func() time.Time { return *now }), notify.WithInviteURL(invite))
+	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps},
+		Body: "｛チーム名｝のみなさん\nまだ: {まだ登録していない人}", RequestKey: "key-1"}
+	batch, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	require.Len(t, sender.calls, 3, "Atami and its vice rep differ in the unregistered names")
+	assert.Equal(t, []string{"U1"}, sender.calls[0].to)
+	assert.Equal(t, "ルーキーズファイナル\n\n熱海のみなさん\nまだ: 佐藤", sender.calls[0].text)
+	assert.Equal(t, "ルーキーズファイナル\n\n神戸のみなさん\nまだ: いません", sender.calls[1].text)
+	assert.Equal(t, "ルーキーズファイナル\n\n{チーム名}のみなさん\nまだ: {まだ登録していない人}", store.batches[0].Body,
+		"the record keeps what the operator wrote")
+	assert.Equal(t, sender.calls[1].text, store.batches[0].Jobs[1].Body)
+	assert.Empty(t, store.batches[0].Jobs[2].Body, "no text for someone who is not sent to")
+	assert.Equal(t, notify.Counts{Sent: 2, Skipped: 1, Failed: 1, Resendable: 1}, batch.Counts)
+
+	*now = now.Add(time.Hour)
+	_, err = service.Resend(context.Background(), batch.ID)
+	require.NoError(t, err)
+	require.Len(t, sender.calls, 4)
+	assert.Equal(t, multicast{to: []string{"U2"}, text: sender.calls[1].text, key: sender.calls[1].key},
+		sender.calls[3], "the resend sends the same filled-in text with the same key")
+
+	// 差し込みの無い文は、これまでどおり全員に同じ文を 1 回で送る
+	plain := &fakeSender{}
+	service = notify.NewService(newFakeStore(recipients), notify.WithSender(plain, func(error) {}),
+		notify.WithRandom(sequence()), notify.WithClock(func() time.Time { return *now }), notify.WithInviteURL(invite))
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps},
+		Body: "明日は 8 時", RequestKey: "key-2"}, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	require.Len(t, plain.calls, 1)
+	assert.Equal(t, []string{"U1", "U2", "U4"}, plain.calls[0].to)
+
+	_, err = service.Send(context.Background(), 1, notify.Request{Audience: notify.Audience{Kind: notify.AudienceParticipants},
+		Body: "{招待リンク}", RequestKey: "key-3"}, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+}
+
+// 送る画面の見本は、送れる最初の人の値。
+func TestPreviewShowsVariables(t *testing.T) {
+	recipients := []notify.Recipient{
+		{LineUserID: 3, UserID: "U3", Friend: false, Name: "ブロック中", Teams: []string{"取消"}},
+		{LineUserID: 1, UserID: "U1", Friend: true, Name: "熱海の代表", Teams: []string{"熱海"},
+			Entries: []notify.RecipientEntry{{Team: "熱海", InviteCode: "a1", Unregistered: []string{"佐藤"}}}},
+	}
+	service := notify.NewService(newFakeStore(recipients), notify.WithInviteURL(invite))
+	preview, err := service.Preview(context.Background(), 1, notify.Audience{Kind: notify.AudienceIncomplete})
+	require.NoError(t, err)
+	assert.Equal(t, "熱海の代表", preview.SampleName)
+	assert.Equal(t, []notify.Variable{{Name: "チーム名", Example: "熱海"},
+		{Name: "招待リンク", Example: "https://line.example/a1"}, {Name: "まだ登録していない人", Example: "佐藤"}},
+		preview.Variables)
+	members, err := service.Preview(context.Background(), 1, notify.Audience{Kind: notify.AudienceParticipants})
+	require.NoError(t, err)
+	assert.Equal(t, []notify.Variable{{Name: "チーム名", Example: "熱海"}}, members.Variables)
 }

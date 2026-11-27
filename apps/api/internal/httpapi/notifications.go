@@ -54,6 +54,14 @@ type notificationPreviewDTO struct {
 	Unreachable int            `json:"unreachable"`
 	Quota       *quotaDTO      `json:"quota"`
 	CanSend     bool           `json:"canSend"`
+	Variables   []variableDTO  `json:"variables"`
+	SampleName  string         `json:"sampleName"`
+}
+
+// variableDTO は文に書ける差し込み({name})と、送る画面の見本の人の値。
+type variableDTO struct {
+	Name    string `json:"name"`
+	Example string `json:"example"`
 }
 
 type notificationCountsDTO struct {
@@ -189,7 +197,11 @@ func (s *Server) previewNotification(ctx context.Context, id int64, r *http.Requ
 		return nil, err
 	}
 	out := notificationPreviewDTO{Heading: preview.Heading, Recipients: make([]recipientDTO, len(preview.Recipients)),
-		Reachable: preview.Reachable, Unreachable: preview.Unreachable, CanSend: preview.CanSend}
+		Reachable: preview.Reachable, Unreachable: preview.Unreachable, CanSend: preview.CanSend,
+		Variables: make([]variableDTO, len(preview.Variables)), SampleName: preview.SampleName}
+	for i, variable := range preview.Variables {
+		out.Variables[i] = variableDTO{Name: variable.Name, Example: variable.Example}
+	}
 	for i, recipient := range preview.Recipients {
 		out.Recipients[i] = recipientDTO{Name: recipient.Name, Teams: recipient.Teams, Reachable: recipient.Friend}
 	}

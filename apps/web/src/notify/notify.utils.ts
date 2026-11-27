@@ -420,3 +420,31 @@ export function buttonDestination(button: {
       return button.url
   }
 }
+
+/**
+ * 送る画面の見本で、差し込み({チーム名}。全角の括弧も)を見本の人の値に置き換える。値が空(送れる人が
+ * いない)の差し込みは書いたまま見せる。置き換えの決まりは api(notify.Fill)にあり、ここは見本だけ。
+ */
+export function fillExample(
+  text: string,
+  variables: ReadonlyArray<{ name: string; example: string }>,
+): string {
+  let out = text
+  for (const variable of variables) {
+    if (variable.example === '') {
+      continue
+    }
+    out = out
+      .replaceAll(`{${variable.name}}`, variable.example)
+      .replaceAll(`｛${variable.name}｝`, variable.example)
+  }
+  return out
+}
+
+/** api が置き換える差し込みの名前(api の notify.VarTeam ほか。送った記録の画面で差し込みを見分ける) */
+export const variableNames = ['チーム名', '招待リンク', 'まだ登録していない人'] as const
+
+/** 文に差し込みを書いたか(全角の括弧も) */
+export function usesVariables(text: string, names: ReadonlyArray<string>): boolean {
+  return names.some((name) => text.includes(`{${name}}`) || text.includes(`｛${name}｝`))
+}

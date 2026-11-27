@@ -45,6 +45,9 @@ type Props = {
   initialBody: string
   /** ひな形で開いたときの文の下のボタン */
   initialButtons?: DraftButtons
+  /** 数えた宛先の条件で書ける差し込みと、見本の人(sampleName)の値 */
+  variables: ReadonlyArray<{ name: string; example: string }>
+  sampleName: string
   /** 数えた人数と宛先の一覧(サーバーで描いたもの) */
   children: ReactNode
 }
@@ -75,6 +78,8 @@ export function NotificationComposer({
   draftKey,
   initialBody,
   initialButtons,
+  variables,
+  sampleName,
   children,
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
@@ -213,6 +218,8 @@ export function NotificationComposer({
         draftKey={draftKey}
         initialBody={initialBody}
         initialButtons={initialButtons}
+        variables={variables}
+        sampleName={sampleName}
       />
     </form>
   )

@@ -83,5 +83,12 @@ test('validationParts は「項目: 理由」を分け、項目が無ければ�
       operatorErrorText('bad_request', 'buttons: must be at most 3'),
       'ボタンは 3 つまでです',
     )
+    assert.equal(
+      operatorErrorText(
+        'bad_request',
+        'body: {招待リンク} can be used only for the reps of this tournament',
+      ),
+      '招待リンクとまだ登録していない人の差し込みは、この大会に申し込んだ代表に送るときだけ使えます',
+    )
   })
 })
