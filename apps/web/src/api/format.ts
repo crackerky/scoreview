@@ -8,6 +8,7 @@ import {
   type FormatInput,
   formatPreviewSchema,
   impactSchema,
+  poolDraftSchema,
   progressMatchListSchema,
   progressSchema,
   proposalListSchema,
@@ -45,6 +46,8 @@ export type ProposalInput = {
   start: string
   sport: string
   schedule: ScheduleSetting | null
+  /** 運営が決めた組分け(組ごとのシード番号)。あれば、そのあとの順位決定戦の候補だけが返る */
+  poolSeeds?: number[][] | null
 }
 
 /** 結果のある下流の試合の対戦が変わるときの承認と下流の扱い。null は承認しない */
@@ -88,6 +91,11 @@ export const formats = {
     call(token, 'PUT', `${admin}/divisions/${divisionId}/format`, formatPreviewSchema, body),
   get: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/format`, savedFormatOneSchema),
+  /** 組分けの下書き(試合を組むの組分け)。無ければ pools が null */
+  poolDraft: (token: string, divisionId: number) =>
+    call(token, 'GET', `${admin}/divisions/${divisionId}/pool-draft`, poolDraftSchema),
+  savePoolDraft: (token: string, divisionId: number, pools: number[][]) =>
+    call(token, 'PUT', `${admin}/divisions/${divisionId}/pool-draft`, poolDraftSchema, { pools }),
   list: (token: string, exclude: number) =>
     call(token, 'GET', `${admin}/formats?exclude=${exclude}`, savedFormatListSchema),
   progress: (token: string, divisionId: number) =>

@@ -65,6 +65,9 @@ type PoolBandsParams struct {
 	Teams int
 	Pools int
 	Bands []Band
+	// PoolSeeds は運営が決めた組分け(組ごとのシード番号。組の中は上から順)。空なら蛇行で配る。
+	// 管理画面の「選んで入れる」と「貼り付け・CSV」で決めた組をそのまま使うため
+	PoolSeeds [][]int
 }
 
 // PoolBandsTemplate はテンプレート 1「プール → 順位帯の順位決定」(R3 1-1 の A1〜A6、71.4%)。
@@ -81,7 +84,7 @@ func (PoolBandsTemplate) Build(b *Builder, params any) error {
 	if err != nil {
 		return err
 	}
-	pools, err := addQualifyingPools(b, p.Teams, p.Pools, false)
+	pools, err := addQualifyingPools(b, p.Teams, p.Pools, false, p.PoolSeeds)
 	if err != nil {
 		return err
 	}
@@ -290,14 +293,14 @@ func (RoundRobinTemplate) Build(b *Builder, params any) error {
 	}
 	switch p.Pools {
 	case 1:
-		_, err := addQualifyingPools(b, p.Teams, 1, true)
+		_, err := addQualifyingPools(b, p.Teams, 1, true, nil)
 		return err
 	case 2:
 		ranks := p.FinalPoolRanks
 		if len(ranks) == 0 {
 			ranks = []int{1, 2}
 		}
-		pools, err := addQualifyingPools(b, p.Teams, 2, false)
+		pools, err := addQualifyingPools(b, p.Teams, 2, false, nil)
 		if err != nil {
 			return err
 		}
@@ -322,16 +325,23 @@ func paramsAs[T any](params any) (T, error) {
 }
 
 // addQualifyingPools はシードを蛇行で配ったプールの段を足す。final はプールの順位がそのまま
-// 最終順位になる(1 プールの総当たり)かどうか。
-func addQualifyingPools(b *Builder, teams, pools int, final bool) ([]int, error) {
+// 最終順位になる(1 プールの総当たり)かどうか。explicit があれば蛇行の代わりにその組分けを使う。
+func addQualifyingPools(b *Builder, teams, pools int, final bool, explicit [][]int) ([]int, error) {
 	if pools < 1 || teams < 2*pools {
 		return nil, domain.Invalid("pools",
 			fmt.Sprintf("%d teams cannot fill %d pools of 2 or more", teams, pools))
 	}
+	distribution := snakeSeeds(teams, pools)
+	if len(explicit) > 0 {
+		if err := CheckPoolSeeds(explicit, teams, pools); err != nil {
+			return nil, err
+		}
+		distribution = explicit
+	}
 	b.SetTeams(teams)
 	stage := b.AddStage("予選")
 	var groups []int
-	for _, seeds := range snakeSeeds(teams, pools) {
+	for _, seeds := range distribution {
 		sources := make([]Source, len(seeds))
 		for i, seed := range seeds {
 			sources[i] = SeedSource(seed)
@@ -507,4 +517,29 @@ func crossPairs(ranks []int, pools []int) []Source {
 		out = append(out, GroupRankSource(pools[p-1], high), GroupRankSource(pools[opp-1], low))
 	}
 	return out
+}
+
+// CheckPoolSeeds は運営が決めた組分けを確かめる。組の数が pools、どの組も 2 チーム以上、シード 1〜teams が
+// ちょうど 1 回ずつ。
+func CheckPoolSeeds(poolSeeds [][]int, teams, pools int) error {
+	if len(poolSeeds) != pools {
+		return domain.Invalid("params.poolSeeds", fmt.Sprintf("must have %d pools, got %d", pools, len(poolSeeds)))
+	}
+	seen := make(map[int]bool, teams)
+	for i, seeds := range poolSeeds {
+		if len(seeds) < 2 {
+			return domain.Invalid(fmt.Sprintf("params.poolSeeds[%d]", i), "must have 2 or more teams")
+		}
+		for _, seed := range seeds {
+			if seed < 1 || seed > teams || seen[seed] {
+				return domain.Invalid(fmt.Sprintf("params.poolSeeds[%d]", i),
+					fmt.Sprintf("must use each seed 1-%d once", teams))
+			}
+			seen[seed] = true
+		}
+	}
+	if len(seen) != teams {
+		return domain.Invalid("params.poolSeeds", fmt.Sprintf("must place all %d teams", teams))
+	}
+	return nil
 }

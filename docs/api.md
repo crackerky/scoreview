@@ -875,10 +875,12 @@ type Impact = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明。`schedule` があれば、プレビューと作成と同じく、同じ大会のほかのディビジョンの試合が使うコートと時刻を避けて数える。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400。`schedule` の上限は別に、日数 1〜7、枠 1〜240 分、昼休み 0〜240 分、休み 0〜6 枠) |
+| `POST /admin/divisions/{id}/format/proposals` | `{ teams, courts, slotMinutes, date, start, sport, schedule: ScheduleSetting \| null, poolSeeds?: number[][] \| null }`(`schedule` があれば courts 以下の代わりに使う。形の適用と同じ条件。`poolSeeds` は運営が決めた組分けで、組ごとのシード番号。あれば、その組のあとに続く順位決定戦の候補(各組の同じ順位を集める `fixed-rank`、1・2 位、3・4 位…を集める `fixed-pairs`、順位決定戦なし `fixed-none`)だけを返し、候補の `params` に同じ `poolSeeds` が入る。組の数が合わない、1 チームの組、シードの抜けや重なりは 400) | `{ proposals: Array<{ id; title; template; params; recommended; note; matches; end; endDay; overflow; fitNote: string \| null; ranked; unique; violations }> }`。会場の時間に収まる候補が先(その中は運営会社の頻出形が先)、収まる候補の先頭が `recommended`。`overflow` は収まらない試合の数、`fitNote` はその説明。`schedule` があれば、プレビューと作成と同じく、同じ大会のほかのディビジョンの試合が使うコートと時刻を避けて数える。`teams` は 2〜128、`courts` は 1〜64、`slotMinutes` は 1〜1440(超えたら 400。`schedule` の上限は別に、日数 1〜7、枠 1〜240 分、昼休み 0〜240 分、休み 0〜6 枠) |
 | `POST /admin/divisions/{id}/format/preview` | `FormatInput` | `FormatPreview`(保存しない) |
 | `PUT /admin/divisions/{id}/format` | `FormatInput` | `FormatPreview`。ディビジョンのグループと試合を置き換える。結果の入った試合があれば 409。時間割に会場の時間(最後の日の終了まで)に収まらない試合があれば 400(プレビューの `fitNote` が出る形は作れない) |
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null; inherited: SavedFormat \| null }`。`inherited` は大会のコピーで作った部門(形がまだ無い)のコピー元の形で、`seeds` はコピー元のシード順のチームをこの部門の同じ正式名のチームに置き換えたもの |
+| `GET /admin/divisions/{id}/pool-draft` | なし | `{ pools: number[][] \| null; updatedAt: string \| null }`。部門の組分けの下書き(管理画面「試合を組む」の組分け)。`pools` は組の順に、組ごとのチームの id を上から並べたもの。無ければ `pools` も `updatedAt` も null |
+| `PUT /admin/divisions/{id}/pool-draft` | `{ pools: number[][] }` | 同じ形。下書きを置き換える。組は 1〜16 個で、空の組も残せる(途中の下書き)。この部門でないチームや、2 つの組に入ったチームは 400。形を作るときは、この組をシード順と `poolSeeds` にして渡す(web が作る) |
 | `GET /admin/formats?exclude={divisionId}` | なし | `{ formats: SavedFormat[] }`(前回の大会の形のコピー元。新しい順に 30 件) |
 | `GET /admin/divisions/{id}/progress` | なし | `Progress` |
 | `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |

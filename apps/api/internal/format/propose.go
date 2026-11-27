@@ -30,6 +30,9 @@ type ProposalInput struct {
 	// Schedule は時間割の条件(日数、各日の時間、昼休み、休み、段の日分け)。nil なら Courts、
 	// SlotMinutes、Start と競技の既定の休みで終わりのない 1 日として組む
 	Schedule *ScheduleConfig
+	// PoolSeeds は運営が決めた組分け(組ごとのシード番号)。あれば、その組のあとに続く順位決定戦の候補
+	// だけを返す(組分けは変えない)
+	PoolSeeds [][]int
 }
 
 // Proposal は形の候補 1 つ。Matches と End は Spec から作った時間割(BuildSchedule)の値。
@@ -143,6 +146,15 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 		out = append(out, p)
 	}
 
+	if len(in.PoolSeeds) > 0 {
+		if err := CheckPoolSeeds(in.PoolSeeds, in.Teams, len(in.PoolSeeds)); err != nil {
+			return nil, err
+		}
+		for _, c := range followUps(in.Teams, in.PoolSeeds) {
+			add(c.id, c.note, c.spec)
+		}
+		return sortProposals(out), nil
+	}
 	for _, c := range frequentShapes(in.Teams, in.Sport) {
 		add(c.id, c.note, c.spec)
 	}
@@ -186,14 +198,42 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 				Spec{Template: TemplateBlocks, Params: BlocksParams{Teams: in.Teams, Bands: bands}})
 		}
 	}
-	// 収まる候補を先に(頻出形の順は保つ)。収まる候補の先頭を勧める
+	return sortProposals(out), nil
+}
+
+// sortProposals は収まる候補を先に並べ(元の順は保つ)、収まる候補の先頭を勧める。
+func sortProposals(out []Proposal) []Proposal {
 	slices.SortStableFunc(out, func(a, b Proposal) int {
 		return cmp.Compare(min(a.Overflow, 1), min(b.Overflow, 1))
 	})
 	if len(out) > 0 && out[0].Overflow == 0 {
 		out[0].Recommended = true
 	}
-	return out, nil
+	return out
+}
+
+// followUps は運営が決めた組分け(poolSeeds)のあとに続く順位決定戦の候補。組の同じ順位を集める形、
+// 2 つの順位ずつ集める形(1・2 位、3・4 位…)、順位決定戦なし(組の順位まで)の順。作れない形は除く。
+func followUps(teams int, poolSeeds [][]int) []shapeCandidate {
+	sizes := make([]int, len(poolSeeds))
+	for i, seeds := range poolSeeds {
+		sizes[i] = len(seeds)
+	}
+	spec := func(bands []Band) Spec {
+		return Spec{Template: TemplatePoolBands, Params: PoolBandsParams{Teams: teams, Pools: len(poolSeeds),
+			Bands: bands, PoolSeeds: poolSeeds}}
+	}
+	var out []shapeCandidate
+	if bands, ok := rankBands(sizes, 1); ok {
+		out = append(out, shapeCandidate{"fixed-rank", "各組の同じ順位を集めて順位決定戦を行います", spec(bands)})
+	}
+	if bands, ok := rankBands(sizes, 2); ok && len(poolSeeds) > 1 {
+		out = append(out, shapeCandidate{"fixed-pairs",
+			"各組の 1・2 位、3・4 位…を集めて順位決定戦を行います(1 回戦は A組1位 対 B組2位 などのたすき掛け)",
+			spec(bands)})
+	}
+	out = append(out, shapeCandidate{"fixed-none", "組の中の総当たりだけで、順位決定戦は行いません", spec(nil)})
+	return out
 }
 
 // overallCuts はブロックの順位の全体の並びを分ける大きさ。1〜16 位のトーナメントのあとを 8 チームずつ
@@ -259,6 +299,12 @@ func perRankBands(teams, pools int) ([]Band, bool) {
 	for i, seeds := range snakeSeeds(teams, pools) {
 		sizes[i] = len(seeds)
 	}
+	return rankBands(sizes, 1)
+}
+
+// rankBands はプールの大きさ sizes から、順位を per 個ずつ(1 なら 1 位、2 位…、2 なら 1・2 位、3・4 位…)
+// 1 つの帯にする。帯のチーム数が 1 になる順位は 1 つ上の帯にまとめる。作れない帯の大きさがあれば ok=false。
+func rankBands(sizes []int, per int) ([]Band, bool) {
 	countAt := func(rank int) int {
 		count := 0
 		for _, s := range sizes {
@@ -270,8 +316,9 @@ func perRankBands(teams, pools int) ([]Band, bool) {
 	}
 	var groups [][]int
 	for rank := 1; rank <= slices.Max(sizes); rank++ {
-		if countAt(rank) == 1 && len(groups) > 0 {
-			groups[len(groups)-1] = append(groups[len(groups)-1], rank)
+		last := len(groups) - 1
+		if last >= 0 && (countAt(rank) == 1 || len(groups[last]) < per) {
+			groups[last] = append(groups[last], rank)
 			continue
 		}
 		groups = append(groups, []int{rank})

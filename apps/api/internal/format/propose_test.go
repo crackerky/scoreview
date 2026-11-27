@@ -171,3 +171,65 @@ func TestDescribeRuleAndAdvancement(t *testing.T) {
 		assert.NotContains(t, line, "placement")
 	}
 }
+
+// 運営が決めた組分け(組ごとのシード番号)を、そのまま予選の組にする。大きさが揃わなくてもよい。
+func TestPoolBandsWithExplicitPools(t *testing.T) {
+	poolSeeds := [][]int{{1, 9, 5, 10}, {2, 6, 7}, {3, 4, 8}}
+	plan, err := format.NewEngine().Generate(format.Spec{Template: format.TemplatePoolBands,
+		Params: format.PoolBandsParams{Teams: 10, Pools: 3, PoolSeeds: poolSeeds}})
+	require.NoError(t, err)
+	for g, want := range poolSeeds {
+		var got []int
+		for _, slot := range plan.Groups[g].Slots {
+			got = append(got, slot.Source.Seed)
+		}
+		assert.Equal(t, want, got, "pool %d", g)
+	}
+
+	for name, bad := range map[string][][]int{
+		"組の数が違う":  {{1, 2, 3, 4, 5}, {6, 7, 8, 9, 10}},
+		"1 チームの組": {{1}, {2, 3, 4, 5}, {6, 7, 8, 9, 10}},
+		"同じシード":   {{1, 1, 3}, {4, 5, 6}, {7, 8, 9, 10}},
+		"抜けたチーム":  {{1, 2}, {3, 4}, {5, 6}},
+		"範囲の外":    {{1, 2, 3}, {4, 5, 6}, {7, 8, 9, 11}},
+	} {
+		_, err := format.NewEngine().Generate(format.Spec{Template: format.TemplatePoolBands,
+			Params: format.PoolBandsParams{Teams: 10, Pools: 3, PoolSeeds: bad}})
+		require.ErrorIs(t, err, domain.ErrBadRequest, name)
+	}
+
+	data, err := format.EncodeParams(format.PoolBandsParams{Teams: 10, Pools: 3, PoolSeeds: poolSeeds})
+	require.NoError(t, err)
+	decoded, err := format.DecodeParams(format.TemplatePoolBands, data)
+	require.NoError(t, err)
+	assert.Equal(t, poolSeeds, decoded.(format.PoolBandsParams).PoolSeeds) //nolint:forcetypeassert // DecodeParams は pool_bands なら PoolBandsParams
+	_, err = format.DecodeParams(format.TemplateBlocks, []byte(`{"teams":16,"poolSeeds":[[1,2]]}`))
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+}
+
+// 組分けが決まっていれば、そのあとに続く順位決定戦の候補だけを出す(組分けは変えない)。
+func TestProposeFollowUpsForExplicitPools(t *testing.T) {
+	poolSeeds := [][]int{{1, 8, 9, 16}, {2, 7, 10, 15}, {3, 6, 11, 14}, {4, 5, 12, 13}}
+	got, err := format.Propose(format.ProposalInput{Teams: 16, Courts: 4, SlotMinutes: 50,
+		Start: time.Date(2027, 2, 9, 8, 30, 0, 0, time.UTC), Sport: format.SportSeven, PoolSeeds: poolSeeds})
+	require.NoError(t, err)
+	ids := []string{}
+	for _, p := range got {
+		ids = append(ids, p.ID)
+		params, ok := p.Spec.Params.(format.PoolBandsParams)
+		require.True(t, ok, p.ID)
+		assert.Equal(t, poolSeeds, params.PoolSeeds, "the pools stay as decided")
+	}
+	assert.ElementsMatch(t, []string{"fixed-rank", "fixed-pairs", "fixed-none"}, ids)
+	byID := map[string]format.Proposal{}
+	for _, p := range got {
+		byID[p.ID] = p
+	}
+	assert.Equal(t, 24+16, byID["fixed-rank"].Matches, "4 pools of 4 and four T4 brackets of 4 matches")
+	assert.Equal(t, 24+24, byID["fixed-pairs"].Matches, "two T8 brackets of 12 matches")
+	assert.Equal(t, 24, byID["fixed-none"].Matches)
+
+	_, err = format.Propose(format.ProposalInput{Teams: 16, Courts: 4, SlotMinutes: 50, Sport: format.SportSeven,
+		PoolSeeds: [][]int{{1, 2}, {3, 4}}})
+	require.ErrorIs(t, err, domain.ErrBadRequest, "the pools must place every team")
+}

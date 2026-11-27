@@ -20,6 +20,8 @@ type proposalInputDTO struct {
 	Sport       string `json:"sport"`
 	// Schedule があれば、courts、slotMinutes、date、start の代わりにこの条件で組む(形の適用と同じ条件)
 	Schedule *scheduleSettingDTO `json:"schedule"`
+	// PoolSeeds は運営が決めた組分け(組ごとのシード番号)。あれば、そのあとの順位決定戦の候補だけを返す
+	PoolSeeds [][]int `json:"poolSeeds"`
 }
 
 type proposalDTO struct {

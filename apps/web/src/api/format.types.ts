@@ -380,3 +380,10 @@ export const impactSchema = z.object({
   needsApproval: z.boolean(),
 })
 export type Impact = z.infer<typeof impactSchema>
+
+/** 部門の組分けの下書き。pools は組の順に、組ごとのチームの id を上から並べたもの(無ければ null) */
+export const poolDraftSchema = z.object({
+  pools: z.array(z.array(z.number().int())).nullable(),
+  updatedAt: z.string().nullable(),
+})
+export type PoolDraft = z.infer<typeof poolDraftSchema>

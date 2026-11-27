@@ -23,6 +23,8 @@ func (s *Server) formatRoutes() {
 	s.admin("GET "+base+"/divisions/{id}/format", adminOnly(), ok, withPathID(s.getFormat))
 	s.admin("PUT "+base+"/divisions/{id}/format", adminOnly(), ok, withPathID(s.applyFormat))
 	s.admin("GET "+base+"/formats", adminOnly(), ok, s.listFormats)
+	s.admin("GET "+base+"/divisions/{id}/pool-draft", adminOnly(), ok, withPathID(s.getPoolDraft))
+	s.admin("PUT "+base+"/divisions/{id}/pool-draft", adminOnly(), ok, withPathID(s.savePoolDraft))
 	s.admin("GET "+base+"/divisions/{id}/progress", staffOfDivision(), ok, withPathID(s.getProgress))
 	s.admin("GET "+base+"/divisions/{id}/format/matches", staffOfDivision(), ok,
 		withPathID(s.listFormatMatches))
@@ -58,7 +60,8 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 		if cfg.Busy, err = store.DivisionBusy(ctx, s.db, id, cfg.SlotMinutes); err != nil {
 			return nil, err
 		}
-		return proposalList(format.ProposalInput{Teams: in.Teams, Sport: format.Sport(in.Sport), Schedule: &cfg})
+		return proposalList(format.ProposalInput{Teams: in.Teams, Sport: format.Sport(in.Sport), Schedule: &cfg,
+			PoolSeeds: in.PoolSeeds})
 	}
 	day, err := domain.ParseDay("date", in.Date)
 	if err != nil {
@@ -73,7 +76,7 @@ func (s *Server) proposeFormats(ctx context.Context, id int64, r *http.Request, 
 	}
 	start := time.Date(day.Year(), day.Month(), day.Day(), clock.Hour(), clock.Minute(), 0, 0, time.UTC)
 	return proposalList(format.ProposalInput{Teams: in.Teams, Courts: in.Courts,
-		SlotMinutes: in.SlotMinutes, Start: start, Sport: format.Sport(in.Sport)})
+		SlotMinutes: in.SlotMinutes, Start: start, Sport: format.Sport(in.Sport), PoolSeeds: in.PoolSeeds})
 }
 
 func proposalList(input format.ProposalInput) (any, error) {
@@ -311,4 +314,41 @@ func (s *Server) swapSchedule(ctx context.Context, id int64, r *http.Request, _ 
 		return nil, err
 	}
 	return violationListDTO{Violations: toViolations(violations)}, nil
+}
+
+// poolDraftDTO は部門の組分けの下書き。pools は組の順に、組ごとのチームの id を上から並べたもの(下書きが
+// 無ければ null)。
+type poolDraftDTO struct {
+	Pools     [][]int64  `json:"pools"`
+	UpdatedAt *time.Time `json:"updatedAt"`
+}
+
+func (s *Server) getPoolDraft(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
+	if _, err := store.GetDivision(ctx, s.db, id); err != nil {
+		return nil, err
+	}
+	pools, at, found, err := store.GetPoolDraft(ctx, s.db, id)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return poolDraftDTO{}, nil
+	}
+	return poolDraftDTO{Pools: pools, UpdatedAt: &at}, nil
+}
+
+func (s *Server) savePoolDraft(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
+	if _, err := store.GetDivision(ctx, s.db, id); err != nil {
+		return nil, err
+	}
+	var in struct {
+		Pools [][]int64 `json:"pools"`
+	}
+	if err := decodeBody(r, &in); err != nil {
+		return nil, err
+	}
+	if err := store.SavePoolDraft(ctx, s.db, id, in.Pools, s.now()); err != nil {
+		return nil, err
+	}
+	return s.getPoolDraft(ctx, id, r, domain.User{})
 }

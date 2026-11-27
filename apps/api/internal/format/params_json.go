@@ -12,6 +12,7 @@ import (
 // 「形の指定の JSON」)。キーは camelCase で、テンプレートごとに次の形を取る。
 //
 //	pool_bands:  {"teams":12,"pools":4,"bands":[{"ranks":[1],"shape":"T4","pairing":null,"name":null}]}
+//	             {"teams":12,"pools":2,"poolSeeds":[[1,4,5,8,9,12],[2,3,6,7,10,11]],"bands":[…]}(運営が決めた組分け)
 //	blocks:      {"teams":32,"bands":[{"ranks":[2,3],"shape":"T8R1","pairing":null,"name":null}]}
 //	             {"teams":95,"cuts":[16,8,8,8,8,8,8,8,8,8,7]}(全体の並びを大きさで分ける。bands の代わり)
 //	round_robin: {"teams":8,"pools":2,"finalPoolRanks":[1,2]}
@@ -23,6 +24,8 @@ type paramsJSON struct {
 	Bands          []bandJSON `json:"bands,omitempty"`
 	FinalPoolRanks []int      `json:"finalPoolRanks,omitempty"`
 	Cuts           []int      `json:"cuts,omitempty"`
+	// PoolSeeds は pool_bands の、運営が決めた組分け(組ごとのシード番号)
+	PoolSeeds [][]int `json:"poolSeeds,omitempty"`
 }
 
 type bandJSON struct {
@@ -64,9 +67,9 @@ func DecodeParams(template string, data []byte) (any, error) {
 		if len(raw.FinalPoolRanks) > 0 {
 			return nil, domain.Invalid("params.finalPoolRanks", "is only for round_robin")
 		}
-		return PoolBandsParams{Teams: raw.Teams, Pools: pools, Bands: bands}, nil
+		return PoolBandsParams{Teams: raw.Teams, Pools: pools, Bands: bands, PoolSeeds: raw.PoolSeeds}, nil
 	case TemplateBlocks:
-		if raw.Pools != nil || len(raw.FinalPoolRanks) > 0 {
+		if raw.Pools != nil || len(raw.FinalPoolRanks) > 0 || len(raw.PoolSeeds) > 0 {
 			return nil, domain.Invalid("params", "blocks takes teams, bands and cuts only")
 		}
 		return BlocksParams{Teams: raw.Teams, Bands: bands, Cuts: raw.Cuts}, nil
@@ -76,6 +79,9 @@ func DecodeParams(template string, data []byte) (any, error) {
 		}
 		if len(raw.Bands) > 0 {
 			return nil, domain.Invalid("params.bands", "is not for round_robin")
+		}
+		if len(raw.PoolSeeds) > 0 {
+			return nil, domain.Invalid("params.poolSeeds", "is only for pool_bands")
 		}
 		return RoundRobinParams{Teams: raw.Teams, Pools: pools, FinalPoolRanks: raw.FinalPoolRanks}, nil
 	}
@@ -88,7 +94,7 @@ func EncodeParams(params any) ([]byte, error) {
 	var raw paramsJSON
 	switch p := params.(type) {
 	case PoolBandsParams:
-		raw = paramsJSON{Teams: p.Teams, Pools: &p.Pools, Bands: bandsJSON(p.Bands)}
+		raw = paramsJSON{Teams: p.Teams, Pools: &p.Pools, Bands: bandsJSON(p.Bands), PoolSeeds: p.PoolSeeds}
 	case *PoolBandsParams:
 		return EncodeParams(*p)
 	case BlocksParams:

@@ -242,8 +242,9 @@
 `division_formats.params` と管理 API の `params` は同じ形で、キーは camelCase(`format.DecodeParams` / `EncodeParams`)。
 
 ```jsonc
-// pool_bands(プール → 順位帯)
-{ "teams": 12, "pools": 4, "bands": [
+// pool_bands(プール → 順位帯)。poolSeeds があれば蛇行の代わりにその組分け(組ごとのシード番号。運営が
+// 管理画面の「試合を組む」で決めた組)を予選の組にする。組の大きさは揃わなくてよい
+{ "teams": 12, "pools": 4, "poolSeeds": null, "bands": [
   { "ranks": [1], "shape": "T4", "pairing": null, "name": null },   // pairing: cross / same_rank / seeded、null は既定
   { "ranks": [2], "shape": "T4", "pairing": null, "name": null },
   { "ranks": [3], "shape": "T4", "pairing": null, "name": null } ] }
