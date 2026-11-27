@@ -20,10 +20,12 @@ type fakeStore struct {
 	seen    map[string]bool
 	friends map[string]bool
 	users   map[string]int64
+	helped  map[string]time.Time
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{seen: map[string]bool{}, friends: map[string]bool{}, users: map[string]int64{}}
+	return &fakeStore{seen: map[string]bool{}, friends: map[string]bool{}, users: map[string]int64{},
+		helped: map[string]time.Time{}}
 }
 
 func (s *fakeStore) FirstSeen(_ context.Context, id string, _ time.Time) (bool, error) {
@@ -31,6 +33,14 @@ func (s *fakeStore) FirstSeen(_ context.Context, id string, _ time.Time) (bool, 
 		return false, nil
 	}
 	s.seen[id] = true
+	return true, nil
+}
+
+func (s *fakeStore) HelpDue(_ context.Context, userID string, at time.Time, every time.Duration) (bool, error) {
+	if last, ok := s.helped[userID]; ok && at.Sub(last) < every {
+		return false, nil
+	}
+	s.helped[userID] = at
 	return true, nil
 }
 
@@ -214,11 +224,30 @@ func TestBotDoesNotAnswer(t *testing.T) {
 	standby := message("2", "U1", "エントリー")
 	standby.Standby = true
 	group := message("3", "", "エントリー")
-	require.NoError(t, bot.Handle(context.Background(), []talk.Event{
-		message("1", "U1", "こんにちは"), standby, group,
-	}))
-	assert.Empty(t, messenger.replies, "unknown words, standby and groups are left to the staff")
+	sticker := message("4", "U1", "")
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{standby, group, sticker}))
+	assert.Empty(t, messenger.replies, "standby, groups and stickers are left to the staff")
 	assert.Empty(t, links.issued)
+}
+
+// 知らない言葉には使い方の案内を返す。同じ人には 1 日に 1 回だけ(運営とのやりとりの途中に割り込まない)。
+func TestBotHelpsOncePerDay(t *testing.T) {
+	bot, _, _, messenger := setup()
+	ctx := context.Background()
+	at := time.Date(2026, 11, 27, 10, 0, 0, 0, time.UTC)
+	say := func(id, text string, when time.Time) talk.Event {
+		event := message(id, "U1", text)
+		event.At = when
+		return event
+	}
+	require.NoError(t, bot.Handle(ctx, []talk.Event{say("1", "こんにちは", at)}))
+	assert.Equal(t, talk.TextHelp, messenger.replies["r-1"][0].Text)
+	require.NoError(t, bot.Handle(ctx, []talk.Event{say("2", "よろしくお願いします", at.Add(time.Hour))}))
+	assert.Empty(t, messenger.replies["r-2"], "not again on the same day")
+	require.NoError(t, bot.Handle(ctx, []talk.Event{say("3", "参加します", at.Add(2*time.Hour))}))
+	assert.Equal(t, talk.TextJoinHowTo, messenger.replies["r-3"][0].Text, "a join without a code is always answered")
+	require.NoError(t, bot.Handle(ctx, []talk.Event{say("4", "こんにちは", at.Add(25*time.Hour))}))
+	assert.Equal(t, talk.TextHelp, messenger.replies["r-4"][0].Text, "again the next day")
 }
 
 func TestBotHandlesTheSameEventOnce(t *testing.T) {
@@ -257,9 +286,17 @@ func TestCommandOf(t *testing.T) {
 		{"エントリー", talk.Command{Kind: talk.CommandEntry}},
 		{"　申込　", talk.Command{Kind: talk.CommandEntry}},
 		{"参加abcdefghijklmnopqrstuvwxyz", talk.Command{Kind: talk.CommandJoin, InviteCode: "abcdefghijklmnopqrstuvwxyz"}},
-		{"参加 abc", talk.Command{}},
-		{"参加 abcdefghijklmnopqrstuvwxy1", talk.Command{}},
-		{"エントリーしたい", talk.Command{}},
+		// 招待コードが読めない「参加」には、招待リンクの開き方を返す
+		{"参加 abc", talk.Command{Kind: talk.CommandJoinHelp}},
+		{"参加 abcdefghijklmnopqrstuvwxy1", talk.Command{Kind: talk.CommandJoinHelp}},
+		{"参加します", talk.Command{Kind: talk.CommandJoinHelp}},
+		// 文の中の言葉も受ける
+		{"エントリーしたいです", talk.Command{Kind: talk.CommandEntry}},
+		{"大会に申し込みたい", talk.Command{Kind: talk.CommandEntry}},
+		{"記録の画面はどこですか", talk.Command{Kind: talk.CommandScore}},
+		// 知らない言葉には使い方の案内
+		{"こんにちは", talk.Command{Kind: talk.CommandHelp}},
+		{"", talk.Command{}},
 	}
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, talk.CommandOf(talk.Event{Type: talk.EventMessage, Text: tc.text}), tc.text)

@@ -17,6 +17,8 @@ import (
 const (
 	sqlByLineUser     = "line_user_id = ?"
 	sqlByWebhookEvent = "webhook_event_id = ?"
+	// 使い方の案内をまだ返していないか、前に返してから間があいた人
+	sqlHelpDue = "line_user_id = ? AND (helped_at IS NULL OR helped_at <= ?)"
 )
 
 // LineUser は line_users の行(参加者の台帳)。LineUserID は公式アカウントから見たユーザー ID。Name、Phone、
@@ -32,8 +34,10 @@ type LineUser struct {
 	Phone            string     `gorm:"column:phone"`
 	Email            string     `gorm:"column:email"`
 	ProfileUpdatedAt *time.Time `gorm:"column:profile_updated_at"`
-	CreatedAt        time.Time  `gorm:"column:created_at"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+	// HelpedAt は使い方の案内を最後に返した時刻(migrations/00047)
+	HelpedAt  *time.Time `gorm:"column:helped_at"`
+	CreatedAt time.Time  `gorm:"column:created_at"`
+	UpdatedAt time.Time  `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -101,6 +105,20 @@ func (s *LineStore) upsert(ctx context.Context, row LineUser, update map[string]
 		return fmt.Errorf("record line user: %w", err)
 	}
 	return nil
+}
+
+// HelpDue は talk.Store.HelpDue。案内を返す時刻を書く更新を 1 回だけ行い、書けたら真にする(同じ人から
+// 同時に届いても、案内は 1 回だけになる)。
+func (s *LineStore) HelpDue(ctx context.Context, userID string, at time.Time, every time.Duration) (bool, error) {
+	if _, err := s.LineUser(ctx, userID, at); err != nil {
+		return false, err
+	}
+	result := s.db.WithContext(ctx).Model(&LineUser{}).Where(sqlHelpDue, userID, at.Add(-every)).
+		Updates(map[string]any{"helped_at": at})
+	if result.Error != nil {
+		return false, fmt.Errorf("record help of line user: %w", result.Error)
+	}
+	return result.RowsAffected == 1, nil
 }
 
 // Recipient は talk.Store.Recipient。

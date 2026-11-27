@@ -66,6 +66,9 @@ type Store interface {
 	Unfollow(ctx context.Context, userID string, at time.Time) error
 	// LineUser は公式アカウントから見たユーザー ID の line_users の行の ID を返す(無ければ作る)
 	LineUser(ctx context.Context, userID string, at time.Time) (int64, error)
+	// HelpDue は使い方の案内をこの人に返してよいか(まだ返していないか、前に返してから every 以上たった)を
+	// 確かめ、返してよければ at を返した時刻として記録して真を返す
+	HelpDue(ctx context.Context, userID string, at time.Time, every time.Duration) (bool, error)
 	// Recipient は line_users の行 ID の人の、公式アカウントから見たユーザー ID と、今も友だちかを読む。
 	// 行が無ければ domain.NotFound
 	Recipient(ctx context.Context, id int64) (Recipient, error)
@@ -133,11 +136,10 @@ func (b *Bot) respond(ctx context.Context, event Event) error {
 		}
 		command := CommandOf(event)
 		if command.Kind == CommandNone {
-			// 知らない言葉には返さない。運営がトークの画面から手で返せるように
 			return nil
 		}
 		messages, err := b.answer(ctx, event, command)
-		if err != nil {
+		if err != nil || len(messages) == 0 {
 			return err
 		}
 		return b.messenger.Reply(ctx, event.ReplyToken, messages)
@@ -146,6 +148,18 @@ func (b *Bot) respond(ctx context.Context, event Event) error {
 }
 
 func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Message, error) {
+	switch command.Kind {
+	case CommandJoinHelp:
+		return []Message{{Text: TextJoinHowTo}}, nil
+	case CommandHelp:
+		// 知らない言葉への使い方の案内は、同じ人に 1 日 1 回だけ(運営とのやりとりの途中に割り込まない。
+		// それ以外は返さず、運営がトークの画面から手で返す)
+		due, err := b.store.HelpDue(ctx, event.UserID, event.At, HelpInterval)
+		if err != nil || !due {
+			return nil, err
+		}
+		return []Message{{Text: TextHelp}}, nil
+	}
 	lineUser, err := b.store.LineUser(ctx, event.UserID, event.At)
 	if err != nil {
 		return nil, err
@@ -212,7 +226,14 @@ const (
 	CommandJoin
 	// CommandScore はチームの記録係が記録の画面を開く(トークで「記録」と送った)
 	CommandScore
+	// CommandJoinHelp は「参加」と送ったが招待コードが読めない(招待リンクを開かずに打った、など)
+	CommandJoinHelp
+	// CommandHelp は知らない言葉(使い方の案内を返す)
+	CommandHelp
 )
+
+// HelpInterval は使い方の案内を同じ人に返す間隔。
+const HelpInterval = 24 * time.Hour
 
 // Command は届いた言葉の解釈。
 type Command struct {
@@ -264,14 +285,31 @@ func CommandOf(event Event) Command {
 		return Command{}
 	}
 	text := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(event.Text, "　", " ")))
-	if isEntryWord(text) {
-		return Command{Kind: CommandEntry}
-	}
-	if isScoreWord(text) {
-		return Command{Kind: CommandScore}
-	}
 	if code := inviteCodeOf(text); code != "" {
 		return Command{Kind: CommandJoin, InviteCode: code}
 	}
+	// 決まった言葉のほか、文の中にその言葉があれば同じものとして受ける(「エントリーしたいです」など)
+	if isEntryWord(text) || containsAny(text, "エントリ", "申込", "申し込", "もうしこ") {
+		return Command{Kind: CommandEntry}
+	}
+	if strings.HasPrefix(text, "参加") {
+		return Command{Kind: CommandJoinHelp}
+	}
+	if isScoreWord(text) || containsAny(text, "記録", "スコア") {
+		return Command{Kind: CommandScore}
+	}
+	if text != "" {
+		return Command{Kind: CommandHelp}
+	}
 	return Command{}
+}
+
+// containsAny は text が words のどれかを含むか。
+func containsAny(text string, words ...string) bool {
+	for _, word := range words {
+		if strings.Contains(text, word) {
+			return true
+		}
+	}
+	return false
 }
