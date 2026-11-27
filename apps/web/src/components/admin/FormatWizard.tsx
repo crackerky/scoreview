@@ -69,6 +69,11 @@ export type WizardProps = {
   copies: SavedFormat[]
   /** 結果の入った試合の数。1 以上なら作り直せない */
   startedMatches: number
+  /**
+   * 試合を組むの組分けで決めた組(組ごとのシード番号。initialSeeds はそのシード順)。あれば、この組の
+   * あとに続く順位決定戦の候補だけを出す
+   */
+  fixedPools?: number[][] | null
 }
 
 function teamsInParams(params: Chosen['params']): number | null {
@@ -125,8 +130,11 @@ function initialForm(props: WizardProps): WizardForm {
     // 引き継いだ時間割の設定は、日付だけ今回の大会の開催日に合わせる
     cond = shiftConditions(cond, props.defaultDate)
   }
+  // 組分けで決めた組で作るときは、前の形を初期の形にしない(組が違うので、候補から選び直す)
   const inheritedFits =
-    base !== null && teamsInParams(base.params) === props.initialSeeds.length ? base : null
+    !props.fixedPools && base !== null && teamsInParams(base.params) === props.initialSeeds.length
+      ? base
+      : null
   return {
     cond,
     chosen: chosenOf(props.saved ?? inheritedFits),
@@ -213,6 +221,7 @@ export function FormatWizard(props: WizardProps) {
           start: cond.days[0]?.start ?? '09:00',
           sport: cond.sport,
           schedule: scheduleOf(cond),
+          poolSeeds: props.fixedPools ?? null,
         }),
       setProposals,
     )

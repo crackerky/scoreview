@@ -120,12 +120,13 @@ test('予約があれば送った記録の入口に数を出す', () => {
   assert.equal(line.links.find((link) => link.label === '送った記録と予約')?.sub, '予約 2 件')
 })
 
-test('形の決まっていない部門があれば、その部門の形を決めさせる', () => {
+test('組んでいない部門があれば、その部門を組ませる(部門ごとの進み具合の表も出す)', () => {
   const stages = tournamentStages(input())
   const build = stage(stages, 'build')
-  assert.equal(build.next?.label, '女子の形を決める')
-  assert.equal(build.next?.href, '/admin/divisions/12/format')
-  assert.equal(build.links.find((link) => link.label === '女子')?.chip?.label, '形を決める')
+  assert.equal(build.next?.label, '女子を組む')
+  assert.equal(build.next?.href, '/admin/divisions/12/build')
+  assert.equal(build.links.find((link) => link.label === '女子')?.chip?.label, 'まだ組んでいない')
+  assert.equal(build.links[0]?.href.endsWith('/build'), true)
   assert.equal(currentStage(stages)?.key, 'build')
 })
 

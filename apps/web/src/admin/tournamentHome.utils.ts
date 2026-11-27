@@ -266,14 +266,22 @@ function divisionLinks(input: HomeInput, withFormat: boolean): StageLink[] {
       .join(' ・ '),
     chip:
       withFormat && !division.formatted
-        ? { label: '形を決める', tone: 'warn' as const }
+        ? { label: 'まだ組んでいない', tone: 'warn' as const }
         : undefined,
   }))
 }
 
 function buildStage(input: HomeInput): Stage {
   const shared = { key: 'build' as const, title: '試合を組む', numbers: null }
-  const links = divisionLinks(input, true)
+  // 部門ごとの進み具合(チーム → 組分け → 時間割)の表を先頭に置く
+  const links: StageLink[] = [
+    {
+      label: '部門ごとの進み具合',
+      href: `${base(input)}/build`,
+      sub: 'チーム → 組分け → 時間割',
+    },
+    ...divisionLinks(input, true),
+  ]
   if (input.divisions.length === 0) {
     return {
       ...shared,
@@ -304,7 +312,7 @@ function buildStage(input: HomeInput): Stage {
     ...shared,
     status: `${unformatted.map((division) => division.name).join('、')}の形がまだ決まっていません`,
     chip: null,
-    next: { label: `${first.name}の形を決める`, href: `/admin/divisions/${first.id}/format` },
+    next: { label: `${first.name}を組む`, href: `/admin/divisions/${first.id}/build` },
     waiting: true,
     // 形は作った時点のチームで組を作る。あとで参加を決めたチームは組に入らない
     note:

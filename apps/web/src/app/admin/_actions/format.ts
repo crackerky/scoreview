@@ -9,7 +9,7 @@ import { players, teams } from '@/api/admin'
 import { ApiError } from '@/api/client'
 import { genderSchema } from '@/api/common.types'
 import { formats, type ProposalInput } from '@/api/format'
-import type { FormatInput, FormatPreview, Proposal } from '@/api/format.types'
+import type { FormatInput, FormatPreview, PoolDraft, Proposal } from '@/api/format.types'
 
 // 大会の形(ウィザード)と本部の進行画面の Server Actions。ウィザードは画面を遷移せずに結果を
 // 受け取るので、値を返す action にする。進行画面の操作はフォームの送信で、通知つきで元の画面へ戻す。
@@ -37,6 +37,16 @@ export async function proposeFormatsAction(
   input: ProposalInput,
 ): Promise<ActionResult<Proposal[]>> {
   return withToken(async (token) => (await formats.propose(token, divisionId, input)).proposals)
+}
+
+/** 試合を組むの組分けの下書きを保存する(組の順に、組ごとのチームの id) */
+export async function savePoolDraftAction(
+  divisionId: number,
+  pools: number[][],
+): Promise<ActionResult<PoolDraft>> {
+  const result = await withToken((token) => formats.savePoolDraft(token, divisionId, pools))
+  revalidatePath('/admin', 'layout')
+  return result
 }
 
 export async function previewFormatAction(

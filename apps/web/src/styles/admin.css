@@ -2547,3 +2547,219 @@
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+
+/* 試合を組む(大会の段の表と部門の作業場。admin/build.utils.ts) */
+.bld-divs {
+  display: grid;
+  gap: 10px;
+}
+
+.bld-div {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) repeat(3, minmax(0, 1fr)) 11em;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+}
+
+.bld-div-name {
+  font-weight: 800;
+}
+
+.adm .bld-next {
+  justify-content: center;
+}
+
+.bld-step {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.adm .bld-step small {
+  color: var(--adm-muted);
+  font-size: 12px;
+}
+
+.bld-step .adm-chip {
+  justify-self: start;
+}
+
+@media (max-width: 760px) {
+  .bld-div {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bld-div-name,
+  .adm .bld-next {
+    grid-column: 1 / -1;
+  }
+}
+
+.bld-ways {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .bld-ways {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adm .bld-way {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--adm-line);
+  background: #fff;
+  color: var(--adm-fg);
+  font-weight: 400;
+  text-align: left;
+}
+
+.adm .bld-way[aria-pressed="true"] {
+  border-color: var(--adm-primary);
+  background: var(--adm-primary-soft);
+  box-shadow: inset 0 0 0 1px var(--adm-primary);
+}
+
+.bld-count {
+  align-items: center;
+}
+
+.bld-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .bld-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bld-h {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.bld-list {
+  display: grid;
+  gap: 6px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.adm .bld-team {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--adm-line);
+  background: #fff;
+  color: var(--adm-fg);
+  text-align: left;
+}
+
+.adm .bld-team small {
+  color: var(--adm-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.adm .bld-team[aria-pressed="true"] {
+  border-color: var(--adm-primary);
+  background: var(--adm-primary-soft);
+}
+
+.bld-pools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.bld-pool {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px;
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-radius);
+  background: #fff;
+}
+
+.bld-pool.can {
+  box-shadow: inset 0 0 0 2px var(--adm-primary);
+}
+
+.adm .bld-pool-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border: 0;
+  background: none;
+  color: var(--adm-fg);
+  padding: 4px 2px;
+}
+
+.adm .bld-pool-head:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.bld-pool ol {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.bld-pool-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.bld-pool-ops {
+  white-space: nowrap;
+}
+
+.adm .bld-op {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--adm-muted);
+}
+
+.bld-file {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--adm-tap);
+  padding: 8px 16px;
+  border: 1px solid var(--adm-field-line);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bld-file input {
+  max-width: 0;
+  opacity: 0;
+}
+
+.bld-save {
+  align-items: center;
+}
+
+.bld-error {
+  color: var(--adm-danger);
+  font-weight: 700;
+}
