@@ -1,4 +1,4 @@
-import { divisionSteps, poolLetter, seedsFromPools } from '@/admin/build.utils'
+import { divisionSteps, poolLetter } from '@/admin/build.utils'
 import { loadDivisionBuild } from '@/admin/buildData'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, tournaments } from '@/api/admin'
@@ -7,6 +7,7 @@ import type { IdPageProps } from '@/app/_lib/pageProps'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Chip } from '@/components/admin/AdminParts'
 import { PoolBuilder } from '@/components/admin/PoolBuilder'
+import { SchedulePaste } from '@/components/admin/SchedulePaste'
 
 // 部門の作業場(試合を組む)。チーム → 組分け → 時間割の 3 つの段をタブにする(?step=)。組分けは
 // PoolBuilder で決めて下書きに残し、時間割の段で、その組のまま形を作る画面(大会の形を決める)へ進む。
@@ -72,7 +73,16 @@ export default async function DivisionBuildPage(props: IdPageProps) {
         </>
       ) : null}
       {step === 'times' ? (
-        <TimesStep data={data} divisionId={id} tournamentId={tournament.id} />
+        <TimesStep
+          data={data}
+          divisionId={id}
+          tournamentId={tournament.id}
+          defaultDate={
+            data.matches.find((match) => match.date !== null)?.date ??
+            tournament.startDate ??
+            new Date().toISOString().slice(0, 10)
+          }
+        />
       ) : null}
     </AdminShell>
   )
@@ -125,60 +135,92 @@ function TeamsStep({
   )
 }
 
+// 時間割の段。試合がまだ無ければ、組分けで決めた組のまま形と時間割を作る(大会の形を決める画面へ)。
+// 試合があれば、今の時間割と、Excel の時間割の貼り付けを先に出し、組分けを変えた作り直しは下に置く
+// (作り直すと試合が置き換わるので、間違えて押さないように)。
 function TimesStep({
   data,
   divisionId,
   tournamentId,
+  defaultDate,
 }: {
   data: Data
   divisionId: number
   tournamentId: number
+  defaultDate: string
 }) {
-  const draft = data.build.draft
-  const byId = new Map(data.teams.map((team) => [team.id, team.shortName]))
+  const ready = data.build.draft?.complete === true && data.draft !== null
+  const create = ready ? (
+    <a
+      className={data.build.formatted ? undefined : 'adm-primary-link'}
+      href={`/admin/divisions/${divisionId}/format?pools=draft`}
+    >
+      {data.build.formatted
+        ? '組分けを変えて作り直す(試合と時間割が置き換わります)'
+        : 'この組分けで時間割を作る'}
+    </a>
+  ) : null
+  if (!data.build.formatted) {
+    return (
+      <div className="adm-stack">
+        {ready && data.draft ? (
+          <>
+            <p>
+              組分けで決めた {data.draft.length}{' '}
+              組のまま、このあとの順位決定戦と時間割(日付、コート、1 試合の時間)を決めて作ります。
+            </p>
+            <DraftPools pools={data.draft} teams={data.teams} />
+            <p>{create}</p>
+          </>
+        ) : (
+          <p className="adm-notice">
+            組分けがまだ終わっていません。
+            <a href={`/admin/divisions/${divisionId}/build?step=pools`}>組分けへ</a>
+          </p>
+        )}
+        <p className="adm-muted">
+          Excel
+          の時間割を貼り付けるときも、先に試合を作ってください。作った試合の時刻とコートを、貼り付けた表のとおりに書き換えます。
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="adm-stack">
-      {draft?.complete && data.draft ? (
-        <>
-          <p>
-            組分けで決めた {data.draft.length}{' '}
-            組のまま、このあとの順位決定戦と時間割(日付、コート、1 試合の時間)を決めて作ります。
-          </p>
-          <ul className="adm-muted">
-            {data.draft.map((pool, index) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 組は位置そのものが名前
-              <li key={index}>
-                {poolLetter(index)} 組:{' '}
-                {pool.map((teamId) => byId.get(teamId) ?? teamId).join('、')}
-              </li>
-            ))}
-          </ul>
-          <p>
-            <a
-              className="adm-primary-link"
-              href={`/admin/divisions/${divisionId}/format?pools=draft`}
-            >
-              この組分けで時間割を作る
-            </a>
-          </p>
-          <p className="adm-muted">
-            シード順は {seedsFromPools(data.draft).seeds.length} チーム(各組の上から順に A1、B1…)。
-          </p>
-        </>
-      ) : (
-        <p className="adm-notice">
-          組分けがまだ終わっていません。
-          <a href={`/admin/divisions/${divisionId}/build?step=pools`}>組分けへ</a>
-        </p>
-      )}
-      {data.build.formatted ? (
-        <p>
-          今の時間割: {data.build.scheduled}/{data.build.matches} 試合に日時とコートがあります。
-          <a href={`/admin/tournaments/${tournamentId}/timetable`}>大会全体の時間割</a>
-          {' ・ '}
-          <a href={`/admin/divisions/${divisionId}`}>部門の試合の一覧</a>
+      <p>
+        今の時間割: {data.build.scheduled}/{data.build.matches} 試合に日時とコートがあります。
+        <a href={`/admin/tournaments/${tournamentId}/timetable`}>大会全体の時間割</a>
+        {' ・ '}
+        <a href={`/admin/divisions/${divisionId}`}>部門の試合の一覧</a>
+      </p>
+      <h2 className="adm-section-title">Excel の時間割を貼り付ける</h2>
+      {data.slotMinutes ? (
+        <p className="adm-muted">
+          この部門の 1 試合の枠は {data.slotMinutes}{' '}
+          分です。表の時刻の間隔がこれより短いと、書いた後の確かめで重なりとして出ます。
         </p>
       ) : null}
+      <SchedulePaste
+        divisionId={divisionId}
+        matches={data.matches}
+        teams={data.teams}
+        defaultDate={defaultDate}
+      />
+      {create ? <p className="adm-muted">{create}</p> : null}
     </div>
+  )
+}
+
+function DraftPools({ pools, teams }: { pools: number[][]; teams: Data['teams'] }) {
+  const byId = new Map(teams.map((team) => [team.id, team.shortName]))
+  return (
+    <ul className="adm-muted">
+      {pools.map((pool, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: 組は位置そのものが名前
+        <li key={index}>
+          {poolLetter(index)} 組: {pool.map((teamId) => byId.get(teamId) ?? teamId).join('、')}
+        </li>
+      ))}
+    </ul>
   )
 }

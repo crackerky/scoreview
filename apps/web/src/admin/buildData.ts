@@ -3,6 +3,7 @@ import { divisions as divisionApi, matches, teams } from '@/api/admin'
 import { entries } from '@/api/entry'
 import { formats } from '@/api/format'
 import { type BuildTeam, type DivisionBuild, draftState } from './build.utils'
+import type { PasteMatch } from './schedulePaste.utils'
 
 // 「試合を組む」の段の表と作業場に要るものを、部門ごとに api から集める(チーム、確認待ちの申込、
 // 形、組分けの下書き、試合)。
@@ -19,6 +20,10 @@ export type DivisionBuildData = {
   draft: number[][] | null
   /** 確認待ちと直し待ちの申込のチーム名 */
   waiting: string[]
+  /** 試合(時間割の貼り付けで当てはめる) */
+  matches: Array<PasteMatch & { date: string | null; time: string | null; field: string | null }>
+  /** 形の 1 試合の枠の長さ(分。形が無ければ null)。時間割の確かめはこの長さで重なりを見る */
+  slotMinutes: number | null
 }
 
 type EntryList = Awaited<ReturnType<typeof entries.list>>
@@ -84,5 +89,22 @@ export async function loadDivisionBuild(
     scheduled: matchList.matches.filter((match) => match.date !== null && match.time !== null)
       .length,
   }
-  return { build, teams: buildTeams, draft: draft.pools, waiting }
+  const pasteMatches = matchList.matches.map((match) => ({
+    id: match.id,
+    code: match.code,
+    status: match.status,
+    leftTeamId: match.left.team?.id ?? null,
+    rightTeamId: match.right.team?.id ?? null,
+    date: match.date,
+    time: match.time,
+    field: match.field,
+  }))
+  return {
+    build,
+    teams: buildTeams,
+    draft: draft.pools,
+    waiting,
+    matches: pasteMatches,
+    slotMinutes: saved.format?.schedule?.slotMinutes ?? null,
+  }
 }
