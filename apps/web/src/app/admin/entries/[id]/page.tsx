@@ -109,6 +109,15 @@ export default async function EntryPage(props: IdPageProps) {
         <dd>{detail.repPhone || '(なし)'}</dd>
         <dt>メールアドレス</dt>
         <dd>{detail.repEmail || '(なし)'}</dd>
+        {detail.status === 'approved' ? (
+          <>
+            <dt>記録係</dt>
+            <dd>
+              {detail.memberList.find((member) => member.id === detail.scorerMemberId)?.name ??
+                'まだ選んでいません(代表が LINE で選びます)'}
+            </dd>
+          </>
+        ) : null}
       </dl>
 
       <h2 className="adm-section-title">

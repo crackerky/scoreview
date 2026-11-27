@@ -29,6 +29,7 @@ const entry = (
     inviteCode: 'x',
     inviteUrl: '',
     decidedAt: null,
+    scorerMemberId: null,
     memberList: members,
     answers,
   }) satisfies EntryAdminDetail

@@ -23,9 +23,12 @@ const (
 	NoticeCancelled NoticeKind = "cancelled"
 	// NoticeReopened は運営が参加の決定を取り消して、確認待ちに戻した
 	NoticeReopened NoticeKind = "reopened"
+	// NoticeScorerChosen は代表がチームの記録係に選んだ(代表ではなく、選ばれたメンバーに知らせる)
+	NoticeScorerChosen NoticeKind = "scorer_chosen"
 )
 
-// Notice は代表に知らせる出来事。LineUserID は代表の line_users の行の ID、Entry は出来事の後の申込
+// Notice は代表(記録係に選んだ知らせは選ばれたメンバー)に知らせる出来事。LineUserID は知らせる人の
+// line_users の行の ID、Entry は出来事の後の申込
 // (招待リンクと差し戻しの理由を含む)。
 type Notice struct {
 	Kind       NoticeKind

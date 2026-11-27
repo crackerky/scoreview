@@ -112,6 +112,10 @@ func NoticeMessages(notice entry.Notice, siteURL string) []Message {
 	case entry.NoticeReturned:
 		return []Message{{Text: fmt.Sprintf("%sの申込について、運営から直してほしいことがあります。\n\n%s\n\n"+
 			"メニューの「エントリー」を押すか「エントリー」と送ると、直す画面が開きます。", team, detail.ReturnNote)}}
+	case entry.NoticeScorerChosen:
+		return []Message{{Text: fmt.Sprintf("%sの%sの記録係になりました。\n"+
+			"当日は、このトークで「記録」と送ると、記録の画面が開きます。自分たちの試合のスコアを入れてください。",
+			team, tournament)}}
 	case entry.NoticeReopened:
 		return []Message{{Text: fmt.Sprintf("%sの%sへの申込は、運営の確認待ちに戻りました。\n"+
 			"運営が確かめたら、このトークでお知らせします。", team, tournament)}}

@@ -90,15 +90,17 @@ type entryAnswerDTO struct {
 
 type entryDetailDTO struct {
 	entrySummaryDTO
-	TournamentID int64            `json:"tournamentId"`
-	RepPhone     string           `json:"repPhone"`
-	RepEmail     string           `json:"repEmail"`
-	ReturnNote   string           `json:"returnNote"`
-	InviteCode   string           `json:"inviteCode"`
-	InviteURL    string           `json:"inviteUrl"`
-	DecidedAt    *time.Time       `json:"decidedAt"`
-	MemberList   []entryMemberDTO `json:"memberList"`
-	Answers      []entryAnswerDTO `json:"answers"`
+	TournamentID int64      `json:"tournamentId"`
+	RepPhone     string     `json:"repPhone"`
+	RepEmail     string     `json:"repEmail"`
+	ReturnNote   string     `json:"returnNote"`
+	InviteCode   string     `json:"inviteCode"`
+	InviteURL    string     `json:"inviteUrl"`
+	DecidedAt    *time.Time `json:"decidedAt"`
+	// ScorerMemberID はチームの記録係(memberList の id)。まだ選んでいなければ null
+	ScorerMemberID *int64           `json:"scorerMemberId"`
+	MemberList     []entryMemberDTO `json:"memberList"`
+	Answers        []entryAnswerDTO `json:"answers"`
 }
 
 // entryAdminMemberDTO は運営の画面のメンバー。本人が答えたメンバー向けの質問を足す(本人用のリンクの
@@ -167,7 +169,8 @@ func toEntryDetail(detail entry.Detail) entryDetailDTO {
 	out := entryDetailDTO{entrySummaryDTO: toEntrySummary(detail.Summary), TournamentID: detail.TournamentID,
 		RepPhone: detail.RepPhone, RepEmail: detail.RepEmail, ReturnNote: detail.ReturnNote,
 		InviteCode: detail.InviteCode, InviteURL: detail.InviteURL, DecidedAt: detail.DecidedAt,
-		MemberList: make([]entryMemberDTO, len(detail.MemberList)), Answers: toEntryAnswers(detail.Answers)}
+		ScorerMemberID: detail.ScorerMemberID,
+		MemberList:     make([]entryMemberDTO, len(detail.MemberList)), Answers: toEntryAnswers(detail.Answers)}
 	for i, member := range detail.MemberList {
 		out.MemberList[i] = toEntryMember(member)
 	}

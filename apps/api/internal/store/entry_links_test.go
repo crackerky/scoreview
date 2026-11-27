@@ -439,6 +439,73 @@ func (n *recordingNotifier) Notify(_ context.Context, notice entry.Notice) error
 	return nil
 }
 
+// 参加が決まったチームの代表が、LINE で登録したメンバーから記録係を選ぶ。選ばれたメンバーに知らせる。
+func TestEntryRepChoosesAScorer(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	notifier := &recordingNotifier{}
+	desk := entry.NewService(store.NewEntryStore(f.db), entry.WithRandom(&counter{}),
+		entry.WithClock(func() time.Time { return *f.now }),
+		entry.WithInviteURL(func(code string) string { return "invite:" + code }),
+		entry.WithNotifier(notifier, func(err error) { t.Error(err) }))
+	rep := f.lineUser(t, "Urep")
+	links, err := desk.IssueTeamLinks(ctx, rep)
+	require.NoError(t, err)
+	token := links[0].Token
+	submitted, err := desk.SubmitByLink(ctx, token, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	hanako := f.lineUser(t, "Uhanako")
+	join, err := desk.IssueMemberLink(ctx, hanako, submitted.InviteCode)
+	require.NoError(t, err)
+	sato := submitted.MemberList[1].ID
+	_, err = desk.JoinByLink(ctx, join.Token, entry.JoinDraft{MemberID: &sato, Name: "佐藤 花子",
+		Answers: map[int64]string{}})
+	require.NoError(t, err)
+
+	// 参加が決まる前は選べない
+	_, err = desk.ChooseScorerByLink(ctx, token, submitted.ID, &sato)
+	require.ErrorIs(t, err, domain.ErrConflict)
+	_, err = desk.Decide(ctx, submitted.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+
+	// LINE で登録していないメンバーと、ほかの申込のメンバーは選べない
+	yamada := submitted.MemberList[0].ID
+	_, err = desk.ChooseScorerByLink(ctx, token, submitted.ID, &yamada)
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+	other := int64(999999)
+	_, err = desk.ChooseScorerByLink(ctx, token, submitted.ID, &other)
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+
+	notifier.notices = nil
+	chosen, err := desk.ChooseScorerByLink(ctx, token, submitted.ID, &sato)
+	require.NoError(t, err)
+	require.NotNil(t, chosen.ScorerMemberID)
+	assert.Equal(t, sato, *chosen.ScorerMemberID)
+	require.Len(t, notifier.notices, 1, "the chosen member is told")
+	assert.Equal(t, entry.NoticeScorerChosen, notifier.notices[0].Kind)
+	assert.Equal(t, hanako, notifier.notices[0].LineUserID, "the notice goes to the scorer, not the rep")
+	// 運営の画面でも記録係が読める
+	detail, err := desk.Entry(ctx, submitted.ID)
+	require.NoError(t, err)
+	assert.Equal(t, &sato, detail.ScorerMemberID)
+
+	// 同じ人を選び直しても知らせは増えない。外すこともできる
+	_, err = desk.ChooseScorerByLink(ctx, token, submitted.ID, &sato)
+	require.NoError(t, err)
+	assert.Len(t, notifier.notices, 1)
+	cleared, err := desk.ChooseScorerByLink(ctx, token, submitted.ID, nil)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.ScorerMemberID)
+
+	// ほかの代表のリンクからは、この申込が見つからない
+	stranger := f.lineUser(t, "Ustranger")
+	strangerLinks, err := desk.IssueTeamLinks(ctx, stranger)
+	require.NoError(t, err)
+	var notFound *domain.NotFoundError
+	_, err = desk.ChooseScorerByLink(ctx, strangerLinks[0].Token, submitted.ID, &sato)
+	require.ErrorAs(t, err, &notFound)
+}
+
 func TestEntryNoticesGoToTheLineRepresentative(t *testing.T) {
 	f := newLinkFixture(t)
 	ctx := context.Background()

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { EntryLink } from '@/api/entry.types'
 import {
+  chooseScorerAction,
   joinTeamAction,
   resubmitTeamEntryAction,
   submitTeamEntryAction,
@@ -38,6 +39,9 @@ const doneTexts: Readonly<Record<string, string>> = {
   team: '申込を受け付けました。運営が確かめるまでお待ちください。下のボタンから、メンバーに登録のお願いを送れます。',
   resubmit: '直した申込を受け付けました。運営が確かめるまでお待ちください。',
   member: '登録しました。大会のお知らせは、この公式 LINE に届きます。',
+  scorer:
+    '記録係を決めました。当日は、その人が公式 LINE で「記録」と送ると、記録の画面が開きます。',
+  'scorer-cleared': '記録係を外しました。',
 }
 
 export default async function EntryLinkPage(props: Props) {
@@ -82,6 +86,7 @@ function TeamSection({
           entry={entry}
           team={team}
           resubmit={resubmitTeamEntryAction}
+          chooseScorer={chooseScorerAction}
         />
       ))}
       {team.open ? (

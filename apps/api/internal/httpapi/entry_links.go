@@ -15,6 +15,7 @@ func (s *Server) entryLinkRoutes() {
 	s.handle("POST /api/v1/entry-links/{token}/team", s.submitEntryByLink)
 	s.handle("POST /api/v1/entry-links/{token}/team/{id}", s.resubmitEntryByLink)
 	s.handle("POST /api/v1/entry-links/{token}/member", s.joinEntryByLink)
+	s.handle("POST /api/v1/entry-links/{token}/team/{id}/scorer", s.chooseScorerByLink)
 }
 
 type entryLinkTournamentDTO struct {
@@ -67,6 +68,27 @@ type entryLinkDTO struct {
 type entryResubmitDTO struct {
 	entryDraftDTO
 	RegisteredIDs []int64 `json:"registeredIds"`
+}
+
+// entryScorerDTO はチームの記録係を選ぶ(memberId が null なら外す)。
+type entryScorerDTO struct {
+	MemberID *int64 `json:"memberId"`
+}
+
+func (s *Server) chooseScorerByLink(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	var body entryScorerDTO
+	if err := decodeBody(r, &body); err != nil {
+		return nil, err
+	}
+	detail, err := s.entries.ChooseScorerByLink(r.Context(), r.PathValue("token"), id, body.MemberID)
+	if err != nil {
+		return nil, err
+	}
+	return toEntryDetail(detail), nil
 }
 
 type entryJoinDTO struct {

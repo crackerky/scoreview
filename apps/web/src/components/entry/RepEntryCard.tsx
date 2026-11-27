@@ -2,10 +2,11 @@ import type { EntryDetail, EntryLink } from '@/api/entry.types'
 import { registeredText, statusLabels } from '@/entry/entry.utils'
 import { type LinkFormState, resubmitValues, shareToLineUrl } from '@/entry/entryLink.utils'
 import { CopyField } from './CopyField'
+import { ScorerForm } from './ScorerForm'
 import { TeamEntryForm } from './TeamEntryForm'
 
 // 代表が出した申込 1 件。状態と、メンバーが LINE で登録した進み具合(まだの人の名前)、メンバーへの招待の
-// ボタンを出す。直し待ちの申込には、運営からのお願いのすぐ下に、直して送り直すフォームを開いて出す
+// ボタンを出す。参加が決まったら、記録係を選ぶ欄を出す。直し待ちの申込には、運営からのお願いのすぐ下に、直して送り直すフォームを開いて出す
 // (畳むと、下の別のチームの申込の欄に書いて、同じチームの申込を作ってしまいやすいため。同じ申込を直す
 // ので、招待とメンバーの登録はそのまま残る)。
 
@@ -16,9 +17,10 @@ type Props = {
   entry: EntryDetail
   team: Team
   resubmit: (state: LinkFormState, formData: FormData) => Promise<LinkFormState>
+  chooseScorer: (state: LinkFormState, formData: FormData) => Promise<LinkFormState>
 }
 
-export function RepEntryCard({ token, entry, team, resubmit }: Props) {
+export function RepEntryCard({ token, entry, team, resubmit, chooseScorer }: Props) {
   const waiting = entry.memberList.filter((member) => !member.registered)
   return (
     <section className="entry-card">
@@ -49,6 +51,9 @@ export function RepEntryCard({ token, entry, team, resubmit }: Props) {
             registered={entry.memberList.filter((member) => member.registered)}
           />
         </>
+      ) : null}
+      {entry.status === 'approved' ? (
+        <ScorerForm token={token} entry={entry} action={chooseScorer} />
       ) : null}
       {entry.inviteUrl && entry.status !== 'cancelled' ? (
         <>

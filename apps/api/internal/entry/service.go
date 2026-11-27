@@ -495,6 +495,68 @@ func (s *Service) ResubmitByLink(
 	return detail, nil
 }
 
+// ChooseScorerByLink は Desk.ChooseScorerByLink。代表が、参加が決まった自分の申込のチームの記録係を
+// 選ぶ(memberID が nil なら外す)。選ばれたメンバーには、公式 LINE で記録係になったことと記録の画面の
+// 開き方を知らせる。
+func (s *Service) ChooseScorerByLink(ctx context.Context, token string, entryID int64, memberID *int64) (Detail, error) {
+	link, err := s.link(ctx, token, LinkTeam)
+	if err != nil {
+		return Detail{}, err
+	}
+	mine, err := s.store.RepEntries(ctx, link.TournamentID, link.LineUserID)
+	if err != nil {
+		return Detail{}, err
+	}
+	current := findDetail(mine, entryID)
+	if current == nil {
+		return Detail{}, domain.NotFound(domain.ResourceEntry, entryID)
+	}
+	if err := CanChooseScorer(*current, memberID); err != nil {
+		return Detail{}, err
+	}
+	detail, err := s.store.SetScorer(ctx, entryID, memberID, s.now())
+	if err != nil {
+		return Detail{}, fmt.Errorf("choose scorer of entry %d: %w", entryID, err)
+	}
+	detail = s.withInvite(detail)
+	chosen := scorerOf(detail)
+	if s.notifier != nil && chosen != nil && chosen.LineUserID != nil &&
+		!sameScorer(current.ScorerMemberID, memberID) {
+		tournament, err := s.store.Tournament(ctx, link.TournamentID)
+		if err != nil {
+			s.report(fmt.Errorf("notify scorer of entry %d: %w", entryID, err))
+			return detail, nil
+		}
+		notice := Notice{Kind: NoticeScorerChosen, LineUserID: *chosen.LineUserID,
+			Tournament: TournamentRef{ID: tournament.ID, Name: tournament.Name}, Entry: detail}
+		if err := s.notifier.Notify(ctx, notice); err != nil {
+			s.report(fmt.Errorf("notify scorer of entry %d: %w", entryID, err))
+		}
+	}
+	return detail, nil
+}
+
+// scorerOf は申込の記録係のメンバー。選んでいなければ nil。
+func scorerOf(detail Detail) *Member {
+	if detail.ScorerMemberID == nil {
+		return nil
+	}
+	for i := range detail.MemberList {
+		if detail.MemberList[i].ID == *detail.ScorerMemberID {
+			return &detail.MemberList[i]
+		}
+	}
+	return nil
+}
+
+// sameScorer は記録係が変わっていないか(同じ人を選び直したときは知らせない)。
+func sameScorer(before, after *int64) bool {
+	if before == nil || after == nil {
+		return before == after
+	}
+	return *before == *after
+}
+
 func findDetail(details []Detail, id int64) *Detail {
 	for i := range details {
 		if details[i].ID == id {

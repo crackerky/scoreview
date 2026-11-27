@@ -12,6 +12,7 @@ import {
   type LinkFormState,
   participantErrorText,
   registeredIdsFromForm,
+  scorerChoiceFromForm,
 } from '@/entry/entryLink.utils'
 
 // 本人用のリンクの画面(/entry/{合言葉})の送信。ログインは無く、合言葉だけで本人を確かめる(api が確かめる)。
@@ -74,5 +75,17 @@ export async function joinTeamAction(
     const view = await entryLinks.get(token)
     await entryLinks.join(token, joinFromForm(form, view.member?.questions ?? []))
     return 'member'
+  })
+}
+
+/** 参加が決まったチームの記録係を、LINE で登録したメンバーから選ぶ(代表の画面) */
+export async function chooseScorerAction(
+  _state: LinkFormState,
+  formData: FormData,
+): Promise<LinkFormState> {
+  return runLinkAction(formData, async (token, form) => {
+    const { entryId, memberId } = scorerChoiceFromForm(form)
+    await entryLinks.chooseScorer(token, entryId, memberId)
+    return memberId === null ? 'scorer-cleared' : 'scorer'
   })
 }

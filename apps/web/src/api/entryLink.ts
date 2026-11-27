@@ -26,6 +26,12 @@ export const entryLinks = {
       method: 'POST',
       body,
     }),
+  /** 参加が決まった申込 entryId のチームの記録係を選ぶ(memberId が null なら外す) */
+  chooseScorer: (token: string, entryId: number, memberId: number | null) =>
+    apiFetch(`${base}/${encodeURIComponent(token)}/team/${entryId}/scorer`, entryDetailSchema, {
+      method: 'POST',
+      body: { memberId },
+    }),
   join: (token: string, body: EntryJoinInput) =>
     apiFetch(`${base}/${encodeURIComponent(token)}/member`, entryLinkMemberSchema, {
       method: 'POST',

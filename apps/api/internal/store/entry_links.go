@@ -331,6 +331,24 @@ func (s *EntryStore) Resubmit(ctx context.Context, id int64, resubmission entry.
 	return out, err
 }
 
+// SetScorer は entry.Store.SetScorer。
+func (s *EntryStore) SetScorer(ctx context.Context, entryID int64, memberID *int64, at time.Time) (entry.Detail, error) {
+	var out entry.Detail
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if _, err := lockEntry(ctx, tx, entryID); err != nil {
+			return err
+		}
+		err := tx.Model(&TeamEntry{}).Where(sqlByID, entryID).
+			Updates(map[string]any{"scorer_member_id": memberID, "updated_at": at}).Error
+		if err != nil {
+			return writeError("set scorer of entry", err)
+		}
+		out, err = loadEntry(ctx, tx, entryID)
+		return err
+	})
+	return out, err
+}
+
 // applyMemberPlan はメンバーの行を plan のとおりにする。消す行の答えは外部キーの ON DELETE CASCADE で
 // 消える。
 func applyMemberPlan(ctx context.Context, tx *gorm.DB, teamEntryID int64, plan entry.MemberPlan, at time.Time) error {

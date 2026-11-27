@@ -14,6 +14,7 @@ import {
   profileValues,
   registeredIdsFromForm,
   resubmitValues,
+  scorerChoiceFromForm,
   shareToLineUrl,
 } from '../src/entry/entryLink.utils.ts'
 
@@ -192,6 +193,7 @@ test('resubmitValues は今の中身を入れ、本人が登録した人はメ�
     inviteCode: 'a'.repeat(26),
     inviteUrl: '',
     decidedAt: null,
+    scorerMemberId: null,
     memberList: [
       { id: 3, name: '佐藤 花子', number: '12', registered: true, playerId: null },
       { id: 4, name: '鈴木 一郎', number: '3', registered: false, playerId: null },
@@ -267,5 +269,20 @@ describe('参加者の台帳', () => {
       member: null,
     })
     assert.equal(parsed.team?.pastTeams[0]?.members.length, 2)
+  })
+})
+
+test('記録係を選ぶフォームは、空を「外す」にし、数でない値は外すとして読む', () => {
+  assert.deepEqual(scorerChoiceFromForm({ entryId: '12', memberId: '34' }), {
+    entryId: 12,
+    memberId: 34,
+  })
+  assert.deepEqual(scorerChoiceFromForm({ entryId: '12', memberId: '' }), {
+    entryId: 12,
+    memberId: null,
+  })
+  assert.deepEqual(scorerChoiceFromForm({ entryId: '12', memberId: 'x' }), {
+    entryId: 12,
+    memberId: null,
   })
 })

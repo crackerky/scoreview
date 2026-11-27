@@ -306,3 +306,11 @@ func TestNoticeMessages(t *testing.T) {
 	}
 	assert.Empty(t, talk.NoticeMessages(entry.Notice{Kind: "unknown"}, ""))
 }
+
+// 記録係に選ばれたメンバーへの知らせ。当日に記録の画面を開く言葉を書く。
+func TestScorerChosenMessage(t *testing.T) {
+	messages := talk.NoticeMessages(notice(entry.NoticeScorerChosen), "https://score.example")
+	require.Len(t, messages, 1)
+	assert.Contains(t, messages[0].Text, "「熱海ディスクス」の「ラバー 2027」の記録係になりました")
+	assert.Contains(t, messages[0].Text, "「記録」と送ると")
+}

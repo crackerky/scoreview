@@ -200,10 +200,12 @@ type Detail struct {
 	InviteCode    string
 	// InviteURL はメンバーの招待リンク(公式アカウントのトークを「参加 招待コード」の入った状態で開く)。
 	// 公式アカウントのベーシック ID を設定していなければ空
-	InviteURL  string
-	DecidedAt  *time.Time
-	MemberList []Member
-	Answers    []Answer
+	InviteURL string
+	DecidedAt *time.Time
+	// ScorerMemberID はチームの記録係のメンバー(MemberList の ID)。まだ選んでいなければ nil
+	ScorerMemberID *int64
+	MemberList     []Member
+	Answers        []Answer
 }
 
 // Decision は申込の状態の変更。Store は申込が From の状態のときだけ To に変える(同時に別の運営が
@@ -268,6 +270,10 @@ type Desk interface {
 	ResubmitByLink(ctx context.Context, token string, entryID int64, draft Draft, registered []int64) (Detail, error)
 	// JoinByLink は本人用のリンクからメンバー登録を受け付け、登録後の画面を返す
 	JoinByLink(ctx context.Context, token string, draft JoinDraft) (MemberForm, error)
+	// ChooseScorerByLink は代表が、参加が決まった自分の申込のチームの記録係を、LINE で登録したメンバー
+	// から選ぶ(memberID が nil なら外す)。この代表のこの大会の申込でなければ domain.NotFound、参加が
+	// 決まっていなければ domain.ErrConflict
+	ChooseScorerByLink(ctx context.Context, token string, entryID int64, memberID *int64) (Detail, error)
 }
 
 // Links は公式アカウントのトークの受け答え(talk)が使う、本人用のリンクの発行。Service が実装する。
@@ -333,6 +339,9 @@ type Store interface {
 	// その行がこの間に別の人に結ばれていたら domain.ErrConflict。背番号の重なりはロックの中で確かめ直す。
 	// 承認した申込なら選手も直す(無ければ作る)
 	Join(ctx context.Context, join Join) error
+	// SetScorer は申込のチームの記録係を memberID(nil なら外す)にする。メンバーがこの申込の行で、
+	// LINE で登録しているかは呼ぶ側が確かめる(CanChooseScorer)
+	SetScorer(ctx context.Context, entryID int64, memberID *int64, at time.Time) (Detail, error)
 	// Resubmit は差し戻した申込を直した中身で置き換え、申込中に戻す。申込がこの間に差し戻しでなく
 	// なっていたら domain.ErrConflict。メンバーの行はロックの中で PlanMembers に沿って変える
 	Resubmit(ctx context.Context, id int64, resubmission Resubmission) (Detail, error)

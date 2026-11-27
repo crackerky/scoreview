@@ -52,25 +52,27 @@ func (EntryQuestion) TableName() string { return "entry_questions" }
 
 // TeamEntry は team_entries の行。
 type TeamEntry struct {
-	ID            int64      `gorm:"column:id;primaryKey"`
-	TournamentID  int64      `gorm:"column:tournament_id"`
-	DivisionID    int64      `gorm:"column:division_id"`
-	TeamNameFull  string     `gorm:"column:team_name_full"`
-	TeamNameShort string     `gorm:"column:team_name_short"`
-	RepName       string     `gorm:"column:rep_name"`
-	RepPhone      string     `gorm:"column:rep_phone"`
-	RepEmail      string     `gorm:"column:rep_email"`
-	RepLineUserID *int64     `gorm:"column:rep_line_user_id"`
-	Channel       string     `gorm:"column:channel"`
-	Status        string     `gorm:"column:status"`
-	ReturnNote    string     `gorm:"column:return_note"`
-	InviteCode    string     `gorm:"column:invite_code"`
-	TeamID        *int64     `gorm:"column:team_id"`
-	SubmittedAt   time.Time  `gorm:"column:submitted_at"`
-	DecidedAt     *time.Time `gorm:"column:decided_at"`
-	DecidedBy     *int64     `gorm:"column:decided_by"`
-	CreatedAt     time.Time  `gorm:"column:created_at"`
-	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+	ID            int64  `gorm:"column:id;primaryKey"`
+	TournamentID  int64  `gorm:"column:tournament_id"`
+	DivisionID    int64  `gorm:"column:division_id"`
+	TeamNameFull  string `gorm:"column:team_name_full"`
+	TeamNameShort string `gorm:"column:team_name_short"`
+	RepName       string `gorm:"column:rep_name"`
+	RepPhone      string `gorm:"column:rep_phone"`
+	RepEmail      string `gorm:"column:rep_email"`
+	RepLineUserID *int64 `gorm:"column:rep_line_user_id"`
+	Channel       string `gorm:"column:channel"`
+	Status        string `gorm:"column:status"`
+	ReturnNote    string `gorm:"column:return_note"`
+	InviteCode    string `gorm:"column:invite_code"`
+	TeamID        *int64 `gorm:"column:team_id"`
+	// ScorerMemberID はチームの記録係(migrations/00045)
+	ScorerMemberID *int64     `gorm:"column:scorer_member_id"`
+	SubmittedAt    time.Time  `gorm:"column:submitted_at"`
+	DecidedAt      *time.Time `gorm:"column:decided_at"`
+	DecidedBy      *int64     `gorm:"column:decided_by"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -440,7 +442,7 @@ func loadDetails(ctx context.Context, db *gorm.DB, rows []TeamEntry) ([]entry.De
 			TournamentID: row.TournamentID, RepLineUserID: row.RepLineUserID, RepPhone: row.RepPhone,
 			RepEmail:   row.RepEmail,
 			ReturnNote: row.ReturnNote, InviteCode: row.InviteCode, DecidedAt: row.DecidedAt,
-			MemberList: list, Answers: given}
+			ScorerMemberID: row.ScorerMemberID, MemberList: list, Answers: given}
 	}
 	return out, nil
 }

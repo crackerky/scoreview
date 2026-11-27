@@ -997,6 +997,7 @@ type EntryDetail = EntrySummary & {
   inviteCode: string                 // メンバーの招待リンクのコード(英小文字と数字の 26 文字)
   inviteUrl: string                  // 公式アカウントのトークを「参加 招待コード」の入った状態で開く URL。LINE を設定していなければ ''(LINE を設定するならベーシック ID は必須)
   decidedAt: string | null
+  scorerMemberId: number | null      // チームの記録係(memberList の id)。参加が決まったチームの代表が LINE で登録したメンバーから選ぶ。まだなら null
   memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null }>
                                      // 運営の口(/admin/…)は、メンバーごとに answers: Array<{ questionId; value }>(本人が答えたメンバー向けの質問)も付ける。本人用のリンクの口には付けない(ほかのメンバーや代表に見せない)
   answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
@@ -1055,6 +1056,7 @@ type EntryLink = {
 | `GET /entry-links/{token}` | なし | `EntryLink` |
 | `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409。代表の名前、電話番号、メールアドレスを、この人の前回の入力として残す(送り直しも同じ。メンバー登録は名前だけ)。受付を公式アカウントから代表に知らせ、メンバーへの登録のお願い(招待リンク)を別の吹き出しで付ける(送り直しは受付だけ) |
 | `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
+| `POST /entry-links/{token}/team/{id}/scorer` | `{ memberId: number \| null }` | `EntryDetail`。参加が決まったこの代表の申込のチームの記録係を、LINE で登録したこの申込のメンバーから選ぶ(`null` は外す)。参加が決まっていなければ 409、ほかのメンバーや LINE で登録していないメンバーは 400、ほかの代表の申込は 404。選んだメンバーに公式アカウントから記録係になったことを知らせる(同じ人を選び直したときは知らせない) |
 | `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行と、代表本人でない人が選んだ代表の行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
 ### 公式 LINE で送る

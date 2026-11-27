@@ -52,6 +52,20 @@ export function registeredIdsFromForm(form: FormFields): number[] {
   return values.map(Number).filter((id) => Number.isInteger(id) && id > 0)
 }
 
+/** 記録係を選ぶフォーム(申込の ID と、選んだメンバー。空なら記録係を外す)を読む */
+export function scorerChoiceFromForm(form: FormFields): {
+  entryId: number
+  memberId: number | null
+} {
+  const entryId = Number(typeof form.entryId === 'string' ? form.entryId : '')
+  const raw = typeof form.memberId === 'string' ? form.memberId : ''
+  const memberId = raw === '' ? null : Number(raw)
+  return {
+    entryId: Number.isInteger(entryId) ? entryId : 0,
+    memberId: memberId !== null && Number.isInteger(memberId) && memberId > 0 ? memberId : null,
+  }
+}
+
 /**
  * 公開側のフォームの送信の結果。error は画面に出す文。成功したときは同じ画面へ移るので使わない。
  */

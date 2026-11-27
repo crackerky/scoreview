@@ -72,6 +72,8 @@ export const entryDetailSchema = entrySummarySchema.extend({
   inviteCode: z.string(),
   inviteUrl: z.string(),
   decidedAt: z.string().nullable(),
+  /** チームの記録係(memberList の id)。まだ選んでいなければ null */
+  scorerMemberId: z.number().int().nullable(),
   memberList: z.array(entryMemberSchema),
   answers: z.array(entryAnswerSchema),
 })

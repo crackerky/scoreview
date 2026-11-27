@@ -393,3 +393,25 @@ func IsInviteCode(code string) bool {
 func inviteEncoding() *base32.Encoding {
 	return base32.StdEncoding.WithPadding(base32.NoPadding)
 }
+
+// CanChooseScorer は申込のチームの記録係に memberID(nil は外す)を選べるかを確かめる。記録係は参加が
+// 決まったチームだけが選び、記録の画面は公式 LINE から開くので、LINE で登録したこの申込のメンバー
+// だけを選べる。
+func CanChooseScorer(current Detail, memberID *int64) error {
+	if current.Status != StatusApproved {
+		return fmt.Errorf("%w: only an approved team can choose a scorer", domain.ErrConflict)
+	}
+	if memberID == nil {
+		return nil
+	}
+	for _, member := range current.MemberList {
+		if member.ID != *memberID {
+			continue
+		}
+		if member.LineUserID == nil {
+			return domain.Invalid("memberId", "the member has not registered on LINE")
+		}
+		return nil
+	}
+	return domain.Invalid("memberId", "is not a member of the entry")
+}
