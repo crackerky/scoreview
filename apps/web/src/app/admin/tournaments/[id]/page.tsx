@@ -66,6 +66,9 @@ export default async function AdminTournamentPage(props: IdPageProps) {
             total: entryList.entries.length,
             pending: entryCounts.pending,
             approved: entryCounts.approved,
+            noScorer: entryList.entries.filter(
+              (item) => item.status === 'approved' && !item.scorerChosen,
+            ).length,
           }
         : null,
     scheduled:

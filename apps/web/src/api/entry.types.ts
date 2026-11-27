@@ -48,6 +48,8 @@ export const entrySummarySchema = z.object({
   registered: z.number().int(),
   submittedAt: z.string(),
   teamId: z.number().int().nullable(),
+  /** チームの記録係を選んだか(参加が決まったチームの代表が選ぶ) */
+  scorerChosen: z.boolean(),
 })
 export type EntrySummary = z.infer<typeof entrySummarySchema>
 

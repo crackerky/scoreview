@@ -34,6 +34,7 @@ const (
 	sqlEntryStatusIs      = "te.status = ?"
 	sqlEntryStatusIsNot   = "te.status <> ?"
 	sqlEntryDivisionIs    = "te.division_id = ?"
+	sqlEntryNoScorer      = "te.scorer_member_id IS NULL"
 	// 代表が書いたメンバーの行のうち、まだ誰も自分の LINE を結んでいない行がある
 	sqlEntryIncomplete = "EXISTS (SELECT 1 FROM member_entries pending " +
 		"WHERE pending.team_entry_id = te.id AND pending.line_user_id IS NULL)"
@@ -170,6 +171,9 @@ func (s *NotifyStore) Recipients(
 		queries = append(queries,
 			reps.Where(sqlEntriesOf, tournamentID).Where(sqlEntryStatusIs, approved).Order(sqlOrderEntriesSubmitted),
 			members.Order(sqlOrderMembers))
+	case notify.AudienceNoScorer:
+		queries = append(queries, reps.Where(sqlEntriesOf, tournamentID).
+			Where(sqlEntryStatusIs, string(entry.StatusApproved)).Where(sqlEntryNoScorer).Order(sqlOrderEntriesSubmitted))
 	case notify.AudiencePastReps:
 		queries = append(queries, reps.Where(sqlEntriesNotOf, tournamentID).Where(sqlEntryStatusIsNot, cancelled).
 			Where(sqlNotAppliedTo, tournamentID, cancelled).Order(sqlOrderEntriesNewest))

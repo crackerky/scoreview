@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/entry"
 	"scoreview/api/internal/format"
 )
 
@@ -30,14 +31,18 @@ type TodoKind string
 
 // TodoKind の値。
 const (
-	TodoTie          TodoKind = "tie"           // 未決の同順位
-	TodoConfirmGroup TodoKind = "confirm_group" // 確定待ちのプール
-	TodoConfirmStage TodoKind = "confirm_stage" // 確定待ちの段(全体順位を使う)
-	TodoOverdue      TodoKind = "overdue"       // 予定時刻を過ぎて結果がない試合
-	TodoCourtDelay   TodoKind = "court_delay"   // 遅れているコート
-	TodoMismatch     TodoKind = "mismatch"      // 対戦チームが順位と食い違っている試合
-	TodoOverlap      TodoKind = "overlap"       // 同じチームの試合の時刻が重なっている
-	TodoWithdrawn    TodoKind = "withdrawn"     // 棄権したチームが入った試合前の試合
+	// チームの記録係(申込の記録係のメンバーの名前)。部門の参加が決まった申込のチーム
+	sqlSelectTeamScorerNames          = "team_entries.team_id, member_entries.name"
+	sqlJoinScorerMember               = "JOIN member_entries ON member_entries.id = team_entries.scorer_member_id"
+	sqlTeamScorersOfDivision          = "team_entries.division_id = ? AND team_entries.status = ? AND team_entries.team_id IS NOT NULL"
+	TodoTie                  TodoKind = "tie"           // 未決の同順位
+	TodoConfirmGroup         TodoKind = "confirm_group" // 確定待ちのプール
+	TodoConfirmStage         TodoKind = "confirm_stage" // 確定待ちの段(全体順位を使う)
+	TodoOverdue              TodoKind = "overdue"       // 予定時刻を過ぎて結果がない試合
+	TodoCourtDelay           TodoKind = "court_delay"   // 遅れているコート
+	TodoMismatch             TodoKind = "mismatch"      // 対戦チームが順位と食い違っている試合
+	TodoOverlap              TodoKind = "overlap"       // 同じチームの試合の時刻が重なっている
+	TodoWithdrawn            TodoKind = "withdrawn"     // 棄権したチームが入った試合前の試合
 )
 
 // TodoItem は「いまやること」の 1 件。対象の ID は種類に応じて入る。
@@ -138,6 +143,9 @@ type ProgressMatch struct {
 	Status     domain.MatchStatus
 	Left       ProgressSide
 	Right      ProgressSide
+	// TeamScorer はこの試合を記録するチームの記録係の名前(左のチームに記録係がいれば左、いなければ右の
+	// チームの記録係)。どちらのチームにも記録係がいなければ nil
+	TeamScorer *string
 }
 
 // FinalRankRow は最終順位の 1 行。
@@ -168,7 +176,11 @@ func GetFormatProgress(ctx context.Context, db *gorm.DB, divisionID int64, now t
 	if err != nil {
 		return FormatProgress{}, err
 	}
-	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone()), withdrawn: withdrawn}
+	scorers, err := teamScorerNames(ctx, db, divisionID)
+	if err != nil {
+		return FormatProgress{}, err
+	}
+	v := progressBuilder{fs: fs, teams: teams, now: now.In(venueZone()), withdrawn: withdrawn, scorers: scorers}
 	out := v.build()
 	if out.Suspension, err = GetSuspension(ctx, db, fs.division.TournamentID); err != nil {
 		return FormatProgress{}, err
@@ -194,6 +206,8 @@ type progressBuilder struct {
 	now   time.Time
 	// withdrawn は棄権したチームと棄権した時刻(進行画面だけが読む)
 	withdrawn map[int64]time.Time
+	// scorers はチームの記録係の名前(チーム ID ごと。進行画面だけが読む)
+	scorers map[int64]string
 }
 
 func (v progressBuilder) ref(id int64) domain.TeamRef {
@@ -642,7 +656,34 @@ func (v progressBuilder) match(m Match) ProgressMatch {
 		pm.Left = v.side(g, g.Left, m.LeftTeamID, m.LeftScore)
 		pm.Right = v.side(g, g.Right, m.RightTeamID, m.RightScore)
 	}
+	for _, team := range []*int64{m.LeftTeamID, m.RightTeamID} {
+		if team == nil {
+			continue
+		}
+		if name, ok := v.scorers[*team]; ok {
+			pm.TeamScorer = &name
+			break
+		}
+	}
 	return pm
+}
+
+// teamScorerNames は部門のチームの記録係の名前(参加が決まった申込で、代表が記録係を選んだチーム)。
+func teamScorerNames(ctx context.Context, db *gorm.DB, divisionID int64) (map[int64]string, error) {
+	var rows []struct {
+		TeamID int64
+		Name   string
+	}
+	err := db.WithContext(ctx).Model(&TeamEntry{}).Select(sqlSelectTeamScorerNames).Joins(sqlJoinScorerMember).
+		Where(sqlTeamScorersOfDivision, divisionID, string(entry.StatusApproved)).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("load team scorers of division %d: %w", divisionID, err)
+	}
+	out := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		out[row.TeamID] = row.Name
+	}
+	return out, nil
 }
 
 func (v progressBuilder) side(m format.Match, side format.SideRef, team *int64, score *int) ProgressSide {

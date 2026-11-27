@@ -60,6 +60,12 @@ export default async function EntriesPage(props: IdPageProps) {
         />
         <Stat label="参加決定" value={String(counts.approved)} />
         <Stat label="直し待ち" value={String(counts.returned)} />
+        {counts.approved > 0 ? (
+          <Stat
+            label="記録係が決まったチーム"
+            value={`${list.entries.filter((item) => item.status === 'approved' && item.scorerChosen).length} / ${counts.approved}`}
+          />
+        ) : null}
       </div>
       <p className="adm-links">
         <a href={entryPaths.questions(id)}>申込で聞く質問を決める</a>
@@ -101,6 +107,9 @@ export default async function EntriesPage(props: IdPageProps) {
                     {item.members === 0
                       ? registeredText(0, 0)
                       : `メンバー ${registeredText(item.members, item.registered)}`}
+                    {item.status === 'approved'
+                      ? ` ・ 記録係 ${item.scorerChosen ? '決まった' : 'まだ'}`
+                      : ''}
                   </span>
                 </span>
                 <Chip tone={statusTones[item.status]}>{statusLabels[item.status]}</Chip>

@@ -26,6 +26,10 @@ export const audienceKindLabels: Readonly<Record<AudienceKind, { label: string; 
     label: '参加が決まったチームの代表とメンバー',
     hint: '前日の案内など、出場が決まった人みんなに送るとき。メンバーは LINE で登録した人だけです',
   },
+  no_scorer: {
+    label: '記録係を選んでいないチームの代表',
+    hint: '参加が決まったチームのうち、まだ記録係を選んでいないチームの代表。記録係を選んでもらう頼みと催促に使います',
+  },
   past_reps: {
     label: '前の大会に申し込んだ代表',
     hint: 'この大会にまだ申し込んでいない人だけ。受付を始めた知らせに使います',
@@ -331,6 +335,18 @@ export function presetBody(preset: ReminderPreset, scoreUrl: string): string {
     scoreUrl,
   ].join('\n')
 }
+
+/**
+ * 記録係を選んでもらう頼みの文のひな形(宛先は「記録係を選んでいないチームの代表」)。代表は「エントリー」
+ * で開く申込の画面から、LINE で登録したメンバーを記録係に選ぶ。
+ */
+export const scorerRequestBody = [
+  '参加が決まったチームの代表の方へ',
+  '',
+  '試合のスコアを入れる記録係を、チームから 1 人選んでください。記録係は、自分たちの試合のスコアを入れます。',
+  '',
+  'メニューの「エントリー」を押すか「エントリー」と送ると、申込の画面が開きます。記録係は、LINE でメンバー登録をした人から選べます。',
+].join('\n')
 
 /** 送る時刻に送れなかった理由の言葉 */
 export const skipReasonLabels: Readonly<Record<Exclude<SkipReason, ''>, string>> = {

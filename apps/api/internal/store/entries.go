@@ -349,7 +349,7 @@ func toEntrySummary(row TeamEntry, division entry.Division, members, registered 
 	return entry.Summary{ID: row.ID, Division: division, FullName: row.TeamNameFull,
 		ShortName: row.TeamNameShort, RepName: row.RepName, Channel: entry.Channel(row.Channel),
 		Status: entry.Status(row.Status), Members: members, Registered: registered,
-		SubmittedAt: row.SubmittedAt, TeamID: row.TeamID}
+		SubmittedAt: row.SubmittedAt, TeamID: row.TeamID, ScorerChosen: row.ScorerMemberID != nil}
 }
 
 // Get は entry.Store.Get。

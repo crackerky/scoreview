@@ -28,7 +28,7 @@ func CheckAudience(audience Audience, tournament entry.Tournament) error {
 		default:
 			return domain.Invalid("status", "must be pending, returned or approved")
 		}
-	case AudienceIncomplete, AudienceParticipants:
+	case AudienceIncomplete, AudienceParticipants, AudienceNoScorer:
 		if audience.Status != "" {
 			return domain.Invalid("status", "is only for reps")
 		}
@@ -38,7 +38,7 @@ func CheckAudience(audience Audience, tournament entry.Tournament) error {
 			return domain.Invalid("audience", "past_reps takes no status or division")
 		}
 	default:
-		return domain.Invalid("kind", "must be reps, incomplete, participants or past_reps")
+		return domain.Invalid("kind", "must be reps, incomplete, participants, past_reps or no_scorer")
 	}
 	if audience.DivisionID == 0 {
 		return nil

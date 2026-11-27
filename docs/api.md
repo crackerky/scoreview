@@ -831,6 +831,7 @@ type ProgressMatch = {
   id: number; code: string; groupName: string; date: string | null; time: string | null; field: string | null
   groupLabel: string                                // 管理画面のグループ名(「予選 A 組」「1〜4 位を決めるトーナメント」)
   status: MatchStatus; left: ProgressSide; right: ProgressSide
+  teamScorer: string | null                         // この試合を記録するチームの記録係の名前(左のチームに記録係がいれば左、いなければ右)。いなければ null
 }
 type Progress = {
   divisionId: number; title: string; version: number; tiebreak: Tiebreak
@@ -990,6 +991,7 @@ type EntrySummary = {
   registered: number                 // そのうち本人が LINE で登録した数
   submittedAt: string                // RFC 3339
   teamId: number | null              // 承認で作ったチーム
+  scorerChosen: boolean              // チームの記録係を選んだか(参加が決まったチームの代表が選ぶ)
 }
 type EntryDetail = EntrySummary & {
   tournamentId: number
@@ -1076,6 +1078,7 @@ type NotificationAudience = {
     | 'incomplete'                   // メンバーの登録が揃っていない申込の代表(取り消した申込を除く)
     | 'participants'                 // 承認した申込の代表と、LINE で登録したメンバー
     | 'past_reps'                    // ほかの大会に申し込んだことがあり、この大会にはまだ申し込んでいない代表
+    | 'no_scorer'                    // 参加が決まった申込のうち、まだ記録係を選んでいないチームの代表(記録係を選んでもらう頼みと催促)
   status: '' | 'pending' | 'returned' | 'approved'   // reps だけ。'' は取り消した申込を除く全部
   divisionId: number | null          // 部門で絞る(past_reps では null だけ)
 }

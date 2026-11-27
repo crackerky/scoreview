@@ -374,6 +374,8 @@ type progressMatchDTO struct {
 	Status     string          `json:"status"`
 	Left       progressSideDTO `json:"left"`
 	Right      progressSideDTO `json:"right"`
+	// TeamScorer はこの試合を記録するチームの記録係の名前。いなければ null
+	TeamScorer *string `json:"teamScorer"`
 }
 
 type progressFinalDTO struct {
@@ -414,7 +416,8 @@ func toProgressSide(side store.ProgressSide) progressSideDTO {
 func toProgressMatch(m store.ProgressMatch) progressMatchDTO {
 	return progressMatchDTO{ID: m.ID, Code: m.Code, GroupName: m.GroupName, GroupLabel: m.GroupLabel,
 		Date: m.Date, Time: m.Time,
-		Field: m.Field, Status: string(m.Status), Left: toProgressSide(m.Left), Right: toProgressSide(m.Right)}
+		Field: m.Field, Status: string(m.Status), Left: toProgressSide(m.Left), Right: toProgressSide(m.Right),
+		TeamScorer: m.TeamScorer}
 }
 
 func toProgressMatches(ms []store.ProgressMatch) []progressMatchDTO {

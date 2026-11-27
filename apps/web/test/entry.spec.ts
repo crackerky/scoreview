@@ -132,6 +132,7 @@ describe('表示', () => {
     registered: 0,
     submittedAt: '2026-11-13T05:05:00Z',
     teamId: null,
+    scorerChosen: false,
   })
   test('状態ごとに数える', () => {
     assert.deepEqual(countByStatus([summary('pending'), summary('pending'), summary('approved')]), {
@@ -172,6 +173,7 @@ describe('api の応答とエラー', () => {
       registered: 0,
       submittedAt: '2026-11-13T05:05:00Z',
       teamId: 9,
+      scorerChosen: false,
       tournamentId: 7,
       repPhone: '',
       repEmail: '',

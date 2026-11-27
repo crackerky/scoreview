@@ -208,6 +208,8 @@ export const progressMatchSchema = z.object({
   status: matchStatusSchema,
   left: progressSideSchema,
   right: progressSideSchema,
+  /** この試合を記録するチームの記録係の名前(左のチームに記録係がいれば左、いなければ右)。いなければ null */
+  teamScorer: z.string().nullable(),
 })
 export type ProgressMatch = z.infer<typeof progressMatchSchema>
 

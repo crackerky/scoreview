@@ -39,6 +39,7 @@ function match(
     status,
     left: { label: 'A1', team: teams ? team(id * 10, teams[0]) : null, score: null },
     right: { label: 'A2', team: teams ? team(id * 10 + 1, teams[1]) : null, score: null },
+    teamScorer: null,
   }
 }
 
@@ -192,6 +193,25 @@ test('確定待ちの組は確定の画面へ、同順位は進行画面へ', ()
     [
       ['確定待ち', '/admin/tournaments/9/hq/confirm/7'],
       ['同順位', '/admin/divisions/4/progress'],
+    ],
+  )
+})
+
+test('チームの記録係が記録する試合は、記録係のいない試合として知らせず、コートの札に名前を出す', () => {
+  const scored = { ...match(1, '1', '11:00', 'live'), teamScorer: '佐藤 花子' }
+  const alone = match(2, '2', '11:00', 'live')
+  const alerts = buildAlerts([board(1, [], [scored, alone])], 9, [])
+  assert.deepEqual(
+    alerts.map((alert) => [alert.chip, alert.title]),
+    [['記録係なし', '記録係のいない試合が 1 件あります']],
+    'only the match without a team scorer',
+  )
+  const cards = courtCards([board(1, [], [scored, alone])], [])
+  assert.deepEqual(
+    cards.map((card) => [card.name, card.keeper, card.needsKeeper]),
+    [
+      ['コート 1', '佐藤 花子', false],
+      ['コート 2', null, true],
     ],
   )
 })

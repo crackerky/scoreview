@@ -173,19 +173,20 @@ type Member struct {
 	Answers []Answer
 }
 
-// Summary は申込一覧の 1 件。
+// Summary は申込一覧の 1 件。ScorerChosen はチームの記録係を選んだか。
 type Summary struct {
-	ID          int64
-	Division    Division
-	FullName    string
-	ShortName   string
-	RepName     string
-	Channel     Channel
-	Status      Status
-	Members     int
-	Registered  int
-	SubmittedAt time.Time
-	TeamID      *int64
+	ScorerChosen bool
+	ID           int64
+	Division     Division
+	FullName     string
+	ShortName    string
+	RepName      string
+	Channel      Channel
+	Status       Status
+	Members      int
+	Registered   int
+	SubmittedAt  time.Time
+	TeamID       *int64
 }
 
 // Detail は申込 1 件の全部。RepLineUserID は LINE から申し込んだ代表の line_users の行の ID(運営の代理

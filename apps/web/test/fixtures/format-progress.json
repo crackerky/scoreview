@@ -659,7 +659,8 @@
         "team": null,
         "score": null
       },
-      "groupLabel": "1〜4 位を決めるトーナメント"
+      "groupLabel": "1〜4 位を決めるトーナメント",
+      "teamScorer": null
     },
     {
       "id": 100003307,
@@ -679,7 +680,8 @@
         "team": null,
         "score": null
       },
-      "groupLabel": "1〜4 位を決めるトーナメント"
+      "groupLabel": "1〜4 位を決めるトーナメント",
+      "teamScorer": null
     },
     {
       "id": 100003310,
@@ -699,7 +701,8 @@
         "team": null,
         "score": null
       },
-      "groupLabel": "5〜8 位を決めるトーナメント"
+      "groupLabel": "5〜8 位を決めるトーナメント",
+      "teamScorer": null
     },
     {
       "id": 100003311,
@@ -719,7 +722,8 @@
         "team": null,
         "score": null
       },
-      "groupLabel": "5〜8 位を決めるトーナメント"
+      "groupLabel": "5〜8 位を決めるトーナメント",
+      "teamScorer": null
     }
   ],
   "final": [],

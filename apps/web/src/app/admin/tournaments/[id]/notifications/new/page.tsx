@@ -19,6 +19,7 @@ import {
   type ReminderPreset,
   reminderPresets,
   scheduleText,
+  scorerRequestBody,
   timingFromQuery,
 } from '@/notify/notify.utils'
 
@@ -64,6 +65,8 @@ export default async function NewNotificationPage(props: IdPageProps) {
       primary={primaryAction(formId, preview, quota.enough, timing.kind === 'later', sendAt)}
     >
       <p className="adm-links">
+        <a href={notifyPaths.scorerRequest(id)}>記録係を選んでもらう</a>
+        {' ・ '}
         {(['eve', 'day'] as const).map((name, index) => {
           const href = presetLink(name)
           return (
@@ -94,7 +97,13 @@ export default async function NewNotificationPage(props: IdPageProps) {
         formId={formId}
         hidden={{ back: notifyPaths.create(id), tournamentId: id, requestKey: randomUUID() }}
         draftKey={draftStorageKey(id)}
-        initialBody={preset ? presetBody(preset, `${siteUrl}/tournaments/${id}`) : ''}
+        initialBody={
+          preset
+            ? presetBody(preset, `${siteUrl}/tournaments/${id}`)
+            : query.template === 'scorer'
+              ? scorerRequestBody
+              : ''
+        }
       >
         <div className="adm-stats">
           <Stat

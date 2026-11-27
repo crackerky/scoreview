@@ -30,6 +30,9 @@ const (
 	// AudiencePastReps はほかの大会に申し込んだことがあり、この大会にはまだ申し込んでいない代表
 	// (受付を始めたことの告知)
 	AudiencePastReps AudienceKind = "past_reps"
+	// AudienceNoScorer は参加が決まった申込のうち、まだ記録係を選んでいないチームの代表(記録係を選んで
+	// もらう頼みと催促)
+	AudienceNoScorer AudienceKind = "no_scorer"
 )
 
 // Audience は宛先の条件と絞り込み。

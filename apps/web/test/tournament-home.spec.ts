@@ -23,7 +23,7 @@ function input(overrides: Partial<HomeInput> = {}): HomeInput {
       { id: 11, name: 'オープン', formatted: true, teams: 8, matches: 20 },
       { id: 12, name: '女子', formatted: false, teams: 4, matches: 0 },
     ],
-    entries: { total: 12, pending: 0, approved: 12 },
+    entries: { total: 12, pending: 0, approved: 12, noScorer: 0 },
     scheduled: 0,
     keepers: 0,
     freeCourts: [],
@@ -86,7 +86,9 @@ test('準備が済んでいれば済みの札を付け、次にやることは�
 })
 
 test('確認待ちの申込があれば公式 LINE を今の段にし、確認待ちだけの一覧へ送る', () => {
-  const stages = tournamentStages(input({ entries: { total: 14, pending: 2, approved: 12 } }))
+  const stages = tournamentStages(
+    input({ entries: { total: 14, pending: 2, approved: 12, noScorer: 0 } }),
+  )
   const line = stage(stages, 'line')
   assert.equal(line.next?.href, '/admin/tournaments/5/entries?status=pending')
   assert.equal(line.links.find((link) => link.label === '申込')?.chip?.label, '確認待ち 2')
@@ -192,4 +194,31 @@ test('終わった大会は公式 LINE の段を終了にし、今の段には�
   assert.equal(stage(stages, 'line').next, null)
   assert.equal(stage(stages, 'dayof').next, null)
   assert.equal(currentStage(stages), null)
+})
+
+test('受付を締めて記録係を選んでいないチームがあれば、記録係を選んでもらうことを次にする', () => {
+  const stages = tournamentStages(
+    input({
+      tournament: { startDate: '2027-01-17', listed: true, status: 'entry_closed' },
+      divisions: [{ id: 11, name: 'オープン', formatted: true, teams: 8, matches: 20 }],
+      entries: { total: 6, pending: 0, approved: 5, noScorer: 2 },
+    }),
+  )
+  const line = stage(stages, 'line')
+  assert.equal(line.next?.label, '記録係を選んでもらう')
+  assert.equal(
+    line.next?.href,
+    '/admin/tournaments/5/notifications/new?kind=no_scorer&template=scorer',
+  )
+  assert.equal(currentStage(stages)?.key, 'line')
+  const link = line.links.find((item) => item.label === '記録係を選んでもらう')
+  assert.equal(link?.sub, '記録係が決まったチーム 3 / 5')
+  assert.equal(link?.chip?.label, 'まだ 2')
+
+  // 受付中はまだ頼まない(入口だけ出す)
+  const open = stage(
+    tournamentStages(input({ entries: { total: 6, pending: 0, approved: 5, noScorer: 2 } })),
+    'line',
+  )
+  assert.equal(open.next?.label, '公式 LINE で送る')
 })

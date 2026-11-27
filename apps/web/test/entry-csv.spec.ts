@@ -22,6 +22,7 @@ const entry = (
     registered: 0,
     submittedAt: '2026-11-13T05:05:00Z',
     teamId: null,
+    scorerChosen: false,
     tournamentId: 7,
     repPhone: '090-0000-0000',
     repEmail: '',

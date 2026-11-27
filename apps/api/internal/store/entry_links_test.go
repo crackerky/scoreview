@@ -11,6 +11,7 @@ import (
 
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/entry"
+	"scoreview/api/internal/notify"
 	"scoreview/api/internal/store"
 	"scoreview/api/internal/store/storetest"
 )
@@ -607,6 +608,33 @@ func TestTeamScorerScoresOnlyItsTeamsMatches(t *testing.T) {
 	ok, err := store.CanScoreMatch(ctx, f.db, userID, atamiVsIto.ID)
 	require.NoError(t, err)
 	assert.False(t, ok)
+}
+
+// 「記録係を選んでいないチームの代表」は、参加が決まったチームのうち記録係を選んでいないチームの代表だけ。
+// 申込の一覧にも、記録係を選んだかが出る。
+func TestRecipientsWithoutAScorer(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	f.lineTeam(t, "熱海ディスクス", "Urep1", "Uhanako")
+	f.lineTeam(t, "伊東", "Urep2", "")
+	links, err := f.desk.IssueTeamLinks(ctx, f.lineUser(t, "Urep3"))
+	require.NoError(t, err)
+	_, err = f.desk.SubmitByLink(ctx, links[0].Token, f.draft("伊豆", nil)) // まだ参加が決まっていない
+	require.NoError(t, err)
+
+	got, err := store.NewNotifyStore(f.db).Recipients(ctx, f.tournament.ID, notify.Audience{Kind: notify.AudienceNoScorer})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "Urep2", got[0].UserID)
+	assert.Equal(t, []string{"伊東"}, got[0].Teams)
+
+	list, err := f.desk.Entries(ctx, f.tournament.ID)
+	require.NoError(t, err)
+	chosen := map[string]bool{}
+	for _, item := range list {
+		chosen[item.FullName] = item.ScorerChosen
+	}
+	assert.Equal(t, map[string]bool{"熱海ディスクス": true, "伊東": false, "伊豆": false}, chosen)
 }
 
 func TestEntryNoticesGoToTheLineRepresentative(t *testing.T) {

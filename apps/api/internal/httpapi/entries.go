@@ -69,6 +69,8 @@ type entrySummaryDTO struct {
 	Registered  int              `json:"registered"`
 	SubmittedAt time.Time        `json:"submittedAt"`
 	TeamID      *int64           `json:"teamId"`
+	// ScorerChosen はチームの記録係を選んだか(参加が決まったチームの代表が選ぶ)
+	ScorerChosen bool `json:"scorerChosen"`
 }
 
 type entryListDTO struct {
@@ -162,7 +164,8 @@ func toEntrySummary(summary entry.Summary) entrySummaryDTO {
 		Division: entryDivisionDTO{ID: summary.Division.ID, Name: toI18n(summary.Division.Name)},
 		FullName: summary.FullName, ShortName: summary.ShortName, RepName: summary.RepName,
 		Channel: string(summary.Channel), Status: string(summary.Status), Members: summary.Members,
-		Registered: summary.Registered, SubmittedAt: summary.SubmittedAt, TeamID: summary.TeamID}
+		Registered: summary.Registered, SubmittedAt: summary.SubmittedAt, TeamID: summary.TeamID,
+		ScorerChosen: summary.ScorerChosen}
 }
 
 func toEntryDetail(detail entry.Detail) entryDetailDTO {

@@ -5,7 +5,13 @@ import { z } from 'zod'
 /** 送る文の文字数の上限(api の internal/notify/rules.go の MaxBody と揃える) */
 export const maxNotificationBody = 2000
 
-export const audienceKinds = ['reps', 'incomplete', 'participants', 'past_reps'] as const
+export const audienceKinds = [
+  'reps',
+  'incomplete',
+  'participants',
+  'past_reps',
+  'no_scorer',
+] as const
 /** reps だけで選べる申込の状態('' は取り消した申込を除く全部) */
 export const audienceStatuses = ['', 'pending', 'returned', 'approved'] as const
 export const jobStatuses = ['pending', 'sent', 'skipped', 'failed'] as const

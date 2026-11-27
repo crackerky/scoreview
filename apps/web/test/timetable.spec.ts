@@ -90,6 +90,7 @@ describe('印刷物の未確定の対戦(H11)', () => {
         status: 'scheduled',
         left: side('A1'),
         right: side('C2'),
+        teamScorer: null,
       },
     ])
     assert.deepEqual(labels.get(7), { left: 'A1', right: 'C2' })

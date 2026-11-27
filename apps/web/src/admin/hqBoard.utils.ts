@@ -98,9 +98,11 @@ export function coversMatch(assignment: Assignment, match: ProgressMatch): boole
   return !(assignment.to !== null && (match.time === null || match.time >= assignment.to))
 }
 
-/** 試合を記録できる記録係がいるか */
+/** 試合を記録できる記録係がいるか(運営が割り当てた記録係か、試合を記録するチームの記録係) */
 function hasKeeper(match: ProgressMatch, assignments: Assignment[]): boolean {
-  return assignments.some((assignment) => coversMatch(assignment, match))
+  return (
+    match.teamScorer !== null || assignments.some((assignment) => coversMatch(assignment, match))
+  )
 }
 
 /** 本部の知らせ。部門をまたいで同じ原因(同じコートの遅れ、結果待ち)を 1 件にまとめる */
@@ -275,11 +277,13 @@ export function courtCards(boards: DivisionBoard[], assignments: Assignment[]): 
     const focus = live ?? next
     const keepers = focus
       ? [
-          ...new Set(
-            assignments
+          ...new Set([
+            ...assignments
               .filter((assignment) => coversMatch(assignment, focus))
               .map((assignment) => assignment.userName),
-          ),
+            // チームの記録係は試合ごとに変わるので、いま試合中か次の試合の記録係だけを出す
+            ...(focus.teamScorer ? [focus.teamScorer] : []),
+          ]),
         ]
       : []
     return {

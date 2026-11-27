@@ -57,7 +57,8 @@ export type HomeInput = {
   role: AdminUser['role']
   divisions: HomeDivision[]
   /** 申込の数(管理者だけ) */
-  entries: { total: number; pending: number; approved: number } | null
+  /** noScorer は参加が決まったチームのうち、まだ記録係を選んでいないチームの数 */
+  entries: { total: number; pending: number; approved: number; noScorer: number } | null
   /** 予約してまだ送っていない知らせの数(管理者だけ) */
   scheduled: number | null
   keepers: number
@@ -154,8 +155,9 @@ function setupStage(input: HomeInput): Stage {
 
 function lineStage(input: HomeInput): Stage {
   const { listed, status } = input.tournament
-  const entries = input.entries ?? { total: 0, pending: 0, approved: 0 }
+  const entries = input.entries ?? { total: 0, pending: 0, approved: 0, noScorer: 0 }
   const counts = `申込 ${entries.total} 件、参加決定 ${entries.approved} 件`
+  const scorers = `記録係が決まったチーム ${entries.approved - entries.noScorer} / ${entries.approved}`
   const send: StageAction = {
     label: '公式 LINE で送る',
     href: notifyPaths.create(input.tournamentId),
@@ -173,6 +175,19 @@ function lineStage(input: HomeInput): Stage {
       href: entryPaths.questions(input.tournamentId),
       sub: '学年や連絡先など、申込のときに答えてもらうこと',
     },
+    ...(entries.approved > 0
+      ? [
+          {
+            label: '記録係を選んでもらう',
+            href: notifyPaths.scorerRequest(input.tournamentId),
+            sub: scorers,
+            chip:
+              entries.noScorer > 0
+                ? { label: `まだ ${entries.noScorer}`, tone: 'warn' as const }
+                : { label: '済み', tone: 'ok' as const },
+          },
+        ]
+      : []),
     {
       label: '送った記録と予約',
       href: notifyPaths.list(input.tournamentId),
@@ -221,6 +236,16 @@ function lineStage(input: HomeInput): Stage {
       chip: { label: '受付中', tone: 'sched' },
       next: send,
       waiting: false,
+    }
+  }
+  // 受付を締めたら、参加が決まったチームに記録係を選んでもらう(自分たちの試合のスコアを入れる人)
+  if (entries.approved > 0 && entries.noScorer > 0) {
+    return {
+      ...shared,
+      status: `受付を締め切りました。記録係を選んでいないチームが ${entries.noScorer} あります`,
+      chip: { label: '締切り', tone: 'sched' },
+      next: { label: '記録係を選んでもらう', href: notifyPaths.scorerRequest(input.tournamentId) },
+      waiting: true,
     }
   }
   return {

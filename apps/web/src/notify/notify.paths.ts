@@ -32,5 +32,11 @@ export const notifyPaths = {
     }
     return `${notifyPaths.create(tournamentId)}?${params.toString()}`
   },
+  /**
+   * 記録係を選んでもらう頼み。宛先を「記録係を選んでいないチームの代表」にし、頼みの文のひな形を入れて
+   * 送る画面を開く(催促も同じ。もう選んだチームには届かない)。
+   */
+  scorerRequest: (tournamentId: number) =>
+    `${notifyPaths.create(tournamentId)}?kind=no_scorer&template=scorer`,
   detail: (id: number) => `/admin/notifications/${id}`,
 }
