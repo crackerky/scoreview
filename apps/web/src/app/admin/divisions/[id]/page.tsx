@@ -1,4 +1,5 @@
 import { runsDayOf } from '@/admin/access.utils'
+import { groupShown, nextGroupSortOrder } from '@/admin/group.utils'
 import {
   barStyleOptions,
   entryKindOptions,
@@ -23,6 +24,7 @@ import {
 import { fillEnglishNamesAction } from '@/app/admin/_actions/team'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Check, DeleteForm, Field, Hidden, Select } from '@/components/admin/AdminParts'
+import { GroupFields } from '@/components/admin/GroupFields'
 import { SideChoice } from '@/components/admin/SideChoice'
 
 export default async function AdminDivisionPage(props: IdPageProps) {
@@ -196,35 +198,38 @@ async function AdminSections({
         <button type="submit">試合を作る</button>
       </form>
 
-      <h2>組(プールとトーナメント)</h2>
+      <h2>組</h2>
+      <p className="adm-muted">
+        組は、スコアサイトに出るプールやトーナメントのまとまりです。ふつうは
+        <a href={`/admin/divisions/${id}/build`}>試合を組む</a>
+        で組分けをすると、組と試合が自動でできます。組を押すと、中のチームと試合を直せます。
+      </p>
+      {groupList.groups.length === 0 ? <p className="adm-muted">まだ組がありません。</p> : null}
       <ul className="adm-list">
         {groupList.groups.map((group) => (
           <li key={group.id}>
             <a href={`/admin/groups/${group.id}`}>
               {group.name}
-              <span className="adm-muted">
-                ({groupKindOptions.find((option) => option.value === group.kind)?.label}
-                {group.published ? '' : ' 非公開'})
+              <span className="adm-muted grp-kind">
+                {groupKindOptions.find((option) => option.value === group.kind)?.label}
+                {groupShown(group) ? '' : ' ・ スコアサイトに出していない'}
               </span>
             </a>
           </li>
         ))}
       </ul>
-      <form action={createGroupAction}>
-        <Hidden values={{ back, divisionId: id, linked: 'on', published: 'on' }} />
-        <div className="adm-grid">
-          <Field label="組の名前" name="name" required />
-          <Select label="種類" name="kind" options={groupKindOptions} defaultValue="pool" />
-        </div>
-        <details>
-          <summary>詳しい設定</summary>
-          <div className="adm-grid">
-            <Field label="並び順" name="sortOrder" type="number" defaultValue={0} />
-            <Field label="画像 URL(組の表を画像で出すとき)" name="imageUrl" />
-          </div>
-        </details>
-        <button type="submit">組を作る</button>
-      </form>
+      <details>
+        <summary>組を手で足す</summary>
+        <p className="adm-muted">
+          自動で作らない組を 1
+          つずつ足すときに使います。足したあと、組の画面でチームを入れ、試合を作ります。
+        </p>
+        <form action={createGroupAction} className="adm-stack grp-form">
+          <Hidden values={{ back, divisionId: id, linked: 'on', published: 'on' }} />
+          <GroupFields mode="add" nextSortOrder={nextGroupSortOrder(groupList.groups)} />
+          <button type="submit">組を足す</button>
+        </form>
+      </details>
 
       <h2>チーム</h2>
       <p className="adm-muted">
