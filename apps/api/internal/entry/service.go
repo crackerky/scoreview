@@ -298,6 +298,52 @@ func (s *Service) IssueJoinedLinks(ctx context.Context, lineUserID int64) ([]Joi
 	return out, nil
 }
 
+// IssueScorerLinks は Links.IssueScorerLinks。
+func (s *Service) IssueScorerLinks(ctx context.Context, lineUserID int64) ([]ScorerLink, error) {
+	teams, err := s.store.ScorerTeams(ctx, lineUserID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ScorerLink, len(teams))
+	for i, team := range teams {
+		issued, err := s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkScorer,
+			TeamEntryID: team.TeamEntryID}, team.TeamName)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = ScorerLink{Team: team, Token: issued.Token, ExpiresAt: issued.ExpiresAt}
+	}
+	return out, nil
+}
+
+// scorerTeam はリンクの人が、リンクのチームの記録係のままかを確かめて、そのチームを返す。代表が記録係を
+// 選び直したり、申込を取り消したり、大会が終わったりしたら、リンクは使えない(domain.NotFound)。
+func (s *Service) scorerTeam(ctx context.Context, link Link) (ScorerTeam, error) {
+	teams, err := s.store.ScorerTeams(ctx, link.LineUserID)
+	if err != nil {
+		return ScorerTeam{}, err
+	}
+	for _, team := range teams {
+		if team.TeamEntryID == link.TeamEntryID {
+			return team, nil
+		}
+	}
+	return ScorerTeam{}, domain.NotFound(domain.ResourceEntryLink, 0)
+}
+
+// ScorerSignIn は Desk.ScorerSignIn。
+func (s *Service) ScorerSignIn(ctx context.Context, token string) (int64, error) {
+	link, err := s.link(ctx, token, LinkScorer)
+	if err != nil {
+		return 0, err
+	}
+	team, err := s.scorerTeam(ctx, link)
+	if err != nil {
+		return 0, err
+	}
+	return s.store.EnsureScorer(ctx, link.LineUserID, team.Tournament.ID, team.MemberName)
+}
+
 func (s *Service) issue(ctx context.Context, link Link, teamName string) (IssuedLink, error) {
 	token, err := domain.NewToken(s.random)
 	if err != nil {
@@ -346,6 +392,13 @@ func (s *Service) LinkView(ctx context.Context, token string) (LinkView, error) 
 			return LinkView{}, err
 		}
 		return LinkView{Purpose: LinkMember, Member: &form}, nil
+	}
+	if link.Purpose == LinkScorer {
+		team, err := s.scorerTeam(ctx, link)
+		if err != nil {
+			return LinkView{}, err
+		}
+		return LinkView{Purpose: LinkScorer, Scorer: &ScorerView{Team: team, ExpiresAt: link.ExpiresAt}}, nil
 	}
 	form, err := s.teamForm(ctx, link)
 	if err != nil {

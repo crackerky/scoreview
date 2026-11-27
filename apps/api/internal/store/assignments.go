@@ -3,21 +3,27 @@ package store
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"scoreview/api/internal/domain"
+	"scoreview/api/internal/entry"
 )
 
 // 記録係の割り当て(docs/operations/operator-experience.md「記録係を試合やコートごとに割り当てる」)。
 // 記録係(staff)は担当大会(tournament_staff)の試合を読めるが、スコアを入力できるのは自分の割り当てが
-// 覆う試合だけ。
+// 覆う試合だけ。チームの記録係(users.team_scorer)は、自分のチームが記録する試合も入力できる。
 
 const (
 	sqlUserInTournaments = "user_id = ? AND tournament_id IN ?"
 	sqlOrderAssignments  = "user_id, match_date NULLS FIRST, start_time NULLS FIRST, field, id"
+	// チームの記録係: 利用者の LINE の人が記録係に選ばれた、参加が決まった申込のチーム
+	sqlJoinLineUserOfMember = "JOIN line_users ON line_users.id = member_entries.line_user_id"
+	sqlScorerUser           = "line_users.user_id = ? AND team_entries.status = ? AND team_entries.team_id IS NOT NULL"
+	sqlTeamsWithScorer      = "team_id IN ? AND status = ? AND scorer_member_id IS NOT NULL"
 )
 
 // AssignmentFields は割り当ての登録値。
@@ -233,7 +239,64 @@ func CanScoreMatch(ctx context.Context, db *gorm.DB, userID, matchID int64) (boo
 	if err != nil {
 		return false, err
 	}
-	return domain.AnyCovers(assignments[division.TournamentID], matchSlot(match)), nil
+	if domain.AnyCovers(assignments[division.TournamentID], matchSlot(match)) {
+		return true, nil
+	}
+	scored, err := scorerMatches(ctx, db, userID, []Match{match})
+	if err != nil {
+		return false, err
+	}
+	return scored[match.ID], nil
+}
+
+// scorerMatches は matches のうち、利用者がチームの記録係として記録する試合(試合 ID の集合)。
+// 試合を記録するのは、左のチームに記録係がいれば左のチーム、いなければ右のチーム(時間割で上に書いて
+// あるチームを先にする。両方のチームで同じ試合を記録して重ならないように)。
+func scorerMatches(ctx context.Context, db *gorm.DB, userID int64, matches []Match) (map[int64]bool, error) {
+	out := map[int64]bool{}
+	var mine []int64
+	err := db.WithContext(ctx).Model(&MemberEntry{}).Joins(sqlJoinScorerEntry).Joins(sqlJoinLineUserOfMember).
+		Where(sqlScorerUser, userID, string(entry.StatusApproved)).Pluck("team_entries.team_id", &mine).Error
+	if err != nil {
+		return nil, fmt.Errorf("load scorer teams of user %d: %w", userID, err)
+	}
+	if len(mine) == 0 {
+		return out, nil
+	}
+	var teamIDs []int64
+	for _, match := range matches {
+		for _, id := range []*int64{match.LeftTeamID, match.RightTeamID} {
+			if id != nil {
+				teamIDs = append(teamIDs, *id)
+			}
+		}
+	}
+	if len(teamIDs) == 0 {
+		return out, nil
+	}
+	var withScorer []int64
+	err = db.WithContext(ctx).Model(&TeamEntry{}).Where(sqlTeamsWithScorer, teamIDs, string(entry.StatusApproved)).
+		Pluck("team_id", &withScorer).Error
+	if err != nil {
+		return nil, fmt.Errorf("load teams with a scorer: %w", err)
+	}
+	for _, match := range matches {
+		if team, ok := recorderTeam(match, withScorer); ok && slices.Contains(mine, team) {
+			out[match.ID] = true
+		}
+	}
+	return out, nil
+}
+
+// recorderTeam は試合を記録するチーム。左のチームに記録係がいれば左、いなければ右。どちらにもいなければ
+// ok は偽。
+func recorderTeam(match Match, withScorer []int64) (int64, bool) {
+	for _, id := range []*int64{match.LeftTeamID, match.RightTeamID} {
+		if id != nil && slices.Contains(withScorer, *id) {
+			return *id, true
+		}
+	}
+	return 0, false
 }
 
 // userAssignments は利用者の割り当てを大会ごとに返す。
@@ -290,10 +353,14 @@ func ListAssignedMatches(ctx context.Context, db *gorm.DB, userID int64) ([]Assi
 			return nil, fmt.Errorf("load matches of user %d: %w", userID, err)
 		}
 	}
+	scored, err := scorerMatches(ctx, db, userID, matches)
+	if err != nil {
+		return nil, err
+	}
 	var covered []Match
 	for _, match := range matches {
 		division := byDivision[match.DivisionID]
-		if domain.AnyCovers(assignments[division.TournamentID], matchSlot(match)) {
+		if scored[match.ID] || domain.AnyCovers(assignments[division.TournamentID], matchSlot(match)) {
 			covered = append(covered, match)
 		}
 	}

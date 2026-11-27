@@ -73,6 +73,25 @@ func EntryReplyText(teams []TeamLink, joined []JoinedTeamLink) string {
 	return strings.Join(parts, "\n\n")
 }
 
+// TextNotScorer は記録係に選ばれていない人が「記録」と送ったときの返信。
+const TextNotScorer = "記録係に選ばれていません。\nチームの代表の方に、記録係に選んでもらってください。"
+
+// ScorerLinksText は「記録」への返信。記録係に選ばれたチームごとに、記録の画面に入るリンクを並べる。
+func ScorerLinksText(links []JoinedTeamLink) string {
+	if len(links) == 0 {
+		return TextNotScorer
+	}
+	var text strings.Builder
+	text.WriteString("記録の画面は、チームのリンクから開きます。自分たちの試合のスコアを入れてください。")
+	for _, link := range links {
+		// チーム名は代表が書いたものなので「」で囲む(MemberLinkText と同じ)
+		fmt.Fprintf(&text, "\n\n「%s」%s\n%s", link.Team, link.Tournament, link.URL)
+	}
+	fmt.Fprintf(&text, "\n\nリンクはあなた専用で、%d 日間使えます。ほかの人に送らないでください。",
+		entry.LinkLifetimeDays)
+	return text.String()
+}
+
 // MemberLinkText はメンバー登録のリンクの返信。チーム名は代表が書いたものなので「」で囲み、公式
 // アカウントの文と見分けられるようにする(改行は entry が拒む)。
 func MemberLinkText(team, url string) string {

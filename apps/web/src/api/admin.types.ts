@@ -32,6 +32,8 @@ export const adminUserSchema = z.object({
   displayName: z.string(),
   role: roleSchema,
   tournamentIds: z.array(id),
+  /** チームの記録係(公式 LINE のリンクから入り、自分のチームの試合だけを記録する) */
+  teamScorer: z.boolean(),
 })
 export type AdminUser = z.infer<typeof adminUserSchema>
 

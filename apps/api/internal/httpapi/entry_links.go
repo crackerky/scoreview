@@ -4,7 +4,9 @@ import (
 	"net/http"
 	"time"
 
+	"scoreview/api/internal/auth"
 	"scoreview/api/internal/entry"
+	"scoreview/api/internal/store"
 )
 
 // 本人用のリンクで開く申込とメンバー登録(docs/api.md「LINE からの申込」)。ログインは無く、パスの
@@ -16,6 +18,7 @@ func (s *Server) entryLinkRoutes() {
 	s.handle("POST /api/v1/entry-links/{token}/team/{id}", s.resubmitEntryByLink)
 	s.handle("POST /api/v1/entry-links/{token}/member", s.joinEntryByLink)
 	s.handle("POST /api/v1/entry-links/{token}/team/{id}/scorer", s.chooseScorerByLink)
+	s.handle("POST /api/v1/entry-links/{token}/session", s.scorerSession)
 }
 
 type entryLinkTournamentDTO struct {
@@ -61,6 +64,15 @@ type entryLinkDTO struct {
 	Purpose string              `json:"purpose"`
 	Team    *entryLinkTeamDTO   `json:"team"`
 	Member  *entryLinkMemberDTO `json:"member"`
+	Scorer  *entryLinkScorerDTO `json:"scorer"`
+}
+
+// entryLinkScorerDTO はチームの記録係のリンクで開く画面(どのチームの記録係か)。
+type entryLinkScorerDTO struct {
+	TeamName       string    `json:"teamName"`
+	TournamentName string    `json:"tournamentName"`
+	MemberName     string    `json:"memberName"`
+	ExpiresAt      time.Time `json:"expiresAt"`
 }
 
 // entryResubmitDTO は差し戻した申込の送り直し。registeredIds は代表がフォームを開いたときに本人が
@@ -89,6 +101,24 @@ func (s *Server) chooseScorerByLink(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return toEntryDetail(detail), nil
+}
+
+// scorerSession はチームの記録係のリンクから、記録の画面に入るセッションを発行する(応答はログインと同じ形)。
+func (s *Server) scorerSession(r *http.Request) (any, error) {
+	userID, err := s.entries.ScorerSignIn(r.Context(), r.PathValue("token"))
+	if err != nil {
+		return nil, err
+	}
+	session, err := auth.StartSession(r.Context(), s.db, userID, s.now())
+	if err != nil {
+		return nil, err
+	}
+	ids, err := store.StaffTournamentIDs(r.Context(), s.db, session.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	return loginDTO{Token: session.Token, ExpiresAt: formatInstant(session.ExpiresAt),
+		User: toAdminUser(session.User, ids)}, nil
 }
 
 type entryJoinDTO struct {
@@ -149,6 +179,11 @@ func (s *Server) getEntryLink(r *http.Request) (any, error) {
 	}
 	if view.Member != nil {
 		out.Member = toEntryLinkMember(*view.Member)
+	}
+	if view.Scorer != nil {
+		out.Scorer = &entryLinkScorerDTO{TeamName: view.Scorer.Team.TeamName,
+			TournamentName: view.Scorer.Team.Tournament.Name, MemberName: view.Scorer.Team.MemberName,
+			ExpiresAt: view.Scorer.ExpiresAt}
 	}
 	return out, nil
 }

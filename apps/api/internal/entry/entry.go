@@ -274,6 +274,9 @@ type Desk interface {
 	// から選ぶ(memberID が nil なら外す)。この代表のこの大会の申込でなければ domain.NotFound、参加が
 	// 決まっていなければ domain.ErrConflict
 	ChooseScorerByLink(ctx context.Context, token string, entryID int64, memberID *int64) (Detail, error)
+	// ScorerSignIn は記録係のリンクを確かめ、記録係の利用者を用意してその ID を返す(呼ぶ側がセッション
+	// を発行する)。リンクの人がもうそのチームの記録係でなければ domain.NotFound
+	ScorerSignIn(ctx context.Context, token string) (int64, error)
 }
 
 // Links は公式アカウントのトークの受け答え(talk)が使う、本人用のリンクの発行。Service が実装する。
@@ -288,6 +291,9 @@ type Links interface {
 	// IssueJoinedLinks はこの人がメンバーとして登録したチームごとに、登録を確かめて直すリンクを発行する
 	// (「エントリー」と送ったメンバーに、チームの申込ではなく自分の登録を返すため)。大会は開催日の順
 	IssueJoinedLinks(ctx context.Context, lineUserID int64) ([]JoinedLink, error)
+	// IssueScorerLinks はこの人が記録係に選ばれたチームごとに、記録の画面に入るリンクを発行する
+	// (公式アカウントに「記録」と送ったときの返信)。大会は開催日の順
+	IssueScorerLinks(ctx context.Context, lineUserID int64) ([]ScorerLink, error)
 }
 
 // Export は書き出す大会の申込。
@@ -320,6 +326,13 @@ type Store interface {
 	// JoinedTeams はこの LINE の人がメンバーとして登録したチームを、取り消した申込と終わった大会を除いて、
 	// 開催日の順に読む
 	JoinedTeams(ctx context.Context, lineUserID int64) ([]JoinedTeam, error)
+	// ScorerTeams はこの LINE の人が記録係に選ばれたチームを、参加が決まった申込の終わっていない大会に
+	// 限って、開催日の順に読む
+	ScorerTeams(ctx context.Context, lineUserID int64) ([]ScorerTeam, error)
+	// EnsureScorer は記録係の利用者(users.team_scorer。パスワードは持たない)を、この LINE の人に
+	// 結んで用意し(あれば使う)、大会 tournamentID の担当にして、利用者の ID を返す。LINE の人が
+	// もう別の利用者(運営)に結ばれていれば、その利用者を担当にする
+	EnsureScorer(ctx context.Context, lineUserID, tournamentID int64, name string) (int64, error)
 	// SaveLink は本人用のリンクを、合言葉の SHA-256 とともに保存する
 	SaveLink(ctx context.Context, tokenHash []byte, link Link) error
 	// FindLink は合言葉の SHA-256 から本人用のリンクを読む。無ければ domain.NotFound

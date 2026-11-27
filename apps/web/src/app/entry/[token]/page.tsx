@@ -4,11 +4,13 @@ import {
   chooseScorerAction,
   joinTeamAction,
   resubmitTeamEntryAction,
+  scorerSignInAction,
   submitTeamEntryAction,
 } from '@/app/entry/[token]/actions'
 import { SubmitFeedback } from '@/components/admin/SubmitFeedback'
 import { MemberJoinForm } from '@/components/entry/MemberJoinForm'
 import { RepEntryCard } from '@/components/entry/RepEntryCard'
+import { ScorerSignIn } from '@/components/entry/ScorerSignIn'
 import { TeamEntryForm } from '@/components/entry/TeamEntryForm'
 import { SiteShell } from '@/components/site/SiteShell'
 import { dateTimeText } from '@/entry/entry.utils'
@@ -30,7 +32,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const view = await loadEntryLink(token)
   const title = view.team
     ? `${view.team.tournament.name} の申込`
-    : `${view.member?.team.fullName ?? ''} のメンバー登録`
+    : view.scorer
+      ? `${view.scorer.teamName} の記録係`
+      : `${view.member?.team.fullName ?? ''} のメンバー登録`
   return { title: `${title} - SCORE VIEW`, robots: { index: false, follow: false } }
 }
 
@@ -53,6 +57,7 @@ export default async function EntryLinkPage(props: Props) {
       <SubmitFeedback />
       {view.team ? <TeamSection token={token} team={view.team} done={done} /> : null}
       {view.member ? <MemberSection token={token} member={view.member} done={done} /> : null}
+      {view.scorer ? <ScorerSection token={token} scorer={view.scorer} /> : null}
     </SiteShell>
   )
 }
@@ -157,6 +162,30 @@ function MemberSection({
       )}
       <p className="entry-muted">
         このリンクはあなた専用です。{dateTimeText(member.expiresAt)} まで使えます。
+      </p>
+    </>
+  )
+}
+
+function ScorerSection({
+  token,
+  scorer,
+}: {
+  token: string
+  scorer: NonNullable<EntryLink['scorer']>
+}) {
+  return (
+    <>
+      <p className="entry-kicker">{scorer.tournamentName}</p>
+      <h1 className="site-title">{scorer.teamName} の記録係</h1>
+      <p>
+        {scorer.memberName}{' '}
+        さん、自分たちの試合のスコアを入れてください。ボタンを押すと、担当の試合の一覧が開きます。
+      </p>
+      <ScorerSignIn token={token} action={scorerSignInAction} />
+      <p className="entry-muted">
+        このリンクはあなた専用です。{dateTimeText(scorer.expiresAt)} まで使えます。切れたら、公式
+        LINE で「記録」と送ってください。
       </p>
     </>
   )

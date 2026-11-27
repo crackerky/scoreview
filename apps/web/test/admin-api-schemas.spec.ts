@@ -51,7 +51,14 @@ describe('管理用応答のスキーマ', () => {
     const body = {
       token: 'x'.repeat(43),
       expiresAt: '2026-10-22T09:00:00Z',
-      user: { id: 1, email: 'a@example.com', displayName: '', role: 'admin', tournamentIds: [] },
+      user: {
+        id: 1,
+        email: 'a@example.com',
+        displayName: '',
+        role: 'admin',
+        tournamentIds: [],
+        teamScorer: false,
+      },
     }
     assert.equal(loginResponseSchema.safeParse(body).success, true)
     assert.equal(loginResponseSchema.safeParse({ ...body, expiresAt: 'tomorrow' }).success, false)

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { formToObject } from '@/admin/form.utils'
+import { saveSession } from '@/admin/session'
 import { ApiError } from '@/api/client'
 import { entryLinks } from '@/api/entryLink'
 import { entryPaths } from '@/entry/entry.paths'
@@ -88,4 +89,30 @@ export async function chooseScorerAction(
     await entryLinks.chooseScorer(token, entryId, memberId)
     return memberId === null ? 'scorer-cleared' : 'scorer'
   })
+}
+
+/**
+ * チームの記録係が、公式 LINE の本人用のリンクから記録の画面に入る。api がリンクを確かめてセッションを
+ * 発行し、管理画面のログインと同じ Cookie に入れて、自分の担当試合の一覧(管理画面のトップ)へ移る。
+ * リンクを開いただけでは入らず、ボタンを押したときに入る(LINE がリンクの見本を作るために開いても入らない)。
+ */
+export async function scorerSignInAction(
+  _state: LinkFormState,
+  formData: FormData,
+): Promise<LinkFormState> {
+  const form = formToObject(formData)
+  const token = typeof form.token === 'string' ? form.token : ''
+  if (!isLinkToken(token)) {
+    redirect('/')
+  }
+  try {
+    const session = await entryLinks.scorerSession(token)
+    await saveSession(session.token, session.expiresAt)
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status >= 500) {
+      throw error
+    }
+    return { error: participantErrorText(error.code, error.message) }
+  }
+  redirect('/admin')
 }

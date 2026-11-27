@@ -73,6 +73,7 @@ test('本人用のリンクの応答を parse できる', () => {
   const parsed = entryLinkSchema.parse({
     purpose: 'member',
     team: null,
+    scorer: null,
     member: {
       tournamentName: 'ラバー 2027',
       team: {
@@ -267,6 +268,7 @@ describe('参加者の台帳', () => {
         expiresAt: '2026-11-24T01:00:00Z',
       },
       member: null,
+      scorer: null,
     })
     assert.equal(parsed.team?.pastTeams[0]?.members.length, 2)
   })
@@ -285,4 +287,19 @@ test('記録係を選ぶフォームは、空を「外す」にし、数でな�
     entryId: 12,
     memberId: null,
   })
+})
+
+test('記録係のリンクの応答を parse できる', () => {
+  const parsed = entryLinkSchema.parse({
+    purpose: 'scorer',
+    team: null,
+    member: null,
+    scorer: {
+      teamName: '熱海ディスクス',
+      tournamentName: 'ラバー 2027',
+      memberName: '佐藤 花子',
+      expiresAt: '2026-11-24T01:00:00Z',
+    },
+  })
+  assert.equal(parsed.scorer?.memberName, '佐藤 花子')
 })

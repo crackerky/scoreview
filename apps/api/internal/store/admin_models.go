@@ -16,7 +16,9 @@ type User struct {
 	PasswordHash string      `gorm:"column:password_hash"`
 	DisplayName  string      `gorm:"column:display_name"`
 	Role         domain.Role `gorm:"column:role"`
-	CreatedAt    time.Time   `gorm:"column:created_at"`
+	// TeamScorer はチームの記録係(migrations/00046)。公式 LINE のリンクから入り、パスワードは持たない
+	TeamScorer bool      `gorm:"column:team_scorer"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
 }
 
 // TableName は GORM に表名を伝える。

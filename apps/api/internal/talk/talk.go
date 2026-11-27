@@ -163,6 +163,18 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 		}
 		return []Message{{Text: MemberLinkText(link.TeamName, b.linkURL(link.Token))}}, nil
 	}
+	if command.Kind == CommandScore {
+		links, err := b.links.IssueScorerLinks(ctx, lineUser)
+		if err != nil {
+			return nil, err
+		}
+		scorer := make([]JoinedTeamLink, len(links))
+		for i, link := range links {
+			scorer[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
+				URL: b.linkURL(link.Token)}
+		}
+		return []Message{{Text: ScorerLinksText(scorer)}}, nil
+	}
 	links, err := b.links.IssueTeamLinks(ctx, lineUser)
 	if err != nil {
 		return nil, err
@@ -198,6 +210,8 @@ const (
 	CommandEntry
 	// CommandJoin はメンバー登録(招待リンクで開いたトークの「参加 招待コード」)
 	CommandJoin
+	// CommandScore はチームの記録係が記録の画面を開く(トークで「記録」と送った)
+	CommandScore
 )
 
 // Command は届いた言葉の解釈。
@@ -213,6 +227,15 @@ const PostbackEntry = "action=entry"
 func isEntryWord(text string) bool {
 	switch text {
 	case "エントリー", "エントリ", "申込", "申込み", "申し込み", "もうしこみ":
+		return true
+	}
+	return false
+}
+
+// isScoreWord は記録係が記録の画面を開く言葉か。
+func isScoreWord(text string) bool {
+	switch text {
+	case "記録", "きろく", "記録係", "スコア", "スコア入力":
 		return true
 	}
 	return false
@@ -243,6 +266,9 @@ func CommandOf(event Event) Command {
 	text := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(event.Text, "　", " ")))
 	if isEntryWord(text) {
 		return Command{Kind: CommandEntry}
+	}
+	if isScoreWord(text) {
+		return Command{Kind: CommandScore}
 	}
 	if code := inviteCodeOf(text); code != "" {
 		return Command{Kind: CommandJoin, InviteCode: code}

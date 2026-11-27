@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	sqlOrderUsers         = "role, email, id"
+	sqlOrderUsers = "role, email, id"
+	// 運営が管理する利用者(チームの記録係は代表が LINE で選ぶので、利用者の一覧に出さない)
+	sqlManagedUsers       = "NOT team_scorer"
 	sqlStaffOfTournament  = "user_id = ? AND tournament_id = ?"
 	sqlOrderTournamentIDs = "tournament_id"
 	// maxEmailLen は RFC 5321 4.5.3.1 の転送経路の上限(254 文字)
@@ -48,7 +50,7 @@ func (f UserFields) validate() error {
 // ListUsers は全ユーザーを役割、メールアドレスの順に返す。
 func ListUsers(ctx context.Context, db *gorm.DB) ([]UserRecord, error) {
 	var users []User
-	if err := db.WithContext(ctx).Order(sqlOrderUsers).Find(&users).Error; err != nil {
+	if err := db.WithContext(ctx).Where(sqlManagedUsers).Order(sqlOrderUsers).Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
 	var staff []TournamentStaff

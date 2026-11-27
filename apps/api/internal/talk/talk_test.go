@@ -70,7 +70,18 @@ func (s *fakeStore) LineUser(_ context.Context, userID string, _ time.Time) (int
 type fakeLinks struct {
 	tournaments []entry.TournamentRef
 	joined      []entry.JoinedTeam
+	scorer      []entry.ScorerTeam
 	issued      []string
+}
+
+func (l *fakeLinks) IssueScorerLinks(_ context.Context, lineUser int64) ([]entry.ScorerLink, error) {
+	out := make([]entry.ScorerLink, len(l.scorer))
+	for i, team := range l.scorer {
+		token := fmt.Sprintf("scorer-%d-%d", lineUser, team.TeamEntryID)
+		l.issued = append(l.issued, token)
+		out[i] = entry.ScorerLink{Team: team, Token: token}
+	}
+	return out, nil
 }
 
 func (l *fakeLinks) IssueJoinedLinks(_ context.Context, lineUser int64) ([]entry.JoinedLink, error) {
@@ -313,4 +324,18 @@ func TestScorerChosenMessage(t *testing.T) {
 	require.Len(t, messages, 1)
 	assert.Contains(t, messages[0].Text, "「熱海ディスクス」の「ラバー 2027」の記録係になりました")
 	assert.Contains(t, messages[0].Text, "「記録」と送ると")
+}
+
+// 「記録」と送った記録係には、記録の画面に入るリンクを返す。記録係でなければその旨を返す。
+func TestBotRepliesScorerLinks(t *testing.T) {
+	bot, _, links, messenger := setup()
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("1", "U1", "記録")}))
+	assert.Equal(t, talk.TextNotScorer, messenger.replies["r-1"][0].Text)
+
+	links.scorer = []entry.ScorerTeam{{MemberName: "佐藤 花子", JoinedTeam: entry.JoinedTeam{TeamEntryID: 41,
+		TeamName: "熱海ディスクス", Tournament: entry.TournamentRef{ID: 7, Name: "ラバー 2027"}}}}
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", " きろく ")}))
+	text := messenger.replies["r-2"][0].Text
+	assert.Contains(t, text, "「熱海ディスクス」ラバー 2027\nhttps://score.example/entry/scorer-1-41")
+	assert.Contains(t, text, "3 日間")
 }

@@ -36,6 +36,8 @@ type User struct {
 	Email       string
 	DisplayName string
 	Role        Role
+	// TeamScorer はチームの記録係(公式 LINE のリンクから入り、自分のチームの試合だけを記録する)
+	TeamScorer bool
 }
 
 // Actor は試合を更新する操作の実行者。状態遷移の権限(finished → live は admin だけ)の判定に使う。

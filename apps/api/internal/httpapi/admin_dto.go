@@ -30,6 +30,8 @@ type adminUserDTO struct {
 	DisplayName   string  `json:"displayName"`
 	Role          string  `json:"role"`
 	TournamentIDs []int64 `json:"tournamentIds"`
+	// TeamScorer はチームの記録係(公式 LINE のリンクから入る。自分のチームの試合だけを記録する)
+	TeamScorer bool `json:"teamScorer"`
 }
 
 type loginDTO struct {
@@ -48,7 +50,7 @@ func toAdminUser(user domain.User, tournamentIDs []int64) adminUserDTO {
 	}
 	return adminUserDTO{
 		ID: user.ID, Email: user.Email, DisplayName: user.DisplayName, Role: string(user.Role),
-		TournamentIDs: tournamentIDs,
+		TournamentIDs: tournamentIDs, TeamScorer: user.TeamScorer,
 	}
 }
 

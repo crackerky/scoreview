@@ -506,6 +506,109 @@ func TestEntryRepChoosesAScorer(t *testing.T) {
 	require.ErrorAs(t, err, &notFound)
 }
 
+// lineTeam は LINE の代表 rep の申込を出して参加を決め、scorer を名簿の 2 行目として登録して記録係にする
+// (scorer が空なら記録係を選ばない)。チームを返す。
+func (f linkFixture) lineTeam(t *testing.T, name, rep, scorer string) store.Team {
+	t.Helper()
+	ctx := context.Background()
+	links, err := f.desk.IssueTeamLinks(ctx, f.lineUser(t, rep))
+	require.NoError(t, err)
+	submitted, err := f.desk.SubmitByLink(ctx, links[0].Token, f.draft(name, nil))
+	require.NoError(t, err)
+	member := submitted.MemberList[1].ID
+	if scorer != "" {
+		join, err := f.desk.IssueMemberLink(ctx, f.lineUser(t, scorer), submitted.InviteCode)
+		require.NoError(t, err)
+		_, err = f.desk.JoinByLink(ctx, join.Token, entry.JoinDraft{MemberID: &member, Name: "記録 " + name,
+			Answers: map[int64]string{}})
+		require.NoError(t, err)
+	}
+	approved, err := f.desk.Decide(ctx, submitted.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	if scorer != "" {
+		_, err = f.desk.ChooseScorerByLink(ctx, links[0].Token, submitted.ID, &member)
+		require.NoError(t, err)
+	}
+	var team store.Team
+	require.NoError(t, f.db.First(&team, *approved.TeamID).Error)
+	return team
+}
+
+// チームの記録係は「記録」で届くリンクから入り、自分のチームが記録する試合だけを記録できる。試合を
+// 記録するのは、左のチームに記録係がいれば左、いなければ右。パスワードでは入れず、利用者の一覧にも出ない。
+func TestTeamScorerScoresOnlyItsTeamsMatches(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	b := storetest.New(t, f.db)
+	atami := f.lineTeam(t, "熱海ディスクス", "Urep1", "Uhanako")
+	ito := f.lineTeam(t, "伊東", "Urep2", "")
+	izu := f.lineTeam(t, "伊豆", "Urep3", "Ujiro")
+	other1, other2 := b.Team(f.division), b.Team(f.division)
+	itoVsAtami := b.Match(f.division, &ito, &atami)
+	atamiVsIto := b.Match(f.division, &atami, &ito)
+	izuVsAtami := b.Match(f.division, &izu, &atami)
+	others := b.Match(f.division, &other1, &other2)
+
+	var hanako store.LineUser
+	require.NoError(t, f.db.Where("line_user_id = ?", "Uhanako").First(&hanako).Error)
+	links, err := f.desk.IssueScorerLinks(ctx, hanako.ID)
+	require.NoError(t, err)
+	require.Len(t, links, 1)
+	assert.Equal(t, "熱海ディスクス", links[0].Team.TeamName)
+	view, err := f.desk.LinkView(ctx, links[0].Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Scorer)
+	assert.Equal(t, "記録 熱海ディスクス", view.Scorer.Team.MemberName)
+
+	userID, err := f.desk.ScorerSignIn(ctx, links[0].Token)
+	require.NoError(t, err)
+	again, err := f.desk.ScorerSignIn(ctx, links[0].Token)
+	require.NoError(t, err)
+	assert.Equal(t, userID, again, "the same LINE user gets the same user")
+	for match, want := range map[int64]bool{
+		itoVsAtami.ID: true,  // 左の伊東に記録係がいないので熱海が記録する
+		atamiVsIto.ID: true,  // 左の熱海が記録する
+		izuVsAtami.ID: false, // 左の伊豆に記録係がいるので伊豆が記録する
+		others.ID:     false,
+	} {
+		ok, err := store.CanScoreMatch(ctx, f.db, userID, match)
+		require.NoError(t, err)
+		assert.Equal(t, want, ok, "match %d", match)
+	}
+	mine, err := store.ListAssignedMatches(ctx, f.db, userID)
+	require.NoError(t, err)
+	var ids []int64
+	for _, m := range mine {
+		ids = append(ids, m.Match.ID)
+	}
+	assert.ElementsMatch(t, []int64{itoVsAtami.ID, atamiVsIto.ID}, ids)
+
+	// パスワードのログインの対象にせず、運営の利用者の一覧にも出さない
+	var user store.User
+	require.NoError(t, f.db.First(&user, userID).Error)
+	assert.True(t, user.TeamScorer)
+	_, found, err := store.FindCredential(ctx, f.db, user.Email)
+	require.NoError(t, err)
+	assert.False(t, found)
+	users, err := store.ListUsers(ctx, f.db)
+	require.NoError(t, err)
+	for _, listed := range users {
+		assert.NotEqual(t, userID, listed.ID)
+	}
+
+	// 記録係でなくなったら、リンクで入れず、試合も記録できない
+	var entries []store.TeamEntry
+	require.NoError(t, f.db.Where("team_id = ?", atami.ID).Find(&entries).Error)
+	require.NoError(t, f.db.Model(&store.TeamEntry{}).Where("id = ?", entries[0].ID).
+		Update("scorer_member_id", nil).Error)
+	var notFound *domain.NotFoundError
+	_, err = f.desk.ScorerSignIn(ctx, links[0].Token)
+	require.ErrorAs(t, err, &notFound)
+	ok, err := store.CanScoreMatch(ctx, f.db, userID, atamiVsIto.ID)
+	require.NoError(t, err)
+	assert.False(t, ok)
+}
+
 func TestEntryNoticesGoToTheLineRepresentative(t *testing.T) {
 	f := newLinkFixture(t)
 	ctx := context.Background()

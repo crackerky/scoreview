@@ -134,6 +134,27 @@ func Login(
 	return issueSession(ctx, db, user, key, now)
 }
 
+// StartSession は本人確認を済ませた利用者 userID にセッションを発行する(チームの記録係が公式 LINE の
+// 本人用のリンクで入るとき。リンクの合言葉が本人確認の段にあたり、パスワードの失敗の記録は使わない)。
+func StartSession(ctx context.Context, db *gorm.DB, userID int64, now time.Time) (Session, error) {
+	user, err := store.GetUser(ctx, db, userID)
+	if err != nil {
+		return Session{}, err
+	}
+	token, hash, err := newSessionToken()
+	if err != nil {
+		return Session{}, err
+	}
+	expiresAt := now.Add(SessionTTL)
+	if err := store.DeleteExpiredSessions(ctx, db, user.ID, now); err != nil {
+		return Session{}, err
+	}
+	if err := store.CreateSession(ctx, db, user.ID, hash, expiresAt); err != nil {
+		return Session{}, err
+	}
+	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
+}
+
 // checkLoginAttempt は直近の失敗から、今の試行を照合してよいかを決める。
 func checkLoginAttempt(stats store.LoginFailureStats, now time.Time) error {
 	if stats.IPFailures >= MaxLoginFailuresPerIP {

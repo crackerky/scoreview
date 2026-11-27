@@ -21,6 +21,8 @@ const (
 	LinkTeam LinkPurpose = "team"
 	// LinkMember は代表エントリーへのメンバー登録
 	LinkMember LinkPurpose = "member"
+	// LinkScorer はチームの記録係が記録の画面に入る(TeamEntryID は記録係のチームの申込)
+	LinkScorer LinkPurpose = "scorer"
 )
 
 // LinkLifetimeDays は本人用のリンクを使える日数。リンクを転送されたときに、転送された人が使える期間を
@@ -109,6 +111,28 @@ type LinkView struct {
 	Purpose LinkPurpose
 	Team    *TeamForm
 	Member  *MemberForm
+	Scorer  *ScorerView
+}
+
+// ScorerTeam はこの LINE の人が記録係に選ばれたチーム(参加が決まった申込の、終わっていない大会)。
+// MemberName は記録係のメンバーの名前。
+type ScorerTeam struct {
+	JoinedTeam
+	MemberName string
+}
+
+// ScorerLink は記録係が記録の画面に入る本人用のリンク。
+type ScorerLink struct {
+	Team      ScorerTeam
+	Token     string
+	ExpiresAt time.Time
+}
+
+// ScorerView は記録係のリンクで開く画面に要るもの(記録の画面に入るボタンの前に、どのチームの記録係かを
+// 見せる)。
+type ScorerView struct {
+	Team      ScorerTeam
+	ExpiresAt time.Time
 }
 
 // JoinDraft はメンバー登録の中身。MemberID は代表が書いた行のうち自分の行(新しく足すなら nil)。

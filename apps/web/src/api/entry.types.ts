@@ -113,7 +113,7 @@ export const entryLinkMemberSchema = z.object({
 export type EntryLinkMember = z.infer<typeof entryLinkMemberSchema>
 
 export const entryLinkSchema = z.object({
-  purpose: z.enum(['team', 'member']),
+  purpose: z.enum(['team', 'member', 'scorer']),
   team: z
     .object({
       tournament: z.object({ id: z.number().int(), name: z.string() }),
@@ -127,6 +127,15 @@ export const entryLinkSchema = z.object({
     })
     .nullable(),
   member: entryLinkMemberSchema.nullable(),
+  /** チームの記録係のリンク(公式 LINE で「記録」と送って届く)。記録の画面に入る前に、どのチームかを見せる */
+  scorer: z
+    .object({
+      teamName: z.string(),
+      tournamentName: z.string(),
+      memberName: z.string(),
+      expiresAt: z.string(),
+    })
+    .nullable(),
 })
 export type EntryLink = z.infer<typeof entryLinkSchema>
 

@@ -48,7 +48,7 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
       primary={isAdmin ? { label: '大会を作る', href: '/admin/tournaments/new' } : undefined}
     >
       {user.role !== 'staff' && mine.matches.length === 0 ? null : (
-        <MyMatches list={mine.matches} labels={labels} />
+        <MyMatches list={mine.matches} labels={labels} teamScorer={user.teamScorer} />
       )}
       {list.tournaments.length > 5 ? (
         <form method="get" className="adm-search-row">
@@ -102,13 +102,24 @@ export default async function AdminTopPage({ searchParams }: SearchProps) {
   )
 }
 
-function MyMatches({ list, labels }: { list: AssignedMatch[]; labels: SideLabels }) {
+function MyMatches({
+  list,
+  labels,
+  teamScorer,
+}: {
+  list: AssignedMatch[]
+  labels: SideLabels
+  /** チームの記録係なら、空のときの案内を変える(割り当ては本部ではなく試合の組み方で決まる) */
+  teamScorer: boolean
+}) {
   if (list.length === 0) {
     return (
       <>
         <PendingSummary listed={[]} />
         <p className="adm-muted">
-          担当の試合はまだありません。本部(管理者)に、コートと時間帯の割り当てを頼んでください。
+          {teamScorer
+            ? 'チームの試合が決まると、ここに出ます。自分たちの試合のスコアを入れてください。'
+            : '担当の試合はまだありません。本部(管理者)に、コートと時間帯の割り当てを頼んでください。'}
         </p>
       </>
     )

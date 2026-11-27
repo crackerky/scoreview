@@ -24,6 +24,7 @@ const admin: AdminUser = {
   displayName: '',
   role: 'admin',
   tournamentIds: [],
+  teamScorer: false,
 }
 const staff: AdminUser = {
   id: 2,
@@ -31,6 +32,7 @@ const staff: AdminUser = {
   displayName: '',
   role: 'staff',
   tournamentIds: [7],
+  teamScorer: false,
 }
 
 describe('セッション Cookie', () => {

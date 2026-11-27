@@ -1,4 +1,5 @@
 import 'server-only'
+import { loginResponseSchema } from './admin.types'
 import { apiFetch } from './client'
 import {
   type EntryDraftInput,
@@ -31,6 +32,12 @@ export const entryLinks = {
     apiFetch(`${base}/${encodeURIComponent(token)}/team/${entryId}/scorer`, entryDetailSchema, {
       method: 'POST',
       body: { memberId },
+    }),
+  /** チームの記録係のリンクから、記録の画面に入るセッションを発行する(応答はログインと同じ形) */
+  scorerSession: (token: string) =>
+    apiFetch(`${base}/${encodeURIComponent(token)}/session`, loginResponseSchema, {
+      method: 'POST',
+      body: {},
     }),
   join: (token: string, body: EntryJoinInput) =>
     apiFetch(`${base}/${encodeURIComponent(token)}/member`, entryLinkMemberSchema, {

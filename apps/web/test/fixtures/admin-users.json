@@ -5,7 +5,8 @@
       "email": "admin@example.com",
       "displayName": "開発管理者",
       "role": "admin",
-      "tournamentIds": []
+      "tournamentIds": [],
+      "teamScorer": false
     }
   ]
 }

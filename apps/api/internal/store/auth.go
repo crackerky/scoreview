@@ -14,7 +14,9 @@ import (
 // ここは行の出し入れだけをする。
 
 const (
-	sqlByEmail             = "email = ?"
+	sqlByEmail = "email = ?"
+	// パスワードでログインできる利用者(チームの記録係はパスワードを持たず、LINE のリンクから入る)
+	sqlLoginUserByEmail    = "email = ? AND NOT team_scorer"
 	sqlByTokenHash         = "token_hash = ?" //nolint:gosec // SQL の条件で、資格情報ではない
 	sqlLiveSession         = "token_hash = ? AND expires_at > ?"
 	sqlExpiredOfUser       = "user_id = ? AND expires_at <= ?"
@@ -38,7 +40,7 @@ func FindCredential(ctx context.Context, db *gorm.DB, email string) (Credential,
 	var users []User
 	err := db.WithContext(ctx).
 		Select("id", "password_hash").
-		Where(sqlByEmail, email).
+		Where(sqlLoginUserByEmail, email).
 		Limit(1).
 		Find(&users).
 		Error
@@ -57,6 +59,7 @@ func toDomainUser(user User) domain.User {
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		Role:        user.Role,
+		TeamScorer:  user.TeamScorer,
 	}
 }
 

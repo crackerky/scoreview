@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"scoreview/api/internal/domain"
 	"scoreview/api/internal/entry"
@@ -37,6 +38,12 @@ const (
 	sqlJoinTournamentEntry = "JOIN tournaments ON tournaments.id = team_entries.tournament_id"
 	sqlJoinedBy            = "member_entries.line_user_id = ? AND team_entries.status <> ? AND tournaments.status <> ?"
 	sqlOrderJoined         = "tournaments.start_date NULLS LAST, tournaments.id, team_entries.id"
+	// 記録係に選ばれたチーム: 参加が決まった申込の、終わっていない大会。メンバーの行を通して LINE の人を見る
+	sqlSelectScorerTeams = sqlSelectJoined + ", member_entries.name AS member_name"
+	sqlJoinScorerEntry   = "JOIN team_entries ON team_entries.scorer_member_id = member_entries.id"
+	sqlScorerBy          = "member_entries.line_user_id = ? AND team_entries.status = ? AND tournaments.status <> ?"
+	// 記録係の利用者のメールアドレス(ログインには使わない。users.email の一意を満たすための値)
+	scorerEmailFormat = "line-scorer-%d@scorer.invalid"
 )
 
 // EntryLink は entry_links の行。
@@ -94,6 +101,66 @@ func (s *EntryStore) JoinedTeams(ctx context.Context, lineUserID int64) ([]entry
 			Tournament: entry.TournamentRef{ID: row.TournamentID, Name: row.NameJa}}
 	}
 	return out, nil
+}
+
+// ScorerTeams は entry.Store.ScorerTeams。
+func (s *EntryStore) ScorerTeams(ctx context.Context, lineUserID int64) ([]entry.ScorerTeam, error) {
+	var rows []struct {
+		TeamEntryID  int64
+		TeamNameFull string
+		TournamentID int64
+		NameJa       string
+		MemberName   string
+	}
+	err := s.db.WithContext(ctx).Model(&MemberEntry{}).Select(sqlSelectScorerTeams).
+		Joins(sqlJoinScorerEntry).Joins(sqlJoinTournamentEntry).
+		Where(sqlScorerBy, lineUserID, string(entry.StatusApproved), domain.TournamentFinished).
+		Order(sqlOrderJoined).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list scorer teams: %w", err)
+	}
+	out := make([]entry.ScorerTeam, len(rows))
+	for i, row := range rows {
+		out[i] = entry.ScorerTeam{MemberName: row.MemberName, JoinedTeam: entry.JoinedTeam{
+			TeamEntryID: row.TeamEntryID, TeamName: row.TeamNameFull,
+			Tournament: entry.TournamentRef{ID: row.TournamentID, Name: row.NameJa}}}
+	}
+	return out, nil
+}
+
+// EnsureScorer は entry.Store.EnsureScorer。LINE の人の行をロックして、記録係の利用者を 2 つ作らない。
+func (s *EntryStore) EnsureScorer(ctx context.Context, lineUserID, tournamentID int64, name string) (int64, error) {
+	var userID int64
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var lineUser LineUser
+		result := tx.Clauses(clause.Locking{Strength: lockStrengthNoKeyUpdate}).
+			Where(sqlByID, lineUserID).Limit(1).Find(&lineUser)
+		if result.Error != nil {
+			return fmt.Errorf("lock line user %d: %w", lineUserID, result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return domain.NotFound(domain.ResourceEntryLink, 0)
+		}
+		if lineUser.UserID != nil {
+			userID = *lineUser.UserID
+		} else {
+			user := User{Email: fmt.Sprintf(scorerEmailFormat, lineUserID), DisplayName: name,
+				Role: domain.RoleStaff, TeamScorer: true}
+			if err := tx.Create(&user).Error; err != nil {
+				return writeError("create scorer user", err)
+			}
+			userID = user.ID
+			if err := tx.Model(&LineUser{}).Where(sqlByID, lineUserID).Update("user_id", userID).Error; err != nil {
+				return writeError("link scorer user", err)
+			}
+		}
+		staff := TournamentStaff{UserID: userID, TournamentID: tournamentID}
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&staff).Error; err != nil {
+			return writeError("make scorer staff of tournament", err)
+		}
+		return nil
+	})
+	return userID, err
 }
 
 // SaveLink は entry.Store.SaveLink。
