@@ -881,6 +881,7 @@ type Impact = {
 | `GET /admin/divisions/{id}/format` | なし | `{ format: SavedFormat \| null; inherited: SavedFormat \| null }`。`inherited` は大会のコピーで作った部門(形がまだ無い)のコピー元の形で、`seeds` はコピー元のシード順のチームをこの部門の同じ正式名のチームに置き換えたもの |
 | `GET /admin/divisions/{id}/pool-draft` | なし | `{ pools: number[][] \| null; updatedAt: string \| null }`。部門の組分けの下書き(管理画面「試合を組む」の組分け)。`pools` は組の順に、組ごとのチームの id を上から並べたもの。無ければ `pools` も `updatedAt` も null |
 | `PUT /admin/divisions/{id}/pool-draft` | `{ pools: number[][] }` | 同じ形。下書きを置き換える。組は 1〜16 個で、空の組も残せる(途中の下書き)。この部門でないチームや、2 つの組に入ったチームは 400。形を作るときは、この組をシード順と `poolSeeds` にして渡す(web が作る) |
+| `PUT /admin/divisions/{id}/schedule` | `{ items: Array<{ matchId: number; date: string; time: string; field: string }> }` | `{ updated: number; violations: Violation[] \| null }`。時間割の貼り付け(管理画面「試合を組む」の時間割)。運営が Excel で決めた日付(YYYY-MM-DD)、時刻(HH:MM)、コート(1〜20 字)を、部門の今ある試合にまとめて書く(どの行がどの試合かは web が試合番号かチームの組で当てはめる)。部門の行をロックし、全部を 1 つのトランザクションで書く。この部門でない試合、同じ試合が 2 回、時刻やコートの形の誤りは 400(1〜1000 試合)、始まった試合が 1 つでもあれば試合番号を付けて 409(何も書かない)。`violations` は書いた後の時間割の確かめ(`GET /divisions/{id}/schedule-check` と同じ。形の無い部門は null) |
 | `GET /admin/formats?exclude={divisionId}` | なし | `{ formats: SavedFormat[] }`(前回の大会の形のコピー元。新しい順に 30 件) |
 | `GET /admin/divisions/{id}/progress` | なし | `Progress` |
 | `GET /admin/divisions/{id}/format/matches` | なし | `{ matches: ProgressMatch[] }`(時刻、コートの順) |

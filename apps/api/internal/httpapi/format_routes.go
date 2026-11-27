@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -25,6 +26,7 @@ func (s *Server) formatRoutes() {
 	s.admin("GET "+base+"/formats", adminOnly(), ok, s.listFormats)
 	s.admin("GET "+base+"/divisions/{id}/pool-draft", adminOnly(), ok, withPathID(s.getPoolDraft))
 	s.admin("PUT "+base+"/divisions/{id}/pool-draft", adminOnly(), ok, withPathID(s.savePoolDraft))
+	s.admin("PUT "+base+"/divisions/{id}/schedule", adminOnly(), ok, withPathID(s.importSchedule))
 	s.admin("GET "+base+"/divisions/{id}/progress", staffOfDivision(), ok, withPathID(s.getProgress))
 	s.admin("GET "+base+"/divisions/{id}/format/matches", staffOfDivision(), ok,
 		withPathID(s.listFormatMatches))
@@ -351,4 +353,49 @@ func (s *Server) savePoolDraft(ctx context.Context, id int64, r *http.Request, _
 		return nil, err
 	}
 	return s.getPoolDraft(ctx, id, r, domain.User{})
+}
+
+// scheduleImportDTO は貼り付けた時間割(試合ごとの日付、時刻、コート)。
+type scheduleImportDTO struct {
+	Items []struct {
+		MatchID int64  `json:"matchId"`
+		Date    string `json:"date"`
+		Time    string `json:"time"`
+		Field   string `json:"field"`
+	} `json:"items"`
+}
+
+// scheduleImportResultDTO は書いた試合の数と、書いた後の時間割の確かめ(形の無い部門は null)。
+type scheduleImportResultDTO struct {
+	Updated    int            `json:"updated"`
+	Violations []violationDTO `json:"violations"`
+}
+
+func (s *Server) importSchedule(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
+	var in scheduleImportDTO
+	if err := decodeBody(r, &in); err != nil {
+		return nil, err
+	}
+	items := make([]store.ScheduleItem, len(in.Items))
+	for i, item := range in.Items {
+		day, err := domain.ParseDay(fmt.Sprintf("items[%d].date", i), item.Date)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = store.ScheduleItem{MatchID: item.MatchID, Date: day, Time: item.Time, Field: item.Field}
+	}
+	if err := store.ImportSchedule(ctx, s.db, id, items); err != nil {
+		return nil, err
+	}
+	out := scheduleImportResultDTO{Updated: len(items)}
+	if _, formatted, err := store.GetSavedFormat(ctx, s.db, id); err != nil {
+		return nil, err
+	} else if formatted {
+		violations, err := store.CheckFormatSchedule(ctx, s.db, id)
+		if err != nil {
+			return nil, err
+		}
+		out.Violations = toViolations(violations)
+	}
+	return out, nil
 }

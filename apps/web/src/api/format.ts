@@ -13,9 +13,11 @@ import {
   progressSchema,
   proposalListSchema,
   resumeSchema,
+  type ScheduleItemInput,
   type ScheduleSetting,
   savedFormatListSchema,
   savedFormatOneSchema,
+  scheduleImportResultSchema,
   shiftResultSchema,
   violationListSchema,
   withdrawalSchema,
@@ -94,6 +96,11 @@ export const formats = {
   /** 組分けの下書き(試合を組むの組分け)。無ければ pools が null */
   poolDraft: (token: string, divisionId: number) =>
     call(token, 'GET', `${admin}/divisions/${divisionId}/pool-draft`, poolDraftSchema),
+  /** 貼り付けた時間割を、部門の試合にまとめて書く */
+  importSchedule: (token: string, divisionId: number, items: ScheduleItemInput[]) =>
+    call(token, 'PUT', `${admin}/divisions/${divisionId}/schedule`, scheduleImportResultSchema, {
+      items,
+    }),
   savePoolDraft: (token: string, divisionId: number, pools: number[][]) =>
     call(token, 'PUT', `${admin}/divisions/${divisionId}/pool-draft`, poolDraftSchema, { pools }),
   list: (token: string, exclude: number) =>

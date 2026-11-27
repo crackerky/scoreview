@@ -9,7 +9,14 @@ import { players, teams } from '@/api/admin'
 import { ApiError } from '@/api/client'
 import { genderSchema } from '@/api/common.types'
 import { formats, type ProposalInput } from '@/api/format'
-import type { FormatInput, FormatPreview, PoolDraft, Proposal } from '@/api/format.types'
+import type {
+  FormatInput,
+  FormatPreview,
+  PoolDraft,
+  Proposal,
+  ScheduleImportResult,
+  ScheduleItemInput,
+} from '@/api/format.types'
 
 // 大会の形(ウィザード)と本部の進行画面の Server Actions。ウィザードは画面を遷移せずに結果を
 // 受け取るので、値を返す action にする。進行画面の操作はフォームの送信で、通知つきで元の画面へ戻す。
@@ -45,6 +52,16 @@ export async function savePoolDraftAction(
   pools: number[][],
 ): Promise<ActionResult<PoolDraft>> {
   const result = await withToken((token) => formats.savePoolDraft(token, divisionId, pools))
+  revalidatePath('/admin', 'layout')
+  return result
+}
+
+/** 貼り付けた時間割を部門の試合に書く */
+export async function importScheduleAction(
+  divisionId: number,
+  items: ScheduleItemInput[],
+): Promise<ActionResult<ScheduleImportResult>> {
+  const result = await withToken((token) => formats.importSchedule(token, divisionId, items))
   revalidatePath('/admin', 'layout')
   return result
 }

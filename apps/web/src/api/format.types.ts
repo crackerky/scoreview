@@ -387,3 +387,13 @@ export const poolDraftSchema = z.object({
   updatedAt: z.string().nullable(),
 })
 export type PoolDraft = z.infer<typeof poolDraftSchema>
+
+/** 時間割の貼り付けの結果。violations は書いた後の時間割の確かめ(形の無い部門は null) */
+export const scheduleImportResultSchema = z.object({
+  updated: z.number().int(),
+  violations: z.array(violationSchema).nullable(),
+})
+export type ScheduleImportResult = z.infer<typeof scheduleImportResultSchema>
+
+/** 時間割の貼り付けで書く試合 1 つ(date は YYYY-MM-DD、time は HH:MM) */
+export type ScheduleItemInput = { matchId: number; date: string; time: string; field: string }
