@@ -21,6 +21,7 @@ import {
   audienceStatusLabels,
   checkedFields,
   checkedTimingFields,
+  type DraftButtons,
   sameAudience,
   sameTiming,
   type Timing,
@@ -42,6 +43,8 @@ type Props = {
   draftKey: string
   /** 前日と当日の案内のひな形を選んで開いたときの文(それ以外は空) */
   initialBody: string
+  /** ひな形で開いたときの文の下のボタン */
+  initialButtons?: DraftButtons
   /** 数えた人数と宛先の一覧(サーバーで描いたもの) */
   children: ReactNode
 }
@@ -71,20 +74,22 @@ export function NotificationComposer({
   hidden,
   draftKey,
   initialBody,
+  initialButtons,
   children,
 }: Props) {
   const formRef = useRef<HTMLFormElement>(null)
   const [selection, setSelection] = useState({ audience: checked, timing: checkedTime })
   // ブラウザが戻したフォームの状態(再読み込み、戻る)も、画面に出ている選択として読む。前日と当日の
-  // 案内のひな形(preset)は、文の欄に入れたら URL から外す(戻るや再読み込みで、書き足した文をひな形で
-  // 上書きしないように)
+  // 案内のひな形(preset)と記録係のお願いのひな形(template)は、文の欄に入れたら URL から外す(戻るや
+  // 再読み込みで、書き足した文をひな形で上書きしないように)
   useEffect(() => {
     if (formRef.current) {
       setSelection(selectionOf(formRef.current))
     }
     const url = new URL(window.location.href)
-    if (url.searchParams.has('preset')) {
+    if (url.searchParams.has('preset') || url.searchParams.has('template')) {
       url.searchParams.delete('preset')
+      url.searchParams.delete('template')
       window.history.replaceState(window.history.state, '', url)
     }
   }, [])
@@ -207,6 +212,7 @@ export function NotificationComposer({
         maxLength={maxNotificationBody}
         draftKey={draftKey}
         initialBody={initialBody}
+        initialButtons={initialButtons}
       />
     </form>
   )

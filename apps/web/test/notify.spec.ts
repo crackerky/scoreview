@@ -12,6 +12,8 @@ import {
   audienceFromQuery,
   audienceText,
   bodyExcerpt,
+  buttonDestination,
+  buttonsFromForm,
   checkedAudience,
   checkedFields,
   countsText,
@@ -272,6 +274,9 @@ describe('応答の形', () => {
     note: '',
     counts: { pending: 0, sent: 1, skipped: 0, failed: 0 },
     canResend: false,
+    buttons: [
+      { kind: 'site', label: 'スコアサイトを見る', url: 'https://score.example/tournaments/5' },
+    ],
   }
   test('送った記録と、その詳細', () => {
     assert.equal(
@@ -298,5 +303,37 @@ describe('応答の形', () => {
       canSend: false,
     })
     assert.equal(preview.recipients[0]?.reachable, false)
+  })
+})
+
+describe('文の下のボタン', () => {
+  test('送る画面の欄を、申込、スコアサイト、リンクの順のボタンにする', () => {
+    assert.deepEqual(
+      buttonsFromForm({
+        linkUrl: ' https://example.com/map ',
+        linkLabel: ' 会場の地図 ',
+        buttonSite: 'on',
+        buttonEntry: 'on',
+      }),
+      [
+        { kind: 'entry', label: '', url: '' },
+        { kind: 'site', label: '', url: '' },
+        { kind: 'url', label: '会場の地図', url: 'https://example.com/map' },
+      ],
+    )
+    assert.deepEqual(
+      buttonsFromForm({ linkLabel: '地図', linkUrl: ' ' }),
+      [],
+      'no URL, no link button',
+    )
+    assert.deepEqual(buttonsFromForm({}), [])
+  })
+  test('押すと何が起きるか', () => {
+    assert.match(buttonDestination({ kind: 'entry', url: '' }), /申込のリンク/)
+    assert.equal(
+      buttonDestination({ kind: 'site', url: 'https://s.example/t/1' }),
+      'https://s.example/t/1',
+    )
+    assert.match(buttonDestination({ kind: 'site', url: '' }), /スコアサイト/)
   })
 })

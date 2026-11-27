@@ -52,6 +52,18 @@ const countsSchema = z.object({
 })
 export type NotificationCounts = z.infer<typeof countsSchema>
 
+/** 届く文の下のボタン。entry は「エントリー」を送る(押すと本人用の申込のリンクが返る)、site はスコアサイト、url は運営が書いた URL */
+export const buttonKinds = ['entry', 'site', 'url'] as const
+const buttonSchema = z.object({ kind: z.enum(buttonKinds), label: z.string(), url: z.string() })
+export type NotificationButton = z.infer<typeof buttonSchema>
+
+/** 送る画面で選ぶボタン(label が空なら api が決まった文字にする。url は url のときだけ) */
+export type NotificationButtonInput = {
+  kind: (typeof buttonKinds)[number]
+  label: string
+  url: string
+}
+
 export const notificationSummarySchema = z.object({
   id: z.number().int(),
   tournamentId: z.number().int(),
@@ -65,6 +77,7 @@ export const notificationSummarySchema = z.object({
   note: z.enum(skipReasons),
   counts: countsSchema,
   canResend: z.boolean(),
+  buttons: z.array(buttonSchema),
 })
 export type NotificationSummary = z.infer<typeof notificationSummarySchema>
 
@@ -90,6 +103,7 @@ export const notificationListSchema = z.object({
 export type NotificationInput = {
   audience: Audience
   body: string
+  buttons: NotificationButtonInput[]
   requestKey: string
   sendAt: string | null
 }

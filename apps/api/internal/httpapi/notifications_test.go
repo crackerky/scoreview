@@ -26,8 +26,8 @@ type multicasts struct {
 	fail  int
 }
 
-func (m *multicasts) Multicast(_ context.Context, to []string, text, _ string) error {
-	m.to, m.texts = append(m.to, to), append(m.texts, text)
+func (m *multicasts) Multicast(_ context.Context, to []string, message notify.Message, _ string) error {
+	m.to, m.texts = append(m.to, to), append(m.texts, message.Text)
 	if m.fail > 0 {
 		m.fail--
 		return errors.New("LINE /v2/bot/message/multicast returned 429: {}")

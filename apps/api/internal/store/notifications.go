@@ -78,6 +78,8 @@ type NotificationBatch struct {
 	SendAt       *time.Time `gorm:"column:send_at"`
 	State        string     `gorm:"column:state"`
 	Note         string     `gorm:"column:note"`
+	// Buttons は届く文の下のボタン(migrations/00048)。[{kind, label, url}]
+	Buttons []byte `gorm:"column:buttons;type:jsonb"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -105,6 +107,40 @@ type audienceJSON struct {
 	Kind       string `json:"kind"`
 	Status     string `json:"status,omitempty"`
 	DivisionID int64  `json:"divisionId,omitempty"`
+}
+
+// buttonJSON は notification_batches.buttons の 1 つ。
+type buttonJSON struct {
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	URL   string `json:"url,omitempty"`
+}
+
+func encodeButtons(buttons []notify.Button) ([]byte, error) {
+	out := make([]buttonJSON, len(buttons))
+	for i, button := range buttons {
+		out[i] = buttonJSON{Kind: string(button.Kind), Label: button.Label, URL: button.URL}
+	}
+	data, err := json.Marshal(out)
+	if err != nil {
+		return nil, fmt.Errorf("encode notification buttons: %w", err)
+	}
+	return data, nil
+}
+
+func decodeButtons(id int64, data []byte) ([]notify.Button, error) {
+	if len(data) == 0 {
+		return []notify.Button{}, nil
+	}
+	var raw []buttonJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("decode buttons of notification %d: %w", id, err)
+	}
+	out := make([]notify.Button, len(raw))
+	for i, button := range raw {
+		out[i] = notify.Button{Kind: notify.ButtonKind(button.Kind), Label: button.Label, URL: button.URL}
+	}
+	return out, nil
 }
 
 // NotifyStore は notify.Store を GORM で実装する。
@@ -279,8 +315,12 @@ func (s *NotifyStore) CreateBatch(ctx context.Context, batch notify.NewBatch) (i
 	if err != nil {
 		return 0, false, fmt.Errorf("encode notification audience: %w", err)
 	}
+	buttons, err := encodeButtons(batch.Buttons)
+	if err != nil {
+		return 0, false, err
+	}
 	row := NotificationBatch{TournamentID: batch.TournamentID, RequestKey: batch.RequestKey, Audience: audience,
-		Body: batch.Body, CreatedAt: batch.At, SendAt: batch.SendAt, State: string(notify.BatchSent)}
+		Body: batch.Body, Buttons: buttons, CreatedAt: batch.At, SendAt: batch.SendAt, State: string(notify.BatchSent)}
 	if batch.SendAt != nil {
 		row.State = string(notify.BatchScheduled)
 	}
@@ -345,7 +385,8 @@ func (s *NotifyStore) DueBatches(ctx context.Context, now time.Time, limit int) 
 		if err != nil {
 			return nil, err
 		}
-		out[i] = notify.Due{ID: row.ID, TournamentID: row.TournamentID, Audience: batch.Audience, Body: row.Body}
+		out[i] = notify.Due{ID: row.ID, TournamentID: row.TournamentID, Audience: batch.Audience, Body: row.Body,
+			Buttons: batch.Buttons}
 	}
 	return out, nil
 }
@@ -524,6 +565,11 @@ func toBatch(row NotificationBatch, names map[int64]string) (notify.Batch, error
 	if row.SentBy != nil {
 		out.SentByName = names[*row.SentBy]
 	}
+	buttons, err := decodeButtons(row.ID, row.Buttons)
+	if err != nil {
+		return notify.Batch{}, err
+	}
+	out.Buttons = buttons
 	return out, nil
 }
 

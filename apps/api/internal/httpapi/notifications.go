@@ -64,18 +64,26 @@ type notificationCountsDTO struct {
 }
 
 type notificationSummaryDTO struct {
-	ID           int64                 `json:"id"`
-	TournamentID int64                 `json:"tournamentId"`
-	Audience     audienceDTO           `json:"audience"`
-	Body         string                `json:"body"`
-	Automatic    bool                  `json:"automatic"`
-	SentBy       string                `json:"sentBy"`
-	CreatedAt    time.Time             `json:"createdAt"`
-	SendAt       *time.Time            `json:"sendAt"`
-	State        string                `json:"state"`
-	Note         string                `json:"note"`
-	Counts       notificationCountsDTO `json:"counts"`
-	CanResend    bool                  `json:"canResend"`
+	ID           int64                   `json:"id"`
+	TournamentID int64                   `json:"tournamentId"`
+	Audience     audienceDTO             `json:"audience"`
+	Body         string                  `json:"body"`
+	Automatic    bool                    `json:"automatic"`
+	SentBy       string                  `json:"sentBy"`
+	CreatedAt    time.Time               `json:"createdAt"`
+	SendAt       *time.Time              `json:"sendAt"`
+	State        string                  `json:"state"`
+	Note         string                  `json:"note"`
+	Counts       notificationCountsDTO   `json:"counts"`
+	CanResend    bool                    `json:"canResend"`
+	Buttons      []notificationButtonDTO `json:"buttons"`
+}
+
+// notificationButtonDTO は届く文の下のボタン。url は site と url のときの行き先(entry は空)。
+type notificationButtonDTO struct {
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	URL   string `json:"url"`
 }
 
 type notificationJobDTO struct {
@@ -97,10 +105,11 @@ type notificationListDTO struct {
 }
 
 type notificationInputDTO struct {
-	Audience   audienceDTO `json:"audience"`
-	Body       string      `json:"body"`
-	RequestKey string      `json:"requestKey"`
-	SendAt     *time.Time  `json:"sendAt"`
+	Audience   audienceDTO             `json:"audience"`
+	Body       string                  `json:"body"`
+	Buttons    []notificationButtonDTO `json:"buttons"`
+	RequestKey string                  `json:"requestKey"`
+	SendAt     *time.Time              `json:"sendAt"`
 }
 
 type dispatchDTO struct {
@@ -126,12 +135,19 @@ func toAudienceDTO(audience notify.Audience) audienceDTO {
 
 func toNotificationSummary(batch notify.Batch) notificationSummaryDTO {
 	counts := batch.Counts
-	return notificationSummaryDTO{ID: batch.ID, TournamentID: batch.TournamentID,
+	return withButtons(notificationSummaryDTO{ID: batch.ID, TournamentID: batch.TournamentID,
 		Audience: toAudienceDTO(batch.Audience), Body: batch.Body, Automatic: batch.Automatic,
 		SentBy: batch.SentByName, CreatedAt: batch.CreatedAt, SendAt: batch.SendAt, State: string(batch.State),
 		Note: string(batch.Note), Counts: notificationCountsDTO{
 			Pending: counts.Pending, Sent: counts.Sent, Skipped: counts.Skipped, Failed: counts.Failed},
-		CanResend: batch.CanResend}
+		CanResend: batch.CanResend, Buttons: make([]notificationButtonDTO, len(batch.Buttons))}, batch.Buttons)
+}
+
+func withButtons(out notificationSummaryDTO, buttons []notify.Button) notificationSummaryDTO {
+	for i, button := range buttons {
+		out.Buttons[i] = notificationButtonDTO{Kind: string(button.Kind), Label: button.Label, URL: button.URL}
+	}
+	return out
 }
 
 func toNotificationDetail(batch notify.Batch) notificationDetailDTO {
@@ -189,7 +205,10 @@ func (s *Server) sendNotification(ctx context.Context, id int64, r *http.Request
 		return nil, err
 	}
 	request := notify.Request{Audience: body.Audience.audience(), Body: body.Body, RequestKey: body.RequestKey,
-		SendAt: body.SendAt}
+		SendAt: body.SendAt, Buttons: make([]notify.Button, len(body.Buttons))}
+	for i, button := range body.Buttons {
+		request.Buttons[i] = notify.Button{Kind: notify.ButtonKind(button.Kind), Label: button.Label, URL: button.URL}
+	}
 	batch, err := s.notices.Send(ctx, id, request, actorOf(user))
 	if err != nil {
 		return nil, err

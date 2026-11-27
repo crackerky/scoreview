@@ -75,8 +75,8 @@ func (c *Client) Push(ctx context.Context, to string, messages []talk.Message) e
 // している場合)。4xx は LINE が受け付けなかった失敗。
 // https://developers.line.biz/ja/reference/messaging-api/#send-multicast-message
 // https://developers.line.biz/ja/docs/messaging-api/retrying-api-request/
-func (c *Client) Multicast(ctx context.Context, to []string, text, retryKey string) error {
-	body := map[string]any{"to": to, "messages": toMessages([]talk.Message{{Text: text}})}
+func (c *Client) Multicast(ctx context.Context, to []string, message notify.Message, retryKey string) error {
+	body := map[string]any{"to": to, "messages": []any{toNotifyMessage(message)}}
 	err := c.post(ctx, "/v2/bot/message/multicast", body, retryKey)
 	var failed *apiError
 	switch {
@@ -126,6 +126,48 @@ func toMessages(messages []talk.Message) []textMessage {
 		out[i] = textMessage{Type: "text", Text: message.Text}
 	}
 	return out
+}
+
+// maxAltText は LINE のカードの代わりの文(通知やトークの一覧に出る)の上限。
+// https://developers.line.biz/ja/reference/messaging-api/#flex-message
+const maxAltText = 400
+
+// toNotifyMessage は運営が送るものを LINE のメッセージにする。ボタンが無ければ文だけ、あれば文の下に
+// ボタンを縦に並べたカード(Flex Message の bubble)にする。申込のボタンは公式アカウントに「エントリー」を
+// 送り(押すと本人用の申込のリンクが返る)、ほかのボタンは URL を開く。
+// https://developers.line.biz/ja/reference/messaging-api/#message-action
+// https://developers.line.biz/ja/reference/messaging-api/#uri-action
+func toNotifyMessage(message notify.Message) any {
+	if len(message.Buttons) == 0 {
+		return textMessage{Type: "text", Text: message.Text}
+	}
+	buttons := make([]map[string]any, len(message.Buttons))
+	for i, button := range message.Buttons {
+		action := map[string]any{"type": "uri", "label": button.Label, "uri": button.URL}
+		if button.Kind == notify.ButtonEntry {
+			action = map[string]any{"type": "message", "label": button.Label, "text": "エントリー"}
+		}
+		style := "secondary"
+		if i == 0 {
+			style = "primary"
+		}
+		buttons[i] = map[string]any{"type": "button", "style": style, "height": "sm", "action": action}
+	}
+	alt := []rune(message.Text)
+	if len(alt) > maxAltText {
+		alt = alt[:maxAltText]
+	}
+	return map[string]any{
+		"type":    "flex",
+		"altText": string(alt),
+		"contents": map[string]any{
+			"type": "bubble",
+			"body": map[string]any{"type": "box", "layout": "vertical", "contents": []any{
+				map[string]any{"type": "text", "text": message.Text, "wrap": true, "size": "md"},
+			}},
+			"footer": map[string]any{"type": "box", "layout": "vertical", "spacing": "sm", "contents": buttons},
+		},
+	}
 }
 
 // post は body を JSON で送る。retryKey が空でなければ X-Line-Retry-Key に付ける。

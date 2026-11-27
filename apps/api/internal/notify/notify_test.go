@@ -234,13 +234,14 @@ type fakeSender struct {
 }
 
 type multicast struct {
-	to   []string
-	text string
-	key  string
+	to      []string
+	text    string
+	buttons []notify.Button
+	key     string
 }
 
-func (s *fakeSender) Multicast(_ context.Context, to []string, text, retryKey string) error {
-	s.calls = append(s.calls, multicast{to: to, text: text, key: retryKey})
+func (s *fakeSender) Multicast(_ context.Context, to []string, message notify.Message, retryKey string) error {
+	s.calls = append(s.calls, multicast{to: to, text: message.Text, buttons: message.Buttons, key: retryKey})
 	if len(s.failures) > 0 {
 		err := s.failures[0]
 		s.failures = s.failures[1:]
@@ -610,4 +611,50 @@ func TestResendAScheduledSendFromItsSendTime(t *testing.T) {
 	resent, err := service.Resend(ctx, scheduled.ID)
 	require.NoError(t, err)
 	assert.Equal(t, notify.Counts{Sent: 2}, resent.Counts)
+}
+
+// ボタンは 3 つまで。申込とスコアサイトは 1 つずつで、文字を書かなければ決まった文字にする。URL は https だけ。
+func TestCheckButtons(t *testing.T) {
+	got, err := notify.CheckButtons([]notify.Button{{Kind: notify.ButtonEntry}, {Kind: notify.ButtonSite, Label: " 結果 "},
+		{Kind: notify.ButtonURL, Label: "会場の地図", URL: " https://example.com/map "}})
+	require.NoError(t, err)
+	assert.Equal(t, []notify.Button{{Kind: notify.ButtonEntry, Label: "申込を開く"}, {Kind: notify.ButtonSite, Label: "結果"},
+		{Kind: notify.ButtonURL, Label: "会場の地図", URL: "https://example.com/map"}}, got)
+	for name, buttons := range map[string][]notify.Button{
+		"too many":    {{Kind: notify.ButtonEntry}, {Kind: notify.ButtonSite}, {Kind: notify.ButtonURL, Label: "a", URL: "https://a.example"}, {Kind: notify.ButtonURL, Label: "b", URL: "https://b.example"}},
+		"entry twice": {{Kind: notify.ButtonEntry}, {Kind: notify.ButtonEntry}},
+		"http":        {{Kind: notify.ButtonURL, Label: "a", URL: "http://example.com"}},
+		"no label":    {{Kind: notify.ButtonURL, URL: "https://example.com"}},
+		"long label":  {{Kind: notify.ButtonURL, Label: strings.Repeat("あ", 21), URL: "https://example.com"}},
+		"unknown":     {{Kind: "call"}},
+	} {
+		_, err := notify.CheckButtons(buttons)
+		require.ErrorIs(t, err, domain.ErrBadRequest, name)
+	}
+}
+
+// ボタンは文と一緒に届け、スコアサイトのボタンはその大会のページを開く。記録にもボタンを残す。
+func TestSendWithButtons(t *testing.T) {
+	store := newFakeStore(friends(2))
+	sender := &fakeSender{}
+	var reported []error
+	now := clock()
+	service := notify.NewService(store, notify.WithSender(sender, func(err error) { reported = append(reported, err) }),
+		notify.WithRandom(sequence()), notify.WithClock(func() time.Time { return *now }),
+		notify.WithSiteURL("https://score.example/"))
+	request := notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "明日は 8 時集合です",
+		RequestKey: "key-1", Buttons: []notify.Button{{Kind: notify.ButtonSite}, {Kind: notify.ButtonEntry}}}
+	_, err := service.Send(context.Background(), 1, request, domain.Actor{UserID: 7})
+	require.NoError(t, err)
+	want := []notify.Button{{Kind: notify.ButtonSite, Label: "スコアサイトを見る", URL: "https://score.example/tournaments/1"},
+		{Kind: notify.ButtonEntry, Label: "申込を開く"}}
+	require.Len(t, sender.calls, 1)
+	assert.Equal(t, want, sender.calls[0].buttons)
+	assert.Equal(t, want, store.batches[0].Buttons)
+
+	// スコアサイトの URL が無ければ、スコアサイトのボタンは使えない
+	_, err = newService(newFakeStore(friends(1)), &fakeSender{}, &reported, now).Send(context.Background(), 1,
+		notify.Request{Audience: notify.Audience{Kind: notify.AudienceReps}, Body: "x", RequestKey: "key-2",
+			Buttons: []notify.Button{{Kind: notify.ButtonSite}}}, domain.Actor{UserID: 7})
+	require.ErrorIs(t, err, domain.ErrBadRequest)
 }

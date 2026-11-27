@@ -58,6 +58,7 @@ func run(log *slog.Logger) error {
 		notifyOpts = append(notifyOpts, notify.WithSender(client, reportSend))
 	}
 	entries := entry.NewService(store.NewEntryStore(db), entryOpts...)
+	notifyOpts = append(notifyOpts, notify.WithSiteURL(cfg.SiteURL))
 	notices := notify.NewService(store.NewNotifyStore(db), notifyOpts...)
 	opts := []httpapi.Option{httpapi.WithLogger(log), httpapi.WithBoards(boards), httpapi.WithEntryDesk(entries),
 		httpapi.WithNotifications(notices)}

@@ -20,6 +20,7 @@ import {
   reminderPresets,
   scheduleText,
   scorerRequestBody,
+  scorerRequestButtons,
   timingFromQuery,
 } from '@/notify/notify.utils'
 
@@ -104,6 +105,7 @@ export default async function NewNotificationPage(props: IdPageProps) {
               ? scorerRequestBody
               : ''
         }
+        initialButtons={query.template === 'scorer' ? scorerRequestButtons : undefined}
       >
         <div className="adm-stats">
           <Stat

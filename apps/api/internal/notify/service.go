@@ -23,6 +23,8 @@ type Service struct {
 	report func(error)
 	now    func() time.Time
 	random io.Reader
+	// siteURL はスコアサイトの URL(スコアサイトのボタンの行き先の前半。末尾の / は無い)
+	siteURL string
 }
 
 var _ Desk = (*Service)(nil)
@@ -35,6 +37,11 @@ type Option func(*Service)
 // 出すので、呼ぶ側はログに残すだけでよい)。
 func WithSender(sender Sender, report func(error)) Option {
 	return func(s *Service) { s.sender, s.report = sender, report }
+}
+
+// WithSiteURL はスコアサイトの URL を渡す(スコアサイトのボタンは、その大会のページを開く)。
+func WithSiteURL(siteURL string) Option {
+	return func(s *Service) { s.siteURL = strings.TrimRight(siteURL, "/") }
 }
 
 // WithClock は現在時刻の取り方を差し替える(テスト用)。
@@ -114,6 +121,9 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 	if err != nil {
 		return Batch{}, err
 	}
+	if request.Buttons, err = s.buttons(tournamentID, request.Buttons); err != nil {
+		return Batch{}, err
+	}
 	if request.SendAt != nil {
 		return s.schedule(ctx, tournamentID, request, body, actor)
 	}
@@ -144,10 +154,28 @@ func (s *Service) Send(ctx context.Context, tournamentID int64, request Request,
 		return s.existing(ctx, id, tournamentID)
 	}
 	work := context.WithoutCancel(ctx)
-	if err := s.deliver(work, id, groups, text); err != nil {
+	if err := s.deliver(work, id, groups, Message{Text: text, Buttons: request.Buttons}); err != nil {
 		return Batch{}, err
 	}
 	return s.Batch(work, id)
+}
+
+// buttons はボタンを確かめ、スコアサイトのボタンの行き先を大会のページにする。
+func (s *Service) buttons(tournamentID int64, buttons []Button) ([]Button, error) {
+	checked, err := CheckButtons(buttons)
+	if err != nil {
+		return nil, err
+	}
+	for i := range checked {
+		if checked[i].Kind != ButtonSite {
+			continue
+		}
+		if s.siteURL == "" {
+			return nil, domain.Invalid("buttons", "the site URL is not configured")
+		}
+		checked[i].URL = fmt.Sprintf("%s/tournaments/%d", s.siteURL, tournamentID)
+	}
+	return checked, nil
 }
 
 // existing は同じ RequestKey で記録済みの送信を返す。
@@ -180,7 +208,8 @@ func (s *Service) schedule(
 		return Batch{}, err
 	}
 	id, created, err := s.store.CreateBatch(ctx, NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey,
-		Audience: request.Audience, Body: Text(heading, body), SentBy: actor.UserID, At: now, SendAt: request.SendAt})
+		Audience: request.Audience, Body: Text(heading, body), Buttons: request.Buttons, SentBy: actor.UserID,
+		At: now, SendAt: request.SendAt})
 	if err != nil {
 		return Batch{}, err
 	}
@@ -204,7 +233,8 @@ func (s *Service) plan(
 		return NewBatch{}, nil, err
 	}
 	return NewBatch{TournamentID: tournamentID, RequestKey: request.RequestKey, Audience: request.Audience,
-		Body: text, SentBy: actor.UserID, At: now, ClaimedUntil: now.Add(SendLease), Jobs: jobs}, groups, nil
+		Body: text, Buttons: request.Buttons, SentBy: actor.UserID, At: now, ClaimedUntil: now.Add(SendLease),
+		Jobs: jobs}, groups, nil
 }
 
 // jobsFor は宛先ごとの行と、まとまり(友だちを MaxMulticast 人ずつ。まとまりごとに送り直しのキー)を
@@ -236,11 +266,11 @@ func (s *Service) jobsFor(recipients []Recipient) ([]NewJob, []Group, error) {
 // deliver はまとまりごとに送り、結果を書く。LINE が受け付けたか分からない失敗(ErrTemporary)だけ、
 // 同じキーでもう 1 回送る(1 回目を LINE が受け付けていれば、2 回目は送られずに成功になる)。
 // 結果を書けなければそこで止める(残りのまとまりは pending のまま残り、Resend で送れる)。
-func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, text string) error {
+func (s *Service) deliver(ctx context.Context, batchID int64, groups []Group, message Message) error {
 	for _, group := range groups {
-		sendErr := s.sender.Multicast(ctx, group.UserIDs, text, group.RetryKey)
+		sendErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey)
 		if errors.Is(sendErr, ErrTemporary) {
-			if retryErr := s.sender.Multicast(ctx, group.UserIDs, text, group.RetryKey); retryErr == nil {
+			if retryErr := s.sender.Multicast(ctx, group.UserIDs, message, group.RetryKey); retryErr == nil {
 				sendErr = nil
 			} else {
 				sendErr = errors.Join(sendErr, retryErr)
@@ -278,7 +308,7 @@ func (s *Service) Resend(ctx context.Context, id int64) (Batch, error) {
 		return Batch{}, err
 	}
 	work := context.WithoutCancel(ctx)
-	if err := s.deliver(work, id, groups, batch.Body); err != nil {
+	if err := s.deliver(work, id, groups, Message{Text: batch.Body, Buttons: batch.Buttons}); err != nil {
 		return Batch{}, err
 	}
 	return s.Batch(work, id)
@@ -418,7 +448,7 @@ func (s *Service) dispatchOne(ctx context.Context, due Due) (sent, skipped bool,
 	if err != nil || !started {
 		return false, false, err
 	}
-	if err := s.deliver(context.WithoutCancel(ctx), due.ID, groups, due.Body); err != nil {
+	if err := s.deliver(context.WithoutCancel(ctx), due.ID, groups, Message{Text: due.Body, Buttons: due.Buttons}); err != nil {
 		return true, false, err
 	}
 	return true, false, nil

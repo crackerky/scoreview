@@ -7,6 +7,7 @@ import { notifyPaths } from '@/notify/notify.paths'
 import {
   audienceFromQuery,
   audienceQuery,
+  buttonsFromForm,
   checkedAudience,
   checkedTiming,
   keepPlan,
@@ -72,6 +73,7 @@ export async function sendNotificationAction(formData: FormData): Promise<never>
       const sent = await notifications.send(token, tournamentId, {
         audience,
         body: field(form, 'body'),
+        buttons: buttonsFromForm(form),
         requestKey: field(form, 'requestKey'),
         sendAt,
       })

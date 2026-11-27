@@ -67,4 +67,21 @@ test('validationParts は「項目: 理由」を分け、項目が無ければ�
     reason: 'is required',
   })
   assert.deepEqual(validationParts('body is too large'), { field: '', reason: 'body is too large' })
+  test('文の下のボタンの誤り', () => {
+    assert.equal(
+      operatorErrorText(
+        'bad_request',
+        'buttons[2].url: must be an https URL of at most 1000 characters',
+      ),
+      'リンクの URL は https で始まるもの(1000 字まで)にしてください',
+    )
+    assert.equal(
+      operatorErrorText('bad_request', 'buttons[0].label: is required'),
+      'リンクのボタンの文字を書いてください',
+    )
+    assert.equal(
+      operatorErrorText('bad_request', 'buttons: must be at most 3'),
+      'ボタンは 3 つまでです',
+    )
+  })
 })

@@ -2496,3 +2496,45 @@
   overflow-wrap: anywhere;
   line-height: 1.6;
 }
+
+/* ボタンのある文は、LINE のカード(Flex Message)に寄せる。文の下にボタンを縦に並べ、先頭だけ LINE の緑 */
+.adm .adm-bubble-card {
+  display: grid;
+  gap: 12px;
+  max-width: 22em;
+  padding: 16px;
+  white-space: normal;
+}
+
+.adm .adm-bubble-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.adm-bubble-buttons {
+  display: grid;
+  gap: 8px;
+}
+
+.adm-bubble-button {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #eef0f2;
+  color: #111;
+  font-weight: 700;
+  text-align: center;
+}
+
+.adm-bubble-button.primary {
+  background: #06c755;
+  color: #fff;
+}
+
+.adm-bubble-dest {
+  margin: 8px 0 0;
+  padding: 0 0 0 1.2em;
+  color: var(--adm-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

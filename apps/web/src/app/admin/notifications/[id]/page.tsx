@@ -5,6 +5,7 @@ import type { IdPageProps } from '@/app/_lib/pageProps'
 import { cancelNotificationAction, resendNotificationAction } from '@/app/admin/_actions/notify'
 import { readAdminPage } from '@/app/admin/_lib/page'
 import { AdminShell, Chip, Hidden, Stat } from '@/components/admin/AdminParts'
+import { LineBubble } from '@/components/admin/LineBubble'
 import { ForgetDraft } from '@/components/admin/MessageDraft'
 import { dateTimeText } from '@/entry/entry.utils'
 import { notifyPaths } from '@/notify/notify.paths'
@@ -82,7 +83,7 @@ export default async function NotificationPage(props: IdPageProps) {
       ) : null}
       <figure className="adm-bubble-preview">
         <figcaption>{detail.state === 'sent' ? '届けた文' : '送る文'}</figcaption>
-        <p className="adm-bubble">{detail.body}</p>
+        <LineBubble text={detail.body} buttons={detail.buttons} />
       </figure>
       {detail.state !== 'sent' ? null : (
         <SentResults detail={detail} resendForm={resendForm} resendBack={notifyPaths.detail(id)} />

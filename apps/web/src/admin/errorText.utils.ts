@@ -80,6 +80,22 @@ const rules: readonly Rule[] = [
   { field: /^body$/, reason: /at most/, text: '送る文は 2000 字までです' },
   { field: /^body$/, text: '送る文に使えない文字が入っています。貼り付けた文を確かめてください' },
   {
+    field: /^buttons\[\d+\]\.url$/,
+    text: 'リンクの URL は https で始まるもの(1000 字まで)にしてください',
+  },
+  {
+    field: /^buttons\[\d+\]\.label$/,
+    reason: /is required/,
+    text: 'リンクのボタンの文字を書いてください',
+  },
+  { field: /^buttons\[\d+\]\.label$/, text: 'ボタンの文字は 1 行 20 字までです' },
+  {
+    field: /^buttons$/,
+    reason: /site URL/,
+    text: 'スコアサイトの URL が設定されていないので、スコアサイトのボタンは使えません',
+  },
+  { field: /^buttons$/, reason: /at most/, text: 'ボタンは 3 つまでです' },
+  {
     field: /^audience$/,
     reason: /no one who can receive/,
     text: 'この条件で送れる人がいません(ブロックしている人には送れません)',

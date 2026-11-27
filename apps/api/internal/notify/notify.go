@@ -35,6 +35,32 @@ const (
 	AudienceNoScorer AudienceKind = "no_scorer"
 )
 
+// ButtonKind は届く文の下のボタンの種類。
+type ButtonKind string
+
+// ButtonKind の値。
+const (
+	// ButtonEntry は公式アカウントに「エントリー」と送るボタン(押すと本人用の申込のリンクが返る)
+	ButtonEntry ButtonKind = "entry"
+	// ButtonSite はスコアサイトの大会のページを開くボタン(URL は Service が決める)
+	ButtonSite ButtonKind = "site"
+	// ButtonURL は運営が書いた URL を開くボタン
+	ButtonURL ButtonKind = "url"
+)
+
+// Button は届く文の下のボタン。URL は site と url のときの行き先(entry では空)。
+type Button struct {
+	Kind  ButtonKind
+	Label string
+	URL   string
+}
+
+// Message は届けるもの。Buttons が空なら文だけ、あれば文の下にボタンを並べたカードで届ける。
+type Message struct {
+	Text    string
+	Buttons []Button
+}
+
 // Audience は宛先の条件と絞り込み。
 type Audience struct {
 	Kind AudienceKind
@@ -143,6 +169,7 @@ type Batch struct {
 	TournamentID int64
 	Audience     Audience
 	Body         string
+	Buttons      []Button
 	Automatic    bool
 	SentByName   string
 	CreatedAt    time.Time
@@ -166,6 +193,7 @@ type History struct {
 type Request struct {
 	Audience   Audience
 	Body       string
+	Buttons    []Button
 	RequestKey string
 	SendAt     *time.Time
 }
@@ -176,6 +204,7 @@ type Due struct {
 	TournamentID int64
 	Audience     Audience
 	Body         string
+	Buttons      []Button
 }
 
 // DispatchResult は定期の呼び出しで扱った予約の数。
@@ -208,6 +237,7 @@ type NewBatch struct {
 	RequestKey   string
 	Audience     Audience
 	Body         string
+	Buttons      []Button
 	SentBy       int64
 	At           time.Time
 	SendAt       *time.Time
@@ -272,10 +302,10 @@ var ErrTemporary = errors.New("temporary LINE failure")
 
 // Sender は公式アカウントとして送る。line が実装する。
 type Sender interface {
-	// Multicast は to(公式アカウントから見たユーザー ID。MaxMulticast 人まで)に text を送る。送った
+	// Multicast は to(公式アカウントから見たユーザー ID。MaxMulticast 人まで)に message を送る。送った
 	// 人数が月の配信数に数えられる。retryKey(UUID)が同じ送り直しは、LINE が 1 回目を受け付けて
 	// いれば送らずに成功を返す。受け付けたか分からない失敗は ErrTemporary を包んで返す
-	Multicast(ctx context.Context, to []string, text, retryKey string) error
+	Multicast(ctx context.Context, to []string, message Message, retryKey string) error
 	// Quota は今月の配信数の上限と使った数を読む
 	Quota(ctx context.Context) (Quota, error)
 }

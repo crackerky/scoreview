@@ -6,6 +6,8 @@ import {
   audienceStatuses,
   type BatchState,
   type JobStatus,
+  type NotificationButton,
+  type NotificationButtonInput,
   type NotificationCounts,
   type NotificationPreview,
   type SkipReason,
@@ -362,4 +364,59 @@ export const batchStateLabels: Readonly<Record<BatchState, string>> = {
   sent: '送った',
   cancelled: '取りやめ',
   skipped: '送れなかった',
+}
+
+/**
+ * 送る画面のボタンの欄を、送るボタンの並びにする(申込、スコアサイト、リンクの順。先頭が目立つ形で届く)。
+ * リンクのボタンは URL を書いたときだけ。
+ */
+export function buttonsFromForm(form: Query): NotificationButtonInput[] {
+  const out: NotificationButtonInput[] = []
+  if (pick(form, 'buttonEntry') === 'on') {
+    out.push({ kind: 'entry', label: '', url: '' })
+  }
+  if (pick(form, 'buttonSite') === 'on') {
+    out.push({ kind: 'site', label: '', url: '' })
+  }
+  const url = pick(form, 'linkUrl').trim()
+  if (url !== '') {
+    out.push({ kind: 'url', label: pick(form, 'linkLabel').trim(), url })
+  }
+  return out
+}
+
+/** 送る画面のボタンの欄の値(名前は送るフォームの欄と同じ。buttonsFromForm が読む) */
+export type DraftButtons = {
+  buttonEntry: boolean
+  buttonSite: boolean
+  linkLabel: string
+  linkUrl: string
+}
+
+export const noDraftButtons: DraftButtons = {
+  buttonEntry: false,
+  buttonSite: false,
+  linkLabel: '',
+  linkUrl: '',
+}
+
+/** 記録係のお願いのひな形のボタン(代表が押すと、記録係を選べる申込のリンクが届く) */
+export const scorerRequestButtons: DraftButtons = { ...noDraftButtons, buttonEntry: true }
+
+/** ボタンの見本の文字(api が決まった文字にするものは同じ文字で見せる) */
+export const defaultButtonLabels = { entry: '申込を開く', site: 'スコアサイトを見る' } as const
+
+/** ボタンを押すと何が起きるか(送る画面と送った記録の見本の下に書く) */
+export function buttonDestination(button: {
+  kind: NotificationButton['kind']
+  url: string
+}): string {
+  switch (button.kind) {
+    case 'entry':
+      return '公式 LINE に「エントリー」と送り、その人の申込のリンクが返ります'
+    case 'site':
+      return button.url === '' ? 'この大会のスコアサイトのページを開きます' : button.url
+    case 'url':
+      return button.url
+  }
 }

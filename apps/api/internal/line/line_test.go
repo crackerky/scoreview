@@ -195,8 +195,8 @@ func TestClientMulticastsWithRetryKey(t *testing.T) {
 	defer server.Close()
 	client := line.NewClient("1656", "secret", server.URL, time.Now)
 	ctx := context.Background()
-	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, "大会\n\n明日は 8 時", "key-1"))
-	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, "大会\n\n明日は 8 時", "key-1"),
+	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, notify.Message{Text: "大会\n\n明日は 8 時"}, "key-1"))
+	require.NoError(t, client.Multicast(ctx, []string{"U1", "U2"}, notify.Message{Text: "大会\n\n明日は 8 時"}, "key-1"),
 		"a retry LINE already accepted is a success")
 	assert.Equal(t, []string{"key-1"}, keys)
 }
@@ -214,13 +214,13 @@ func TestClientMarksTemporaryFailures(t *testing.T) {
 	}))
 	client := line.NewClient("1656", "secret", server.URL, time.Now)
 	ctx := context.Background()
-	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, "x", "key-1"), notify.ErrTemporary)
+	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, notify.Message{Text: "x"}, "key-1"), notify.ErrTemporary)
 	status = http.StatusTooManyRequests
-	err := client.Multicast(ctx, []string{"U1"}, "x", "key-2")
+	err := client.Multicast(ctx, []string{"U1"}, notify.Message{Text: "x"}, "key-2")
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, notify.ErrTemporary, "LINE refused it, so the result is known")
 	server.Close()
-	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, "x", "key-3"), notify.ErrTemporary,
+	require.ErrorIs(t, client.Multicast(ctx, []string{"U1"}, notify.Message{Text: "x"}, "key-3"), notify.ErrTemporary,
 		"no answer from LINE")
 }
 
@@ -284,4 +284,30 @@ func TestInviteURL(t *testing.T) {
 // ここではエラーを捨てる。
 func respond(w io.Writer, body string) {
 	_, _ = io.WriteString(w, body)
+}
+
+// ボタンのある文は、文の下にボタンを並べたカードにする。申込のボタンは「エントリー」を送り、ほかは URL を開く。
+func TestClientSendsButtonsAsACard(t *testing.T) {
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth2/v3/token" {
+			respond(w, `{"access_token":"tok","expires_in":900}`)
+			return
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		respond(w, `{}`)
+	}))
+	defer server.Close()
+	client := line.NewClient("1656", "secret", server.URL, time.Now)
+	message := notify.Message{Text: "大会\n\n明日は 8 時", Buttons: []notify.Button{
+		{Kind: notify.ButtonEntry, Label: "申込を開く"},
+		{Kind: notify.ButtonSite, Label: "スコアサイトを見る", URL: "https://score.example/tournaments/7"}}}
+	require.NoError(t, client.Multicast(context.Background(), []string{"U1"}, message, "key-1"))
+	sent := got["messages"].([]any)[0].(map[string]any) //nolint:forcetypeassert // テストで JSON の形を読む
+	assert.Equal(t, "flex", sent["type"])
+	assert.Equal(t, "大会\n\n明日は 8 時", sent["altText"])
+	data, err := json.Marshal(sent["contents"])
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"action":{"label":"申込を開く","text":"エントリー","type":"message"}`)
+	assert.Contains(t, string(data), `"uri":"https://score.example/tournaments/7"`)
 }
