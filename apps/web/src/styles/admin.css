@@ -2763,3 +2763,24 @@
   color: var(--adm-danger);
   font-weight: 700;
 }
+
+/* 組の欄(組を手で足す、組の設定)。画像の欄は、種類で画像を選んだときだけ出す */
+.adm .grp-form .grp-image {
+  display: none;
+}
+
+.adm .grp-form:has(input[name="kind"][value="image"]:checked) .grp-image {
+  display: grid;
+}
+
+.adm .grp-form fieldset {
+  margin: 0;
+}
+
+.adm .grp-kind {
+  margin-left: 12px;
+}
+
+.adm .grp-form > button {
+  align-self: flex-start;
+}

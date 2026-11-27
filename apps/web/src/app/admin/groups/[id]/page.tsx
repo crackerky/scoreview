@@ -1,4 +1,3 @@
-import { groupKindOptions } from '@/admin/labels.utils'
 import { loadAdmin, requireUser } from '@/admin/session'
 import { divisions, groups, matches, teams } from '@/api/admin'
 import type { IdPageProps } from '@/app/_lib/pageProps'
@@ -9,7 +8,8 @@ import {
   updateGroupAction,
 } from '@/app/admin/_actions/division'
 import { readAdminPage } from '@/app/admin/_lib/page'
-import { AdminShell, Check, DeleteForm, Field, Hidden, Select } from '@/components/admin/AdminParts'
+import { AdminShell, DeleteForm, Field, Hidden } from '@/components/admin/AdminParts'
+import { GroupFields } from '@/components/admin/GroupFields'
 import { SideChoice } from '@/components/admin/SideChoice'
 
 /** トーナメント表の枠の欄(表の上から順)。欄の名前は bracketFormSchema が読む seed-{n} */
@@ -41,33 +41,10 @@ export default async function AdminGroupPage(props: IdPageProps) {
   ]
   return (
     <AdminShell user={user} title={group.name} notice={notice} crumbs={crumbs}>
-      <h2>グループの設定</h2>
-      <form action={updateGroupAction}>
+      <h2>組の設定</h2>
+      <form action={updateGroupAction} className="adm-stack grp-form">
         <Hidden values={{ back, id }} />
-        <div className="adm-grid">
-          <Field label="グループ名" name="name" defaultValue={group.name} required />
-          <Select label="種類" name="kind" options={groupKindOptions} defaultValue={group.kind} />
-          <Field label="並び順" name="sortOrder" type="number" defaultValue={group.sortOrder} />
-          <Field
-            label="画像 URL(組の表を画像で出すとき)"
-            name="imageUrl"
-            defaultValue={group.image?.url}
-          />
-          <Field
-            label="画像の幅"
-            name="imageWidth"
-            type="number"
-            defaultValue={group.image?.width}
-          />
-          <Field
-            label="画像の高さ"
-            name="imageHeight"
-            type="number"
-            defaultValue={group.image?.height}
-          />
-        </div>
-        <Check label="ナビに出す(公開)" name="published" defaultChecked={group.published} />
-        <Check label="ナビでリンクにする" name="linked" defaultChecked={group.linked} />
+        <GroupFields mode="edit" group={group} />
         <button type="submit">保存</button>
       </form>
 
@@ -77,7 +54,7 @@ export default async function AdminGroupPage(props: IdPageProps) {
           {group.bracket ? (
             <p>
               生成済み: {group.bracket.pattern}({group.bracket.ptnName})、試合 {groupMatches.length}{' '}
-              件。 作り直すときは、このグループの試合を消してからにしてください。
+              件。 作り直すときは、この組の試合を消してからにしてください。
             </p>
           ) : (
             templates.templates.map((template) => (
@@ -111,7 +88,7 @@ export default async function AdminGroupPage(props: IdPageProps) {
 
       <h2>チーム</h2>
       <p className="adm-muted">
-        グループに入れるチームの「順」に数字を入れます(対戦表と順位表はこの順)。空欄のチームは入れません。
+        組に入れるチームの「順」に数字を入れます(対戦表と順位表はこの順)。空欄のチームは入れません。
         「順位の上書き」は計算した順位と違う順位を出すとき(0 は空欄で表示)。
       </p>
       <form action={putGroupTeamsAction}>
@@ -158,7 +135,7 @@ export default async function AdminGroupPage(props: IdPageProps) {
       <DeleteForm
         action={deleteGroupAction}
         values={{ back, id, divisionId: division.id }}
-        label="このグループ(試合は残ります)"
+        label="この組(試合は残ります)"
       />
     </AdminShell>
   )

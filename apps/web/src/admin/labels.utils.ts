@@ -22,7 +22,26 @@ export const statsKindOptions = [
 export const groupKindOptions = [
   { value: 'pool', label: '総当たり' },
   { value: 'bracket', label: 'トーナメント' },
-  { value: 'image', label: '画像(組の表を画像で出す)' },
+  { value: 'image', label: '画像' },
+] as const
+
+/** 組の種類を選ぶ欄の説明(組を手で足す、組の設定) */
+export const groupKindChoices = [
+  {
+    value: 'pool',
+    label: '総当たり(プール)',
+    hint: '組の中の全チームが 1 回ずつ当たります。スコアサイトに対戦表と順位表が出ます',
+  },
+  {
+    value: 'bracket',
+    label: 'トーナメント',
+    hint: '勝ち抜きの表です。足したあと、組の画面で表の形と最初の対戦を選ぶと試合ができます',
+  },
+  {
+    value: 'image',
+    label: '画像',
+    hint: '表の代わりに、用意した画像を見せる組です。今のスコアサイトにはまだ出ません',
+  },
 ] as const
 
 export const barStyleOptions = [
