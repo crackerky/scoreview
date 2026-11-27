@@ -414,11 +414,99 @@ func (s *Service) LinkView(ctx context.Context, token string) (LinkView, error) 
 		}
 		return LinkView{Purpose: LinkScorer, Scorer: &ScorerView{Team: team, ExpiresAt: link.ExpiresAt}}, nil
 	}
+	if link.Purpose == LinkFind {
+		view, err := s.findView(ctx, link)
+		if err != nil {
+			return LinkView{}, err
+		}
+		return LinkView{Purpose: LinkFind, Find: &view}, nil
+	}
 	form, err := s.teamForm(ctx, link)
 	if err != nil {
 		return LinkView{}, err
 	}
 	return LinkView{Purpose: LinkTeam, Team: &form}, nil
+}
+
+func (s *Service) findView(ctx context.Context, link Link) (FindView, error) {
+	tournament, err := s.store.Tournament(ctx, link.TournamentID)
+	if err != nil {
+		return FindView{}, err
+	}
+	teams, err := s.store.FindTeams(ctx, link.TournamentID)
+	if err != nil {
+		return FindView{}, err
+	}
+	return FindView{TournamentName: tournament.Name, Teams: teams, ExpiresAt: link.ExpiresAt}, nil
+}
+
+// IssueFindLinks は Links.IssueFindLinks。
+func (s *Service) IssueFindLinks(ctx context.Context, lineUserID int64) ([]TournamentLink, error) {
+	tournaments, err := s.store.JoinableTournaments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TournamentLink, len(tournaments))
+	for i, tournament := range tournaments {
+		issued, err := s.issue(ctx, Link{LineUserID: lineUserID, Purpose: LinkFind,
+			TournamentID: tournament.ID}, "")
+		if err != nil {
+			return nil, err
+		}
+		out[i] = TournamentLink{Tournament: tournament, Token: issued.Token, ExpiresAt: issued.ExpiresAt}
+	}
+	return out, nil
+}
+
+// ChooseTeamByLink は Desk.ChooseTeamByLink。
+func (s *Service) ChooseTeamByLink(ctx context.Context, token string, entryID int64) (IssuedLink, error) {
+	link, err := s.link(ctx, token, LinkFind)
+	if err != nil {
+		return IssuedLink{}, err
+	}
+	teams, err := s.store.FindTeams(ctx, link.TournamentID)
+	if err != nil {
+		return IssuedLink{}, err
+	}
+	for _, team := range teams {
+		if team.EntryID == entryID {
+			return s.issue(ctx, Link{LineUserID: link.LineUserID, Purpose: LinkMember, TeamEntryID: entryID,
+				Found: true}, team.FullName)
+		}
+	}
+	// 一覧に無いのは、よその大会の申込か、取り消した申込
+	return IssuedLink{}, domain.NotFound(domain.ResourceEntry, entryID)
+}
+
+// RemoveMemberByLink は Desk.RemoveMemberByLink。
+func (s *Service) RemoveMemberByLink(ctx context.Context, token string, entryID, memberID int64) (Detail, error) {
+	link, err := s.link(ctx, token, LinkTeam)
+	if err != nil {
+		return Detail{}, err
+	}
+	mine, err := s.store.RepEntries(ctx, link.TournamentID, link.LineUserID)
+	if err != nil {
+		return Detail{}, err
+	}
+	current := findDetail(mine, entryID)
+	if current == nil {
+		return Detail{}, domain.NotFound(domain.ResourceEntry, entryID)
+	}
+	member := findMember(current.MemberList, memberID)
+	if member == nil {
+		return Detail{}, domain.Invalid("memberId", "is not a member of this team")
+	}
+	if err := CanRemoveMember(current.Status, *member); err != nil {
+		return Detail{}, err
+	}
+	if err := s.store.RemoveMember(ctx, entryID, memberID); err != nil {
+		return Detail{}, fmt.Errorf("remove member %d of entry %d: %w", memberID, entryID, err)
+	}
+	detail, err := s.store.Get(ctx, entryID)
+	if err != nil {
+		return Detail{}, err
+	}
+	return s.withInvite(detail), nil
 }
 
 func (s *Service) teamForm(ctx context.Context, link Link) (TeamForm, error) {
@@ -472,7 +560,8 @@ func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error)
 	}
 	form := MemberForm{TournamentName: tournament.Name, Team: detail.Summary,
 		Questions: scopeOf(questions, ScopeMember), Unclaimed: []Member{},
-		Mine: MemberOf(detail.MemberList, link.LineUserID), MineAnswers: []Answer{}, ExpiresAt: link.ExpiresAt}
+		Mine: MemberOf(detail.MemberList, link.LineUserID), MineAnswers: []Answer{}, ExpiresAt: link.ExpiresAt,
+		Found: link.Found}
 	repRows := RepRows(detail, link.LineUserID)
 	for _, member := range detail.MemberList {
 		if !member.Registered && !repRows[member.ID] {
@@ -657,7 +746,7 @@ func (s *Service) JoinByLink(ctx context.Context, token string, draft JoinDraft)
 	}
 	err = s.store.Join(ctx, Join{TeamEntryID: link.TeamEntryID, LineUserID: link.LineUserID,
 		MemberID: checked.MemberID, Name: checked.Name, Number: checked.Number, Answers: answers,
-		Profile: MemberProfile(checked), At: s.now()})
+		Profile: MemberProfile(checked), At: s.now(), WithoutInvite: link.Found && mine == nil})
 	if err != nil {
 		return MemberForm{}, err
 	}

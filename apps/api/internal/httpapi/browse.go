@@ -32,9 +32,14 @@ func (s *Server) handle(pattern string, fn func(*http.Request) (any, error)) {
 
 // pathID はパス変数 {id} を正の整数として読む。
 func pathID(r *http.Request) (int64, error) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	return pathInt(r, "id")
+}
+
+// pathInt はパスの {name} を正の整数として読む。
+func pathInt(r *http.Request, name string) (int64, error) {
+	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
 	if err != nil || id <= 0 {
-		return 0, domain.Invalid("id", "must be a positive integer")
+		return 0, domain.Invalid(name, "must be a positive integer")
 	}
 	return id, nil
 }

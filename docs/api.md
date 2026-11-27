@@ -1001,7 +1001,8 @@ type EntryDetail = EntrySummary & {
   inviteUrl: string                  // 公式アカウントのトークを「参加 招待コード」の入った状態で開く URL。LINE を設定していなければ ''(LINE を設定するならベーシック ID は必須)
   decidedAt: string | null
   scorerMemberId: number | null      // チームの記録係(memberList の id)。参加が決まったチームの代表が LINE で登録したメンバーから選ぶ。まだなら null
-  memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null }>
+  memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null; withoutInvite: boolean }>
+                                     // withoutInvite は招待リンクを使わずに(公式 LINE から大会を選んでチームを探して)登録した人
                                      // 運営の口(/admin/…)は、メンバーごとに answers: Array<{ questionId; value }>(本人が答えたメンバー向けの質問)も付ける。本人用のリンクの口には付けない(ほかのメンバーや代表に見せない)
   answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
 }
@@ -1026,7 +1027,7 @@ type EntryDetail = EntrySummary & {
 ```ts
 type EntryMember = EntryDetail['memberList'][number]
 type EntryLink = {
-  purpose: 'team' | 'member' | 'scorer'
+  purpose: 'team' | 'member' | 'scorer' | 'find'
   team: {                            // purpose が team のとき。それ以外は null
     tournament: { id: number; name: string }
     open: boolean                    // 大会が受付中か(受付を閉じた後は新しい申込が 409。出した申込は見られて、差し戻しは送り直せる)
@@ -1049,6 +1050,12 @@ type EntryLink = {
     mineAnswers: Array<{ questionId: number; value: string }>
     profileName: string              // この人が前に入れた名前(無ければ '')
     expiresAt: string
+    found: boolean                   // チームを探す画面から開いた(招待リンクからではない)。登録すると withoutInvite の印が付く
+  } | null
+  find: {                            // purpose が find(メンバーが大会の中から自分のチームを探す)のとき。それ以外は null
+    tournamentName: string
+    teams: Array<{ entryId: number; fullName: string; shortName: string; division: { id: number; name: I18nText } }>   // 取り消していない申込(部門、申込の順)
+    expiresAt: string
   } | null
   scorer: {                          // purpose が scorer(チームの記録係)のとき。それ以外は null
     teamName: string; tournamentName: string
@@ -1060,12 +1067,14 @@ type EntryLink = {
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `POST /line/webhook` | 公式アカウントの Webhook の本文をそのまま(`X-Line-Signature` も web がそのまま渡す) | `{}`。署名が合わなければ 401。LINE の設定(`LINE_MESSAGING_CHANNEL_ID`、`LINE_MESSAGING_CHANNEL_SECRET`、`LINE_BASIC_ID`、`PUBLIC_SITE_URL`。docs/deploy.md)が揃っていなければ 404。「エントリー」(またはリッチメニューのポストバック `action=entry`)には、受付中で一覧に載せた大会と、その人が申込を出した終わっていない大会ごとの申込のリンクを、「参加 招待コード」にはメンバー登録のリンクを、「記録」にはその人が記録係に選ばれたチームごとの記録の画面のリンク(選ばれていなければ、その旨)を返信する。「エントリー」の返信は、チームの代表の方とメンバーの方に分け、メンバーとして登録した人には登録したチームのメンバー登録のリンクを先に書く。文の中に「エントリー」「申込」「記録」などがあれば、その言葉として受ける。「参加」で招待コードが読めなければ、招待リンクの開き方を返す。それ以外の文には、使い方の案内を同じ人に 1 日 1 回だけ返す(`line_users.helped_at`。運営とのやりとりの途中に割り込まないように)。スタンプや画像には返さない。同じ `webhookEventId` は 2 回処理しない。処理に失敗したイベントは 500 を返して記録を消すので、LINE の Webhook の再送を有効にしていれば送り直しで処理し直す |
+| `POST /line/webhook` | 公式アカウントの Webhook の本文をそのまま(`X-Line-Signature` も web がそのまま渡す) | `{}`。署名が合わなければ 401。LINE の設定(`LINE_MESSAGING_CHANNEL_ID`、`LINE_MESSAGING_CHANNEL_SECRET`、`LINE_BASIC_ID`、`PUBLIC_SITE_URL`。docs/deploy.md)が揃っていなければ 404。返信は、選ぶものをボタンにしたカード(Flex Message)にする(docs/line-integration.md「リッチメニュー」)。「エントリー」(ポストバック `action=entry`)には代表かメンバーかを選ぶボタン(ポストバック `action=entry-rep` / `action=entry-member`)を返す。代表(`action=entry-rep`、「代表として申し込む」など)には、受付中で一覧に載せた大会と、その人が申込を出した終わっていない大会ごとの申込のリンクのボタンを返す。メンバー(`action=entry-member`、「メンバーとして登録する」など)には、登録したチームの登録のリンクのボタンと、メンバーが登録できるチームのある大会(終わっていない、一覧に載せる大会で、取り消していない申込があるもの)ごとのチームを探すリンク(purpose が find)のボタンを返す(どちらも無ければ登録のしかた)。「参加 招待コード」にはメンバー登録のリンクのボタンを返す。「スコアを入れる」(ポストバック `action=score`、「記録」など)には、記録係に選ばれたチームごとに、これから記録する試合(終わっていないもの、時間割の順に 3 つまで)のボタン(記録係のリンクに `?match=試合の ID`)と一覧のボタンを返す(選ばれていなければ、その旨とスコアサイトのボタン)。代表とメンバーの言葉は決まった言い方だけを受ける(運営とのやりとりの「代表の山田です」に返さないように)。文の中に「エントリー」「申込」「記録」などがあれば、その言葉として受ける。「参加」で招待コードが読めなければ、招待リンクの開き方を返す。それ以外の文には、使い方の案内を同じ人に 1 日 1 回だけ返す(`line_users.helped_at`。運営とのやりとりの途中に割り込まないように)。スタンプや画像には返さない。同じ `webhookEventId` は 2 回処理しない。処理に失敗したイベントは 500 を返して記録を消すので、LINE の Webhook の再送を有効にしていれば送り直しで処理し直す |
 | `GET /entry-links/{token}` | なし | `EntryLink` |
 | `POST /entry-links/{token}/team` | `POST /admin/tournaments/{id}/entries` と同じ | `EntryDetail`(`channel: 'line'`)。purpose が team でなければ 404。409 の条件は代理入力と同じで、加えて大会が受付中でなければ 409。代表の名前、電話番号、メールアドレスを、この人の前回の入力として残す(送り直しも同じ。メンバー登録は名前だけ)。受付を公式アカウントから代表に知らせ、メンバーへの登録のお願い(招待リンク)を別の吹き出しで付ける(送り直しは受付だけ) |
 | `POST /entry-links/{token}/team/{id}` | `POST /admin/tournaments/{id}/entries` と同じものに `registeredIds: number[]`(画面を開いたときに本人が登録していたメンバーの行の `id`)を足す | `EntryDetail`(`status: 'pending'`。`returnNote` は '' に戻る)。差し戻した申込 `id` を直して送り直す。この人がこの大会に出した申込でなければ 404、差し戻しでなければ 409、大会が終わっていれば 409、同じ部門のほかの申込と同じチーム名は 409、本人の登録が `registeredIds` と違えば(その間にメンバーが登録した)409。招待コードは変わらない。メンバーは本人が登録した行を名前と背番号ごと残して先頭に置き、残りを `members` の並びにする(本人が登録していない行は、同じ名前があれば使い回し、無ければ消す)。`members` の背番号が本人の登録した人と重なれば 400 |
 | `POST /entry-links/{token}/team/{id}/scorer` | `{ memberId: number \| null }` | `EntryDetail`。参加が決まったこの代表の申込のチームの記録係を、LINE で登録したこの申込のメンバーから選ぶ(`null` は外す)。参加が決まっていなければ 409、ほかのメンバーや LINE で登録していないメンバーは 400、ほかの代表の申込は 404。選んだメンバーに公式アカウントから記録係になったことを知らせる(同じ人を選び直したときは知らせない) |
 | `POST /entry-links/{token}/session` | `{}` | `{ token, expiresAt, user: AdminUser }`(`POST /api/v1/auth/login` と同じ形)。記録係のリンク(purpose が scorer)で、リンクの人がまだそのチームの記録係なら、記録係の利用者(`teamScorer: true`。パスワードは持たない)を用意して大会の担当にし、セッションを発行する。記録係でなくなっていれば 404。記録係は自分のチームが記録する試合(左のチームに記録係がいれば左、いなければ右)だけを記録でき、`GET /admin/me/matches` にもその試合が並ぶ |
+| `POST /entry-links/{token}/find` | `{ entryId: number }` | `{ token: string; expiresAt: string }`。チームを探すリンク(purpose が find)で選んだチームへの、メンバー登録のリンク(purpose が member、`found` が真)を発行する。リンクの大会の取り消していない申込でなければ 404 |
+| `POST /entry-links/{token}/team/{id}/members/{memberId}/remove` | `{}` | `EntryDetail`。代表(purpose が team)が、自分の申込 `id` から、招待リンクを使わずに登録したメンバー(`withoutInvite`)を外す。本人の登録で足した行は消し、代表の名簿の行は本人の LINE との結びつきと答えだけを外す(記録係なら外れる)。招待リンクから登録した人と登録していない行は 400、参加が決まった後(確認待ちと直し待ち以外)は 409(選手ができているので運営が直す)、ほかの代表の申込は 404 |
 | `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行と、代表本人でない人が選んだ代表の行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
 ### 公式 LINE で送る

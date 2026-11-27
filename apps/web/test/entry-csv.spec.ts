@@ -76,13 +76,22 @@ describe('entriesCsv', () => {
       entry(
         10,
         [
-          { id: 1, name: '山田 太郎', number: '7', registered: false, playerId: null, answers: [] },
+          {
+            id: 1,
+            name: '山田 太郎',
+            number: '7',
+            registered: false,
+            playerId: null,
+            withoutInvite: false,
+            answers: [],
+          },
           {
             id: 2,
             name: '佐藤 花子',
             number: '',
             registered: true,
             playerId: null,
+            withoutInvite: false,
             answers: [{ questionId: 2, value: '2 年' }],
           },
         ],

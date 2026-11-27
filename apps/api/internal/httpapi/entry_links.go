@@ -19,6 +19,62 @@ func (s *Server) entryLinkRoutes() {
 	s.handle("POST /api/v1/entry-links/{token}/member", s.joinEntryByLink)
 	s.handle("POST /api/v1/entry-links/{token}/team/{id}/scorer", s.chooseScorerByLink)
 	s.handle("POST /api/v1/entry-links/{token}/session", s.scorerSession)
+	s.handle("POST /api/v1/entry-links/{token}/find", s.chooseTeamByLink)
+	s.handle("POST /api/v1/entry-links/{token}/team/{id}/members/{memberId}/remove", s.removeMemberByLink)
+}
+
+// entryLinkFindDTO はメンバーがチームを探す画面(大会の、取り消していない申込のチーム)。
+type entryLinkFindDTO struct {
+	TournamentName string             `json:"tournamentName"`
+	Teams          []entryFindTeamDTO `json:"teams"`
+	ExpiresAt      time.Time          `json:"expiresAt"`
+}
+
+type entryFindTeamDTO struct {
+	EntryID   int64            `json:"entryId"`
+	FullName  string           `json:"fullName"`
+	ShortName string           `json:"shortName"`
+	Division  entryDivisionDTO `json:"division"`
+}
+
+// entryFindChoiceDTO はチームを探す画面で選んだチーム。
+type entryFindChoiceDTO struct {
+	EntryID int64 `json:"entryId"`
+}
+
+// entryIssuedLinkDTO は発行した本人用のリンクの合言葉(web はそのリンクの画面へ移る)。
+type entryIssuedLinkDTO struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+func (s *Server) chooseTeamByLink(r *http.Request) (any, error) {
+	var body entryFindChoiceDTO
+	if err := decodeBody(r, &body); err != nil {
+		return nil, err
+	}
+	issued, err := s.entries.ChooseTeamByLink(r.Context(), r.PathValue("token"), body.EntryID)
+	if err != nil {
+		return nil, err
+	}
+	return entryIssuedLinkDTO{Token: issued.Token, ExpiresAt: issued.ExpiresAt}, nil
+}
+
+// removeMemberByLink は代表が、招待リンクを使わずに登録したメンバーを外す。
+func (s *Server) removeMemberByLink(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	memberID, err := pathInt(r, "memberId")
+	if err != nil {
+		return nil, err
+	}
+	detail, err := s.entries.RemoveMemberByLink(r.Context(), r.PathValue("token"), id, memberID)
+	if err != nil {
+		return nil, err
+	}
+	return toEntryDetail(detail), nil
 }
 
 type entryLinkTournamentDTO struct {
@@ -58,6 +114,7 @@ type entryLinkMemberDTO struct {
 	MineAnswers    []entryAnswerDTO   `json:"mineAnswers"`
 	ProfileName    string             `json:"profileName"`
 	ExpiresAt      time.Time          `json:"expiresAt"`
+	Found          bool               `json:"found"`
 }
 
 type entryLinkDTO struct {
@@ -65,6 +122,7 @@ type entryLinkDTO struct {
 	Team    *entryLinkTeamDTO   `json:"team"`
 	Member  *entryLinkMemberDTO `json:"member"`
 	Scorer  *entryLinkScorerDTO `json:"scorer"`
+	Find    *entryLinkFindDTO   `json:"find"`
 }
 
 // entryLinkScorerDTO はチームの記録係のリンクで開く画面(どのチームの記録係か)。
@@ -157,7 +215,7 @@ func toEntryLinkMember(form entry.MemberForm) *entryLinkMemberDTO {
 	out := &entryLinkMemberDTO{TournamentName: form.TournamentName, Team: toEntrySummary(form.Team),
 		Questions: toEntryQuestions(form.Questions).Questions,
 		Unclaimed: make([]entryMemberDTO, len(form.Unclaimed)), MineAnswers: toEntryAnswers(form.MineAnswers),
-		ProfileName: form.ProfileName, ExpiresAt: form.ExpiresAt}
+		ProfileName: form.ProfileName, ExpiresAt: form.ExpiresAt, Found: form.Found}
 	for i, member := range form.Unclaimed {
 		out.Unclaimed[i] = toEntryMember(member)
 	}
@@ -184,6 +242,15 @@ func (s *Server) getEntryLink(r *http.Request) (any, error) {
 		out.Scorer = &entryLinkScorerDTO{TeamName: view.Scorer.Team.TeamName,
 			TournamentName: view.Scorer.Team.Tournament.Name, MemberName: view.Scorer.Team.MemberName,
 			ExpiresAt: view.Scorer.ExpiresAt}
+	}
+	if view.Find != nil {
+		out.Find = &entryLinkFindDTO{TournamentName: view.Find.TournamentName,
+			Teams: make([]entryFindTeamDTO, len(view.Find.Teams)), ExpiresAt: view.Find.ExpiresAt}
+		for i, team := range view.Find.Teams {
+			out.Find.Teams[i] = entryFindTeamDTO{EntryID: team.EntryID, FullName: team.FullName,
+				ShortName: team.ShortName, Division: entryDivisionDTO{ID: team.Division.ID,
+					Name: toI18n(team.Division.Name)}}
+		}
 	}
 	return out, nil
 }

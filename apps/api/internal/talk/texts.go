@@ -89,19 +89,26 @@ func RepReplyMessage(teams []TeamLink) Message {
 		linkNote(), Choices: choices}
 }
 
-// MemberReplyMessage はメンバーの入口への返信。登録したチームがあればチームのボタン(確かめと直しの
-// リンク)を、無ければ登録のしかたを返す。
-func MemberReplyMessage(joined []JoinedTeamLink) Message {
-	if len(joined) == 0 {
+// MemberReplyMessage はメンバーの入口への返信。メンバー登録の道は 2 つあり(代表から届く招待リンク、
+// またはここから大会を選んで自分のチームを探す)、登録したチームのボタン(確かめと直し)と、大会ごとの
+// チームを探すボタン(find)を並べる。どちらも無ければ登録のしかたを返す。
+func MemberReplyMessage(joined []JoinedTeamLink, find []TeamLink) Message {
+	if len(joined)+len(find) == 0 {
 		return Message{Text: TextMemberHowTo}
 	}
-	choices := make([]Choice, len(joined))
-	for i, link := range joined {
-		choices[i] = Choice{Label: clip(link.Team+" ・ "+link.Tournament, MaxChoiceLabel), URL: link.URL}
+	choices := make([]Choice, 0, len(joined)+len(find))
+	for _, link := range joined {
+		choices = append(choices, Choice{Label: clip(link.Team+" ・ "+link.Tournament, MaxChoiceLabel), URL: link.URL})
 	}
-	return Message{Text: "登録したチームの確かめと直しは、チームのボタンからできます。\n" +
-		"ほかのチームに登録するときは、そのチームの代表から届く招待リンクを開いてください。\n\n" + linkNote(),
-		Choices: choices}
+	for _, link := range find {
+		choices = append(choices, Choice{Label: clip(link.Tournament+"でチームを探す", MaxChoiceLabel), URL: link.URL})
+	}
+	text := "メンバー登録は、チームの代表から届く招待リンクを開くか、下のボタンで大会を選んで自分のチームを探してできます。"
+	if len(joined) > 0 {
+		text = "登録したチームの確かめと直しは、チームのボタンからできます。\n" +
+			"ほかのチームに登録するときは、代表から届く招待リンクを開くか、大会を選んでチームを探してください。"
+	}
+	return Message{Text: text + "\n\n" + linkNote(), Choices: choices}
 }
 
 // TextNotScorer は記録係に選ばれていない人が「スコアを入れる」を押したときの返信。

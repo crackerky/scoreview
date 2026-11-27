@@ -237,3 +237,53 @@
   font-weight: 800;
   cursor: pointer;
 }
+
+/* チームを探す画面。部門ごとにチームを押せる行で並べる(押すと名前を入れる画面へ) */
+.entry-find-group {
+  margin: 8px 0 0;
+}
+
+.entry-find-list {
+  display: grid;
+  gap: 8px;
+}
+
+.entry-find-team {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--site-line);
+  border-radius: 10px;
+  background: #1c1c1c;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entry-find-team small {
+  color: var(--site-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* 代表の画面の、招待リンクを使わずに登録した人と外すボタン */
+.entry-uninvited {
+  margin: 8px 0;
+}
+
+.entry-remove {
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.entry-remove > summary {
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--site-muted);
+  cursor: pointer;
+}

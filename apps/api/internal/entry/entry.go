@@ -168,6 +168,8 @@ type Member struct {
 	Registered bool
 	PlayerID   *int64
 	LineUserID *int64
+	// WithoutInvite は招待リンクを使わずに(チームを探す画面から)登録した人
+	WithoutInvite bool
 	// Answers は本人が答えたメンバー向けの質問(申込の中身として読んだときだけ入る)。運営の画面にだけ
 	// 出し、本人用のリンクでは出さない(ほかのメンバーや代表に、学年などの答えを見せない)
 	Answers []Answer
@@ -275,6 +277,13 @@ type Desk interface {
 	// から選ぶ(memberID が nil なら外す)。この代表のこの大会の申込でなければ domain.NotFound、参加が
 	// 決まっていなければ domain.ErrConflict
 	ChooseScorerByLink(ctx context.Context, token string, entryID int64, memberID *int64) (Detail, error)
+	// ChooseTeamByLink はチームを探す画面で選んだチーム entryID への、メンバー登録のリンクを発行する
+	// (招待リンクの代わり。発行したリンクから登録すると、招待リンクを使わない登録の印が付く)。リンクの
+	// 大会の申込でなければ domain.NotFound、取り消した申込なら domain.ErrConflict
+	ChooseTeamByLink(ctx context.Context, token string, entryID int64) (IssuedLink, error)
+	// RemoveMemberByLink は代表が、自分の申込 entryID から、招待リンクを使わずに登録したメンバー
+	// memberID を外す(CanRemoveMember)
+	RemoveMemberByLink(ctx context.Context, token string, entryID, memberID int64) (Detail, error)
 	// ScorerSignIn は記録係のリンクを確かめ、記録係の利用者を用意してその ID を返す(呼ぶ側がセッション
 	// を発行する)。リンクの人がもうそのチームの記録係でなければ domain.NotFound
 	ScorerSignIn(ctx context.Context, token string) (int64, error)
@@ -295,6 +304,9 @@ type Links interface {
 	// IssueScorerLinks はこの人が記録係に選ばれたチームごとに、記録の画面に入るリンクを発行する
 	// (公式アカウントに「記録」と送ったときの返信)。大会は開催日の順
 	IssueScorerLinks(ctx context.Context, lineUserID int64) ([]ScorerLink, error)
+	// IssueFindLinks はメンバーが登録できるチームのある大会(終わっていない大会で、取り消していない申込が
+	// あるもの)ごとに、チームを探す画面のリンクを発行する。大会は開催日の順
+	IssueFindLinks(ctx context.Context, lineUserID int64) ([]TournamentLink, error)
 }
 
 // Export は書き出す大会の申込。
@@ -330,6 +342,15 @@ type Store interface {
 	// ScorerTeams はこの LINE の人が記録係に選ばれたチームを、参加が決まった申込の終わっていない大会に
 	// 限って、開催日の順に読む
 	ScorerTeams(ctx context.Context, lineUserID int64) ([]ScorerTeam, error)
+	// JoinableTournaments はメンバーが登録できるチームのある大会(終わっていない、一覧に載せる大会で、
+	// 取り消していない申込があるもの)を開催日の順に読む
+	JoinableTournaments(ctx context.Context) ([]TournamentRef, error)
+	// FindTeams は大会の、取り消していない申込のチームを部門、申込の順に読む
+	FindTeams(ctx context.Context, tournamentID int64) ([]FindTeam, error)
+	// RemoveMember は申込 entryID のメンバー memberID を外す。本人の登録で足した行なら行を消し、代表の
+	// 名簿の行なら本人の LINE との結びつきだけを外す。申込の行をロックして状態と印を確かめ直し、もう
+	// 外せなければ domain.ErrConflict
+	RemoveMember(ctx context.Context, entryID, memberID int64) error
 	// ScorerMatches はチーム teamIDs のそれぞれが記録する、まだ終わっていない試合を時間割の順に読む
 	// (記録するのは、左のチームに記録係がいれば左、いなければ右のチーム)
 	ScorerMatches(ctx context.Context, teamIDs []int64) (map[int64][]ScorerMatch, error)

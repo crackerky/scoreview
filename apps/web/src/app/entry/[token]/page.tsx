@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import type { EntryLink } from '@/api/entry.types'
 import {
   chooseScorerAction,
+  chooseTeamAction,
   joinTeamAction,
+  removeMemberAction,
   resubmitTeamEntryAction,
   scorerSignInAction,
   submitTeamEntryAction,
@@ -12,6 +14,7 @@ import { MemberJoinForm } from '@/components/entry/MemberJoinForm'
 import { RepEntryCard } from '@/components/entry/RepEntryCard'
 import { ScorerSignIn } from '@/components/entry/ScorerSignIn'
 import { TeamEntryForm } from '@/components/entry/TeamEntryForm'
+import { TeamFinder } from '@/components/entry/TeamFinder'
 import { SiteShell } from '@/components/site/SiteShell'
 import { dateTimeText } from '@/entry/entry.utils'
 import { loadEntryLink } from '@/entry/entryLink.load'
@@ -34,7 +37,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     ? `${view.team.tournament.name} の申込`
     : view.scorer
       ? `${view.scorer.teamName} の記録係`
-      : `${view.member?.team.fullName ?? ''} のメンバー登録`
+      : view.find
+        ? `${view.find.tournamentName} のチームを探す`
+        : `${view.member?.team.fullName ?? ''} のメンバー登録`
   return { title: `${title} - SCORE VIEW`, robots: { index: false, follow: false } }
 }
 
@@ -46,6 +51,7 @@ const doneTexts: Readonly<Record<string, string>> = {
   scorer:
     '記録係を決めました。当日は、その人が公式 LINE で「記録」と送ると、記録の画面が開きます。',
   'scorer-cleared': '記録係を外しました。',
+  removed: 'メンバーを外しました。',
 }
 
 export default async function EntryLinkPage(props: Props) {
@@ -57,6 +63,7 @@ export default async function EntryLinkPage(props: Props) {
       <SubmitFeedback />
       {view.team ? <TeamSection token={token} team={view.team} done={done} /> : null}
       {view.member ? <MemberSection token={token} member={view.member} done={done} /> : null}
+      {view.find ? <FindSection token={token} find={view.find} /> : null}
       {view.scorer ? (
         <ScorerSection token={token} scorer={view.scorer} match={matchOfQuery(query.match)} />
       ) : null}
@@ -94,6 +101,7 @@ function TeamSection({
           team={team}
           resubmit={resubmitTeamEntryAction}
           chooseScorer={chooseScorerAction}
+          removeMember={removeMemberAction}
         />
       ))}
       {team.open ? (
@@ -162,6 +170,11 @@ function MemberSection({
       ) : member.mine ? null : (
         <p className="entry-lead">メンバーの方の登録です。自分の名前を入れて、登録してください。</p>
       )}
+      {member.found && !member.mine ? (
+        <p className="entry-notice">
+          招待リンクを使わずに登録します。チームを間違えていないか確かめてください。代表の方の画面には、招待リンクなしで登録したことが出ます。
+        </p>
+      ) : null}
       {member.team.status === 'cancelled' ? (
         <p className="entry-notice error">このチームの申込は取り消されています。</p>
       ) : (
@@ -169,6 +182,23 @@ function MemberSection({
       )}
       <p className="entry-muted">
         このリンクはあなた専用です。{dateTimeText(member.expiresAt)} まで使えます。
+      </p>
+    </>
+  )
+}
+
+// メンバーが招待リンクを使わずに、大会の中から自分のチームを探す画面(公式 LINE の「メンバー登録」から)。
+function FindSection({ token, find }: { token: string; find: NonNullable<EntryLink['find']> }) {
+  return (
+    <>
+      <p className="entry-kicker">{find.tournamentName}</p>
+      <h1 className="site-title">自分のチームを探す</h1>
+      <p className="entry-lead">
+        メンバーの方の登録です。自分のチームを選ぶと、名前を入れる画面に進みます。代表から招待リンクが届いていれば、そちらから登録しても同じです。
+      </p>
+      <TeamFinder token={token} teams={find.teams} action={chooseTeamAction} />
+      <p className="entry-muted">
+        このリンクはあなた専用です。{dateTimeText(find.expiresAt)} まで使えます。
       </p>
     </>
   )

@@ -78,11 +78,12 @@ type entryListDTO struct {
 }
 
 type entryMemberDTO struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Number     string `json:"number"`
-	Registered bool   `json:"registered"`
-	PlayerID   *int64 `json:"playerId"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	Number        string `json:"number"`
+	Registered    bool   `json:"registered"`
+	PlayerID      *int64 `json:"playerId"`
+	WithoutInvite bool   `json:"withoutInvite"`
 }
 
 type entryAnswerDTO struct {
@@ -192,7 +193,7 @@ func toEntryAdminDetail(detail entry.Detail) entryAdminDetailDTO {
 
 func toEntryMember(member entry.Member) entryMemberDTO {
 	return entryMemberDTO{ID: member.ID, Name: member.Name, Number: member.Number,
-		Registered: member.Registered, PlayerID: member.PlayerID}
+		Registered: member.Registered, PlayerID: member.PlayerID, WithoutInvite: member.WithoutInvite}
 }
 
 func toEntryAnswers(answers []entry.Answer) []entryAnswerDTO {

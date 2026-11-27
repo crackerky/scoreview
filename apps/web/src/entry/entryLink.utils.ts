@@ -239,3 +239,22 @@ export function scorerLanding(match: unknown): string {
     ? `/admin/matches/${match}/score`
     : '/admin'
 }
+
+/** フォームの欄 name を正の整数の ID として読む(数でなければ 0。api が 400 にする) */
+export function idFromForm(form: FormFields, name: string): number {
+  const id = Number(typeof form[name] === 'string' ? form[name] : '')
+  return Number.isInteger(id) && id > 0 ? id : 0
+}
+
+/** チームを探す画面の絞り込みで比べる形(全角と半角、大文字と小文字、空白の違いを見ない) */
+function searchKey(text: string): string {
+  return text.normalize('NFKC').toLowerCase().replace(/\s+/g, '')
+}
+
+/** チームの正式名か短縮名が、打った文字を含むか(空なら全部) */
+export function teamMatches(team: { fullName: string; shortName: string }, query: string): boolean {
+  const key = searchKey(query)
+  return (
+    key === '' || searchKey(team.fullName).includes(key) || searchKey(team.shortName).includes(key)
+  )
+}

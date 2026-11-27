@@ -5,6 +5,7 @@ import { entryPaths } from '../src/entry/entry.paths.ts'
 import { parseMembers } from '../src/entry/entry.utils.ts'
 import {
   findPastTeam,
+  idFromForm,
   isLinkToken,
   joinFromForm,
   linkUnusableText,
@@ -17,6 +18,7 @@ import {
   scorerChoiceFromForm,
   scorerLanding,
   shareToLineUrl,
+  teamMatches,
 } from '../src/entry/entryLink.utils.ts'
 
 // 本人用のリンクで開く画面(/entry/{合言葉})
@@ -75,6 +77,7 @@ test('本人用のリンクの応答を parse できる', () => {
     purpose: 'member',
     team: null,
     scorer: null,
+    find: null,
     member: {
       tournamentName: 'ラバー 2027',
       team: {
@@ -92,11 +95,28 @@ test('本人用のリンクの応答を parse できる', () => {
         scorerChosen: false,
       },
       questions: [],
-      unclaimed: [{ id: 3, name: '鈴木 一郎', number: '', registered: false, playerId: null }],
-      mine: { id: 4, name: '佐藤 花子', number: '12', registered: true, playerId: null },
+      unclaimed: [
+        {
+          id: 3,
+          name: '鈴木 一郎',
+          number: '',
+          registered: false,
+          playerId: null,
+          withoutInvite: false,
+        },
+      ],
+      mine: {
+        id: 4,
+        name: '佐藤 花子',
+        number: '12',
+        registered: true,
+        playerId: null,
+        withoutInvite: false,
+      },
       mineAnswers: [],
       profileName: '佐藤 花子',
       expiresAt: '2026-11-24T01:00:00Z',
+      found: false,
     },
   })
   assert.equal(parsed.member?.mine?.name, '佐藤 花子')
@@ -199,8 +219,22 @@ test('resubmitValues は今の中身を入れ、本人が登録した人はメ�
     decidedAt: null,
     scorerMemberId: null,
     memberList: [
-      { id: 3, name: '佐藤 花子', number: '12', registered: true, playerId: null },
-      { id: 4, name: '鈴木 一郎', number: '3', registered: false, playerId: null },
+      {
+        id: 3,
+        name: '佐藤 花子',
+        number: '12',
+        registered: true,
+        playerId: null,
+        withoutInvite: false,
+      },
+      {
+        id: 4,
+        name: '鈴木 一郎',
+        number: '3',
+        registered: false,
+        playerId: null,
+        withoutInvite: false,
+      },
     ],
     answers: [{ questionId: 9, value: 'yes' }],
   }
@@ -272,6 +306,7 @@ describe('参加者の台帳', () => {
       },
       member: null,
       scorer: null,
+      find: null,
     })
     assert.equal(parsed.team?.pastTeams[0]?.members.length, 2)
   })
@@ -303,8 +338,31 @@ test('記録係のリンクの応答を parse できる', () => {
       memberName: '佐藤 花子',
       expiresAt: '2026-11-24T01:00:00Z',
     },
+    find: null,
   })
   assert.equal(parsed.scorer?.memberName, '佐藤 花子')
+})
+
+test('チームを探すリンクの応答を parse できる', () => {
+  const parsed = entryLinkSchema.parse({
+    purpose: 'find',
+    team: null,
+    member: null,
+    scorer: null,
+    find: {
+      tournamentName: 'ラバー 2027',
+      teams: [
+        {
+          entryId: 41,
+          fullName: '熱海ディスクス',
+          shortName: '熱海',
+          division: { id: 3, name: { ja: 'オープン', en: 'Open' } },
+        },
+      ],
+      expiresAt: '2026-11-24T01:00:00Z',
+    },
+  })
+  assert.equal(parsed.find?.teams[0]?.division.name.ja, 'オープン')
 })
 
 describe('記録係が入ったあとに開く画面', () => {
@@ -314,5 +372,20 @@ describe('記録係が入ったあとに開く画面', () => {
     assert.equal(scorerLanding('0'), '/admin')
     assert.equal(scorerLanding('1/../../users'), '/admin')
     assert.equal(scorerLanding(['501']), '/admin')
+  })
+})
+
+describe('チームを探す', () => {
+  test('正式名か短縮名に、打った文字が含まれるチーム(全角と半角、大文字と小文字、空白の違いは見ない)', () => {
+    const team = { fullName: '熱海ディスクス', shortName: 'ATAMI DS' }
+    assert.equal(teamMatches(team, ''), true)
+    assert.equal(teamMatches(team, 'ディスク'), true)
+    assert.equal(teamMatches(team, 'ａｔａｍｉｄｓ'), true)
+    assert.equal(teamMatches(team, '伊東'), false)
+  })
+  test('フォームの ID の欄', () => {
+    assert.equal(idFromForm({ entryId: '41' }, 'entryId'), 41)
+    assert.equal(idFromForm({ entryId: 'x' }, 'entryId'), 0)
+    assert.equal(idFromForm({}, 'entryId'), 0)
   })
 })

@@ -151,7 +151,13 @@ export default async function EntryPage(props: IdPageProps) {
                 <tr key={member.id}>
                   <td className="adm-num">{member.number}</td>
                   <td>{member.name}</td>
-                  <td>{member.registered ? '済み' : 'まだ'}</td>
+                  <td>
+                    {member.registered
+                      ? member.withoutInvite
+                        ? '済み(招待リンクなし)'
+                        : '済み'
+                      : 'まだ'}
+                  </td>
                   {memberQuestions.map((question) => {
                     const value = own.get(question.id)
                     return (

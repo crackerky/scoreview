@@ -89,6 +89,9 @@ type MemberEntry struct {
 	SortOrder   int       `gorm:"column:sort_order"`
 	CreatedAt   time.Time `gorm:"column:created_at"`
 	UpdatedAt   time.Time `gorm:"column:updated_at"`
+	// WithoutInvite は招待リンクを使わずに登録した、SelfAdded は本人の登録で足した行(migrations/00051)
+	WithoutInvite bool `gorm:"column:without_invite"`
+	SelfAdded     bool `gorm:"column:self_added"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -471,7 +474,7 @@ func loadMemberAnswers(ctx context.Context, db *gorm.DB, members []MemberEntry) 
 
 func toEntryMember(row MemberEntry) entry.Member {
 	return entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.LineUserID != nil,
-		PlayerID: row.PlayerID, LineUserID: row.LineUserID}
+		PlayerID: row.PlayerID, LineUserID: row.LineUserID, WithoutInvite: row.WithoutInvite}
 }
 
 func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.Member, error) {

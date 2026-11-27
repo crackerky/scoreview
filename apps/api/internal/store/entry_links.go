@@ -19,8 +19,16 @@ import (
 const (
 	// 受付中で一覧に載せた大会と、この人が申込を出した終わっていない大会(サブクエリは値で渡す)
 	sqlLinkTournaments = "(status = ? AND listed) OR (status <> ? AND id IN (?))"
-	sqlRepActive       = "rep_line_user_id = ? AND status <> ?"
-	sqlMembersOfEntry  = "id IN ? AND team_entry_id = ?"
+	// メンバーが登録できるチームのある大会: 終わっていない、一覧に載せる大会で、取り消していない申込がある
+	sqlJoinableTournaments = "status <> ? AND listed AND id IN (?)"
+	sqlEntriesNotCancelled = "status <> ?"
+	sqlFindTeamsOf         = "team_entries.tournament_id = ? AND team_entries.status <> ?"
+	sqlSelectFindTeams     = "team_entries.id AS entry_id, team_entries.team_name_full, team_entries.team_name_short, " +
+		"divisions.id AS division_id, divisions.name_ja AS division_name_ja, divisions.name_en AS division_name_en"
+	sqlJoinDivisionOfEntry = "JOIN divisions ON divisions.id = team_entries.division_id"
+	sqlOrderFindTeams      = "divisions.sort_order, divisions.id, team_entries.submitted_at, team_entries.id"
+	sqlRepActive           = "rep_line_user_id = ? AND status <> ?"
+	sqlMembersOfEntry      = "id IN ? AND team_entry_id = ?"
 	// 前に申し込んだチーム: 同じチーム名(前後の空白と大文字小文字を除く)は最後の申込だけ
 	sqlSelectPastTeams   = "DISTINCT ON (lower(btrim(team_name_full))) id, team_name_full, team_name_short, submitted_at"
 	sqlPastTeamsOf       = "rep_line_user_id = ? AND tournament_id <> ?"
@@ -59,6 +67,8 @@ type EntryLink struct {
 	TeamEntryID  *int64    `gorm:"column:team_entry_id"`
 	ExpiresAt    time.Time `gorm:"column:expires_at"`
 	CreatedAt    time.Time `gorm:"column:created_at"`
+	// Found はチームを探す画面で選んで発行したメンバー登録のリンク(migrations/00051)
+	Found bool `gorm:"column:found"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -228,8 +238,8 @@ func (s *EntryStore) EnsureScorer(ctx context.Context, lineUserID, tournamentID 
 // SaveLink は entry.Store.SaveLink。
 func (s *EntryStore) SaveLink(ctx context.Context, tokenHash []byte, link entry.Link) error {
 	row := EntryLink{TokenHash: tokenHash, LineUserID: link.LineUserID, Purpose: string(link.Purpose),
-		ExpiresAt: link.ExpiresAt}
-	if link.Purpose == entry.LinkTeam {
+		ExpiresAt: link.ExpiresAt, Found: link.Found}
+	if link.Purpose == entry.LinkTeam || link.Purpose == entry.LinkFind {
 		row.TournamentID = &link.TournamentID
 	} else {
 		row.TeamEntryID = &link.TeamEntryID
@@ -251,7 +261,7 @@ func (s *EntryStore) FindLink(ctx context.Context, tokenHash []byte) (entry.Link
 	}
 	row := rows[0]
 	link := entry.Link{LineUserID: row.LineUserID, Purpose: entry.LinkPurpose(row.Purpose),
-		ExpiresAt: row.ExpiresAt}
+		ExpiresAt: row.ExpiresAt, Found: row.Found}
 	if row.TournamentID != nil {
 		link.TournamentID = *row.TournamentID
 	}
@@ -388,6 +398,11 @@ func (s *EntryStore) Join(ctx context.Context, join entry.Join) error {
 		if err := entry.CheckNumberFree(members, member.ID, join.Number); err != nil {
 			return err
 		}
+		// 招待リンクを使わない登録の印は、新しく登録したときだけ付ける(登録済みの人が直しても変えない)
+		if member.LineUserID == nil && join.WithoutInvite {
+			member.WithoutInvite = true
+		}
+		member.SelfAdded = member.SelfAdded || member.ID == 0
 		member.Name, member.Number, member.LineUserID = join.Name, join.Number, &join.LineUserID
 		member.UpdatedAt = join.At
 		if team.Status == string(entry.StatusApproved) && team.TeamID != nil {
@@ -603,4 +618,88 @@ func createAnswers(ctx context.Context, tx *gorm.DB, rows []EntryAnswer) error {
 		return writeError("create answers", err)
 	}
 	return nil
+}
+
+// JoinableTournaments は entry.Store.JoinableTournaments。
+func (s *EntryStore) JoinableTournaments(ctx context.Context) ([]entry.TournamentRef, error) {
+	db := s.db.WithContext(ctx)
+	entered := db.Model(&TeamEntry{}).Select("tournament_id").Where(sqlEntriesNotCancelled, string(entry.StatusCancelled))
+	var rows []Tournament
+	err := db.Select("id", "name_ja").Where(sqlJoinableTournaments, domain.TournamentFinished, entered).
+		Order(sqlOrderStartDate).Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list tournaments members can join: %w", err)
+	}
+	out := make([]entry.TournamentRef, len(rows))
+	for i, row := range rows {
+		out[i] = entry.TournamentRef{ID: row.ID, Name: row.NameJa}
+	}
+	return out, nil
+}
+
+// FindTeams は entry.Store.FindTeams。
+func (s *EntryStore) FindTeams(ctx context.Context, tournamentID int64) ([]entry.FindTeam, error) {
+	var rows []struct {
+		EntryID        int64
+		TeamNameFull   string
+		TeamNameShort  string
+		DivisionID     int64
+		DivisionNameJa string
+		DivisionNameEn string
+	}
+	err := s.db.WithContext(ctx).Model(&TeamEntry{}).Select(sqlSelectFindTeams).Joins(sqlJoinDivisionOfEntry).
+		Where(sqlFindTeamsOf, tournamentID, string(entry.StatusCancelled)).Order(sqlOrderFindTeams).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list teams of tournament %d: %w", tournamentID, err)
+	}
+	out := make([]entry.FindTeam, len(rows))
+	for i, row := range rows {
+		out[i] = entry.FindTeam{EntryID: row.EntryID, FullName: row.TeamNameFull, ShortName: row.TeamNameShort,
+			Division: entry.Division{ID: row.DivisionID, Name: domain.I18nText{Ja: row.DivisionNameJa,
+				En: row.DivisionNameEn}}}
+	}
+	return out, nil
+}
+
+// RemoveMember は entry.Store.RemoveMember。
+func (s *EntryStore) RemoveMember(ctx context.Context, entryID, memberID int64) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		team, err := lockEntry(ctx, tx, entryID)
+		if err != nil {
+			return err
+		}
+		var rows []MemberEntry
+		if err := tx.Where(sqlByMemberOfEntry, memberID, entryID).Limit(1).Find(&rows).Error; err != nil {
+			return fmt.Errorf("find member %d: %w", memberID, err)
+		}
+		if len(rows) == 0 {
+			return domain.Invalid("memberId", "is not a member of this team")
+		}
+		member := rows[0]
+		if err := entry.CanRemoveMember(entry.Status(team.Status), toEntryMember(member)); err != nil {
+			return fmt.Errorf("%w: %w", domain.ErrConflict, err)
+		}
+		// 本人の登録で足した行は消す(答えは消える。記録係なら外れる)
+		if member.SelfAdded {
+			if err := tx.Delete(&member).Error; err != nil {
+				return writeError("remove member", err)
+			}
+			return nil
+		}
+		// 代表の名簿の行は残し、本人の LINE との結びつきと、その人の答えを外す
+		if err := tx.Where(sqlByMemberEntry, member.ID).Delete(&EntryAnswer{}).Error; err != nil {
+			return writeError("delete answers of removed member", err)
+		}
+		if team.ScorerMemberID != nil && *team.ScorerMemberID == member.ID {
+			if err := tx.Model(&TeamEntry{}).Where(sqlByID, entryID).Update("scorer_member_id", nil).Error; err != nil {
+				return writeError("clear scorer of removed member", err)
+			}
+		}
+		err = tx.Model(&MemberEntry{}).Where(sqlByID, member.ID).
+			Updates(map[string]any{"line_user_id": nil, "without_invite": false}).Error
+		if err != nil {
+			return writeError("unlink removed member", err)
+		}
+		return nil
+	})
 }

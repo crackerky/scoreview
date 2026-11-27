@@ -61,6 +61,8 @@ const entryMemberSchema = z.object({
   number: z.string(),
   registered: z.boolean(),
   playerId: z.number().int().nullable(),
+  /** 招待リンクを使わずに(公式 LINE から大会を選んでチームを探して)登録した人 */
+  withoutInvite: z.boolean(),
 })
 export type EntryMember = z.infer<typeof entryMemberSchema>
 
@@ -111,11 +113,31 @@ export const entryLinkMemberSchema = z.object({
   mineAnswers: z.array(entryAnswerSchema),
   profileName: z.string(),
   expiresAt: z.string(),
+  /** チームを探す画面から開いた(招待リンクからではない) */
+  found: z.boolean(),
 })
 export type EntryLinkMember = z.infer<typeof entryLinkMemberSchema>
 
+/** メンバーが大会の中から自分のチームを探す画面(公式 LINE の「メンバー登録」から) */
+const entryLinkFindSchema = z.object({
+  tournamentName: z.string(),
+  teams: z.array(
+    z.object({
+      entryId: z.number().int(),
+      fullName: z.string(),
+      shortName: z.string(),
+      division: z.object({ id: z.number().int(), name: i18nTextSchema }),
+    }),
+  ),
+  expiresAt: z.string(),
+})
+export type EntryLinkFind = z.infer<typeof entryLinkFindSchema>
+
+/** 発行した本人用のリンクの合言葉 */
+export const issuedLinkSchema = z.object({ token: z.string(), expiresAt: z.string() })
+
 export const entryLinkSchema = z.object({
-  purpose: z.enum(['team', 'member', 'scorer']),
+  purpose: z.enum(['team', 'member', 'scorer', 'find']),
   team: z
     .object({
       tournament: z.object({ id: z.number().int(), name: z.string() }),
@@ -138,6 +160,7 @@ export const entryLinkSchema = z.object({
       expiresAt: z.string(),
     })
     .nullable(),
+  find: entryLinkFindSchema.nullable(),
 })
 export type EntryLink = z.infer<typeof entryLinkSchema>
 

@@ -721,3 +721,102 @@ func TestEntryNoticesGoToTheLineRepresentative(t *testing.T) {
 	assert.Equal(t, entry.StatusCancelled, cancelled.Status)
 	assert.Len(t, reported, 2)
 }
+
+// メンバーは招待リンクを使わずに、大会を選んで自分のチームを探して登録できる。その登録には印が付き、
+// 参加が決まる前なら代表が外せる(本人が足した行は消し、代表の名簿の行は LINE との結びつきだけを外す)。
+func TestMemberFindsTeamWithoutInvite(t *testing.T) {
+	f := newLinkFixture(t)
+	ctx := context.Background()
+	rep := f.lineUser(t, "Urep")
+	repLink := f.teamLink(t, rep, f.tournament.ID)
+	atami, err := f.desk.SubmitByLink(ctx, repLink.Token, f.draft("熱海ディスクス", nil))
+	require.NoError(t, err)
+	cancelled, err := f.desk.SubmitByLink(ctx, repLink.Token, f.draft("取り消すチーム", nil))
+	require.NoError(t, err)
+	_, err = f.desk.Decide(ctx, cancelled.ID, entry.ActionCancel, "", f.admin)
+	require.NoError(t, err)
+
+	hanako := f.lineUser(t, "Uhanako")
+	finds, err := f.desk.IssueFindLinks(ctx, hanako)
+	require.NoError(t, err)
+	require.Len(t, finds, 1)
+	assert.Equal(t, f.tournament.ID, finds[0].Tournament.ID)
+	view, err := f.desk.LinkView(ctx, finds[0].Token)
+	require.NoError(t, err)
+	require.NotNil(t, view.Find)
+	require.Len(t, view.Find.Teams, 1, "the cancelled entry is not listed")
+	assert.Equal(t, "熱海ディスクス", view.Find.Teams[0].FullName)
+	_, err = f.desk.ChooseTeamByLink(ctx, finds[0].Token, cancelled.ID)
+	var notFound *domain.NotFoundError
+	require.ErrorAs(t, err, &notFound)
+
+	// チームを選ぶとメンバー登録のリンクが出て、そこから登録すると招待なしの印が付く
+	member, err := f.desk.ChooseTeamByLink(ctx, finds[0].Token, atami.ID)
+	require.NoError(t, err)
+	form, err := f.desk.LinkView(ctx, member.Token)
+	require.NoError(t, err)
+	require.NotNil(t, form.Member)
+	assert.True(t, form.Member.Found)
+	joined, err := f.desk.JoinByLink(ctx, member.Token, entry.JoinDraft{Name: "鈴木 一郎"})
+	require.NoError(t, err)
+	require.NotNil(t, joined.Mine)
+	assert.True(t, joined.Mine.WithoutInvite)
+	// 代表の名簿の行(佐藤 花子)に名前で結ばれた人も同じ
+	sato := f.lineUser(t, "Usato")
+	satoLink, err := f.desk.ChooseTeamByLink(ctx, f.findToken(t, sato), atami.ID)
+	require.NoError(t, err)
+	satoForm, err := f.desk.JoinByLink(ctx, satoLink.Token, entry.JoinDraft{Name: "佐藤花子"})
+	require.NoError(t, err)
+	assert.Equal(t, atami.MemberList[1].ID, satoForm.Mine.ID)
+	// 招待リンクから登録した人には印が付かない
+	invited := f.lineUser(t, "Uinvited")
+	inviteLink, err := f.desk.IssueMemberLink(ctx, invited, atami.InviteCode)
+	require.NoError(t, err)
+	invitedForm, err := f.desk.JoinByLink(ctx, inviteLink.Token, entry.JoinDraft{Name: "田中 次郎"})
+	require.NoError(t, err)
+	assert.False(t, invitedForm.Mine.WithoutInvite)
+
+	// 代表は招待なしの人を外せる。招待リンクから登録した人は外せない
+	_, err = f.desk.RemoveMemberByLink(ctx, repLink.Token, atami.ID, invitedForm.Mine.ID)
+	require.ErrorIs(t, err, domain.ErrBadRequest)
+	detail, err := f.desk.RemoveMemberByLink(ctx, repLink.Token, atami.ID, joined.Mine.ID)
+	require.NoError(t, err)
+	assert.Nil(t, findMemberNamed(detail.MemberList, "鈴木 一郎"), "a row the member added is removed")
+	detail, err = f.desk.RemoveMemberByLink(ctx, repLink.Token, atami.ID, satoForm.Mine.ID)
+	require.NoError(t, err)
+	kept := findMemberNamed(detail.MemberList, "佐藤花子")
+	require.NotNil(t, kept, "the rep's row stays")
+	assert.False(t, kept.Registered)
+	assert.False(t, kept.WithoutInvite)
+	// ほかの人のリンクからは外せない
+	again, err := f.desk.ChooseTeamByLink(ctx, f.findToken(t, sato), atami.ID)
+	require.NoError(t, err)
+	again2, err := f.desk.JoinByLink(ctx, again.Token, entry.JoinDraft{Name: "佐藤 花子"})
+	require.NoError(t, err)
+	other := f.teamLink(t, f.lineUser(t, "Uother"), f.tournament.ID)
+	_, err = f.desk.RemoveMemberByLink(ctx, other.Token, atami.ID, again2.Mine.ID)
+	require.ErrorAs(t, err, &notFound)
+	// 参加が決まったら、代表は外せない(運営が直す)
+	_, err = f.desk.Decide(ctx, atami.ID, entry.ActionApprove, "", f.admin)
+	require.NoError(t, err)
+	_, err = f.desk.RemoveMemberByLink(ctx, repLink.Token, atami.ID, again2.Mine.ID)
+	require.ErrorIs(t, err, domain.ErrConflict)
+}
+
+// findToken は lineUser の人の、この大会のチームを探すリンクの合言葉。
+func (f linkFixture) findToken(t *testing.T, lineUser int64) string {
+	t.Helper()
+	finds, err := f.desk.IssueFindLinks(context.Background(), lineUser)
+	require.NoError(t, err)
+	require.NotEmpty(t, finds)
+	return finds[0].Token
+}
+
+func findMemberNamed(members []entry.Member, name string) *entry.Member {
+	for i := range members {
+		if members[i].Name == name {
+			return &members[i]
+		}
+	}
+	return nil
+}

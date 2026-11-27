@@ -8,6 +8,7 @@ import {
   entryDetailSchema,
   entryLinkMemberSchema,
   entryLinkSchema,
+  issuedLinkSchema,
 } from './entry.types'
 
 // docs/api.md「LINE からの申込」を呼ぶ関数。ログインは無く、パスの合言葉で本人を確かめる。
@@ -39,6 +40,19 @@ export const entryLinks = {
       method: 'POST',
       body: {},
     }),
+  /** チームを探す画面で選んだチーム entryId への、メンバー登録のリンクを発行する */
+  chooseTeam: (token: string, entryId: number) =>
+    apiFetch(`${base}/${encodeURIComponent(token)}/find`, issuedLinkSchema, {
+      method: 'POST',
+      body: { entryId },
+    }),
+  /** 代表が、自分の申込 entryId から、招待リンクを使わずに登録したメンバー memberId を外す */
+  removeMember: (token: string, entryId: number, memberId: number) =>
+    apiFetch(
+      `${base}/${encodeURIComponent(token)}/team/${entryId}/members/${memberId}/remove`,
+      entryDetailSchema,
+      { method: 'POST', body: {} },
+    ),
   join: (token: string, body: EntryJoinInput) =>
     apiFetch(`${base}/${encodeURIComponent(token)}/member`, entryLinkMemberSchema, {
       method: 'POST',

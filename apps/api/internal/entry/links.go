@@ -23,6 +23,8 @@ const (
 	LinkMember LinkPurpose = "member"
 	// LinkScorer はチームの記録係が記録の画面に入る(TeamEntryID は記録係のチームの申込)
 	LinkScorer LinkPurpose = "scorer"
+	// LinkFind はメンバーが招待リンクを使わずに、大会(TournamentID)の中から自分のチームを探す
+	LinkFind LinkPurpose = "find"
 )
 
 // LinkLifetimeDays は本人用のリンクを使える日数。リンクを転送されたときに、転送された人が使える期間を
@@ -41,6 +43,8 @@ type Link struct {
 	TournamentID int64
 	TeamEntryID  int64
 	ExpiresAt    time.Time
+	// Found はチームを探す画面で選んで発行したメンバー登録のリンク(招待リンクからではない)
+	Found bool
 }
 
 // IssuedLink は発行した本人用のリンク。TeamName はメンバー登録のリンクのときのチーム名。
@@ -104,14 +108,32 @@ type MemberForm struct {
 	MineAnswers    []Answer
 	ProfileName    string
 	ExpiresAt      time.Time
+	// Found はチームを探す画面から開いたか(招待リンクを使わない登録は、代表の画面に印が付く)
+	Found bool
 }
 
-// LinkView は本人用のリンクで開く画面。Purpose に合わせて Team か Member のどちらかが入る。
+// FindTeam はチームを探す画面に並べるチーム(取り消していない申込)。
+type FindTeam struct {
+	EntryID   int64
+	FullName  string
+	ShortName string
+	Division  Division
+}
+
+// FindView はチームを探す画面に要るもの。Teams は部門、申込の順。
+type FindView struct {
+	TournamentName string
+	Teams          []FindTeam
+	ExpiresAt      time.Time
+}
+
+// LinkView は本人用のリンクで開く画面。Purpose に合わせて Team、Member、Scorer、Find のどれかが入る。
 type LinkView struct {
 	Purpose LinkPurpose
 	Team    *TeamForm
 	Member  *MemberForm
 	Scorer  *ScorerView
+	Find    *FindView
 }
 
 // ScorerTeam はこの LINE の人が記録係に選ばれたチーム(参加が決まった申込の、終わっていない大会)。
@@ -172,6 +194,9 @@ type Join struct {
 	Answers     []Answer
 	Profile     ProfileUpdate
 	At          time.Time
+	// WithoutInvite は招待リンクを使わずに(チームを探す画面から)登録した。新しく登録するときだけ
+	// 印にし、登録済みの人が直すときは変えない
+	WithoutInvite bool
 }
 
 // CheckLink はリンクが今使えるかを確かめる。期限切れは、見つからないリンクと同じエラーにする(どちらも
@@ -196,6 +221,19 @@ func CheckPurpose(link Link, purpose LinkPurpose) error {
 func CanJoin(status Status) error {
 	if status == StatusCancelled {
 		return fmt.Errorf("%w: the entry of this team has been cancelled", domain.ErrConflict)
+	}
+	return nil
+}
+
+// CanRemoveMember は代表が、招待リンクを使わずに登録したメンバー member を外せるかを確かめる。参加が
+// 決まると選手ができる(試合の記録が結びつく)ので、外せるのは参加が決まる前(確認待ちと直し待ち)だけ。
+// 招待リンクから登録した人は代表がリンクを渡した人なので外さない(運営が直す)。
+func CanRemoveMember(status Status, member Member) error {
+	if !member.Registered || !member.WithoutInvite {
+		return domain.Invalid("memberId", "only a member who registered without the invite can be removed")
+	}
+	if status != StatusPending && status != StatusReturned {
+		return fmt.Errorf("%w: after the entry is decided, ask the organizers to remove a member", domain.ErrConflict)
 	}
 	return nil
 }

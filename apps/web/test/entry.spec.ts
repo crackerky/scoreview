@@ -182,7 +182,16 @@ describe('api の応答とエラー', () => {
       inviteUrl: '',
       decidedAt: '2026-11-13T06:00:00Z',
       scorerMemberId: null,
-      memberList: [{ id: 3, name: '山田 太郎', number: '7', registered: false, playerId: 11 }],
+      memberList: [
+        {
+          id: 3,
+          name: '山田 太郎',
+          number: '7',
+          registered: false,
+          playerId: 11,
+          withoutInvite: false,
+        },
+      ],
       answers: [{ questionId: 4, value: 'yes' }],
     })
     assert.equal(parsed.memberList[0]?.playerId, 11)

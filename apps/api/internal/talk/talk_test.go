@@ -79,6 +79,7 @@ func (s *fakeStore) LineUser(_ context.Context, userID string, _ time.Time) (int
 
 type fakeLinks struct {
 	tournaments []entry.TournamentRef
+	find        []entry.TournamentRef
 	joined      []entry.JoinedTeam
 	scorer      []entry.ScorerTeam
 	issued      []string
@@ -90,6 +91,16 @@ func (l *fakeLinks) IssueScorerLinks(_ context.Context, lineUser int64) ([]entry
 		token := fmt.Sprintf("scorer-%d-%d", lineUser, team.TeamEntryID)
 		l.issued = append(l.issued, token)
 		out[i] = entry.ScorerLink{Team: team, Token: token}
+	}
+	return out, nil
+}
+
+func (l *fakeLinks) IssueFindLinks(_ context.Context, lineUser int64) ([]entry.TournamentLink, error) {
+	out := make([]entry.TournamentLink, len(l.find))
+	for i, tournament := range l.find {
+		token := fmt.Sprintf("find-%d-%d", lineUser, tournament.ID)
+		l.issued = append(l.issued, token)
+		out[i] = entry.TournamentLink{Tournament: tournament, Token: token}
 	}
 	return out, nil
 }
@@ -209,8 +220,18 @@ func TestBotRepliesJoinedTeamsToAMember(t *testing.T) {
 		reply.Choices)
 	assert.Equal(t, []string{"joined-1-41"}, links.issued, "no rep links for a member")
 
-	// まだどのチームにも登録していない人には、登録のしかたを返す
+	// 招待リンクのほかに、大会を選んでチームを探す道も出す
+	links.find = []entry.TournamentRef{{ID: 9, Name: "ルーキーズファイナル"}}
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("3", "U1", talk.PostbackEntryMember)}))
+	assert.Equal(t, talk.Choice{Label: "ルーキーズファイナルでチームを探す", URL: "https://score.example/entry/find-1-9"},
+		messenger.replies["r-3"][0].Choices[1])
 	links.joined = nil
+	require.NoError(t, bot.Handle(context.Background(), []talk.Event{postback("4", "U1", talk.PostbackEntryMember)}))
+	assert.Contains(t, messenger.replies["r-4"][0].Text, "招待リンクを開くか、下のボタンで大会を選んで")
+	assert.Len(t, messenger.replies["r-4"][0].Choices, 1)
+
+	// どちらの道も無ければ(登録できるチームのある大会が無い)、登録のしかたを返す
+	links.find = nil
 	require.NoError(t, bot.Handle(context.Background(), []talk.Event{message("2", "U1", "メンバー登録")}))
 	assert.Equal(t, talk.TextMemberHowTo, messenger.replies["r-2"][0].Text)
 }

@@ -214,7 +214,15 @@ func (b *Bot) answer(ctx context.Context, event Event, command Command) ([]Messa
 			joined[i] = JoinedTeamLink{Team: link.Team.TeamName, Tournament: link.Team.Tournament.Name,
 				URL: b.linkURL(link.Token)}
 		}
-		return []Message{MemberReplyMessage(joined)}, nil
+		findLinks, err := b.links.IssueFindLinks(ctx, lineUser)
+		if err != nil {
+			return nil, err
+		}
+		find := make([]TeamLink, len(findLinks))
+		for i, link := range findLinks {
+			find[i] = TeamLink{Tournament: link.Tournament.Name, URL: b.linkURL(link.Token)}
+		}
+		return []Message{MemberReplyMessage(joined, find)}, nil
 	}
 	links, err := b.links.IssueTeamLinks(ctx, lineUser)
 	if err != nil {
