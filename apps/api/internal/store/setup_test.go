@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -86,4 +87,35 @@ func TestDeleteDivisionTeams(t *testing.T) {
 	f := newFormatFixture(t)
 	_, err = store.DeleteDivisionTeams(ctx, f.db, f.division.ID)
 	require.ErrorIs(t, err, domain.ErrConflict, "試合がある部門は消さない")
+}
+
+// 大会のコピーは、申込で聞く質問(答えは除く)とメンバー本人に聞く項目を引き継ぐ。
+func TestCopyTournamentKeepsEntryQuestions(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.New(t)
+	b := storetest.New(t, db)
+	source := b.Tournament(func(row *store.Tournament) {
+		row.EntryAskGender, row.EntryAskBirthdate = true, true
+	})
+	for i, label := range []string{"宿泊", "学年"} {
+		question := store.EntryQuestion{TournamentID: source.ID, Scope: "member", Label: label, Kind: "short_text",
+			Options: []byte("[]"), SortOrder: i, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+		require.NoError(t, db.Create(&question).Error)
+	}
+	record, err := store.GetAdminTournament(ctx, db, source.ID)
+	require.NoError(t, err)
+	fields := record.TournamentFields
+	fields.Name = domain.I18nText{Ja: "次回の大会"}
+	copied, err := store.CopyTournament(ctx, db, source.ID, fields, false)
+	require.NoError(t, err)
+
+	var questions []store.EntryQuestion
+	require.NoError(t, db.Where("tournament_id = ?", copied.ID).Order("sort_order, id").Find(&questions).Error)
+	require.Len(t, questions, 2)
+	assert.Equal(t, "宿泊", questions[0].Label)
+	assert.Equal(t, "学年", questions[1].Label)
+	var row store.Tournament
+	require.NoError(t, db.First(&row, copied.ID).Error)
+	assert.True(t, row.EntryAskGender)
+	assert.True(t, row.EntryAskBirthdate)
 }

@@ -23,8 +23,8 @@ func (divisionCopyRow) TableName() string { return "divisions" }
 
 // CopyTournament は大会 sourceID を fields(名前、開催日など。TopHTML は無害化済み)の新しい大会として
 // コピーする。引き継ぐのはバナーと部門(コピー元を覚え、形はその部門で決めるときの初期値になる)、
-// withTeams ならチームと選手(最終順位は消す。英語名が空なら CreateTeam と同じく日本語名を入れる)。
-// 試合、組、結果、ギャラリー、記録係の割り当ては引き継がない。
+// 申込で聞く質問とメンバー本人に聞く項目、withTeams ならチームと選手(最終順位は消す。英語名が空なら
+// CreateTeam と同じく日本語名を入れる)。試合、組、結果、申込、ギャラリー、記録係の割り当ては引き継がない。
 func CopyTournament(
 	ctx context.Context,
 	db *gorm.DB,
@@ -37,16 +37,22 @@ func CopyTournament(
 	}
 	var row Tournament
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := findByID[Tournament](ctx, tx, sourceID, domain.ResourceTournament); err != nil {
+		source, err := findByID[Tournament](ctx, tx, sourceID, domain.ResourceTournament)
+		if err != nil {
 			return err
 		}
 		if err := fields.apply(&row); err != nil {
 			return err
 		}
+		// 申込でメンバー本人に聞く項目も引き継ぐ(質問は copyEntryQuestions)
+		row.EntryAskGender, row.EntryAskBirthdate = source.EntryAskGender, source.EntryAskBirthdate
 		if err := tx.Create(&row).Error; err != nil {
 			return writeError("create tournament copy", err)
 		}
 		if err := copyBanners(ctx, tx, sourceID, row.ID); err != nil {
+			return err
+		}
+		if err := copyEntryQuestions(ctx, tx, sourceID, row.ID); err != nil {
 			return err
 		}
 		return copyDivisions(ctx, tx, sourceID, row.ID, withTeams)
@@ -67,6 +73,23 @@ func copyBanners(ctx context.Context, tx *gorm.DB, sourceID, targetID int64) err
 		banner.ID, banner.TournamentID = 0, targetID
 		if err := tx.WithContext(ctx).Create(&banner).Error; err != nil {
 			return writeError("copy banner", err)
+		}
+	}
+	return nil
+}
+
+// copyEntryQuestions は申込で聞く質問を並び順のまま写す(答えは写さない)。運営が大会ごとに同じ質問を
+// 入れ直さなくてよいように(運営の要望 2026-11-28)。
+func copyEntryQuestions(ctx context.Context, tx *gorm.DB, sourceID, targetID int64) error {
+	var questions []EntryQuestion
+	if err := tx.WithContext(ctx).Where(sqlByTournament, sourceID).Order(sqlOrderSortID).
+		Find(&questions).Error; err != nil {
+		return fmt.Errorf("list entry questions of tournament %d: %w", sourceID, err)
+	}
+	for _, question := range questions {
+		question.ID, question.TournamentID = 0, targetID
+		if err := tx.WithContext(ctx).Create(&question).Error; err != nil {
+			return writeError("copy entry question", err)
 		}
 	}
 	return nil
