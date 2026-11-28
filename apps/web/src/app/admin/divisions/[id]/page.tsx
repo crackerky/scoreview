@@ -227,7 +227,9 @@ async function AdminSections({
         <form action={createGroupAction} className="adm-stack grp-form">
           <Hidden values={{ back, divisionId: id, linked: 'on', published: 'on' }} />
           <GroupFields mode="add" nextSortOrder={nextGroupSortOrder(groupList.groups)} />
-          <button type="submit">組を足す</button>
+          <button type="submit" className="grp-submit">
+            組を足す
+          </button>
         </form>
       </details>
 

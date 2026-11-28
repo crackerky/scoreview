@@ -45,7 +45,9 @@ export default async function AdminGroupPage(props: IdPageProps) {
       <form action={updateGroupAction} className="adm-stack grp-form">
         <Hidden values={{ back, id }} />
         <GroupFields mode="edit" group={group} />
-        <button type="submit">保存</button>
+        <button type="submit" className="grp-submit">
+          保存
+        </button>
       </form>
 
       {group.kind === 'bracket' ? (
