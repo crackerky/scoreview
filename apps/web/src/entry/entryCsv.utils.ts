@@ -1,9 +1,10 @@
 import type { EntryAdminDetail, EntryExport } from '@/api/entry.types'
-import { answerText, channelLabels, dateTimeText, statusLabels } from './entry.utils'
+import { answerText, channelLabels, dateTimeText, genderLabels, statusLabels } from './entry.utils'
 
 // 申込の書き出し(CSV)。運営が Excel で名簿として開く前提で、メンバー 1 人を 1 行にし、チームの欄と
 // チーム向けの質問への答えを各行に繰り返す(並べ替えや絞り込みをしても行がチームから離れないように)。
-// メンバー向けの質問への答えは、メンバーの欄の後ろに、その人の行にだけ書く。
+// メンバー向けの質問への答えは、メンバーの欄の後ろに、その人の行にだけ書く。大会が性別と生年月日を聞くなら、
+// メンバーの欄のすぐ後ろにその列を足す。
 
 /** Excel が UTF-8 と読むための BOM。無いと日本語が化ける */
 const bom = '﻿'
@@ -22,6 +23,27 @@ function csvLine(cells: readonly string[]): string {
 }
 
 const memberColumns = ['背番号', '名前', 'LINE の登録'] as const
+
+type ExportMember = EntryAdminDetail['memberList'][number]
+
+/** 大会が聞く本人の項目の列(見出しと、メンバーの値の取り出し) */
+function personalColumns(
+  personal: EntryExport['personal'],
+): Array<{ label: string; value: (member: ExportMember) => string }> {
+  return [
+    ...(personal.gender
+      ? [
+          {
+            label: '性別',
+            value: (member: ExportMember) => (member.gender ? genderLabels[member.gender] : ''),
+          },
+        ]
+      : []),
+    ...(personal.birthdate
+      ? [{ label: '生年月日', value: (member: ExportMember) => member.birthdate ?? '' }]
+      : []),
+  ]
+}
 
 function teamCells(entry: EntryAdminDetail, answers: readonly string[]): string[] {
   return [
@@ -42,6 +64,7 @@ function teamCells(entry: EntryAdminDetail, answers: readonly string[]): string[
 export function entriesCsv(data: EntryExport): string {
   const questions = data.questions.filter((question) => question.scope === 'team')
   const memberQuestions = data.questions.filter((question) => question.scope === 'member')
+  const personal = personalColumns(data.personal)
   const header = [
     '申込番号',
     '状態',
@@ -54,6 +77,7 @@ export function entriesCsv(data: EntryExport): string {
     '経路',
     ...questions.map((question) => question.label),
     ...memberColumns,
+    ...personal.map((column) => column.label),
     ...memberQuestions.map((question) => question.label),
   ]
   const lines = [csvLine(header)]
@@ -65,7 +89,9 @@ export function entriesCsv(data: EntryExport): string {
     })
     const team = teamCells(entry, answers)
     if (entry.memberList.length === 0) {
-      lines.push(csvLine([...team, '', '', '', ...memberQuestions.map(() => '')]))
+      lines.push(
+        csvLine([...team, '', '', '', ...personal.map(() => ''), ...memberQuestions.map(() => '')]),
+      )
       continue
     }
     for (const member of entry.memberList) {
@@ -80,6 +106,7 @@ export function entriesCsv(data: EntryExport): string {
           member.number,
           member.name,
           member.registered ? '済み' : 'まだ',
+          ...personal.map((column) => column.value(member)),
           ...memberAnswers,
         ]),
       )

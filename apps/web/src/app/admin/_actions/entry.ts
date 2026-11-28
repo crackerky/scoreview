@@ -36,6 +36,17 @@ export async function saveEntryQuestionsAction(
   })
 }
 
+/** メンバー本人に聞く項目(性別、生年月日)の保存。チェックの欄は印があるときだけ送られる */
+export async function savePersonalAskAction(formData: FormData): Promise<never> {
+  return runAction(formData, async ({ token, form }) => {
+    await entries.savePersonal(token, idField(form, 'tournamentId'), {
+      gender: field(form, 'gender') === 'on',
+      birthdate: field(form, 'birthdate') === 'on',
+    })
+    return undefined
+  })
+}
+
 export async function createEntryAction(formData: FormData): Promise<never> {
   return runAction(
     formData,

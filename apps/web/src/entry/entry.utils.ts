@@ -26,6 +26,9 @@ export const statusTones = {
   cancelled: 'done',
 } as const satisfies Record<EntryStatus, 'live' | 'done' | 'sched' | 'warn' | 'ok'>
 
+/** メンバー本人の性別の言い方(運営の画面と CSV) */
+export const genderLabels = { M: '男性', F: '女性' } as const
+
 export const kindLabels: Readonly<Record<EntryKind, string>> = {
   short_text: '短い文',
   long_text: '長い文',

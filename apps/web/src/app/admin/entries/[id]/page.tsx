@@ -10,6 +10,7 @@ import {
   answerText,
   channelLabels,
   dateTimeText,
+  genderLabels,
   registeredText,
   statusLabels,
   statusTones,
@@ -139,6 +140,8 @@ export default async function EntryPage(props: IdPageProps) {
               <th>背番号</th>
               <th>名前</th>
               <th>LINE の登録</th>
+              {questionList.personal.gender ? <th>性別</th> : null}
+              {questionList.personal.birthdate ? <th>生年月日</th> : null}
               {memberQuestions.map((question) => (
                 <th key={question.id}>{question.label}</th>
               ))}
@@ -158,6 +161,10 @@ export default async function EntryPage(props: IdPageProps) {
                         : '済み'
                       : 'まだ'}
                   </td>
+                  {questionList.personal.gender ? (
+                    <td>{member.gender ? genderLabels[member.gender] : ''}</td>
+                  ) : null}
+                  {questionList.personal.birthdate ? <td>{member.birthdate ?? ''}</td> : null}
                   {memberQuestions.map((question) => {
                     const value = own.get(question.id)
                     return (
