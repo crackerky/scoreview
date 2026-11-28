@@ -16,6 +16,7 @@ import (
 //	blocks:      {"teams":32,"bands":[{"ranks":[2,3],"shape":"T8R1","pairing":null,"name":null}]}
 //	             {"teams":95,"cuts":[16,8,8,8,8,8,8,8,8,8,7]}(全体の並びを大きさで分ける。bands の代わり)
 //	round_robin: {"teams":8,"pools":2,"finalPoolRanks":[1,2]}
+//	knockout:    {"teams":6}(全チームの勝ち抜き 1 つ)
 //
 // pairing と name は null で既定(Band のコメント)。
 type paramsJSON struct {
@@ -84,6 +85,12 @@ func DecodeParams(template string, data []byte) (any, error) {
 			return nil, domain.Invalid("params.poolSeeds", "is only for pool_bands")
 		}
 		return RoundRobinParams{Teams: raw.Teams, Pools: pools, FinalPoolRanks: raw.FinalPoolRanks}, nil
+	case TemplateKnockout:
+		if raw.Pools != nil || len(raw.Bands) > 0 || len(raw.FinalPoolRanks) > 0 || len(raw.Cuts) > 0 ||
+			len(raw.PoolSeeds) > 0 {
+			return nil, domain.Invalid("params", "knockout takes teams only")
+		}
+		return KnockoutParams{Teams: raw.Teams}, nil
 	}
 	return nil, domain.Invalid("template", fmt.Sprintf("unknown template %q", template))
 }
@@ -105,6 +112,10 @@ func EncodeParams(params any) ([]byte, error) {
 		raw = paramsJSON{Teams: p.Teams, Pools: &p.Pools, FinalPoolRanks: p.FinalPoolRanks}
 	case *RoundRobinParams:
 		return EncodeParams(*p)
+	case KnockoutParams:
+		raw = paramsJSON{Teams: p.Teams}
+	case *KnockoutParams:
+		return EncodeParams(*p)
 	default:
 		return nil, domain.Invalid("params", fmt.Sprintf("unsupported params %T", params))
 	}
@@ -123,6 +134,8 @@ func TeamsOf(params any) int {
 	case BlocksParams:
 		return p.Teams
 	case RoundRobinParams:
+		return p.Teams
+	case KnockoutParams:
 		return p.Teams
 	}
 	return 0

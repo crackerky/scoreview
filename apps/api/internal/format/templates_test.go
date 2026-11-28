@@ -461,7 +461,7 @@ func (customTemplate) Build(b *format.Builder, _ any) error {
 
 func TestWithTemplate(t *testing.T) {
 	engine := format.NewEngine(format.WithTemplate(customTemplate{}))
-	assert.Equal(t, []string{"blocks", "pool_bands", "round_robin", "t4_only"}, engine.Templates())
+	assert.Equal(t, []string{"blocks", "knockout", "pool_bands", "round_robin", "t4_only"}, engine.Templates())
 	plan, err := engine.Generate(format.Spec{Template: "t4_only", StartLetter: "M"})
 	require.NoError(t, err)
 	assert.Equal(t, "Final M", plan.Groups[0].Name)

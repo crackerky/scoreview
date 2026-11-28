@@ -789,7 +789,7 @@ type ScheduleSetting = {
   sport: Sport | null                               // 条件を入れた競技(ウィザードの初期値)
 }
 type FormatInput = {
-  template: 'pool_bands' | 'blocks' | 'round_robin'
+  template: 'pool_bands' | 'blocks' | 'round_robin' | 'knockout'
   params: FormatParams
   seeds: number[]                                   // シード順のチーム。数は形のチーム数と同じ
   tiebreak: Tiebreak                                // 省略時 'current'

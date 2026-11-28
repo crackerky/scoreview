@@ -122,6 +122,9 @@ func bracketDefFor(kind BracketType) (bracketDef, error) {
 	case BracketT16Full:
 		return t16FullDef(), nil
 	}
+	if n, ok := knockoutTeams(kind); ok {
+		return knockoutDef(kind, n)
+	}
 	return bracketDef{}, domain.Invalid("bracket", fmt.Sprintf("unknown bracket type %q", kind))
 }
 

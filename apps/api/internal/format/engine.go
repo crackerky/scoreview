@@ -41,7 +41,7 @@ func WithTemplate(t Template) Option {
 // NewEngine は既定の 3 テンプレート(pool_bands、blocks、round_robin)を登録した Engine を返す。
 func NewEngine(opts ...Option) *Engine {
 	e := &Engine{templates: map[string]Template{}}
-	for _, t := range []Template{PoolBandsTemplate{}, BlocksTemplate{}, RoundRobinTemplate{}} {
+	for _, t := range []Template{PoolBandsTemplate{}, BlocksTemplate{}, RoundRobinTemplate{}, KnockoutTemplate{}} {
 		e.templates[t.Name()] = t
 	}
 	for _, opt := range opts {

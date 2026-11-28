@@ -254,7 +254,16 @@
 { "teams": 95, "cuts": [16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7] }
 // round_robin(総当たり 1 段)。pools は 1 か 2、finalPoolRanks は 2 プールのとき決勝プールに進む順位
 { "teams": 8, "pools": 2, "finalPoolRanks": [1, 2] }
+// knockout(トーナメントだけ。2〜16 チーム)。全チームで 1 つの勝ち抜きを組み、負けたチームも順位決定戦で
+// 順位を決める。型は KO{n}(下)
+{ "teams": 6 }
 ```
+
+`knockout` の型 `KO{n}` は、全順位を決める基の型(2 チームは `T2`、3〜4 は `T4`、5〜8 は `T8`、9〜16 は
+`T16Full`)の、シード n+1 以下の枠を空けて作る(`format.pruneBracket`)。
+片側しかいない試合は取り除き、残った側がそのまま次へ進む(上位のシードほど 1 回戦を免除される)。
+取り除いた試合が順位を決めていたなら、その順位は残った側を出した試合の結果に付け替える(3 チームは 3 位決定戦の代わりに 1 回戦の敗者が 3 位)。
+残った試合は基の番号の順に 1 から振り直す。
 
 `shape` は `pool`、`T2`、`T4`、`T7`、`T8`、`T8R1`、`T12`、`T16`、`T16Full`。
 枠の出どころ(`group_slots.source`)は `{"kind":"seed","seed":3}`、`{"kind":"group_rank","group":0,"rank":1}`、`{"kind":"match","match":"E2","outcome":"win"}`、`{"kind":"band_rank","stage":0,"rank":2,"order":1}`、`{"kind":"manual"}`(`group` と `stage` は形の中の序数)。
@@ -262,7 +271,9 @@
 時間割の設定(`division_formats.schedule`):
 
 ```jsonc
-{ "date": "2026-11-14", "start": "09:00", "slotMinutes": 60, "courts": ["1", "2", "3", "4"],
+// slotMinutes は同じコートで次の試合が始まるまでの長さで、gapMinutes(試合のあいだの空き時間)を含む。
+// 試合そのものの長さは slotMinutes − gapMinutes(記録係の画面の試合時間)。gapMinutes の無い古い設定は 0
+{ "date": "2026-11-14", "start": "09:00", "slotMinutes": 60, "gapMinutes": 10, "courts": ["1", "2", "3", "4"],
   "teamRestSlots": 1, "stageGapSlots": 0, "end": "17:00",
   // 複数日の大会(00005 の後に足した。無ければ date、start、end の 1 日)
   "days": [{ "date": "2026-11-14", "start": "09:00", "end": "17:00" },

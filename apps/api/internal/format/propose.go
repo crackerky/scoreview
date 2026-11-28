@@ -179,6 +179,10 @@ func Propose(in ProposalInput) ([]Proposal, error) {
 				Spec{Template: TemplateRoundRobin, Params: RoundRobinParams{Teams: in.Teams, Pools: 2}})
 		}
 	}
+	if in.Teams >= 3 && in.Teams <= maxKnockoutTeams {
+		add("ko", "全チームで 1 つのトーナメントを組みます。上位のシードは 1 回戦を免除し、負けたチームも順位決定戦で順位を決めます",
+			Spec{Template: TemplateKnockout, Params: KnockoutParams{Teams: in.Teams}})
+	}
 	if blocks := blockCount(in.Teams); blocks >= 3 {
 		if cuts, ok := overallCuts(in.Teams); ok {
 			add(fmt.Sprintf("blocks%d-cuts", blocks),
@@ -375,7 +379,9 @@ func Title(plan *Plan) string {
 		unit = "ブロック"
 	}
 	var head string
-	if len(first) == 1 {
+	if len(first) == 1 && plan.Groups[first[0]].Kind == domain.GroupBracket {
+		head = fmt.Sprintf("%d チームのトーナメント", plan.Groups[first[0]].Size())
+	} else if len(first) == 1 {
 		head = fmt.Sprintf("%d チームの総当たり", plan.Groups[first[0]].Size())
 	} else if len(order) == 1 {
 		head = fmt.Sprintf("%d %s(各 %d チーム)", len(first), unit, order[0])
