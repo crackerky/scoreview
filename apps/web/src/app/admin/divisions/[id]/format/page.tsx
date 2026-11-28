@@ -14,6 +14,15 @@ import '@/styles/format-admin.css'
 // 適用まで。?pools=draft で開くと、試合を組むの組分けで決めた組のまま、そのあとの順位決定戦と時間割を
 // 決める(候補は組を変えない形だけ)。
 
+// 名簿の貼り付けの注意。LINE の申込は参加を決めるとチームと選手が自動でできるので、書き出した CSV を
+// 貼り直すと二重になる(運営者の質問 2026-11-27)
+const rosterTeamNote =
+  'LINE で申し込んだチームは、申込の画面で参加を決めるとここに自動で入るので、貼らなくて大丈夫です。' +
+  '貼り付けは、LINE を通さずに申し込んだチームを入れるときに使います。申込の CSV を貼ると、同じチームが二重にできます。'
+const rosterPlayerNote =
+  'LINE で申し込んだチームの選手は、参加を決めたときに申込のメンバーから自動で入ります。' +
+  '貼り付けた選手は名前だけの登録で、LINE のアカウントとは結びつきません。'
+
 export default async function FormatWizardPage(props: IdPageProps) {
   const [{ id, notice }, query] = await Promise.all([readAdminPage(props), props.searchParams])
   const { user, token } = await requireUser('admin')
@@ -93,6 +102,7 @@ export default async function FormatWizardPage(props: IdPageProps) {
       ) : null}
       <details open={refs.length === 0}>
         <summary>チームを名簿から登録する(登録済み {refs.length} チーム)</summary>
+        <p className="adm-muted">{rosterTeamNote}</p>
         <RosterImport
           kind="teams"
           back={back}
@@ -117,6 +127,7 @@ export default async function FormatWizardPage(props: IdPageProps) {
       {refs.length > 0 ? (
         <details>
           <summary>選手名簿を貼り付けて登録する</summary>
+          <p className="adm-muted">{rosterPlayerNote}</p>
           <RosterImport kind="players" back={back} divisionId={id} teams={teamOptions} />
         </details>
       ) : null}
