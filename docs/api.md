@@ -985,6 +985,9 @@ type EntryQuestion = {
   options: string[]                  // choice の選択肢。それ以外は []
   answered: number                   // 答えの数(答えのある質問は kind と scope を変えられない)
 }
+// 大会がメンバー本人に聞く項目と、その答え(migration 00054。性別は選手と同じ M / F、生年月日は "YYYY-MM-DD"。未回答は null)
+type EntryPersonalAsk = { gender: boolean; birthdate: boolean }
+type EntryPersonal = { gender: 'M' | 'F' | null; birthdate: string | null }
 type EntryStatus = 'pending' | 'returned' | 'approved' | 'cancelled'   // 画面では 確認待ち / 直し待ち / 参加決定 / 取消
 type EntrySummary = {
   id: number
@@ -1008,18 +1011,20 @@ type EntryDetail = EntrySummary & {
   scorerMemberId: number | null      // チームの記録係(memberList の id)。参加が決まったチームの代表が LINE で登録したメンバーから選ぶ。まだなら null
   memberList: Array<{ id: number; name: string; number: string; registered: boolean; playerId: number | null; withoutInvite: boolean }>
                                      // withoutInvite は招待リンクを使わずに(公式 LINE から大会を選んでチームを探して)登録した人
-                                     // 運営の口(/admin/…)は、メンバーごとに answers: Array<{ questionId; value }>(本人が答えたメンバー向けの質問)も付ける。本人用のリンクの口には付けない(ほかのメンバーや代表に見せない)
+                                     // 運営の口(/admin/…)は、メンバーごとに answers: Array<{ questionId; value }>(本人が答えたメンバー向けの質問)と
+                                     // EntryPersonal の gender、birthdate(本人が答えた性別と生年月日)も付ける。本人用のリンクの口には付けない(ほかのメンバーや代表に見せない)
   answers: Array<{ questionId: number; value: string }>   // yes_no は 'yes' / 'no'、number は整数の文字列
 }
 ```
 
 | メソッドとパス | ボディ | 応答 |
 |---|---|---|
-| `GET /admin/tournaments/{id}/entry-questions` | なし | `{ questions: EntryQuestion[] }`(並び順) |
-| `PUT /admin/tournaments/{id}/entry-questions` | `{ questions: Array<{ id: number \| null; scope; label; kind; required; options }> }` | `{ questions: EntryQuestion[] }`。この並びで置き換える。`id` が null の質問は作り、並びに無い質問は答えごと消す。よその大会の `id` は 400、答えのある質問の `kind` か `scope` を変えると 409 |
+| `GET /admin/tournaments/{id}/entry-questions` | なし | `{ questions: EntryQuestion[]; personal: EntryPersonalAsk }`(並び順) |
+| `PUT /admin/tournaments/{id}/entry-questions` | `{ questions: Array<{ id: number \| null; scope; label; kind; required; options }> }` | `{ questions: EntryQuestion[]; personal: EntryPersonalAsk }`。この並びで置き換える。`id` が null の質問は作り、並びに無い質問は答えごと消す。よその大会の `id` は 400、答えのある質問の `kind` か `scope` を変えると 409 |
+| `PUT /admin/tournaments/{id}/entry-personal` | `EntryPersonalAsk` | `EntryPersonalAsk`。メンバー本人に聞く項目を決める(Lイベントの顧客情報入力項目にあたる) |
 | `GET /admin/tournaments/{id}/entries` | なし | `{ entries: EntrySummary[] }`(受けた順) |
 | `POST /admin/tournaments/{id}/entries` | `{ divisionId; fullName; shortName; repName; repPhone; repEmail; members: Array<{ name; number }>; answers: Array<{ questionId; value }> }` | `EntryDetail`(201)。`answers` はチーム向けの質問だけ。同じ部門に同じチーム名(前後の空白と大文字小文字を除いて)の取り消していない申込があれば 409。終わった大会は 409 |
-| `GET /admin/tournaments/{id}/entries/export` | なし | `{ questions: EntryQuestion[]; entries: EntryDetail[] }`(申込は受けた順。取り消した申込も含む)。管理画面の CSV の書き出しが使う |
+| `GET /admin/tournaments/{id}/entries/export` | なし | `{ questions: EntryQuestion[]; personal: EntryPersonalAsk; entries: EntryDetail[] }`(申込は受けた順。取り消した申込も含む)。管理画面の CSV の書き出しが使う |
 | `GET /admin/entries/{id}` | なし | `EntryDetail` |
 | `POST /admin/entries/{id}/decision` | `{ action: 'approve' \| 'return' \| 'cancel' \| 'reopen'; note: string }` | `EntryDetail`。`approve` は部門の最後にチームを作り、メンバーを選手にする。`reopen` は参加の決定(承認)を取り消して申込中に戻し、承認で作ったチームと選手を消す(押し間違いを戻すため。チームが組、枠、試合に入っていれば 409 で、チームの棄権で外す)。`return` は `note`(代表に見せる直してほしい点)が必須で、代表の LINE が無い申込(運営が代わりに入れた申込など。直して送り直せる人がいない)は 409。承認と差し戻しは申込中だけ、取消は承認の前だけ、`reopen` は承認した申込だけで、それ以外は 409(組に入った後の承認したチームはチームの棄権で外す)。LINE からの申込(`channel: 'line'`)なら、公式アカウントから代表に知らせる(差し戻しは `note` を付ける。送れなくても操作は成り立ち、エラーはログに残す) |
 
@@ -1054,6 +1059,8 @@ type EntryLink = {
     mine: EntryMember | null         // この人がもう登録した行
     mineAnswers: Array<{ questionId: number; value: string }>
     profileName: string              // この人が前に入れた名前(無ければ '')
+    personal: EntryPersonalAsk       // 大会が本人に聞く項目(聞く項目は登録で答えが要る)
+    minePersonal: EntryPersonal      // その初期値。このチームで答えた値、無ければ前回の入力(項目ごと)
     expiresAt: string
     found: boolean                   // チームを探す画面から開いた(招待リンクからではない)。登録すると withoutInvite の印が付く
   } | null
@@ -1080,7 +1087,7 @@ type EntryLink = {
 | `POST /entry-links/{token}/session` | `{}` | `{ token, expiresAt, user: AdminUser }`(`POST /api/v1/auth/login` と同じ形)。記録係のリンク(purpose が scorer)で、リンクの人がまだそのチームの記録係なら、記録係の利用者(`teamScorer: true`。パスワードは持たない)を用意して大会の担当にし、セッションを発行する。記録係でなくなっていれば 404。記録係は自分のチームが記録する試合(左のチームに記録係がいれば左、いなければ右)だけを記録でき、`GET /admin/me/matches` にもその試合が並ぶ |
 | `POST /entry-links/{token}/find` | `{ entryId: number }` | `{ token: string; expiresAt: string }`。チームを探すリンク(purpose が find)で選んだチームへの、メンバー登録のリンク(purpose が member、`found` が真)を発行する。リンクの大会の取り消していない申込でなければ 404 |
 | `POST /entry-links/{token}/team/{id}/members/{memberId}/remove` | `{}` | `EntryDetail`。代表(purpose が team)が、自分の申込 `id` から、招待リンクを使わずに登録したメンバー(`withoutInvite`)を外す。本人の登録で足した行は消し、代表の名簿の行は本人の LINE との結びつきと答えだけを外す(記録係なら外れる)。招待リンクから登録した人と登録していない行は 400、参加が決まった後(確認待ちと直し待ち以外)は 409(選手ができているので運営が直す)、ほかの代表の申込は 404 |
-| `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }> }` | `EntryLink` の `member`。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行と、代表本人でない人が選んだ代表の行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
+| `POST /entry-links/{token}/member` | `{ memberId: number \| null; name; number; answers: Array<{ questionId; value }>; gender?: 'M' \| 'F' \| ''; birthdate?: string }` | `EntryLink` の `member`。`gender` と `birthdate`("YYYY-MM-DD"、1900-01-01 から今日まで)は大会が聞く項目だけ必須で、答えがないか読めなければ 400。聞かない項目は無視する。答えはメンバーの行と前回の入力に残し、承認した申込なら選手の性別も直す。`memberId` は `unclaimed` か `mine` の行(新しく足すなら null)。別の人が結んだ行と、代表本人でない人が選んだ代表の行は 409、背番号の重なりは 400、取り消した申込は 409。承認した申込なら選手も直す(無ければ作る) |
 
 ### 公式 LINE で送る
 

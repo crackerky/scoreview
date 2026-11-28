@@ -65,8 +65,21 @@ describe('joinFromForm', () => {
         { member: '15', name: '佐藤 花子', number: '12', a1: ' 3年 ', a2: '' },
         questions,
       ),
-      { memberId: 15, name: '佐藤 花子', number: '12', answers: [{ questionId: 1, value: '3年' }] },
+      {
+        memberId: 15,
+        name: '佐藤 花子',
+        number: '12',
+        answers: [{ questionId: 1, value: '3年' }],
+        gender: '',
+        birthdate: '',
+      },
     )
+    const personal = joinFromForm(
+      { name: 'x', number: '', gender: 'F', birthdate: '2001-04-02' },
+      questions,
+    )
+    assert.equal(personal.gender, 'F')
+    assert.equal(personal.birthdate, '2001-04-02')
     assert.equal(joinFromForm({ member: 'new', name: 'x', number: '' }, questions).memberId, null)
     assert.equal(joinFromForm({ name: 'x', number: '' }, questions).memberId, null)
   })
@@ -117,9 +130,12 @@ test('本人用のリンクの応答を parse できる', () => {
       profileName: '佐藤 花子',
       expiresAt: '2026-11-24T01:00:00Z',
       found: false,
+      personal: { gender: true, birthdate: false },
+      minePersonal: { gender: 'F', birthdate: null },
     },
   })
   assert.equal(parsed.member?.mine?.name, '佐藤 花子')
+  assert.equal(parsed.member?.minePersonal.gender, 'F')
 })
 
 describe('participantErrorText', () => {
@@ -174,6 +190,13 @@ describe('participantErrorText', () => {
       ['bad_request', 'name: is required', '名前を入れてください'],
       ['bad_request', 'answers[3]: is required', '必須の質問に答えてください'],
       ['bad_request', 'divisionId: is not a division of this tournament', '部門を選んでください'],
+      ['bad_request', 'gender: must be M or F', '性別を選んでください'],
+      ['bad_request', 'birthdate: must be a date (YYYY-MM-DD)', '生年月日を入れてください'],
+      [
+        'bad_request',
+        'birthdate: must be between 1900-01-01 and today',
+        '生年月日を確かめてください(今日より後の日は選べません)',
+      ],
       ['not_found', 'TEAM_ENTRY_ID 5 not found', linkUnusableText],
       [
         'conflict',

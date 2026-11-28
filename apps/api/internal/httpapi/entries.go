@@ -17,6 +17,7 @@ func (s *Server) entryRoutes() {
 	ok, created := http.StatusOK, http.StatusCreated
 	s.admin("GET "+base+"/tournaments/{id}/entry-questions", adminOnly(), ok, withPathID(s.getEntryQuestions))
 	s.admin("PUT "+base+"/tournaments/{id}/entry-questions", adminOnly(), ok, withPathID(s.putEntryQuestions))
+	s.admin("PUT "+base+"/tournaments/{id}/entry-personal", adminOnly(), ok, withPathID(s.putEntryPersonal))
 	s.admin("GET "+base+"/tournaments/{id}/entries", adminOnly(), ok, withPathID(s.listEntries))
 	s.admin("POST "+base+"/tournaments/{id}/entries", adminOnly(), created, withPathID(s.createDeskEntry))
 	s.admin("GET "+base+"/tournaments/{id}/entries/export", adminOnly(), ok, withPathID(s.exportEntries))
@@ -36,6 +37,24 @@ type entryQuestionDTO struct {
 
 type entryQuestionsDTO struct {
 	Questions []entryQuestionDTO `json:"questions"`
+}
+
+// entryPersonalAskDTO は大会がメンバー本人に聞く項目。
+type entryPersonalAskDTO struct {
+	Gender    bool `json:"gender"`
+	Birthdate bool `json:"birthdate"`
+}
+
+// entryQuestionsPageDTO は申込で聞く質問の画面(質問と、本人に聞く項目)。
+type entryQuestionsPageDTO struct {
+	Questions []entryQuestionDTO  `json:"questions"`
+	Personal  entryPersonalAskDTO `json:"personal"`
+}
+
+// entryPersonalDTO はメンバー本人の性別('M' / 'F')と生年月日("YYYY-MM-DD")。答えていなければ null。
+type entryPersonalDTO struct {
+	Gender    *string `json:"gender"`
+	Birthdate *string `json:"birthdate"`
 }
 
 // entryQuestionInputDTO は保存する質問。id が null なら新しく作る。
@@ -110,6 +129,7 @@ type entryDetailDTO struct {
 // 応答には出さない。ほかのメンバーや代表に見せないため)。
 type entryAdminMemberDTO struct {
 	entryMemberDTO
+	entryPersonalDTO
 	Answers []entryAnswerDTO `json:"answers"`
 }
 
@@ -122,6 +142,7 @@ type entryAdminDetailDTO struct {
 
 type entryExportDTO struct {
 	Questions []entryQuestionDTO    `json:"questions"`
+	Personal  entryPersonalAskDTO   `json:"personal"`
 	Entries   []entryAdminDetailDTO `json:"entries"`
 }
 
@@ -186,7 +207,7 @@ func toEntryAdminDetail(detail entry.Detail) entryAdminDetailDTO {
 		MemberList: make([]entryAdminMemberDTO, len(detail.MemberList))}
 	for i, member := range detail.MemberList {
 		out.MemberList[i] = entryAdminMemberDTO{entryMemberDTO: toEntryMember(member),
-			Answers: toEntryAnswers(member.Answers)}
+			entryPersonalDTO: toEntryPersonal(member.Personal), Answers: toEntryAnswers(member.Answers)}
 	}
 	return out
 }
@@ -194,6 +215,20 @@ func toEntryAdminDetail(detail entry.Detail) entryAdminDetailDTO {
 func toEntryMember(member entry.Member) entryMemberDTO {
 	return entryMemberDTO{ID: member.ID, Name: member.Name, Number: member.Number,
 		Registered: member.Registered, PlayerID: member.PlayerID, WithoutInvite: member.WithoutInvite}
+}
+
+func toEntryPersonalAsk(ask entry.PersonalAsk) entryPersonalAskDTO {
+	return entryPersonalAskDTO{Gender: ask.Gender, Birthdate: ask.Birthdate}
+}
+
+func toEntryPersonal(personal entry.Personal) entryPersonalDTO {
+	var out entryPersonalDTO
+	if personal.Gender != nil {
+		gender := string(*personal.Gender)
+		out.Gender = &gender
+	}
+	out.Birthdate = personal.Birthdate
+	return out
 }
 
 func toEntryAnswers(answers []entry.Answer) []entryAnswerDTO {
@@ -209,7 +244,31 @@ func (s *Server) getEntryQuestions(ctx context.Context, id int64, _ *http.Reques
 	if err != nil {
 		return nil, err
 	}
-	return toEntryQuestions(questions), nil
+	return s.entryQuestionsPage(ctx, id, questions)
+}
+
+// entryQuestionsPage は質問に、大会がメンバー本人に聞く項目を添える。
+func (s *Server) entryQuestionsPage(
+	ctx context.Context, id int64, questions []entry.Question,
+) (entryQuestionsPageDTO, error) {
+	ask, err := s.entries.PersonalAsk(ctx, id)
+	if err != nil {
+		return entryQuestionsPageDTO{}, err
+	}
+	return entryQuestionsPageDTO{Questions: toEntryQuestions(questions).Questions,
+		Personal: toEntryPersonalAsk(ask)}, nil
+}
+
+func (s *Server) putEntryPersonal(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
+	var body entryPersonalAskDTO
+	if err := decodeBody(r, &body); err != nil {
+		return nil, err
+	}
+	saved, err := s.entries.SavePersonalAsk(ctx, id, entry.PersonalAsk{Gender: body.Gender, Birthdate: body.Birthdate})
+	if err != nil {
+		return nil, err
+	}
+	return toEntryPersonalAsk(saved), nil
 }
 
 func (s *Server) putEntryQuestions(ctx context.Context, id int64, r *http.Request, _ domain.User) (any, error) {
@@ -229,7 +288,7 @@ func (s *Server) putEntryQuestions(ctx context.Context, id int64, r *http.Reques
 	if err != nil {
 		return nil, err
 	}
-	return toEntryQuestions(saved), nil
+	return s.entryQuestionsPage(ctx, id, saved)
 }
 
 func (s *Server) listEntries(ctx context.Context, id int64, _ *http.Request, _ domain.User) (any, error) {
@@ -314,7 +373,8 @@ func (s *Server) exportEntries(ctx context.Context, id int64, _ *http.Request, _
 		return nil, err
 	}
 	out := entryExportDTO{Questions: toEntryQuestions(export.Questions).Questions,
-		Entries: make([]entryAdminDetailDTO, len(export.Entries))}
+		Personal: toEntryPersonalAsk(export.Ask),
+		Entries:  make([]entryAdminDetailDTO, len(export.Entries))}
 	for i, detail := range export.Entries {
 		out.Entries[i] = toEntryAdminDetail(detail)
 	}

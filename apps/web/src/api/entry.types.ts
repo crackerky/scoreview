@@ -34,7 +34,22 @@ export const entryQuestionSchema = z.object({
 })
 export type EntryQuestion = z.infer<typeof entryQuestionSchema>
 
-export const entryQuestionListSchema = z.object({ questions: z.array(entryQuestionSchema) })
+/** 大会がメンバー本人に聞く項目(Lイベントの顧客情報入力項目にあたる) */
+export const entryPersonalAskSchema = z.object({ gender: z.boolean(), birthdate: z.boolean() })
+export type EntryPersonalAsk = z.infer<typeof entryPersonalAskSchema>
+
+export const entryGenders = ['M', 'F'] as const
+/** メンバー本人の性別と生年月日("YYYY-MM-DD")。答えていなければ null */
+export const entryPersonalSchema = z.object({
+  gender: z.enum(entryGenders).nullable(),
+  birthdate: z.string().nullable(),
+})
+export type EntryPersonal = z.infer<typeof entryPersonalSchema>
+
+export const entryQuestionListSchema = z.object({
+  questions: z.array(entryQuestionSchema),
+  personal: entryPersonalAskSchema,
+})
 
 export const entrySummarySchema = z.object({
   id: z.number().int(),
@@ -84,11 +99,15 @@ export const entryDetailSchema = entrySummarySchema.extend({
 export type EntryDetail = z.infer<typeof entryDetailSchema>
 
 /**
- * 運営の画面の申込。メンバーに、本人が答えたメンバー向けの質問を足す(本人用のリンクの応答には無い。
- * ほかのメンバーや代表に見せないため)。
+ * 運営の画面の申込。メンバーに、本人が答えたメンバー向けの質問と性別、生年月日を足す(本人用のリンクの
+ * 応答には無い。ほかのメンバーや代表に見せないため)。
  */
 export const entryAdminDetailSchema = entryDetailSchema.extend({
-  memberList: z.array(entryMemberSchema.extend({ answers: z.array(entryAnswerSchema) })),
+  memberList: z.array(
+    entryMemberSchema
+      .extend({ answers: z.array(entryAnswerSchema) })
+      .extend(entryPersonalSchema.shape),
+  ),
 })
 export type EntryAdminDetail = z.infer<typeof entryAdminDetailSchema>
 
@@ -115,6 +134,9 @@ export const entryLinkMemberSchema = z.object({
   expiresAt: z.string(),
   /** チームを探す画面から開いた(招待リンクからではない) */
   found: z.boolean(),
+  /** 大会が本人に聞く項目と、その初期値(このチームで答えた値か前回の入力) */
+  personal: entryPersonalAskSchema,
+  minePersonal: entryPersonalSchema,
 })
 export type EntryLinkMember = z.infer<typeof entryLinkMemberSchema>
 
@@ -170,10 +192,14 @@ export type EntryJoinInput = {
   name: string
   number: string
   answers: Array<{ questionId: number; value: string }>
+  /** 大会が聞く項目の答え(聞かない大会では空) */
+  gender: string
+  birthdate: string
 }
 
 export const entryExportSchema = z.object({
   questions: z.array(entryQuestionSchema),
+  personal: entryPersonalAskSchema,
   entries: z.array(entryAdminDetailSchema),
 })
 export type EntryExport = z.infer<typeof entryExportSchema>

@@ -94,6 +94,8 @@ type Tournament struct {
 	Name      string
 	Status    domain.TournamentStatus
 	Divisions []Division
+	// Ask はメンバー本人に聞く項目(性別、生年月日)
+	Ask PersonalAsk
 }
 
 // Division は申込で選べる部門。
@@ -173,6 +175,8 @@ type Member struct {
 	// Answers は本人が答えたメンバー向けの質問(申込の中身として読んだときだけ入る)。運営の画面にだけ
 	// 出し、本人用のリンクでは出さない(ほかのメンバーや代表に、学年などの答えを見せない)
 	Answers []Answer
+	// Personal は本人が答えた性別と生年月日。Answers と同じく運営の画面にだけ出す
+	Personal Personal
 }
 
 // Summary は申込一覧の 1 件。ScorerChosen はチームの記録係を選んだか。
@@ -244,6 +248,8 @@ type ApprovedPlayer struct {
 	MemberID int64
 	Name     string
 	Number   string
+	// Gender は本人が答えた性別(選手の性別にする)。答えていなければ nil
+	Gender *domain.Gender
 }
 
 // Desk は申込の受付。httpapi が使う唯一の口で、Service が実装する。
@@ -253,6 +259,10 @@ type Desk interface {
 	// SaveQuestions は大会の質問を questions の並びで置き換える。ID が 0 の質問は作り、無くなった
 	// 質問は答えごと消す。答えのある質問の答え方は変えられない(domain.ErrConflict)
 	SaveQuestions(ctx context.Context, tournamentID int64, questions []Question) ([]Question, error)
+	// PersonalAsk は大会がメンバー本人に聞く項目を返す。大会が無ければ domain.NotFound
+	PersonalAsk(ctx context.Context, tournamentID int64) (PersonalAsk, error)
+	// SavePersonalAsk はメンバー本人に聞く項目を決める。大会が無ければ domain.NotFound
+	SavePersonalAsk(ctx context.Context, tournamentID int64, ask PersonalAsk) (PersonalAsk, error)
 	// Entries は大会の申込を受けた順で返す
 	Entries(ctx context.Context, tournamentID int64) ([]Summary, error)
 	// Entry は申込 1 件を返す。無ければ domain.NotFound
@@ -313,6 +323,8 @@ type Links interface {
 type Export struct {
 	Questions []Question
 	Entries   []Detail
+	// Ask は大会がメンバー本人に聞く項目(書き出しの列を決める)
+	Ask PersonalAsk
 }
 
 // Store は申込の記録を読み書きする。store が実装する。
@@ -323,6 +335,8 @@ type Store interface {
 	Questions(ctx context.Context, tournamentID int64) ([]Question, error)
 	// ReplaceQuestions は大会の質問を並びどおりに置き換える(検査は済ませてある)
 	ReplaceQuestions(ctx context.Context, tournamentID int64, questions []Question) ([]Question, error)
+	// SavePersonalAsk はメンバー本人に聞く項目を書く
+	SavePersonalAsk(ctx context.Context, tournamentID int64, ask PersonalAsk) error
 	// Create は申込を保存する。同じ部門に同じチーム名の取り消していない申込があれば domain.ErrConflict
 	Create(ctx context.Context, tournamentID int64, entry NewEntry) (Detail, error)
 	// List は大会の申込を受けた順で読む。問い合わせの数は申込の数によらないこと

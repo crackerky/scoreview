@@ -4,10 +4,12 @@ import { apiFetch } from './client'
 import {
   type EntryAction,
   type EntryDraftInput,
+  type EntryPersonalAsk,
   type EntryQuestionInput,
   entryAdminDetailSchema,
   entryExportSchema,
   entryListSchema,
+  entryPersonalAskSchema,
   entryQuestionListSchema,
 } from './entry.types'
 
@@ -42,6 +44,15 @@ export const entries = {
       `${admin}/tournaments/${tournamentId}/entry-questions`,
       entryQuestionListSchema,
       { questions },
+    ),
+  /** メンバー本人に聞く項目(性別、生年月日)を決める */
+  savePersonal: (token: string, tournamentId: number, ask: EntryPersonalAsk) =>
+    call(
+      token,
+      'PUT',
+      `${admin}/tournaments/${tournamentId}/entry-personal`,
+      entryPersonalAskSchema,
+      ask,
     ),
   list: (token: string, tournamentId: number) =>
     call(token, 'GET', `${admin}/tournaments/${tournamentId}/entries`, entryListSchema),

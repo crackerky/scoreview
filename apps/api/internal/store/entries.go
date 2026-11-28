@@ -92,6 +92,9 @@ type MemberEntry struct {
 	// WithoutInvite は招待リンクを使わずに登録した、SelfAdded は本人の登録で足した行(migrations/00051)
 	WithoutInvite bool `gorm:"column:without_invite"`
 	SelfAdded     bool `gorm:"column:self_added"`
+	// Gender と Birthdate は本人が答えた性別と生年月日(migrations/00054)
+	Gender    *string    `gorm:"column:gender"`
+	Birthdate *time.Time `gorm:"column:birthdate"`
 }
 
 // TableName は GORM に表名を伝える。
@@ -134,11 +137,23 @@ func (s *EntryStore) Tournament(ctx context.Context, id int64) (entry.Tournament
 		return entry.Tournament{}, fmt.Errorf("load divisions of tournament %d: %w", id, err)
 	}
 	out := entry.Tournament{ID: row.ID, Name: row.NameJa, Status: row.Status,
-		Divisions: make([]entry.Division, len(divisions))}
+		Divisions: make([]entry.Division, len(divisions)),
+		Ask:       entry.PersonalAsk{Gender: row.EntryAskGender, Birthdate: row.EntryAskBirthdate}}
 	for i, division := range divisions {
 		out.Divisions[i] = entry.Division{ID: division.ID, Name: i18n(division.NameJa, division.NameEn)}
 	}
 	return out, nil
+}
+
+// SavePersonalAsk は entry.Store.SavePersonalAsk。
+func (s *EntryStore) SavePersonalAsk(ctx context.Context, tournamentID int64, ask entry.PersonalAsk) error {
+	err := s.db.WithContext(ctx).Model(&Tournament{}).Where(sqlByID, tournamentID).Updates(map[string]any{
+		"entry_ask_gender": ask.Gender, "entry_ask_birthdate": ask.Birthdate,
+	}).Error
+	if err != nil {
+		return writeError("save personal items of tournament", err)
+	}
+	return nil
 }
 
 // Questions は entry.Store.Questions。問い合わせは 2 回(質問、答えの数)。
@@ -474,7 +489,8 @@ func loadMemberAnswers(ctx context.Context, db *gorm.DB, members []MemberEntry) 
 
 func toEntryMember(row MemberEntry) entry.Member {
 	return entry.Member{ID: row.ID, Name: row.Name, Number: row.Number, Registered: row.LineUserID != nil,
-		PlayerID: row.PlayerID, LineUserID: row.LineUserID, WithoutInvite: row.WithoutInvite}
+		PlayerID: row.PlayerID, LineUserID: row.LineUserID, WithoutInvite: row.WithoutInvite,
+		Personal: personalOf(row.Gender, row.Birthdate)}
 }
 
 func loadMembers(ctx context.Context, db *gorm.DB, teamEntryID int64) ([]entry.Member, error) {
@@ -587,7 +603,7 @@ func approveEntry(ctx context.Context, tx *gorm.DB, row TeamEntry, approval entr
 	}
 	for _, player := range approval.Players {
 		created, err := CreatePlayer(ctx, tx, team.ID, PlayerFields{Number: player.Number,
-			Name: domain.I18nText{Ja: player.Name}})
+			Name: domain.I18nText{Ja: player.Name}, Gender: player.Gender})
 		if err != nil {
 			return 0, err
 		}

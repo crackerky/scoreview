@@ -316,7 +316,8 @@ func (s *EntryStore) Profile(ctx context.Context, lineUserID int64) (*entry.Prof
 	if len(rows) == 0 || rows[0].ProfileUpdatedAt == nil {
 		return nil, nil
 	}
-	return &entry.Profile{Name: rows[0].Name, Phone: rows[0].Phone, Email: rows[0].Email}, nil
+	return &entry.Profile{Name: rows[0].Name, Phone: rows[0].Phone, Email: rows[0].Email,
+		Personal: personalOf(rows[0].Gender, rows[0].Birthdate)}, nil
 }
 
 // PastTeams は entry.Store.PastTeams。問い合わせはチームの数によらず 2 回(申込、メンバー)。
@@ -368,6 +369,16 @@ func saveProfile(ctx context.Context, tx *gorm.DB, lineUserID int64, update entr
 	if update.Contact != nil {
 		updates["phone"], updates["email"] = update.Contact.Phone, update.Contact.Email
 	}
+	gender, birthdate, err := personalColumns(update.Personal)
+	if err != nil {
+		return err
+	}
+	if gender != nil {
+		updates["gender"] = *gender
+	}
+	if birthdate != nil {
+		updates["birthdate"] = *birthdate
+	}
 	if err := tx.WithContext(ctx).Model(&LineUser{}).Where(sqlByID, lineUserID).Updates(updates).Error; err != nil {
 		return writeError("save profile of line user", err)
 	}
@@ -405,6 +416,13 @@ func (s *EntryStore) Join(ctx context.Context, join entry.Join) error {
 		member.SelfAdded = member.SelfAdded || member.ID == 0
 		member.Name, member.Number, member.LineUserID = join.Name, join.Number, &join.LineUserID
 		member.UpdatedAt = join.At
+		gender, birthdate, err := personalColumns(join.Personal)
+		if err != nil {
+			return err
+		}
+		// 聞かなかった項目(nil)は、前に答えた値を残す
+		member.Gender = cmp.Or(gender, member.Gender)
+		member.Birthdate = cmp.Or(birthdate, member.Birthdate)
 		if team.Status == string(entry.StatusApproved) && team.TeamID != nil {
 			if err := syncPlayer(ctx, tx, *team.TeamID, &member); err != nil {
 				return err
@@ -563,9 +581,10 @@ func memberToJoin(ctx context.Context, tx *gorm.DB, join entry.Join) (MemberEntr
 // syncPlayer は承認した申込のメンバー登録を選手に写す。選手があれば名前と背番号を直し(英語名が
 // 日本語名と同じなら英語名も直す。承認のときに日本語名を写したもの)、無ければ作る。
 func syncPlayer(ctx context.Context, tx *gorm.DB, teamID int64, member *MemberEntry) error {
+	gender := personalOf(member.Gender, member.Birthdate).Gender
 	if member.PlayerID == nil {
 		created, err := CreatePlayer(ctx, tx, teamID, PlayerFields{Number: member.Number,
-			Name: domain.I18nText{Ja: member.Name}})
+			Name: domain.I18nText{Ja: member.Name}, Gender: gender})
 		if err != nil {
 			return err
 		}
@@ -580,6 +599,9 @@ func syncPlayer(ctx context.Context, tx *gorm.DB, teamID int64, member *MemberEn
 		player.NameEn = member.Name
 	}
 	player.NameJa, player.Number = member.Name, member.Number
+	if member.Gender != nil {
+		player.Gender = member.Gender
+	}
 	if err := tx.WithContext(ctx).Save(&player).Error; err != nil {
 		return writeError("update player of member", err)
 	}
@@ -702,4 +724,37 @@ func (s *EntryStore) RemoveMember(ctx context.Context, entryID, memberID int64) 
 		}
 		return nil
 	})
+}
+
+// personalOf は列の性別と生年月日を entry.Personal にする。
+func personalOf(gender *string, birthdate *time.Time) entry.Personal {
+	var out entry.Personal
+	if gender != nil {
+		value := domain.Gender(*gender)
+		out.Gender = &value
+	}
+	if birthdate != nil {
+		day := birthdate.Format(time.DateOnly)
+		out.Birthdate = &day
+	}
+	return out
+}
+
+// personalColumns は entry.Personal を列の値にする(nil の項目は nil のまま返し、書かない)。Birthdate は
+// "YYYY-MM-DD"(entry.CheckPersonal で確かめた値)で、読めなければ domain.ValidationError。
+func personalColumns(personal entry.Personal) (*string, *time.Time, error) {
+	var gender *string
+	var birthdate *time.Time
+	if personal.Gender != nil {
+		value := string(*personal.Gender)
+		gender = &value
+	}
+	if personal.Birthdate != nil {
+		day, err := time.Parse(time.DateOnly, *personal.Birthdate)
+		if err != nil {
+			return nil, nil, domain.Invalid("birthdate", "must be a date (YYYY-MM-DD)")
+		}
+		birthdate = &day
+	}
+	return gender, birthdate, nil
 }

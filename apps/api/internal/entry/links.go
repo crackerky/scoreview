@@ -107,7 +107,10 @@ type MemberForm struct {
 	Mine           *Member
 	MineAnswers    []Answer
 	ProfileName    string
-	ExpiresAt      time.Time
+	// Ask は大会が聞く本人の項目、MinePersonal はその初期値(Prefill)
+	Ask          PersonalAsk
+	MinePersonal Personal
+	ExpiresAt    time.Time
 	// Found はチームを探す画面から開いたか(招待リンクを使わない登録は、代表の画面に印が付く)
 	Found bool
 }
@@ -181,6 +184,9 @@ type JoinDraft struct {
 	Name     string
 	Number   string
 	Answers  map[int64]string
+	// Gender と Birthdate は本人の答え(聞かない大会では空)。CheckPersonal で確かめる
+	Gender    string
+	Birthdate string
 }
 
 // Join は Store に保存させるメンバー登録。中身は検査と整形を済ませてある。Profile は同じトランザクションで
@@ -192,8 +198,10 @@ type Join struct {
 	Name        string
 	Number      string
 	Answers     []Answer
-	Profile     ProfileUpdate
-	At          time.Time
+	// Personal は nil でない項目だけをメンバーの行に書く(大会が聞いた項目)
+	Personal Personal
+	Profile  ProfileUpdate
+	At       time.Time
 	// WithoutInvite は招待リンクを使わずに(チームを探す画面から)登録した。新しく登録するときだけ
 	// 印にし、登録済みの人が直すときは変えない
 	WithoutInvite bool

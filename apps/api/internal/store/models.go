@@ -26,6 +26,9 @@ type Tournament struct {
 	TeamListLabel string                  `gorm:"column:team_list_label"` // teams | entries
 	GroupLabel    string                  `gorm:"column:group_label"`     // groups | results
 	ShowSchedule  bool                    `gorm:"column:show_schedule"`
+	// EntryAskGender と EntryAskBirthdate は申込でメンバー本人に聞く項目(migrations/00054)
+	EntryAskGender    bool `gorm:"column:entry_ask_gender"`
+	EntryAskBirthdate bool `gorm:"column:entry_ask_birthdate"`
 	// 不戦勝の規定スコア(00004)。両方 NULL なら未設定
 	ForfeitWinnerScore *int      `gorm:"column:forfeit_winner_score"`
 	ForfeitLoserScore  *int      `gorm:"column:forfeit_loser_score"`

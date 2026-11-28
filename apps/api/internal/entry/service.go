@@ -88,6 +88,26 @@ func (s *Service) SaveQuestions(
 	return s.store.ReplaceQuestions(ctx, tournamentID, checked)
 }
 
+// PersonalAsk は Desk.PersonalAsk。
+func (s *Service) PersonalAsk(ctx context.Context, tournamentID int64) (PersonalAsk, error) {
+	tournament, err := s.store.Tournament(ctx, tournamentID)
+	if err != nil {
+		return PersonalAsk{}, err
+	}
+	return tournament.Ask, nil
+}
+
+// SavePersonalAsk は Desk.SavePersonalAsk。
+func (s *Service) SavePersonalAsk(ctx context.Context, tournamentID int64, ask PersonalAsk) (PersonalAsk, error) {
+	if _, err := s.store.Tournament(ctx, tournamentID); err != nil {
+		return PersonalAsk{}, err
+	}
+	if err := s.store.SavePersonalAsk(ctx, tournamentID, ask); err != nil {
+		return PersonalAsk{}, err
+	}
+	return ask, nil
+}
+
 // Entries は Desk.Entries。
 func (s *Service) Entries(ctx context.Context, tournamentID int64) ([]Summary, error) {
 	if _, err := s.store.Tournament(ctx, tournamentID); err != nil {
@@ -228,7 +248,8 @@ func (s *Service) Decide(
 
 // Export は Desk.Export。
 func (s *Service) Export(ctx context.Context, tournamentID int64) (Export, error) {
-	if _, err := s.store.Tournament(ctx, tournamentID); err != nil {
+	tournament, err := s.store.Tournament(ctx, tournamentID)
+	if err != nil {
 		return Export{}, err
 	}
 	questions, err := s.store.Questions(ctx, tournamentID)
@@ -242,7 +263,7 @@ func (s *Service) Export(ctx context.Context, tournamentID int64) (Export, error
 	for i := range details {
 		details[i] = s.withInvite(details[i])
 	}
-	return Export{Questions: questions, Entries: details}, nil
+	return Export{Questions: questions, Entries: details, Ask: tournament.Ask}, nil
 }
 
 // IssueTeamLinks は Links.IssueTeamLinks。
@@ -561,7 +582,7 @@ func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error)
 	form := MemberForm{TournamentName: tournament.Name, Team: detail.Summary,
 		Questions: scopeOf(questions, ScopeMember), Unclaimed: []Member{},
 		Mine: MemberOf(detail.MemberList, link.LineUserID), MineAnswers: []Answer{}, ExpiresAt: link.ExpiresAt,
-		Found: link.Found}
+		Found: link.Found, Ask: tournament.Ask}
 	repRows := RepRows(detail, link.LineUserID)
 	for _, member := range detail.MemberList {
 		if !member.Registered && !repRows[member.ID] {
@@ -582,6 +603,7 @@ func (s *Service) memberForm(ctx context.Context, link Link) (MemberForm, error)
 	if profile != nil {
 		form.ProfileName = profile.Name
 	}
+	form.MinePersonal = Prefill(form.Mine, profile)
 	return form, nil
 }
 
@@ -739,14 +761,25 @@ func (s *Service) JoinByLink(ctx context.Context, token string, draft JoinDraft)
 	if err != nil {
 		return MemberForm{}, err
 	}
+	tournament, err := s.store.Tournament(ctx, detail.TournamentID)
+	if err != nil {
+		return MemberForm{}, err
+	}
 	mine := MemberOf(detail.MemberList, link.LineUserID)
 	checked, answers, err := CheckJoin(draft, detail.MemberList, mine, RepRows(detail, link.LineUserID), questions)
 	if err != nil {
 		return MemberForm{}, err
 	}
+	now := s.now()
+	personal, err := CheckPersonal(tournament.Ask, draft.Gender, draft.Birthdate, now)
+	if err != nil {
+		return MemberForm{}, err
+	}
+	profile := MemberProfile(checked)
+	profile.Personal = personal
 	err = s.store.Join(ctx, Join{TeamEntryID: link.TeamEntryID, LineUserID: link.LineUserID,
 		MemberID: checked.MemberID, Name: checked.Name, Number: checked.Number, Answers: answers,
-		Profile: MemberProfile(checked), At: s.now(), WithoutInvite: link.Found && mine == nil})
+		Personal: personal, Profile: profile, At: now, WithoutInvite: link.Found && mine == nil})
 	if err != nil {
 		return MemberForm{}, err
 	}

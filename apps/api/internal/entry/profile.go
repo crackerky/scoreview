@@ -12,6 +12,8 @@ type Profile struct {
 	Name  string
 	Phone string
 	Email string
+	// Personal は前に答えた性別と生年月日(大会が聞いたときだけ入る)
+	Personal Personal
 }
 
 // Contact は代表の連絡先。
@@ -25,6 +27,8 @@ type Contact struct {
 type ProfileUpdate struct {
 	Name    string
 	Contact *Contact
+	// Personal は nil でない項目だけを上書きする(聞かなかった項目の前回の答えを消さない)
+	Personal Personal
 }
 
 // PastTeam は参加者が前に代表として申し込んだチーム(今の大会の申込は除く)。Members はその申込の今の

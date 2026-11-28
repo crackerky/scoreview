@@ -34,6 +34,9 @@ type LineUser struct {
 	Phone            string     `gorm:"column:phone"`
 	Email            string     `gorm:"column:email"`
 	ProfileUpdatedAt *time.Time `gorm:"column:profile_updated_at"`
+	// Gender と Birthdate は前に答えた性別と生年月日(migrations/00054)
+	Gender    *string    `gorm:"column:gender"`
+	Birthdate *time.Time `gorm:"column:birthdate"`
 	// HelpedAt は使い方の案内を最後に返した時刻(migrations/00047)
 	HelpedAt  *time.Time `gorm:"column:helped_at"`
 	CreatedAt time.Time  `gorm:"column:created_at"`

@@ -28,6 +28,7 @@ export function shareToLineUrl(team: string, inviteUrl: string): string {
 /**
  * メンバー登録のフォームを読む。member は代表が書いた行の ID か、new(名簿に無い)。もう登録した人は
  * 自分の行の ID を送る(api は登録済みの人の行と照らす)。答えは a{質問 ID} の欄で、空の答えは送らない。
+ * gender と birthdate は大会が聞くときだけ欄があり、無ければ空で送る(api は聞かない項目を見ない)。
  */
 export function joinFromForm(
   form: FormFields,
@@ -39,6 +40,8 @@ export function joinFromForm(
     name: formText(form, 'name'),
     number: formText(form, 'number'),
     answers: answersFromForm(form, questions),
+    gender: formText(form, 'gender'),
+    birthdate: formText(form, 'birthdate'),
   }
 }
 
@@ -161,6 +164,14 @@ function badRequestText(message: string): string {
   }
   if (field === 'divisionId') {
     return '部門を選んでください'
+  }
+  if (field === 'gender') {
+    return '性別を選んでください'
+  }
+  if (field === 'birthdate') {
+    return /between/.test(reason)
+      ? '生年月日を確かめてください(今日より後の日は選べません)'
+      : '生年月日を入れてください'
   }
   if (field === 'members') {
     return `メンバーは ${entryLimits.maxMembers} 人までです`

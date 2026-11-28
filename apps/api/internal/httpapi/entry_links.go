@@ -115,6 +115,9 @@ type entryLinkMemberDTO struct {
 	ProfileName    string             `json:"profileName"`
 	ExpiresAt      time.Time          `json:"expiresAt"`
 	Found          bool               `json:"found"`
+	// Personal は大会が本人に聞く項目、MinePersonal はその初期値(このチームで答えた値か前回の入力)
+	Personal     entryPersonalAskDTO `json:"personal"`
+	MinePersonal entryPersonalDTO    `json:"minePersonal"`
 }
 
 type entryLinkDTO struct {
@@ -184,6 +187,9 @@ type entryJoinDTO struct {
 	Name     string           `json:"name"`
 	Number   string           `json:"number"`
 	Answers  []entryAnswerDTO `json:"answers"`
+	// Gender と Birthdate は大会が聞く項目の答え(聞かない大会では省略か空)
+	Gender    string `json:"gender"`
+	Birthdate string `json:"birthdate"`
 }
 
 func toEntryLinkTeam(form entry.TeamForm) *entryLinkTeamDTO {
@@ -215,7 +221,8 @@ func toEntryLinkMember(form entry.MemberForm) *entryLinkMemberDTO {
 	out := &entryLinkMemberDTO{TournamentName: form.TournamentName, Team: toEntrySummary(form.Team),
 		Questions: toEntryQuestions(form.Questions).Questions,
 		Unclaimed: make([]entryMemberDTO, len(form.Unclaimed)), MineAnswers: toEntryAnswers(form.MineAnswers),
-		ProfileName: form.ProfileName, ExpiresAt: form.ExpiresAt, Found: form.Found}
+		ProfileName: form.ProfileName, ExpiresAt: form.ExpiresAt, Found: form.Found,
+		Personal: toEntryPersonalAsk(form.Ask), MinePersonal: toEntryPersonal(form.MinePersonal)}
 	for i, member := range form.Unclaimed {
 		out.Unclaimed[i] = toEntryMember(member)
 	}
@@ -302,7 +309,8 @@ func (s *Server) joinEntryByLink(r *http.Request) (any, error) {
 		return nil, err
 	}
 	form, err := s.entries.JoinByLink(r.Context(), r.PathValue("token"), entry.JoinDraft{
-		MemberID: body.MemberID, Name: body.Name, Number: body.Number, Answers: answers})
+		MemberID: body.MemberID, Name: body.Name, Number: body.Number, Answers: answers,
+		Gender: body.Gender, Birthdate: body.Birthdate})
 	if err != nil {
 		return nil, err
 	}

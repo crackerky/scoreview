@@ -72,6 +72,7 @@ describe('entriesCsv', () => {
         answered: 0,
       },
     ],
+    personal: { gender: true, birthdate: true },
     entries: [
       entry(
         10,
@@ -84,6 +85,8 @@ describe('entriesCsv', () => {
             playerId: null,
             withoutInvite: false,
             answers: [],
+            gender: null,
+            birthdate: null,
           },
           {
             id: 2,
@@ -93,6 +96,8 @@ describe('entriesCsv', () => {
             playerId: null,
             withoutInvite: false,
             answers: [{ questionId: 2, value: '2 年' }],
+            gender: 'F',
+            birthdate: '2005-04-02',
           },
         ],
         [{ questionId: 1, value: 'yes' }],

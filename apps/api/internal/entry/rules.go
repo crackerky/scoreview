@@ -357,11 +357,12 @@ func CheckNote(action Action, note string) (string, error) {
 }
 
 // ApprovalOf は承認で作るチームと選手を申込から決める。チームの正式名と短縮名は申込のまま、選手は
-// メンバーの並び順で、名前と背番号を写す。
+// メンバーの並び順で、名前と背番号と本人が答えた性別を写す。
 func ApprovalOf(detail Detail) Approval {
 	players := make([]ApprovedPlayer, len(detail.MemberList))
 	for i, member := range detail.MemberList {
-		players[i] = ApprovedPlayer{MemberID: member.ID, Name: member.Name, Number: member.Number}
+		players[i] = ApprovedPlayer{MemberID: member.ID, Name: member.Name, Number: member.Number,
+			Gender: member.Personal.Gender}
 	}
 	return Approval{DivisionID: detail.Division.ID, FullName: detail.FullName,
 		ShortName: detail.ShortName, Players: players}
