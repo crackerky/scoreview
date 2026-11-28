@@ -439,6 +439,21 @@ function divisionsStage(input: HomeInput): Stage {
   }
 }
 
+/**
+ * 観る人の画面(スコアサイトと観戦アプリ)への入口。大会ホームの上と「その他」に出す。一覧に載せない大会も
+ * アドレスで開ける
+ */
+export function siteLinks(tournamentId: number): StageLink[] {
+  return [
+    {
+      label: 'スコアサイトを開く',
+      href: `/tournaments/${tournamentId}`,
+      sub: 'タイムスケジュール、星取表、トーナメント',
+    },
+    { label: '観戦アプリを開く', href: `/live/${tournamentId}`, sub: '観る人と同じ画面' },
+  ]
+}
+
 function moreStage(input: HomeInput): Stage {
   return {
     key: 'more',
@@ -460,7 +475,7 @@ function moreStage(input: HomeInput): Stage {
         href: `${base(input)}/media`,
         sub: 'スポンサーのバナーと、大会のギャラリー',
       },
-      { label: '観戦アプリを開く', href: `/live/${input.tournamentId}`, sub: '観る人と同じ画面' },
+      ...siteLinks(input.tournamentId),
     ],
   }
 }

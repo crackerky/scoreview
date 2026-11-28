@@ -2,7 +2,7 @@ import { runsDayOf } from '@/admin/access.utils'
 import { buildAlerts, courtCards } from '@/admin/hqBoard.utils'
 import { loadBoards } from '@/admin/hqData'
 import { loadAdmin, requireUser } from '@/admin/session'
-import { currentStage, tournamentStages } from '@/admin/tournamentHome.utils'
+import { currentStage, siteLinks, tournamentStages } from '@/admin/tournamentHome.utils'
 import { japaneseDate, jstToday } from '@/admin/tournamentList.utils'
 import { assignments, matches, teams, tournaments } from '@/api/admin'
 import { entries } from '@/api/entry'
@@ -99,6 +99,13 @@ export default async function AdminTournamentPage(props: IdPageProps) {
       notice={notice}
       primary={primary}
     >
+      <nav className="adm-site-links" aria-label="観る人の画面">
+        {siteLinks(id).map((link) => (
+          <a key={link.href} href={link.href} target="_blank" rel="noopener">
+            {link.label}
+          </a>
+        ))}
+      </nav>
       <div className="adm-stages">
         {stages.map((stage) => (
           <StageCard key={stage.key} stage={stage} current={stage === current} />

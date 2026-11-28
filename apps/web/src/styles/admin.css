@@ -452,6 +452,16 @@
   color: var(--adm-accent);
 }
 
+/* 大会ホームの上の、観る人の画面(スコアサイトと観戦アプリ)への入口 */
+.adm .adm-site-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: -6px 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 /* 大会ホームの段のカード。左に段の名前、今の様子、次にやること、右にその段の入口 */
 .adm-stages {
   display: flex;

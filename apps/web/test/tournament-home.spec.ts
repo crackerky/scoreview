@@ -6,6 +6,7 @@ import {
   type HomeInput,
   type Stage,
   showsDayNumbers,
+  siteLinks,
   tournamentStages,
 } from '../src/admin/tournamentHome.utils.ts'
 
@@ -222,4 +223,13 @@ test('受付を締めて記録係を選んでいないチームがあれば、�
     'line',
   )
   assert.equal(open.next?.label, '公式 LINE で送る')
+})
+
+test('観る人の画面の入口は、スコアサイトと観戦アプリで、その他の段にも出す', () => {
+  assert.deepEqual(
+    siteLinks(5).map((link) => link.href),
+    ['/tournaments/5', '/live/5'],
+  )
+  const more = tournamentStages(input()).find((stage) => stage.key === 'more')
+  assert.ok(more?.links.some((link) => link.href === '/tournaments/5'))
 })
