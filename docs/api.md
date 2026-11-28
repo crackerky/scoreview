@@ -589,7 +589,7 @@ type MatchDetail = {
     firstUser: string; secondUser: string           // 記録した利用者の表示名
     secondsApart: number
   }>
-  matchMinutes: number | null        // ディビジョンの時間割の 1 試合の枠の長さ(分)。設定が無ければ null
+  matchMinutes: number | null        // ディビジョンの時間割の試合の長さ(分。枠の長さから試合のあいだの時間を除く)。設定が無ければ null
 }
 ```
 
@@ -775,7 +775,9 @@ type Tiebreak = 'current' | 'current_no_h2h' | 'jfda'  // 現行方式(直接対
 type FormatParams = object                          // テンプレートごとの JSON(docs/format-engine.md「形の指定の JSON」)
 type ScheduleSetting = {
   date: string; start: string                      // "YYYY-MM-DD"、"HH:MM"(1 日目。days[0] と同じ値)
-  slotMinutes: number                               // 1 試合の枠の長さ(分)。記録係の画面は試合時間として使う
+  slotMinutes: number                               // 1 試合の枠の長さ(分)。同じコートで次の試合が始まるまで(gapMinutes を含む)
+  gapMinutes: number                                // 枠のうち、試合のあいだの空き時間(分。0 以上で slotMinutes 未満。
+                                                    // 省略や古い設定は 0)。記録係の画面は slotMinutes − gapMinutes を試合時間として使う
   courts: string[]                                  // コートの名前(この順に使う)
   teamRestSlots: number                             // 同じチームの試合の間に空ける枠の数(0〜6。4on4 は 0、7 人制は 1)
   stageGapSlots: number                             // 段の間に空ける枠の数

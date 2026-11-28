@@ -56,8 +56,10 @@ export const scheduleSettingSchema = z.object({
   /** 1 日目(days[0])と同じ値 */
   date: z.string(),
   start: z.string(),
-  /** 1 試合の枠の長さ(分)。記録係の画面は試合時間として使う */
+  /** 1 試合の枠の長さ(分)。同じコートで次の試合が始まるまで(gapMinutes を含む) */
   slotMinutes: z.number().int(),
+  /** 枠のうち、試合のあいだの空き時間(分)。記録係の画面は slotMinutes − gapMinutes を試合時間に使う */
+  gapMinutes: z.number().int(),
   courts: z.array(z.string()),
   teamRestSlots: z.number().int(),
   stageGapSlots: z.number().int(),

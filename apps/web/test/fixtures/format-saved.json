@@ -40,6 +40,7 @@
       "date": "2026-10-21",
       "start": "09:00",
       "slotMinutes": 20,
+      "gapMinutes": 0,
       "courts": ["1", "2", "3", "4"],
       "teamRestSlots": 0,
       "stageGapSlots": 0,

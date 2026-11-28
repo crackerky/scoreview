@@ -101,6 +101,8 @@ func TestScheduleSettingRejectsBadDays(t *testing.T) {
 		"昼休みが長すぎる":  func(s *store.ScheduleSetting) { s.Lunch.Minutes = 600 },
 		"休みが負":      func(s *store.ScheduleSetting) { s.TeamRestSlots = -1 },
 		"競技が不明":     func(s *store.ScheduleSetting) { s.Sport = strp("golf") },
+		"あいだが負":     func(s *store.ScheduleSetting) { s.GapMinutes = -1 },
+		"あいだが枠と同じ":  func(s *store.ScheduleSetting) { s.GapMinutes = s.SlotMinutes },
 	}
 	for name, edit := range cases {
 		setting := twoDaySetting()
@@ -113,4 +115,13 @@ func TestScheduleSettingRejectsBadDays(t *testing.T) {
 	require.NoError(t, err, "日数の無い古い設定は 1 日として読む")
 	require.Len(t, cfg.Days, 1)
 	assert.True(t, cfg.Days[0].End.IsZero())
+}
+
+func TestScheduleSettingSplitsSlotIntoMatchAndGap(t *testing.T) {
+	setting := twoDaySetting()
+	setting.GapMinutes = 10
+	cfg, err := setting.Config()
+	require.NoError(t, err)
+	assert.Equal(t, 60, cfg.SlotMinutes, "時間割は枠の長さ(あいだを含む)で組む")
+	assert.Equal(t, 50, setting.MatchMinutes(), "試合そのものの長さはあいだを除く")
 }

@@ -21,6 +21,7 @@ import {
   fallbackSport,
   initialConditions,
   lastSportKey,
+  matchMinutesOf,
   maxDays,
   parseSport,
   sameInput,
@@ -29,6 +30,8 @@ import {
   sportFromContext,
   type WizardForm,
   withDayCount,
+  withGapMinutes,
+  withMatchMinutes,
   withSport,
 } from '@/admin/formatWizard.utils'
 import type { TeamRef } from '@/api/common.types'
@@ -436,15 +439,30 @@ function ConditionFields({
           />
         </label>
         <label className="adm-field">
-          <span>1 試合の枠の長さ(分)</span>
+          <span>試合の時間(分)</span>
           <input
             type="number"
-            min={5}
-            value={cond.slotMinutes}
+            min={1}
+            value={matchMinutesOf(cond)}
             onChange={(event) =>
-              onChange({ ...cond, slotMinutes: number(event.target.value, cond.slotMinutes) })
+              onChange(withMatchMinutes(cond, number(event.target.value, matchMinutesOf(cond))))
             }
           />
+        </label>
+        <label className="adm-field">
+          <span>試合のあいだの時間(分)</span>
+          <input
+            type="number"
+            min={0}
+            value={cond.gapMinutes}
+            onChange={(event) =>
+              onChange(withGapMinutes(cond, number(event.target.value, cond.gapMinutes)))
+            }
+          />
+          <small className="adm-muted">
+            片付けや入れ替えの時間。同じコートで次の試合が始まるまでの 1 枠は {cond.slotMinutes}{' '}
+            分になります
+          </small>
         </label>
         <label className="adm-field">
           <span>同じチームの試合の間に最低空ける枠</span>

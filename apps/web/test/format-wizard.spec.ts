@@ -8,6 +8,7 @@ import {
   describeSide,
   endText,
   initialConditions,
+  matchMinutesOf,
   parseSport,
   sameInput,
   scheduleOf,
@@ -15,6 +16,8 @@ import {
   sportFromContext,
   type WizardForm,
   withDayCount,
+  withGapMinutes,
+  withMatchMinutes,
   withSport,
 } from '../src/admin/formatWizard.utils.ts'
 import type { PreviewMatch, SavedFormat } from '../src/api/format.types.ts'
@@ -46,6 +49,7 @@ const previous: SavedFormat = {
     date: '2025-11-01',
     start: '08:00',
     slotMinutes: 20,
+    gapMinutes: 0,
     courts: ['1', '2', '3', '4'],
     teamRestSlots: 0,
     stageGapSlots: 0,
@@ -197,5 +201,36 @@ describe('競技の初期値', () => {
     assert.equal(parseSport('beach'), 'beach')
     assert.equal(parseSport('ten'), null)
     assert.equal(parseSport(null), null)
+  })
+})
+
+describe('試合の時間とあいだの時間', () => {
+  test('枠の長さは試合とあいだの合計で、片方を変えてももう片方はそのまま', () => {
+    const start = initialConditions(null, '2026-11-28', 'seven')
+    assert.equal(start.gapMinutes, 0)
+    const withGap = withGapMinutes(start, 10)
+    assert.equal(withGap.slotMinutes, 70)
+    assert.equal(matchMinutesOf(withGap), 60)
+    const shorter = withMatchMinutes(withGap, 50)
+    assert.equal(shorter.slotMinutes, 60)
+    assert.equal(shorter.gapMinutes, 10)
+  })
+
+  test('保存した設定から読み直すと、試合とあいだを分けたまま戻る', () => {
+    const cond = withGapMinutes(
+      withMatchMinutes(initialConditions(null, '2026-11-28', 'four'), 18),
+      5,
+    )
+    const schedule = scheduleOf(cond)
+    assert.equal(schedule.slotMinutes, 23)
+    assert.equal(schedule.gapMinutes, 5)
+    const again = initialConditions(schedule, '2026-11-28')
+    assert.equal(matchMinutesOf(again), 18)
+    assert.equal(again.gapMinutes, 5)
+  })
+
+  test('競技を変えると、あいだの時間も競技の初期値に戻る', () => {
+    const cond = withGapMinutes(initialConditions(null, '2026-11-28', 'four'), 5)
+    assert.equal(withSport(cond, 'seven').gapMinutes, 0)
   })
 })

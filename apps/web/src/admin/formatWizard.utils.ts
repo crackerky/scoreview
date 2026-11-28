@@ -19,8 +19,10 @@ export type DayCondition = { date: string; start: string; end: string }
 export type Conditions = {
   sport: Sport
   courts: number
-  /** 1 試合の枠の長さ(分)。記録係の画面は試合時間として使う */
+  /** 1 試合の枠の長さ(分)。同じコートで次の試合が始まるまで(gapMinutes を含む) */
   slotMinutes: number
+  /** 枠のうち、試合のあいだの空き時間(分) */
+  gapMinutes: number
   days: DayCondition[]
   /** 昼休みの開始と長さ(分)。長さ 0 は昼休みなし */
   lunchStart: string
@@ -44,10 +46,28 @@ export type WizardForm = {
 }
 
 /** 競技ごとの初期値。枠の長さは運営会社の実績の最頻値、休みは連戦の実態(R3 5-2、5-3) */
-export const sportDefaults: Record<Sport, { slotMinutes: number; restSlots: number }> = {
-  four: { slotMinutes: 20, restSlots: 0 },
-  seven: { slotMinutes: 60, restSlots: 1 },
-  beach: { slotMinutes: 25, restSlots: 1 },
+export const sportDefaults: Record<
+  Sport,
+  { slotMinutes: number; gapMinutes: number; restSlots: number }
+> = {
+  four: { slotMinutes: 20, gapMinutes: 0, restSlots: 0 },
+  seven: { slotMinutes: 60, gapMinutes: 0, restSlots: 1 },
+  beach: { slotMinutes: 25, gapMinutes: 0, restSlots: 1 },
+}
+
+/** 試合そのものの長さ(分)。枠の長さから試合のあいだの時間を除いたもの */
+export function matchMinutesOf(cond: Conditions): number {
+  return cond.slotMinutes - cond.gapMinutes
+}
+
+/** 試合の長さを変える。あいだの時間はそのままで、枠の長さは試合とあいだの合計になる */
+export function withMatchMinutes(cond: Conditions, minutes: number): Conditions {
+  return { ...cond, slotMinutes: minutes + cond.gapMinutes }
+}
+
+/** 試合のあいだの時間を変える。試合の長さはそのままで、枠の長さは試合とあいだの合計になる */
+export function withGapMinutes(cond: Conditions, minutes: number): Conditions {
+  return { ...cond, slotMinutes: matchMinutesOf(cond) + minutes, gapMinutes: minutes }
 }
 
 /** 会場の時間の初期値。7 人制の開始は 9:00(R3 5-1)、終了は 17:00 */
@@ -146,6 +166,7 @@ export function initialConditions(
     sport: saved.sport ?? (saved.teamRestSlots === 0 ? 'four' : 'seven'),
     courts: saved.courts.length,
     slotMinutes: saved.slotMinutes,
+    gapMinutes: saved.gapMinutes,
     restSlots: saved.teamRestSlots,
     days: days.map((day) => ({ date: day.date, start: day.start, end: day.end ?? defaultDayEnd })),
     lunchStart: saved.lunch?.start ?? defaultLunchStart,
@@ -170,6 +191,7 @@ export function scheduleOf(cond: Conditions): ScheduleSetting {
     start: first?.start ?? defaultDayStart,
     end: first?.end ?? null,
     slotMinutes: cond.slotMinutes,
+    gapMinutes: cond.gapMinutes,
     courts: Array.from({ length: cond.courts }, (_, index) => String(index + 1)),
     teamRestSlots: cond.restSlots,
     stageGapSlots: 0,

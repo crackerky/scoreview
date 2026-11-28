@@ -27,11 +27,14 @@ const (
 // ScheduleSetting は時間割の設定(division_formats.schedule)。Start は "HH:MM"、End は終了時刻
 // (なければ nil)。Date は "YYYY-MM-DD"。Days があれば会場を使う日はそちら(Date、Start、End は
 // 1 日目と同じ値を入れる。1 日の設定しか知らない読み手のため)。Lunch は各日の昼休み、StageDays は
-// 段ごとに日を分けるか、Sport は条件を入れた競技(ウィザードの初期値に使う)。
+// 段ごとに日を分けるか、Sport は条件を入れた競技(ウィザードの初期値に使う)。SlotMinutes は同じコートで
+// 次の試合が始まるまでの長さで、GapMinutes(試合のあいだの空き時間)を含む。試合そのものの長さは
+// MatchMinutes。GapMinutes を持たない古い設定は 0 として読む。
 type ScheduleSetting struct {
 	Date          string        `json:"date"`
 	Start         string        `json:"start"`
 	SlotMinutes   int           `json:"slotMinutes"`
+	GapMinutes    int           `json:"gapMinutes"`
 	Courts        []string      `json:"courts"`
 	TeamRestSlots int           `json:"teamRestSlots"`
 	StageGapSlots int           `json:"stageGapSlots"`
@@ -56,6 +59,11 @@ type LunchSetting struct {
 	Minutes int    `json:"minutes"`
 }
 
+// MatchMinutes は試合そのものの長さ(分)。枠の長さから試合のあいだの時間を除いたもの。
+func (s ScheduleSetting) MatchMinutes() int {
+	return s.SlotMinutes - s.GapMinutes
+}
+
 // 時間割の設定の上限(入力の誤りを弾くための値)。
 const (
 	// maxScheduleDays は会場を使う日数の上限(参照サイトの大会は最長 3 日)
@@ -74,6 +82,10 @@ func (s ScheduleSetting) Config() (format.ScheduleConfig, error) {
 	if s.SlotMinutes <= 0 || s.SlotMinutes > maxSlotMinutes {
 		return format.ScheduleConfig{}, domain.Invalid("schedule.slotMinutes",
 			fmt.Sprintf("1 試合の枠の長さは 1〜%d 分にしてください", maxSlotMinutes))
+	}
+	if s.GapMinutes < 0 || s.GapMinutes >= s.SlotMinutes {
+		return format.ScheduleConfig{}, domain.Invalid("schedule.gapMinutes",
+			"試合のあいだの時間は 0 分以上で、枠の長さより短くしてください")
 	}
 	if len(s.Courts) == 0 || len(s.Courts) > maxScheduleCourts {
 		return format.ScheduleConfig{}, domain.Invalid("schedule.courts",

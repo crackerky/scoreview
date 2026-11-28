@@ -264,7 +264,8 @@ func fillScoringState(
 	return err
 }
 
-// divisionMatchMinutes はディビジョンの時間割の 1 試合の枠の長さ(分)。大会の形を適用していない
+// divisionMatchMinutes はディビジョンの時間割の試合の長さ(分。枠の長さから試合のあいだの時間を除く)。
+// 大会の形を適用していない
 // ディビジョンなど、設定が無ければ nil(記録画面は既定の長さで経過時間の長さを確かめる)。
 func divisionMatchMinutes(ctx context.Context, db *gorm.DB, divisionID int64) (*int, error) {
 	var formats []DivisionFormat
@@ -283,10 +284,10 @@ func divisionMatchMinutes(ctx context.Context, db *gorm.DB, divisionID int64) (*
 	if err := json.Unmarshal(formats[0].Schedule, &setting); err != nil {
 		return nil, fmt.Errorf("decode schedule of division %d: %w", divisionID, err)
 	}
-	if setting.SlotMinutes <= 0 {
+	minutes := setting.MatchMinutes()
+	if minutes <= 0 {
 		return nil, nil
 	}
-	minutes := setting.SlotMinutes
 	return &minutes, nil
 }
 

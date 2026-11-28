@@ -65,6 +65,7 @@ type scheduleSettingDTO struct {
 	Date          string           `json:"date"`
 	Start         string           `json:"start"`
 	SlotMinutes   int              `json:"slotMinutes"`
+	GapMinutes    int              `json:"gapMinutes"`
 	Courts        []string         `json:"courts"`
 	TeamRestSlots int              `json:"teamRestSlots"`
 	StageGapSlots int              `json:"stageGapSlots"`
@@ -76,7 +77,8 @@ type scheduleSettingDTO struct {
 }
 
 func (in scheduleSettingDTO) toSetting() store.ScheduleSetting {
-	out := store.ScheduleSetting{Date: in.Date, Start: in.Start, SlotMinutes: in.SlotMinutes, Courts: in.Courts,
+	out := store.ScheduleSetting{Date: in.Date, Start: in.Start, SlotMinutes: in.SlotMinutes,
+		GapMinutes: in.GapMinutes, Courts: in.Courts,
 		TeamRestSlots: in.TeamRestSlots, StageGapSlots: in.StageGapSlots, End: in.End,
 		StageDays: in.StageDays, Sport: in.Sport}
 	for _, d := range in.Days {
@@ -92,7 +94,8 @@ func (in scheduleSettingDTO) toSetting() store.ScheduleSetting {
 // toScheduleSetting は保存済みの設定を応答にする。日数を持たない古い設定は date、start、end の 1 日を
 // days に入れて返す(画面がいつも days を読めるように)。
 func toScheduleSetting(s store.ScheduleSetting) scheduleSettingDTO {
-	out := scheduleSettingDTO{Date: s.Date, Start: s.Start, SlotMinutes: s.SlotMinutes, Courts: nonNil(s.Courts),
+	out := scheduleSettingDTO{Date: s.Date, Start: s.Start, SlotMinutes: s.SlotMinutes,
+		GapMinutes: s.GapMinutes, Courts: nonNil(s.Courts),
 		TeamRestSlots: s.TeamRestSlots, StageGapSlots: s.StageGapSlots, End: s.End,
 		Days: []scheduleDayDTO{}, StageDays: s.StageDays, Sport: s.Sport}
 	for _, d := range s.Days {
